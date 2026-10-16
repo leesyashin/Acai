@@ -1,11 +1,12 @@
 // Simulated player for balance tests. Plays only through the public engine API.
 // Every drag costs `actionTime` seconds (perception + drag), between actions the
 // engine is ticked in small steps. Strategy: most impatient customer first, one
-// reserved bowl per customer, blenders kept busy with the bases that are needed.
+// reserved bowl per customer, blenders kept busy with the bases that are needed,
+// empty spots get a cup from the stack whenever there is nothing more urgent to do.
 
 import {
   createGame, tick, drainEvents, loadBlender, pourBlender, addIngredient, trashBowl,
-  cleanBlender, loadSmoothie, trashSmoothie, serveBowl, serveSmoothie, bowlMatchesOrder,
+  cleanBlender, loadSmoothie, trashSmoothie, serveBowl, serveSmoothie, bowlMatchesOrder, placeCup,
 } from '../../js/engine.js';
 import {
   getKitchenStats, getLevel, SMOOTHIE_LEVEL, START_OWNED, ING, UPG, LEVELS, INGREDIENTS, UPGRADES,
@@ -96,6 +97,11 @@ function act(fn) {
   return { run: fn };
 }
 
+// Pour a base into bowl idx – or put the cup down first when the spot is still empty.
+function pourOrCup(game, bl, idx) {
+  return game.bowls[idx].cup ? act(() => pourBlender(game, bl, idx)) : act(() => placeCup(game, idx));
+}
+
 function serveAction(game, mem, customers) {
   for (const c of customers) {
     const idx = mem.bowlOf.get(c.id);
@@ -151,7 +157,7 @@ function pourAction(game, mem, customers) {
     const idx = mem.bowlOf.get(c.id);
     if (!needsBowl(c) || idx === undefined || game.bowls[idx].base) continue;
     const bl = game.blenders.findIndex((b) => POURABLE.has(b.state) && b.base === c.order.bowl.base);
-    if (bl >= 0) return act(() => pourBlender(game, bl, idx));
+    if (bl >= 0) return pourOrCup(game, bl, idx);
   }
   return null;
 }
@@ -171,7 +177,7 @@ function bowlWorkAction(game, mem, customers) {
     const order = c.order.bowl;
     if (!bowl.base) {
       const bl = game.blenders.findIndex((b) => POURABLE.has(b.state) && b.base === order.base);
-      if (bl >= 0) return act(() => pourBlender(game, bl, idx));
+      if (bl >= 0) return pourOrCup(game, bl, idx);
       continue;
     }
     const next = order.mid.find((id) => !bowl.mid.includes(id))
@@ -186,7 +192,15 @@ function rescueAction(game, mem, onlyUrgent) {
   const spare = freeBowls(game, mem).find((i) => bowlIsEmpty(game.bowls[i]));
   if (spare === undefined) return null;
   const bl = game.blenders.findIndex((b) => (onlyUrgent ? b.state === 'overflowing' : POURABLE.has(b.state)));
-  return bl >= 0 ? act(() => pourBlender(game, bl, spare)) : null;
+  return bl >= 0 ? pourOrCup(game, bl, spare) : null;
+}
+
+// Spare moment: a cup on every empty spot, the ones reserved for a customer first.
+function cupAction(game, mem) {
+  const reserved = [...mem.bowlOf.values()];
+  const order = [...reserved, ...game.bowls.map((b, i) => i)];
+  const idx = order.find((i) => !game.bowls[i].cup);
+  return idx === undefined ? null : act(() => placeCup(game, idx));
 }
 
 // Pre-blend when nothing is needed right now but spare bowls are waiting.
@@ -211,7 +225,8 @@ export function chooseAction(game, mem) {
     || pourAction(game, mem, customers)
     || bowlWorkAction(game, mem, customers)
     || rescueAction(game, mem, false)
-    || preloadAction(game, mem);
+    || preloadAction(game, mem)
+    || cupAction(game, mem);
 }
 
 export function playLevel({
