@@ -1,0 +1,242 @@
+/* Açaí Fever – shared tokens, shell and building blocks.
+   Layout concept: one fixed 1280×800 stage, scaled to fit, letterboxed on deep açaí purple.
+   Deliberate single cartoon look (no dark variant); every colour is a token. */
+:root {
+  --acai: #3b1556;
+  --acai-2: #6c2a8f;
+  --acai-3: #9b4fc4;
+  --pitaya: #ff3d8b;
+  --mango: #ffb627;
+  --mango-2: #ffd36b;
+  --leaf: #2fbf71;
+  --leaf-2: #1f8f52;
+  --lagoon: #18c2c9;
+  --lagoon-2: #0e8f95;
+  --cream: #fff4df;
+  --paper: #fffaf0;
+  --ink: #2a1236;
+  --ink-soft: #5c4569;
+  --wood: #c97d43;
+  --wood-dark: #8e4f22;
+  --danger: #ff4d4d;
+  --ok: #2fbf71;
+  --white: #ffffff;
+  --shadow: rgba(42, 18, 54, 0.35);
+  --glow-ok: rgba(255, 230, 90, 0.95);
+
+  --font-display: "Lilita One", "Trebuchet MS", system-ui, sans-serif;
+  --font-ui: "Nunito", "Trebuchet MS", system-ui, sans-serif;
+
+  --r-sm: 10px;
+  --r-md: 18px;
+  --r-lg: 28px;
+  --outline: 3px solid var(--ink);
+
+  color-scheme: light;
+}
+
+/* No page pinch/double-tap zoom or panning anywhere: the letterbox bands (#app), #rotate-hint and
+   #stage are one fixed game surface, and a page zoomed from the bands could not be pinched back on
+   the stage. Nothing scrolls; a scrollable list added later needs touch-action: pan-y. */
+html, body {
+  height: 100%;
+  touch-action: none;
+}
+
+body {
+  margin: 0;
+  background: var(--acai);
+  background-image: radial-gradient(circle at 20% 15%, var(--acai-2) 0, transparent 45%),
+    radial-gradient(circle at 85% 90%, var(--acai-2) 0, transparent 40%);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-weight: 800;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+#app {
+  box-sizing: border-box;
+  height: 100%;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 8px;
+}
+
+#stage-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+}
+
+#stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1280px;
+  height: 800px;
+  transform-origin: 0 0;
+  overflow: hidden;
+  background: var(--cream);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#stage img, #stage svg {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* ------------------------------------------------------------ buttons */
+.btn {
+  appearance: none;
+  border: var(--outline);
+  border-radius: var(--r-md);
+  background: var(--mango);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 30px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  padding: 16px 30px 14px;
+  min-height: 64px;
+  min-width: 64px;
+  box-shadow: 0 6px 0 var(--ink);
+  cursor: pointer;
+  transform: translateY(0);
+  transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  touch-action: manipulation;
+}
+.btn:hover { filter: brightness(1.06); }
+.btn:active, .btn.pressed { transform: translateY(5px); box-shadow: 0 1px 0 var(--ink); }
+.btn:focus-visible { outline: 4px solid var(--lagoon); outline-offset: 4px; }
+.btn[disabled], .btn.disabled {
+  filter: grayscale(0.7) brightness(0.92);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 6px 0 var(--ink);
+}
+.btn.pink { background: var(--pitaya); color: var(--white); }
+.btn.green { background: var(--leaf); color: var(--white); }
+.btn.lagoon { background: var(--lagoon); color: var(--white); }
+.btn.purple { background: var(--acai-2); color: var(--white); }
+.btn.cream { background: var(--cream); }
+.btn.small { font-size: 22px; padding: 10px 18px 8px; min-height: 52px; border-radius: 14px; box-shadow: 0 4px 0 var(--ink); }
+.btn.small:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.btn.icon { padding: 8px; width: 64px; height: 64px; }
+.btn svg { display: block; flex: none; }
+
+/* ------------------------------------------------------------ panels */
+.panel {
+  background: var(--paper);
+  border: var(--outline);
+  border-radius: var(--r-lg);
+  box-shadow: 0 8px 0 var(--ink), 0 18px 40px var(--shadow);
+}
+
+.title-text {
+  font-family: var(--font-display);
+  color: var(--white);
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 5px 0 var(--ink);
+  letter-spacing: 0.02em;
+  text-wrap: balance;
+}
+
+.coins-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--paper);
+  border: var(--outline);
+  border-radius: 999px;
+  padding: 6px 18px 6px 8px;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 4px 0 var(--ink);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(42, 18, 54, 0.55);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+}
+
+.toast {
+  position: absolute;
+  z-index: 80;
+  background: var(--paper);
+  border: var(--outline);
+  border-radius: 16px;
+  padding: 10px 18px;
+  font-size: 22px;
+  box-shadow: 0 5px 0 var(--ink);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.toast.bad { background: var(--danger); color: var(--white); }
+.toast.good { background: var(--leaf); color: var(--white); }
+
+/* ------------------------------------------------------------ shared animation */
+@keyframes pop-in { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-10px); } 40% { transform: translateX(9px); } 60% { transform: translateX(-6px); } 80% { transform: translateX(4px); } }
+@keyframes float-up { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-70px); opacity: 0; } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.anim-pop { animation: pop-in 0.35s ease-out both; }
+.anim-shake { animation: shake 0.4s ease-in-out; }
+
+/* ------------------------------------------------------------ rotate hint */
+#rotate-hint {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--acai);
+  color: var(--white);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 24px;
+}
+#rotate-hint[hidden] { display: none !important; }
+
+.noscript {
+  color: var(--white);
+  text-align: center;
+  padding: 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

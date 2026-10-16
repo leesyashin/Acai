@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drag &amp; Drop Bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap">
+<link rel="stylesheet" href="../css/base.css">
+<style>
+  /* Dev bench for js/drag.js: one 1280×800 stage, scaled like the game. */
+  .demo-head {
+    position: absolute; left: 0; top: 0; width: 1280px; height: 84px;
+    box-sizing: border-box; padding: 0 24px;
+    display: flex; align-items: center; gap: 18px;
+    background: var(--acai-2); border-bottom: 4px solid var(--ink);
+  }
+  .demo-head h1 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 40px; }
+  .demo-head p { margin: 0; flex: 1; color: var(--cream); font-size: 18px; font-weight: 800; line-height: 1.2; }
+  .demo-head .btn { flex: none; }
+
+  .wall {
+    position: absolute; left: 0; top: 84px; width: 868px; height: 440px;
+    background: repeating-linear-gradient(90deg, var(--cream) 0 56px, var(--paper) 56px 112px);
+  }
+  .shelf {
+    position: absolute; left: 0; top: 524px; width: 868px; height: 276px;
+    background: var(--wood);
+    border-top: 5px solid var(--ink);
+    box-shadow: inset 0 14px 0 var(--wood-dark);
+  }
+  .shelf-label, .target-label {
+    font-family: var(--font-display); font-size: 22px; color: var(--ink); letter-spacing: 0.02em;
+  }
+  .shelf-label { position: absolute; left: 32px; top: 548px; color: var(--cream); -webkit-text-stroke: 1px var(--ink); }
+
+  /* ---------------------------------------------------------------- targets */
+  .target {
+    position: absolute; box-sizing: border-box;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px;
+    border-radius: var(--r-lg); padding: 10px;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+  }
+  .target svg { display: block; }
+  .target.drop-ok { background: rgba(255, 230, 90, 0.28); box-shadow: 0 0 0 5px var(--glow-ok), 0 0 26px 6px var(--glow-ok); }
+  .target.drop-hover { transform: scale(1.06); background: rgba(255, 230, 90, 0.45); box-shadow: 0 0 0 7px var(--mango), 0 0 36px 12px var(--glow-ok); }
+  .target.reject { animation: shake 0.4s ease-in-out; }
+  .target.squash { animation: squash 0.28s ease-out; }
+  @keyframes squash { 0% { transform: scale(1.12, 0.88); } 60% { transform: scale(0.96, 1.04); } 100% { transform: scale(1); } }
+
+  #tgt-customer { left: 36px; top: 110px; width: 250px; height: 400px; }
+  #tgt-bowl { left: 318px; top: 236px; width: 260px; height: 274px; }
+  #tgt-trash { left: 628px; top: 306px; width: 200px; height: 204px; }
+
+  .bubble {
+    position: absolute; left: 132px; top: -6px;
+    display: flex; align-items: center; gap: 6px;
+    background: var(--paper); border: var(--outline); border-radius: 22px;
+    padding: 6px 12px 6px 8px; box-shadow: 0 4px 0 var(--ink);
+    font-size: 18px; white-space: nowrap;
+  }
+  .bubble::after {
+    content: ''; position: absolute; left: 22px; bottom: -14px;
+    border: 8px solid transparent; border-top: 10px solid var(--ink);
+  }
+  .bowl-count {
+    position: absolute; right: 14px; top: 12px; min-width: 40px; height: 40px; border-radius: 20px;
+    display: grid; place-items: center; background: var(--pitaya); color: var(--white);
+    border: var(--outline); font-family: var(--font-display); font-size: 22px;
+  }
+
+  /* ---------------------------------------------------------------- sources */
+  .bin {
+    position: absolute; top: 588px; width: 150px; height: 176px; box-sizing: border-box;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    background: var(--paper); border: var(--outline); border-radius: 24px;
+    box-shadow: 0 7px 0 var(--ink);
+    font-size: 20px; text-align: center;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+  }
+  .bin[data-dnd-source] { cursor: grab; }
+  .bin.drag-source { opacity: 0.5; transform: scale(0.94); }
+  .bin.locked { background: #e9dfd0; filter: grayscale(0.85); cursor: not-allowed; }
+  .bin.locked::after {
+    content: attr(data-lock); position: absolute; top: -14px; right: -10px;
+    background: var(--ink); color: var(--white); font-size: 15px; padding: 4px 10px; border-radius: 12px;
+  }
+  .bin.shake { animation: shake 0.35s ease-in-out; }
+  #src-banana { left: 36px; }
+  #src-granola { left: 240px; }
+  #src-honey { left: 444px; }
+  #src-kiwi { left: 648px; }
+  /* only the source (it holds the pointer capture, so its cursor shows) – same rule as css/game.css */
+  #stage.is-dragging .drag-source { cursor: grabbing; }
+
+  .ghost-ing { display: grid; place-items: center; width: 112px; height: 112px; border-radius: 56px; background: rgba(255, 250, 240, 0.9); border: var(--outline); }
+
+  /* ---------------------------------------------------------------- log */
+  .log-panel {
+    position: absolute; left: 884px; top: 104px; width: 376px; height: 676px; box-sizing: border-box;
+    display: flex; flex-direction: column; padding: 18px 18px 14px;
+  }
+  .log-panel h2 { margin: 0 0 4px; font-family: var(--font-display); font-weight: 400; font-size: 30px; color: var(--acai-2); }
+  .log-panel .hint { margin: 0 0 12px; font-size: 16px; color: var(--ink-soft); line-height: 1.25; }
+  #log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; flex: 1; }
+  #log li {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--cream); border: 2px solid var(--ink); border-radius: 14px;
+    padding: 8px 10px; font-size: 17px; line-height: 1.2;
+  }
+  #log li .dot { flex: none; width: 14px; height: 14px; border-radius: 7px; border: 2px solid var(--ink); }
+  #log li.ok .dot { background: var(--ok); }
+  #log li.bad .dot { background: var(--danger); }
+  #log li.none .dot { background: var(--lagoon); }
+  #log li.tap .dot { background: var(--mango); }
+  #log li .msg { flex: 1; }
+  #log li .kind { flex: none; font-size: 13px; padding: 2px 8px; border-radius: 10px; background: var(--acai-2); color: var(--white); }
+  #log li.empty { justify-content: center; color: var(--ink-soft); background: transparent; border-style: dashed; }
+
+  #ghost-layer { position: absolute; inset: 0; pointer-events: none; z-index: 60; }
+  .toast { transform: translateX(-50%); animation: pop-in 0.25s ease-out both; }
+
+  /* ?scroll=1: page becomes scrollable and neither the page nor the stage blocks pans (base.css sets
+     touch-action: none on both), so only drag.js protects the sources against scrolling (used by the e2e test). */
+  html.scroll-test, html.scroll-test body { height: auto; overflow: auto; touch-action: auto; }
+  html.scroll-test #app { height: 100vh; }
+  html.scroll-test #stage { touch-action: auto; }
+  #scroll-spacer { height: 1400px; background: repeating-linear-gradient(0deg, transparent 0 60px, rgba(255, 255, 255, 0.06) 60px 120px); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage-wrap">
+    <div id="stage">
+      <header class="demo-head">
+        <h1 class="title-text" data-t="drag.demo.title"></h1>
+        <p data-t="drag.demo.subtitle"></p>
+        <button class="btn small cream" id="btn-reset" type="button" data-t="drag.demo.reset"></button>
+        <button class="btn small lagoon" id="btn-lang" type="button"></button>
+      </header>
+      <div class="wall"></div>
+      <div class="shelf"></div>
+      <div class="shelf-label" data-t="drag.demo.shelf"></div>
+
+      <div class="target" id="tgt-customer">
+        <div class="bubble"><span data-t="drag.demo.wants"></span><span id="order-icon"></span></div>
+        <div id="customer-art"></div>
+        <div class="target-label" data-t="drag.demo.customer"></div>
+      </div>
+      <div class="target" id="tgt-bowl">
+        <div class="bowl-count" id="bowl-count">0</div>
+        <div id="bowl-art"></div>
+        <div class="target-label" data-t="drag.demo.bowl"></div>
+      </div>
+      <div class="target" id="tgt-trash">
+        <div id="trash-art"></div>
+        <div class="target-label" data-t="drag.demo.trash"></div>
+      </div>
+
+      <div id="bins"></div>
+
+      <section class="log-panel panel">
+        <h2 data-t="drag.demo.log"></h2>
+        <p class="hint" data-t="drag.demo.hint"></p>
+        <ul id="log"></ul>
+      </section>
+
+      <div id="ghost-layer"></div>
+    </div>
+  </div>
+</div>
+<div id="scroll-spacer" hidden></div>
+<script type="module">
+  import { initStage, toStage } from '../js/stage.js';
+  import { createDragManager } from '../js/drag.js';
+  import { registerStrings, t, setLang, getLang, onLangChange } from '../js/i18n.js';
+  import { ING, ingName } from '../js/data.js';
+
+  let art = null;
+  try {
+    art = await import('../js/art.js');
+  } catch {
+    art = null; // art module unavailable – plain shapes below
+  }
+
+  registerStrings({
+    de: {
+      'drag.demo.title': 'Drag & Drop',
+      'drag.demo.subtitle': 'Zutaten aus dem Regal ziehen – mit Maus, Finger oder Stift.',
+      'drag.demo.reset': 'Zurücksetzen',
+      'drag.demo.shelf': 'Regal',
+      'drag.demo.wants': 'Möchte:',
+      'drag.demo.customer': 'Kunde',
+      'drag.demo.bowl': 'Schüssel',
+      'drag.demo.trash': 'Müll',
+      'drag.demo.locked': 'Gesperrt',
+      'drag.demo.log': 'Protokoll',
+      'drag.demo.hint': 'Die Schüssel nimmt nur Obst & Crunch. Der Kunde will nur Granola.',
+      'drag.demo.empty': 'Noch nichts passiert',
+      'drag.demo.ok': '{item} → {target}',
+      'drag.demo.rejected': '{item} → {target}: {reason}',
+      'drag.demo.none': '{item} zurück (kein Ziel)',
+      'drag.demo.tap': '{item} angetippt',
+      'drag.demo.cancel': '{item} abgebrochen',
+      'drag.demo.reason.wrongOrder': 'Das wurde nicht bestellt!',
+      'drag.demo.lockedTap': 'Noch nicht freigeschaltet',
+      'drag.demo.kind.mouse': 'Maus',
+      'drag.demo.kind.touch': 'Touch',
+      'drag.demo.kind.pen': 'Stift',
+    },
+    en: {
+      'drag.demo.title': 'Drag & Drop',
+      'drag.demo.subtitle': 'Drag ingredients off the shelf – with mouse, finger or pen.',
+      'drag.demo.reset': 'Reset',
+      'drag.demo.shelf': 'Shelf',
+      'drag.demo.wants': 'Wants:',
+      'drag.demo.customer': 'Customer',
+      'drag.demo.bowl': 'Bowl',
+      'drag.demo.trash': 'Trash',
+      'drag.demo.locked': 'Locked',
+      'drag.demo.log': 'Log',
+      'drag.demo.hint': 'The bowl only takes fruits & crunch. The customer only wants granola.',
+      'drag.demo.empty': 'Nothing happened yet',
+      'drag.demo.ok': '{item} → {target}',
+      'drag.demo.rejected': '{item} → {target}: {reason}',
+      'drag.demo.none': '{item} returned (no target)',
+      'drag.demo.tap': '{item} tapped',
+      'drag.demo.cancel': '{item} cancelled',
+      'drag.demo.reason.wrongOrder': "That's not what was ordered!",
+      'drag.demo.lockedTap': 'Not unlocked yet',
+      'drag.demo.kind.mouse': 'Mouse',
+      'drag.demo.kind.touch': 'Touch',
+      'drag.demo.kind.pen': 'Pen',
+    },
+  });
+
+  const params = new URLSearchParams(location.search);
+  if (params.get('lang') === 'en' || params.get('lang') === 'de') setLang(params.get('lang'));
+  if (params.get('scroll') === '1') {
+    document.documentElement.classList.add('scroll-test');
+    document.getElementById('scroll-spacer').hidden = false;
+  }
+
+  const $ = (sel) => document.querySelector(sel);
+  const stage = initStage($('#app'), $('#stage-wrap'), $('#stage'));
+  const ghostLayer = $('#ghost-layer');
+
+  const BINS = ['banana', 'granola', 'honey', 'kiwi'];
+  const LOCKED = new Set(['kiwi']);
+  const ORDER = 'granola';
+  const TARGET_NAMES = { 'tgt-customer': 'drag.demo.customer', 'tgt-bowl': 'drag.demo.bowl', 'tgt-trash': 'drag.demo.trash' };
+  const state = { bowl: [], drops: 0, mood: 'neutral' };
+  const events = []; // structured, for the e2e test
+  const lines = []; // visible log, newest first
+
+  const icon = (id, size) => (art ? art.ingredientIcon(id, size)
+    : `<svg width="${size}" height="${size}" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4.5" fill="${ING[id]?.color || '#ccc'}" stroke="#2a1236" stroke-width=".6"/></svg>`);
+
+  function renderTexts() {
+    for (const el of document.querySelectorAll('[data-t]')) el.textContent = t(el.dataset.t);
+    $('#btn-lang').textContent = getLang() === 'de' ? 'EN' : 'DE';
+    for (const el of document.querySelectorAll('.bin')) {
+      el.querySelector('.bin-name').textContent = ingName(el.dataset.id);
+      el.dataset.lock = t('drag.demo.locked');
+    }
+    renderLog();
+  }
+
+  function renderArt() {
+    $('#order-icon').innerHTML = icon(ORDER, 40);
+    $('#customer-art').innerHTML = art ? art.customerSVG(art.lookFromSeed(11), state.mood, 230) : '';
+    $('#bowl-art').innerHTML = art ? art.bowlSVG({ base: 'acai', mid: state.bowl, top: [] }, 200) : '';
+    $('#trash-art').innerHTML = art ? art.trashSVG(140) : '';
+    $('#bowl-count').textContent = String(state.bowl.length);
+  }
+
+  function pulse(el, cls) {
+    el.classList.remove(cls);
+    void el.offsetWidth; // restart the animation
+    el.classList.add(cls);
+  }
+
+  function toast(text, el, bad, dy = 64) {
+    const r = el.getBoundingClientRect();
+    const a = toStage(r.left + r.width / 2, r.top);
+    const div = document.createElement('div');
+    div.className = `toast ${bad ? 'bad' : 'good'}`;
+    div.textContent = text;
+    div.style.left = `${Math.min(760, Math.max(150, a.x))}px`;
+    div.style.top = `${Math.max(96, a.y + dy)}px`;
+    stage.appendChild(div);
+    setTimeout(() => div.remove(), 1400);
+  }
+
+  function setMood(mood) {
+    state.mood = mood;
+    renderArt();
+    clearTimeout(setMood.timer);
+    if (mood !== 'neutral') setMood.timer = setTimeout(() => setMood('neutral'), 900);
+  }
+
+  // ---------------------------------------------------------------- log
+  function logLine(result, kind) {
+    lines.unshift({ result, kind });
+    lines.length = Math.min(lines.length, 11);
+    renderLog();
+  }
+
+  function renderLog() {
+    const ul = $('#log');
+    ul.textContent = '';
+    if (!lines.length) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = t('drag.demo.empty');
+      ul.appendChild(li);
+      return;
+    }
+    for (const { result: r, kind } of lines) {
+      const item = ingName(r.payload.id);
+      const target = r.targetEl ? t(TARGET_NAMES[r.targetEl.id] || r.targetEl.id) : '';
+      const reason = r.reason ? t(`drag.demo.reason.${r.reason}`) : '';
+      const li = document.createElement('li');
+      li.className = kind;
+      const text = kind === 'ok' ? t('drag.demo.ok', { item, target })
+        : kind === 'bad' ? t('drag.demo.rejected', { item, target, reason })
+          : kind === 'tap' ? t('drag.demo.tap', { item })
+            : kind === 'cancel' ? t('drag.demo.cancel', { item })
+              : t('drag.demo.none', { item });
+      li.innerHTML = '<span class="dot"></span><span class="msg"></span><span class="kind"></span>';
+      li.querySelector('.msg').textContent = text;
+      li.querySelector('.kind').textContent = t(`drag.demo.kind.${r.pointerType}`);
+      ul.appendChild(li);
+    }
+  }
+
+  function record(type, result, extra = {}) {
+    events.push({
+      type,
+      id: result?.payload?.id ?? null,
+      ok: result?.ok ?? null,
+      reason: result?.reason ?? null,
+      target: result?.targetEl?.id ?? null,
+      tap: result?.tap ?? null,
+      cancelled: result?.cancelled ?? null,
+      pointerType: result?.pointerType ?? null,
+      ...extra,
+    });
+  }
+
+  // ---------------------------------------------------------------- drag wiring
+  const dnd = createDragManager({
+    root: stage,
+    toStage,
+    ghostLayer,
+    onPickup: (payload) => record('pickup', { payload }),
+    onDrop: (result) => {
+      record('drop', result);
+      if (result.tap) logLine(result, 'tap');
+      else if (result.ok) logLine(result, 'ok');
+      else if (result.targetEl) logLine(result, 'bad');
+      else logLine(result, 'none');
+    },
+    onCancel: (result) => {
+      record('cancel', result);
+      logLine(result, 'cancel');
+    },
+  });
+
+  const unregister = {};
+
+  function makeGhost(payload) {
+    const div = document.createElement('div');
+    div.className = 'ghost-ing';
+    div.innerHTML = icon(payload.id, 84);
+    return div;
+  }
+
+  function buildBin(id) {
+    const el = document.createElement('div');
+    el.className = `bin${LOCKED.has(id) ? ' locked' : ''}`;
+    el.id = `src-${id}`;
+    el.dataset.id = id;
+    el.innerHTML = `${icon(id, 96)}<span class="bin-name"></span>`;
+    el.querySelector('.bin-name').textContent = ingName(id);
+    el.dataset.lock = t('drag.demo.locked');
+    return el;
+  }
+
+  function wireBin(el) {
+    const id = el.dataset.id;
+    unregister[id]?.();
+    unregister[id] = dnd.source(el, {
+      payload: () => (LOCKED.has(id) ? null : { kind: 'ing', id, layer: ING[id].layer }),
+      ghost: makeGhost,
+      onStart: (payload) => record('start', { payload }),
+      onTap: (payload) => record('tap', { payload }),
+      onEnd: (result) => record('end', result),
+    });
+    if (LOCKED.has(id)) {
+      el.addEventListener('pointerup', () => {
+        pulse(el, 'shake');
+        toast(t('drag.demo.lockedTap'), el, true, -62);
+      });
+    }
+  }
+
+  // Replace a bin by a fresh element (simulates a view re-render). keep=false just removes it.
+  function rebuildSource(id, keep = true) {
+    const old = document.getElementById(`src-${id}`);
+    unregister[id]?.();
+    delete unregister[id];
+    if (!keep) {
+      old?.remove();
+      return null;
+    }
+    const el = buildBin(id);
+    if (old) old.replaceWith(el);
+    else $('#bins').appendChild(el);
+    wireBin(el);
+    return el;
+  }
+
+  for (const id of BINS) {
+    const el = buildBin(id);
+    $('#bins').appendChild(el);
+    wireBin(el);
+  }
+
+  dnd.target($('#tgt-bowl'), {
+    accepts: (p) => p.kind === 'ing' && p.layer === 'mid',
+    drop: (p) => {
+      record('targetDrop', null, { target: 'tgt-bowl', id: p.id });
+      if (!state.bowl.includes(p.id)) state.bowl.push(p.id);
+      renderArt();
+      pulse($('#tgt-bowl'), 'squash');
+      return { ok: true };
+    },
+  });
+  dnd.target($('#tgt-customer'), {
+    accepts: (p) => p.kind === 'ing',
+    drop: (p) => {
+      record('targetDrop', null, { target: 'tgt-customer', id: p.id });
+      if (p.id !== ORDER) {
+        pulse($('#tgt-customer'), 'reject');
+        toast(t('drag.demo.reason.wrongOrder'), $('#tgt-customer'), true);
+        setMood('angry');
+        return { ok: false, reason: 'wrongOrder' };
+      }
+      setMood('happy');
+      return { ok: true };
+    },
+  });
+  dnd.target($('#tgt-trash'), {
+    accepts: () => true,
+    drop: (p) => {
+      record('targetDrop', null, { target: 'tgt-trash', id: p.id });
+      pulse($('#tgt-trash'), 'squash');
+      return { ok: true };
+    },
+  });
+
+  $('#btn-lang').addEventListener('click', () => setLang(getLang() === 'de' ? 'en' : 'de'));
+  $('#btn-reset').addEventListener('click', () => {
+    state.bowl = [];
+    lines.length = 0;
+    renderArt();
+    renderLog();
+  });
+  onLangChange(renderTexts);
+
+  renderArt();
+  renderTexts();
+
+  window.__dragDemo = { dnd, events, toStage, rebuildSource, state, ready: true };
+</script>
+</body>
+</html>

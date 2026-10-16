@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Screens Harness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/screens.css">
+<style>
+  /* Dev-only bits: the optional tool bar (?bar=1) and the stub game screen. */
+  #harness-bar {
+    position: fixed;
+    left: 8px;
+    bottom: 8px;
+    z-index: 200;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    padding: 6px 8px;
+    border: 2px solid var(--ink);
+    border-radius: 12px;
+    background: var(--paper);
+    font: 800 13px var(--font-ui);
+  }
+  #harness-bar[hidden] { display: none; }
+  #harness-bar select, #harness-bar button { font: inherit; padding: 4px 6px; }
+  .stub-game {
+    display: grid;
+    place-items: center;
+    background: #bfeee9;
+  }
+  .stub-game .panel { display: grid; justify-items: center; gap: 16px; padding: 30px 40px; }
+  .stub-game h1 { margin: 0; font: 400 40px var(--font-display); }
+  .stub-game .row { display: flex; gap: 12px; }
+</style>
+</head>
+<body>
+<!--
+  Renders one menu screen from js/screens.js with a stub ctx (no game view needed).
+  Query parameters:
+    screen   title | map | prelevel | shop | settings | results       (default title)
+    lang     de | en
+    coins    wallet amount, e.g. coins=5000
+    stars    levels with stars, e.g. stars=1-12 (pattern 3,2,3,1,…) or stars=1-12:3
+    owned    all | comma list of ingredient ids        quality  max | id:level,…
+    upgrades max | id:level,…                           best     endless best score
+    level    level for ?screen=prelevel (default: next playable)
+    tab      ingredients | kitchen | decor (shop)
+    variant  results preset: win3 win1 win10 win20 lostGoal lostHearts endless endlessBest
+    keep=1   keep the current save instead of starting fresh (the harness shares localStorage with the game)
+    audio=1  use the real audio module instead of the silent stub
+    bar=1    show a small tool bar to switch screens / language
+  window.__harness = { go, log, ctx } – log records every ctx.go / audio call (for e2e tests).
+-->
+<div id="app">
+  <div id="stage-wrap">
+    <div id="stage"></div>
+  </div>
+</div>
+<div id="harness-bar" hidden>
+  <select id="hb-screen" aria-label="Screen">
+    <option>title</option><option>map</option><option>prelevel</option><option>shop</option>
+    <option>settings</option><option>results</option>
+  </select>
+  <select id="hb-variant" aria-label="Results variant">
+    <option>win3</option><option>win1</option><option>win10</option><option>win20</option>
+    <option>lostGoal</option><option>lostHearts</option><option>endless</option><option>endlessBest</option>
+  </select>
+  <button id="hb-lang" type="button">DE/EN</button>
+</div>
+<script type="module">
+  import { initStage } from '../js/stage.js';
+  import { setLang, getLang, onLangChange, registerStrings, t, detectLang } from '../js/i18n.js';
+  import { LEVELS, INGREDIENTS, UPGRADES, ING } from '../js/data.js';
+  import { loadSave, getSave, resetSave, updateSave, recordLevelResult, recordEndless } from '../js/save.js';
+  import { screens, openPreLevel } from '../js/screens.js';
+
+  registerStrings({
+    de: { 'harness.game': 'Spiel (Platzhalter)', 'harness.win': 'Gewinnen', 'harness.lose': 'Verlieren', 'harness.quit': 'Zur Karte' },
+    en: { 'harness.game': 'Game (stub)', 'harness.win': 'Win', 'harness.lose': 'Lose', 'harness.quit': 'To the map' },
+  });
+
+  const q = new URLSearchParams(location.search);
+  const log = [];
+
+  // ------------------------------------------------------------ save seeding
+  function parsePairs(str) {
+    return Object.fromEntries(str.split(',').filter(Boolean).map((p) => {
+      const [k, v] = p.split(':');
+      return [k, Number(v ?? 1)];
+    }));
+  }
+
+  function seedSave() {
+    loadSave();
+    if (q.get('keep') === '1') return;
+    resetSave();
+    updateSave((d) => {
+      d.settings.lang = q.get('lang') || detectLang();
+      if (q.has('coins')) d.coins = Math.max(0, Number(q.get('coins')) || 0);
+      if (q.has('stars')) {
+        const [range, fixed] = q.get('stars').split(':');
+        const [a, b = a] = range.split('-').map(Number);
+        const pattern = [3, 2, 3, 1, 2, 3];
+        for (let id = a; id <= b; id++) if (id >= 1 && id <= LEVELS.length) d.stars[id] = fixed ? Number(fixed) : pattern[(id - 1) % pattern.length];
+      }
+      if (q.has('owned')) {
+        const owned = q.get('owned') === 'all' ? INGREDIENTS.map((i) => i.id) : q.get('owned').split(',').filter((id) => ING[id]);
+        d.owned = [...new Set([...d.owned, ...owned])];
+      }
+      if (q.has('quality')) {
+        d.ingLevels = q.get('quality') === 'max' ? Object.fromEntries(d.owned.map((id) => [id, 2])) : parsePairs(q.get('quality'));
+      }
+      if (q.has('upgrades')) {
+        d.upgrades = q.get('upgrades') === 'max' ? Object.fromEntries(UPGRADES.map((u) => [u.id, u.levels.length])) : parsePairs(q.get('upgrades'));
+      }
+      if (q.has('best')) d.endlessBest = Number(q.get('best')) || 0;
+    });
+  }
+
+  // ------------------------------------------------------------ result presets
+  function resultPreset(name) {
+    const coinsTotal = getSave().coins;
+    const base = { mode: 'campaign', levelId: 4, result: 'won', reason: null, stars: 3, money: 172, served: 14, lost: 0,
+      newBest: true, unlockedEndless: false, unlockedLevel: 5, coinsTotal };
+    const presets = {
+      win3: base,
+      win1: { ...base, levelId: 6, stars: 1, money: 141, served: 11, lost: 2, newBest: false, unlockedLevel: null },
+      win10: { ...base, levelId: 10, stars: 2, money: 302, served: 22, lost: 1, unlockedLevel: 11, unlockedEndless: true },
+      win20: { ...base, levelId: 20, stars: 2, money: 455, served: 31, lost: 1, unlockedLevel: null },
+      lostGoal: { ...base, levelId: 9, result: 'lost', reason: 'goal', stars: 0, money: 162, served: 12, lost: 2, newBest: false, unlockedLevel: null },
+      lostHearts: { ...base, levelId: 13, result: 'lost', reason: 'hearts', stars: 0, money: 88, served: 6, lost: 3, newBest: false, unlockedLevel: null },
+      endless: { mode: 'endless', result: 'lost', reason: 'hearts', stars: 0, money: 233, served: 19, lost: 3, newBest: false, unlockedEndless: false, unlockedLevel: null, coinsTotal, stage: 6 },
+      endlessBest: { mode: 'endless', result: 'lost', reason: 'hearts', stars: 0, money: 612, served: 44, lost: 3, newBest: true, unlockedEndless: false, unlockedLevel: null, coinsTotal, stage: 11 },
+    };
+    return presets[name] || presets.win3;
+  }
+
+  // ------------------------------------------------------------ stub audio + router
+  const silentAudio = {};
+  for (const fn of ['unlock', 'sfx', 'music', 'loop', 'setSfx', 'setMusic', 'suspend', 'resume']) {
+    silentAudio[fn] = (...args) => { log.push({ type: 'audio', fn, args }); return true; };
+  }
+  silentAudio.sfxOn = () => getSave().settings.sfx;
+  silentAudio.musicOn = () => getSave().settings.music;
+  let audio = silentAudio;
+  if (q.get('audio') === '1') {
+    audio = (await import('../js/audio.js')).audio;
+    document.addEventListener('pointerdown', () => audio.unlock(), { capture: true });
+  }
+
+  const stubGame = {
+    render(container, params, ctx) {
+      container.classList.add('stub-game');
+      const level = params.mode === 'endless' ? t('screen.endless') : t('map.level', { n: params.levelId });
+      container.innerHTML = `<div class="panel"><h1>${t('harness.game')}: ${level}</h1><div class="row">
+        <button class="btn green" data-stub="win">${t('harness.win')}</button>
+        <button class="btn pink" data-stub="lose">${t('harness.lose')}</button>
+        <button class="btn cream" data-stub="quit">${t('harness.quit')}</button></div></div>`;
+      container.addEventListener('click', (e) => {
+        const kind = e.target.closest('[data-stub]')?.dataset.stub;
+        if (!kind) return;
+        if (kind === 'quit') return ctx.go('map');
+        const won = kind === 'win';
+        if (params.mode === 'endless') {
+          const rec = recordEndless({ money: 150, served: 12 });
+          return ctx.go('results', { mode: 'endless', result: 'lost', reason: 'hearts', stars: 0, money: 150, served: 12, lost: 3, newBest: rec.newBest, unlockedEndless: false, unlockedLevel: null, coinsTotal: rec.coinsTotal, stage: 4 });
+        }
+        const level = LEVELS.find((l) => l.id === params.levelId);
+        const stars = won ? 3 : 0;
+        const money = won ? level.goals[2] : Math.floor(level.goals[0] / 2);
+        const rec = recordLevelResult(level.id, { won, stars, money, served: 10 });
+        ctx.go('results', { mode: 'campaign', levelId: level.id, result: won ? 'won' : 'lost', reason: won ? null : 'goal', stars, money, served: 10, lost: won ? 0 : 1, ...rec });
+      });
+      return () => {};
+    },
+  };
+
+  const SCREENS = { ...screens, game: stubGame };
+  let current = null;
+
+  function go(name, params = {}, rerender = false) {
+    log.push({ type: 'go', name, params });
+    try { current?.cleanup?.(); } catch (err) { console.error(err); }
+    const stage = document.getElementById('stage');
+    const container = document.createElement('div');
+    container.className = `screen screen-${name}`;
+    container.dataset.screen = name;
+    stage.replaceChildren(container);
+    current = { name, params, cleanup: null };
+    const ctx = { go: (n, p) => go(n, p), audio, t, screen: name, rerender };
+    current.cleanup = SCREENS[name].render(container, params, ctx);
+    current.ctx = ctx;
+  }
+
+  onLangChange(() => { if (current) go(current.name, current.params, true); });
+
+  // ------------------------------------------------------------ boot
+  seedSave();
+  setLang(q.get('lang') || getSave().settings.lang);
+  initStage(document.getElementById('app'), document.getElementById('stage-wrap'), document.getElementById('stage'));
+
+  const screen = q.get('screen') || 'title';
+  if (screen === 'results') go('results', resultPreset(q.get('variant')));
+  else if (screen === 'prelevel') {
+    const level = Number(q.get('level')) || LEVELS.find((l) => !getSave().stars[l.id])?.id || 1;
+    go('map', { openLevel: level });
+  } else if (screen === 'shop') go('shop', { back: 'map', tab: q.get('tab') || undefined });
+  else go(SCREENS[screen] ? screen : 'title');
+
+  window.__harness = { go, log, get current() { return current?.name; }, openPreLevel };
+
+  // ------------------------------------------------------------ optional tool bar
+  if (q.get('bar') === '1') {
+    const bar = document.getElementById('harness-bar');
+    bar.hidden = false;
+    const sel = document.getElementById('hb-screen');
+    const variant = document.getElementById('hb-variant');
+    sel.value = screen;
+    variant.value = q.get('variant') || 'win3';
+    const reload = () => {
+      const next = new URLSearchParams(location.search);
+      next.set('screen', sel.value);
+      next.set('variant', variant.value);
+      next.set('lang', getLang());
+      next.set('keep', '1');
+      location.search = next.toString();
+    };
+    sel.addEventListener('change', reload);
+    variant.addEventListener('change', reload);
+    document.getElementById('hb-lang').addEventListener('click', () => setLang(getLang() === 'de' ? 'en' : 'de'));
+  }
+</script>
+</body>
+</html>

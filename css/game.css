@@ -1,0 +1,980 @@
+/* Açaí Fever – gameplay screen (js/game-view.js). Everything is scoped under .screen-game and
+   laid out in stage px on the fixed 1280×800 stage (docs/DESIGN.md §4.7). */
+
+.screen-game {
+  --glow-bad: rgba(255, 77, 77, 0.9);
+  --g-tile: #c6efe8;
+  --g-tile-line: rgba(255, 255, 255, 0.55);
+  --g-shelf: var(--wood);
+  --g-orange: #ff8a3d;
+  --g-frost: #e3f7fb;
+  --g-frost-2: #b9e6f0;
+  --g-ice: #2f86ad;
+  --g-ice-2: #1f6386;
+  --l-base: var(--acai-2);
+  --l-mid: var(--leaf);
+  --l-top: var(--pitaya);
+  background: var(--cream);
+  font-family: var(--font-ui);
+  color: var(--ink);
+}
+
+.screen-game svg { display: block; }
+
+/* ------------------------------------------------------------ shop scene (y 0–330) */
+.screen-game .g-scene {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1280px;
+  height: 330px;
+  overflow: hidden;
+  z-index: 1;
+}
+.screen-game .g-wall { position: absolute; inset: 0; }
+.screen-game .g-decor { position: absolute; inset: 0; pointer-events: none; }
+.screen-game .g-decor-item { position: absolute; transition: left 0.6s ease; }
+.screen-game .g-decor-plants { top: 180px; }
+.screen-game .g-decor-jukebox { top: 182px; }
+.screen-game .g-decor-seating { top: 180px; }
+.screen-game .g-decor-neon { top: 92px; }
+.screen-game .g-decor-neon svg { filter: drop-shadow(0 0 10px rgba(255, 61, 139, 0.55)); }
+.screen-game .g-seats { position: absolute; inset: 0; }
+
+/* ------------------------------------------------------------ customers */
+.screen-game .g-cust {
+  position: absolute;
+  top: 62px;
+  width: 200px;
+  height: 266px;
+  margin-left: -100px;
+  transition: left 0.6s ease;
+}
+.screen-game .g-figure {
+  position: absolute;
+  left: 20px;
+  top: 108px;
+  width: 160px;
+  height: 160px;
+  transform-origin: 50% 100%;
+}
+.screen-game .g-cust.is-waiting .g-figure { animation: g-idle 2.8s ease-in-out infinite; }
+.screen-game .g-cust.is-waiting[data-state="waiting"] .g-bubble[data-mood="angry"] { animation: g-nag 0.7s ease-in-out infinite; }
+.screen-game .g-cust.is-arriving.from-left { animation: g-walk-in-l 0.6s ease-out both; }
+.screen-game .g-cust.is-arriving.from-right { animation: g-walk-in-r 0.6s ease-out both; }
+.screen-game .g-cust.is-arriving .g-figure { animation: g-step 0.2s ease-in-out 3; }
+.screen-game .g-cust.is-leavingHappy.from-left { animation: g-walk-out-l 0.85s ease-in both; }
+.screen-game .g-cust.is-leavingHappy.from-right { animation: g-walk-out-r 0.85s ease-in both; }
+.screen-game .g-cust.is-leavingHappy .g-figure { animation: g-step 0.21s ease-in-out 4; }
+.screen-game .g-cust.is-leavingAngry.from-left { animation: g-stomp-out-l 0.85s ease-in both; }
+.screen-game .g-cust.is-leavingAngry.from-right { animation: g-stomp-out-r 0.85s ease-in both; }
+.screen-game .g-cust.is-leavingAngry .g-figure { filter: drop-shadow(0 0 10px var(--glow-bad)); }
+.screen-game .g-cust.is-leavingHappy .g-bubble,
+.screen-game .g-cust.is-leavingAngry .g-bubble { opacity: 0; scale: 0.7; transition: opacity 0.2s ease, scale 0.2s ease; }
+
+.screen-game .g-cust.drop-ok .g-figure { filter: drop-shadow(0 0 5px var(--glow-ok)) drop-shadow(0 0 12px var(--glow-ok)); }
+.screen-game .g-cust.drop-ok .g-bubble { box-shadow: 0 0 0 5px var(--glow-ok), 0 0 22px 6px var(--glow-ok); }
+.screen-game .g-cust.drop-ok.drop-hover .g-figure { scale: 1.06; }
+.screen-game .g-cust.drop-ok.drop-hover .g-bubble { box-shadow: 0 0 0 6px var(--mango), 0 0 30px 10px var(--glow-ok); }
+/* hovering a guest who will refuse it (cup still mixing, nothing ordered): muted red, no grow */
+.screen-game .g-cust.drop-bad .g-bubble { box-shadow: 0 0 0 4px var(--glow-bad); }
+
+/* order bubble */
+.screen-game .g-bubble {
+  position: absolute;
+  left: 50%;
+  bottom: 152px;
+  translate: -50% 0;
+  min-width: 96px;
+  background: var(--white);
+  border: 3px solid var(--ink);
+  border-radius: 20px;
+  padding: 6px 9px 7px;
+  box-shadow: 0 4px 0 rgba(42, 18, 54, 0.3);
+  animation: g-bubble-in 0.35s 0.35s ease-out backwards;
+  transition: box-shadow 0.12s ease;
+}
+.screen-game .g-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  width: 18px;
+  height: 18px;
+  translate: -50% 0;
+  rotate: 45deg;
+  background: var(--white);
+  border-right: 3px solid var(--ink);
+  border-bottom: 3px solid var(--ink);
+  border-bottom-right-radius: 4px;
+}
+.screen-game .g-order { display: flex; align-items: center; gap: 6px; }
+.screen-game .g-order-part { position: relative; display: flex; align-items: center; }
+.screen-game .g-order-bowl { gap: 3px; }
+.screen-game .g-order-base { position: relative; flex: none; }
+.screen-game .g-order-base .g-lnum { position: absolute; left: -5px; top: -3px; }
+.screen-game .g-rows { display: flex; flex-direction: column; gap: 1px; }
+.screen-game .g-row { display: flex; align-items: center; height: 33px; }
+.screen-game .g-row .g-lnum { margin-right: 1px; }
+.screen-game .g-ico { display: block; flex: none; }
+.screen-game .g-order-cup {
+  padding-left: 6px;
+  border-left: 3px dotted rgba(42, 18, 54, 0.25);
+}
+.screen-game .g-cup-wrap { position: relative; display: block; }
+/* which fruit: the same icon the bin shows, on the cup's lower right (inside the bubble padding) */
+.screen-game .g-cup-fruit {
+  position: absolute;
+  right: -6px;
+  bottom: -3px;
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  background: var(--white);
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.screen-game .g-check {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  display: none;
+}
+.screen-game .g-order-part.is-done > :not(.g-check) { opacity: 0.28; filter: grayscale(0.7); }
+.screen-game .g-order-part.is-done .g-check { display: block; animation: pop-in 0.35s ease-out both; }
+
+.screen-game .g-patience {
+  margin-top: 5px;
+  height: 9px;
+  border: 2.5px solid var(--ink);
+  border-radius: 999px;
+  background: #ece2f1;
+  overflow: hidden;
+}
+.screen-game .g-patience i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--leaf);
+  transform-origin: 0 50%;
+  transition: background-color 0.3s ease;
+}
+.screen-game .g-bubble[data-mood="neutral"] .g-patience i { background: var(--mango); }
+.screen-game .g-bubble[data-mood="impatient"] .g-patience i { background: var(--g-orange); }
+.screen-game .g-bubble[data-mood="angry"] .g-patience i { background: var(--danger); }
+.screen-game .g-bubble[data-mood="angry"] { border-color: var(--danger); }
+
+/* layer number badges (1 base · 2 fruits & crunch · 3 toppings & sauces) */
+.screen-game .g-lnum {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 2px solid var(--ink);
+  color: var(--white);
+  font-family: var(--font-display);
+  font-size: 11px;
+  line-height: 1;
+  box-sizing: border-box;
+  z-index: 1;
+}
+.screen-game .g-lnum-base { background: var(--l-base); }
+.screen-game .g-lnum-mid { background: var(--l-mid); }
+.screen-game .g-lnum-top { background: var(--l-top); }
+
+/* ------------------------------------------------------------ counter (y 292–356) */
+.screen-game .g-counter {
+  position: absolute;
+  left: 0;
+  top: 295px;
+  width: 1280px;
+  height: 57px;
+  z-index: 3;
+  background:
+    linear-gradient(180deg, #f0b57a 0 11px, var(--ink) 11px 14px, var(--pitaya) 14px 21px, var(--ink) 21px 24px, transparent 24px),
+    repeating-linear-gradient(90deg, var(--wood) 0 37px, #b86d36 37px 40px);
+  border-top: 3px solid var(--ink);
+  border-bottom: 3px solid var(--ink);
+  box-shadow: 0 6px 0 rgba(42, 18, 54, 0.18);
+  pointer-events: none;
+}
+.screen-game .g-counter::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 9px;
+  background: var(--wood-dark);
+}
+/* ------------------------------------------------------------ work area (y 350–800) */
+.screen-game .g-work {
+  position: absolute;
+  left: 0;
+  top: 350px;
+  width: 1280px;
+  height: 450px;
+  z-index: 2;
+}
+.screen-game .g-backsplash {
+  position: absolute;
+  inset: 0;
+  background-color: var(--g-tile);
+  background-image:
+    linear-gradient(var(--g-tile-line) 3px, transparent 3px),
+    linear-gradient(90deg, var(--g-tile-line) 3px, transparent 3px);
+  background-size: 54px 54px;
+  background-position: -2px 8px;
+}
+.screen-game .g-art { position: relative; }
+
+/* blenders (x 14–294) */
+.screen-game .g-blender {
+  position: absolute;
+  top: 8px;
+  width: 140px;
+  height: 170px;
+  border-radius: 26px;
+  transition: box-shadow 0.12s ease, background-color 0.12s ease;
+}
+.screen-game .g-blender .g-plate {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 126px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(42, 18, 54, 0.12);
+}
+.screen-game .g-blender .g-art { width: 140px; height: 140px; transform-origin: 50% 90%; }
+.screen-game .g-blender[data-state="blending"] .g-art { animation: g-rattle 0.16s linear infinite; }
+.screen-game .g-blender[data-state="overflowing"] .g-art { animation: g-overflow 0.55s ease-in-out infinite; }
+.screen-game .g-blender[data-state="ruined"] .g-art { filter: saturate(0.6); }
+
+.screen-game .g-timer {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  top: 148px;
+  height: 14px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--white);
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.screen-game .g-timer.is-on { opacity: 1; }
+.screen-game .g-timer i {
+  display: block;
+  height: 100%;
+  background: var(--lagoon);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+.screen-game [data-state="ready"] > .g-timer i { background: var(--leaf); }
+.screen-game [data-state="overflowing"] > .g-timer { animation: g-red-pulse 0.55s ease-in-out infinite; }
+.screen-game [data-state="overflowing"] > .g-timer i { background: var(--danger); }
+
+/* freezer with base packs (x 16–300, y 544–794) */
+.screen-game .g-freezer {
+  position: absolute;
+  left: 16px;
+  top: 194px;
+  width: 284px;
+  height: 250px;
+  box-sizing: border-box;
+  border: 3px solid var(--ink);
+  border-radius: 26px;
+  background: linear-gradient(180deg, var(--g-frost) 0, var(--g-frost-2) 100%);
+  box-shadow: 0 6px 0 var(--ink);
+}
+.screen-game .g-freezer-lid {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 10px;
+  height: 160px;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.5) 0 3px, transparent 4px),
+    radial-gradient(circle at 74% 64%, rgba(255, 255, 255, 0.4) 0 3px, transparent 4px),
+    radial-gradient(circle at 46% 86%, rgba(255, 255, 255, 0.35) 0 2px, transparent 3px),
+    linear-gradient(180deg, var(--g-ice-2) 0, var(--g-ice) 100%);
+  box-shadow: inset 0 8px 0 rgba(0, 0, 0, 0.18);
+}
+.screen-game .g-packs {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 30px;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  z-index: 1;
+}
+.screen-game .g-freezer-front {
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 14px;
+  height: 46px;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  background: var(--lagoon);
+  box-shadow: inset 0 -6px 0 var(--lagoon-2);
+}
+.screen-game .g-freezer-label {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--white);
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+  letter-spacing: 0.03em;
+  pointer-events: none;
+}
+.screen-game .g-pack {
+  position: relative;
+  width: 82px;
+  height: 120px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 6px;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0, var(--g-frost) 100%);
+  box-shadow: 0 4px 0 var(--ink);
+}
+.screen-game .g-pack .g-art { width: 74px; height: 74px; margin-bottom: 2px; }
+.screen-game .g-pack .g-name,
+.screen-game .g-bin .g-name {
+  font-size: 14px;
+  font-weight: 900;
+  line-height: 1.05;
+  white-space: nowrap;
+  max-width: 78px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* bowl slots (x 316–964, y 354–550) */
+.screen-game .g-bowl {
+  position: absolute;
+  top: 4px;
+  width: 156px;
+  height: 196px;
+  border-radius: 28px;
+  transition: box-shadow 0.12s ease, background-color 0.12s ease;
+}
+.screen-game .g-bowl .g-mat {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  top: 104px;
+  height: 40px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid var(--ink);
+  background: radial-gradient(ellipse at 50% 40%, #fff9ee 0 45%, #f3dfc0 46% 100%);
+  box-shadow: 0 4px 0 rgba(42, 18, 54, 0.25);
+}
+.screen-game .g-bowl .g-art { position: absolute; left: 8px; top: 2px; width: 140px; height: 140px; transform-origin: 50% 80%; }
+.screen-game .g-bowl .g-chips {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 152px;
+  display: flex;
+  justify-content: center;
+  padding-left: 4px;
+}
+.screen-game .g-chip {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: var(--white);
+  border: 2px solid var(--ink);
+  box-sizing: border-box;
+  overflow: hidden;
+  flex: none;
+}
+.screen-game .g-chip svg { width: 21px; height: 21px; }
+.screen-game .g-chip-base { background: #efe3f7; }
+.screen-game .g-chip-mid { background: #e2f7ea; }
+.screen-game .g-chip-top { background: #ffe6f0; }
+.screen-game .g-match {
+  position: absolute;
+  right: 6px;
+  top: 14px;
+  display: none;
+  pointer-events: none;
+}
+.screen-game .g-bowl.is-match .g-match { display: block; animation: pop-in 0.3s ease-out both; }
+
+/* ingredient shelves (x 316–964): fruits & crunch y 554–672, toppings y 676–794 */
+.screen-game .g-shelf {
+  position: absolute;
+  left: 316px;
+  width: 648px;
+  height: 118px;
+  display: flex;
+  justify-content: center;
+}
+.screen-game .g-shelf-mid { top: 204px; }
+.screen-game .g-shelf-top { top: 326px; }
+.screen-game .g-shelf-in { position: relative; min-width: 300px; display: flex; justify-content: center; }
+.screen-game .g-shelf-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 6px;
+  height: 104px;
+}
+.screen-game .g-board {
+  position: absolute;
+  left: -14px;
+  right: -14px;
+  top: 94px;
+  height: 14px;
+  border: 3px solid var(--ink);
+  border-radius: 7px;
+  background: linear-gradient(180deg, #e9a96b 0 40%, var(--g-shelf) 40% 100%);
+  box-shadow: 0 4px 0 rgba(42, 18, 54, 0.25);
+}
+.screen-game .g-board::before,
+.screen-game .g-board::after {
+  content: "";
+  position: absolute;
+  top: 11px;
+  width: 10px;
+  height: 14px;
+  background: var(--wood-dark);
+  border: 3px solid var(--ink);
+  border-top: 0;
+  border-radius: 0 0 4px 4px;
+}
+.screen-game .g-board::before { left: 18px; }
+.screen-game .g-board::after { right: 18px; }
+/* layer name on the board front ("2 · Früchte & Crunch"), in the layer colour like the number badges.
+   z-index 1 (not more): the next shelf's row still paints over it, so its badges stay visible */
+.screen-game .g-shelf-label {
+  position: absolute;
+  left: 50%;
+  top: 99px;
+  transform: translateX(-50%);
+  z-index: 1;
+  padding: 1px 10px 0;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  color: var(--white);
+  font-family: var(--font-display);
+  font-size: 13px;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.screen-game .g-shelf-label-mid { background: var(--l-mid); }
+.screen-game .g-shelf-label-top { background: var(--l-top); }
+.screen-game .g-bin {
+  position: relative;
+  width: 86px;
+  height: 100px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--ink);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: 0 4px 0 var(--ink);
+}
+.screen-game .g-bin .g-art { width: 56px; height: 56px; margin-bottom: 4px; }
+.screen-game .g-bin > .g-lnum { position: absolute; left: -6px; top: -6px; width: 20px; height: 20px; font-size: 12px; }
+.screen-game .g-quality { position: absolute; right: 4px; top: 4px; display: flex; }
+.screen-game .g-pack .g-quality { top: 3px; z-index: 1; }
+.screen-game .g-new {
+  position: absolute;
+  right: -10px;
+  top: -12px;
+  z-index: 2;
+  padding: 3px 7px 2px;
+  border: 2.5px solid var(--ink);
+  border-radius: 10px;
+  background: var(--pitaya);
+  color: var(--white);
+  font-family: var(--font-display);
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  rotate: 10deg;
+  box-shadow: 0 3px 0 var(--ink);
+  animation: g-wiggle 1.6s ease-in-out infinite;
+}
+
+/* sources: pressed feedback */
+.screen-game .g-pack:active,
+.screen-game .g-bin:active { translate: 0 3px; box-shadow: 0 1px 0 var(--ink); }
+
+/* smoothie machine (x 1000–1236) */
+.screen-game .g-machine {
+  position: absolute;
+  left: 1002px;
+  top: 0;
+  width: 236px;
+  height: 236px;
+}
+.screen-game .g-slot {
+  position: absolute;
+  width: 92px;
+  height: calc(var(--cup) + 32px);
+  border-radius: 20px;
+}
+.screen-game .g-slot .g-art {
+  position: absolute;
+  left: calc(50% - var(--cup) / 2);
+  top: 14px;
+  width: var(--cup);
+  height: var(--cup);
+  transform-origin: 50% 100%;
+}
+.screen-game .g-slot .g-timer { left: 14px; right: 14px; top: auto; bottom: -6px; height: 12px; }
+.screen-game .g-slot[data-state="mixing"] .g-art { animation: g-rattle 0.22s linear infinite; }
+.screen-game .g-slot[data-state="ready"] .g-art { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95)); }
+
+.screen-game .g-machine.is-locked { pointer-events: none; }
+.screen-game.has-tutorial .g-machine.is-locked { visibility: hidden; }
+.screen-game .g-machine.is-locked .g-art { opacity: 0.4; filter: grayscale(0.85); }
+.screen-game .g-lock { position: absolute; left: 50%; top: 104px; translate: -50% 0; }
+.screen-game .g-lock-label {
+  position: absolute;
+  left: 50%;
+  top: 168px;
+  translate: -50% 0;
+  padding: 5px 12px 4px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 15px;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 3px 0 var(--ink);
+}
+
+/* trash can (bottom right) */
+.screen-game .g-trash {
+  position: absolute;
+  left: 1150px;
+  top: 334px;
+  width: 112px;
+  height: 112px;
+  display: grid;
+  place-items: center;
+  border-radius: 28px;
+}
+.screen-game .g-trash .g-art { width: 96px; height: 96px; transform-origin: 50% 100%; }
+
+/* ------------------------------------------------------------ drag & drop feedback (js/drag.js) */
+.screen-game [data-dnd-source] { cursor: grab; }
+/* Only the source (it holds pointer capture, so the mouse shows its cursor). Never put cursor on
+   .screen-game or a "*" rule here: toggling is-dragging would restyle the whole screen per drag. */
+#stage.is-dragging .screen-game .drag-source { cursor: grabbing; }
+.screen-game .drag-source { opacity: 0.5; }
+.screen-game .ghost-layer { position: absolute; inset: 0; pointer-events: none; z-index: 60; }
+.screen-game .drag-ghost-body svg { display: block; }
+
+.screen-game .g-blender.drop-ok,
+.screen-game .g-bowl.drop-ok,
+.screen-game .g-slot.drop-ok,
+.screen-game .g-trash.drop-ok {
+  background-color: rgba(255, 230, 90, 0.3);
+  box-shadow: 0 0 0 5px var(--glow-ok), 0 0 26px 6px var(--glow-ok);
+}
+.screen-game .g-blender.drop-ok.drop-hover,
+.screen-game .g-bowl.drop-ok.drop-hover,
+.screen-game .g-slot.drop-ok.drop-hover,
+.screen-game .g-trash.drop-ok.drop-hover {
+  background-color: rgba(255, 230, 90, 0.5);
+  box-shadow: 0 0 0 7px var(--mango), 0 0 36px 12px var(--glow-ok);
+}
+.screen-game .drop-ok.drop-hover > .g-art { scale: 1.06; }
+/* hovering a station that will reject the drop (it still explains why): muted red, no grow */
+.screen-game .g-blender.drop-bad,
+.screen-game .g-bowl.drop-bad,
+.screen-game .g-slot.drop-bad { box-shadow: 0 0 0 4px var(--glow-bad); }
+
+.screen-game .is-reject { animation: g-shake 0.4s ease-in-out; }
+.screen-game .g-blender.is-reject,
+.screen-game .g-bowl.is-reject,
+.screen-game .g-slot.is-reject,
+.screen-game .g-trash.is-reject { box-shadow: 0 0 0 5px var(--glow-bad), 0 0 24px 6px var(--glow-bad); }
+.screen-game .g-cust.is-reject .g-bubble { box-shadow: 0 0 0 5px var(--glow-bad), 0 0 24px 6px var(--glow-bad); }
+.screen-game .is-squash { animation: g-squash 0.3s ease-out; }
+.screen-game .is-pop { animation: g-pop 0.4s ease-out; }
+.screen-game .is-wobble { animation: g-wobble 0.45s ease-in-out; }
+.screen-game .is-hop { animation: g-hop 0.45s ease-out; }
+
+/* ------------------------------------------------------------ HUD (y 0–66) */
+.screen-game .g-hud {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1280px;
+  height: 66px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 20;
+  pointer-events: none;
+}
+.screen-game .g-hud > * { pointer-events: auto; flex: none; }
+.screen-game .g-pause-btn {
+  position: relative;
+  appearance: none;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: var(--lagoon);
+  box-shadow: 0 4px 0 var(--ink);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: translate 0.08s ease, box-shadow 0.08s ease;
+}
+.screen-game .g-pause-btn::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; }
+.screen-game .g-pause-btn:active { translate: 0 3px; box-shadow: 0 1px 0 var(--ink); }
+.screen-game .g-pause-btn:focus-visible { outline: 4px solid var(--mango); outline-offset: 3px; }
+.screen-game .g-pill {
+  height: 48px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  box-shadow: 0 4px 0 var(--ink);
+  font-family: var(--font-display);
+  font-size: 25px;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.screen-game .g-level { background: var(--acai-2); color: var(--white); -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; }
+.screen-game .g-hearts { gap: 2px; padding: 0 10px; }
+.screen-game .g-heart { display: block; width: 30px; height: 30px; }
+.screen-game .g-heart.is-breaking { animation: g-heart-break 0.6s ease-out; }
+.screen-game .g-money { margin-left: auto; padding: 0 18px 0 6px; gap: 8px; }
+.screen-game[data-mode="campaign"] .g-money { height: 56px; }
+.screen-game .g-money.is-bump { animation: g-bump 0.25s ease-out; }
+.screen-game .g-money-num { min-width: 52px; font-size: 28px; font-weight: 400; text-align: right; }
+.screen-game .g-goalbar {
+  position: relative;
+  width: 250px;
+  height: 18px;
+  margin: 0 14px 0 6px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #f1e2ca;
+}
+/* campaign: lift the bar (and its marks) so the goal amounts below fit inside the pill */
+.screen-game[data-mode="campaign"] .g-goalbar { translate: 0 -6px; }
+.screen-game .g-goalfill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--mango-2) 0 40%, var(--mango) 40% 100%);
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  transition: transform 0.15s linear;
+}
+.screen-game .g-goalmark {
+  position: absolute;
+  top: 50%;
+  translate: -50% -50%;
+  display: block;
+  width: 26px;
+  height: 26px;
+}
+.screen-game .g-goalmark small {
+  position: absolute;
+  left: 50%;
+  top: 25px;
+  translate: -50% 0;
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--ink-soft);
+}
+.screen-game .g-goalmark.is-lit small { color: var(--ink); }
+.screen-game .g-best {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.screen-game .g-best.is-beaten { color: var(--pitaya); }
+/* fixed width: switching to "Ladenschluss" must not shift the money bar */
+.screen-game .g-clock { width: 176px; justify-content: center; padding: 0 12px 0 7px; }
+.screen-game .g-clock.is-closed .g-clock-text { font-size: 19px; letter-spacing: 0; }
+.screen-game .g-clock-ico { display: block; width: 34px; height: 34px; }
+.screen-game .g-clock.is-urgent { background: var(--danger); color: var(--white); -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; animation: pulse 1s ease-in-out infinite; }
+.screen-game .g-clock.is-closed { background: var(--acai-2); color: var(--white); -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; font-size: 22px; }
+
+/* ------------------------------------------------------------ effects */
+.screen-game .g-fx { position: absolute; inset: 0; z-index: 40; pointer-events: none; }
+.screen-game .g-toast {
+  translate: -50% -100%;
+  width: max-content;
+  max-width: 420px;
+  white-space: normal;
+  text-align: center;
+  font-size: 20px;
+  line-height: 1.15;
+  animation: pop-in 0.25s ease-out both, g-fade-out 0.35s ease-in 1.35s forwards;
+}
+.screen-game .g-float {
+  position: absolute;
+  translate: -50% -50%;
+  font-family: var(--font-display);
+  font-size: 38px;
+  color: var(--mango);
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 var(--ink);
+  white-space: nowrap;
+  animation: g-float-up 1.3s ease-out forwards;
+}
+.screen-game .g-float.is-tip { font-size: 24px; color: var(--white); -webkit-text-stroke: 2.5px var(--ink); text-shadow: 0 3px 0 var(--ink); }
+/* pop in, stay fully readable, then drift up and fade */
+@keyframes g-float-up {
+  0% { transform: translateY(8px) scale(0.6); opacity: 0; }
+  14% { transform: translateY(0) scale(1.12); opacity: 1; }
+  24% { transform: translateY(-4px) scale(1); opacity: 1; }
+  62% { transform: translateY(-26px) scale(1); opacity: 1; }
+  100% { transform: translateY(-70px) scale(1); opacity: 0; }
+}
+.screen-game .g-float.is-heart { animation: g-heart-float 1.3s ease-out forwards; }
+.screen-game .g-flycoin { position: absolute; width: 30px; height: 30px; will-change: transform; }
+
+/* banner (non-blocking) – sits on the counter strip so customers' faces (y≈170-290) and bubbles stay visible */
+.screen-game .g-banner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 291px;
+  display: flex;
+  justify-content: center;
+  z-index: 35;
+  pointer-events: none;
+}
+.screen-game .g-banner-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: 1060px;
+  padding: 6px 26px 7px;
+  text-align: left;
+  animation: g-banner-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.screen-game .g-banner-card.is-out { animation: g-banner-out 0.4s ease-in forwards; }
+.screen-game .g-banner-title {
+  flex: none;
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1.05;
+  color: var(--pitaya);
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 3px 0 var(--ink);
+}
+.screen-game .g-banner-card.is-closing .g-banner-title { color: var(--mango); }
+.screen-game .g-banner-card.is-stage .g-banner-title { color: var(--lagoon); }
+.screen-game .g-banner-text { margin-top: 0; font-size: 19px; line-height: 1.2; text-wrap: balance; }
+
+/* ------------------------------------------------------------ tutorial */
+.screen-game .g-tut { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
+.screen-game .g-tut-arrow { position: absolute; left: 0; top: 0; overflow: visible; animation: g-arrow-bob 1s ease-in-out infinite; }
+.screen-game .g-arrow-out { fill: none; stroke: var(--ink); stroke-width: 17; stroke-linecap: round; stroke-linejoin: round; }
+.screen-game .g-arrow-in { fill: none; stroke: var(--white); stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
+.screen-game .g-arrow-dash { fill: none; stroke: var(--mango); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 16 14; animation: g-dash 0.7s linear infinite; }
+.screen-game .g-arrow-head { fill: var(--mango); stroke: var(--ink); stroke-width: 4; stroke-linejoin: round; }
+.screen-game .g-tut-ring {
+  position: absolute;
+  translate: -50% -50%;
+  box-sizing: border-box;
+  border: 4px solid var(--mango);
+  border-radius: 19px;
+  box-shadow: 0 0 16px 6px var(--glow-ok);
+  animation: g-ring 1s ease-in-out infinite;
+}
+.screen-game .g-tut-point {
+  position: absolute;
+  width: 46px;
+  height: 58px;
+  translate: -50% -100%;
+  animation: g-point 0.8s ease-in-out infinite;
+}
+.screen-game .g-tut-panel {
+  position: absolute;
+  left: 984px;
+  top: 362px;
+  width: 276px;
+  box-sizing: border-box;
+  padding: 12px 16px 16px;
+  border-radius: 22px;
+  animation: pop-in 0.3s ease-out both;
+}
+.screen-game .g-tut-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--acai-2);
+}
+.screen-game .g-tut-dots { display: flex; gap: 5px; }
+.screen-game .g-tut-dots i { width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--ink); background: var(--white); box-sizing: border-box; }
+.screen-game .g-tut-dots i.is-past { background: var(--leaf); }
+.screen-game .g-tut-dots i.is-now { background: var(--mango); scale: 1.25; }
+.screen-game .g-tut-text { margin: 8px 0 0; font-size: 21px; line-height: 1.25; }
+.screen-game .g-tut-go { margin-top: 12px; width: 100%; min-height: 64px; pointer-events: auto; }
+
+/* ------------------------------------------------------------ pause overlay */
+.screen-game .g-pause { z-index: 50; }
+.screen-game .g-pause[hidden] { display: none; }
+.screen-game .g-pause-panel {
+  width: 470px;
+  box-sizing: border-box;
+  padding: 26px 34px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  animation: pop-in 0.3s ease-out both;
+}
+.screen-game .g-pause-title { margin: 0; font-size: 60px; font-weight: 400; color: var(--mango); }
+.screen-game .g-pause-btns { display: flex; flex-direction: column; gap: 14px; width: 100%; }
+.screen-game .g-pause-btns .btn { width: 100%; }
+.screen-game .g-pause-note { margin: -4px 0 0; font-size: 17px; font-weight: 800; line-height: 1.25; text-align: center; color: var(--ink-soft); text-wrap: balance; }
+.screen-game .g-pause-note[hidden] { display: none; }
+.screen-game .g-toggles { display: flex; gap: 12px; width: 100%; }
+.screen-game .g-toggle { flex: 1; min-height: 64px; font-size: 21px; }
+.screen-game .g-toggle.is-off { background: #e3d9ea; color: var(--ink-soft); }
+
+/* ------------------------------------------------------------ game over stamp */
+.screen-game .g-stamp {
+  position: absolute;
+  inset: 0;
+  z-index: 55;
+  display: grid;
+  place-items: center;
+  background: rgba(42, 18, 54, 0.4);
+  animation: g-fade-in 0.25s ease-out both;
+}
+.screen-game .g-stamp[hidden] { display: none; }
+.screen-game .g-stamp-card {
+  rotate: -7deg;
+  padding: 22px 50px 26px;
+  border: 9px solid var(--leaf);
+  border-radius: 34px;
+  background: var(--paper);
+  box-shadow: 0 10px 0 var(--ink), 0 0 0 4px var(--ink) inset;
+  text-align: center;
+  animation: g-stamp-in 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) both;
+}
+.screen-game .g-stamp.is-lost .g-stamp-card { border-color: var(--danger); }
+.screen-game .g-stamp-title {
+  font-family: var(--font-display);
+  font-size: 86px;
+  line-height: 1;
+  color: var(--leaf);
+  -webkit-text-stroke: 4px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 6px 0 var(--ink);
+}
+.screen-game .g-stamp.is-lost .g-stamp-title { color: var(--danger); }
+.screen-game .g-stamp-sub { margin-top: 10px; font-size: 26px; }
+.screen-game .g-stamp-sub:empty { display: none; }
+.screen-game .g-stamp-stars { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+.screen-game .g-stamp-stars span { animation: pop-in 0.4s ease-out both; }
+
+/* ------------------------------------------------------------ keyframes */
+@keyframes g-idle { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
+@keyframes g-step { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+@keyframes g-nag { 0%, 100% { rotate: 0deg; } 25% { rotate: -2deg; } 75% { rotate: 2deg; } }
+@keyframes g-walk-in-l { from { translate: -280px 0; opacity: 0; } 30% { opacity: 1; } to { translate: 0 0; opacity: 1; } }
+@keyframes g-walk-in-r { from { translate: 280px 0; opacity: 0; } 30% { opacity: 1; } to { translate: 0 0; opacity: 1; } }
+@keyframes g-walk-out-l { 0% { translate: 0 0; opacity: 1; } 20% { translate: 0 -12px; } 75% { opacity: 1; } 100% { translate: -300px 0; opacity: 0; } }
+@keyframes g-walk-out-r { 0% { translate: 0 0; opacity: 1; } 20% { translate: 0 -12px; } 75% { opacity: 1; } 100% { translate: 300px 0; opacity: 0; } }
+@keyframes g-stomp-out-l { 0% { translate: 0 0; } 8% { translate: -8px 0; } 16% { translate: 8px 0; } 24% { translate: -6px 0; } 32% { translate: 0 0; opacity: 1; } 100% { translate: -300px 0; opacity: 0; } }
+@keyframes g-stomp-out-r { 0% { translate: 0 0; } 8% { translate: 8px 0; } 16% { translate: -8px 0; } 24% { translate: 6px 0; } 32% { translate: 0 0; opacity: 1; } 100% { translate: 300px 0; opacity: 0; } }
+@keyframes g-bubble-in { from { scale: 0.3; opacity: 0; } 70% { scale: 1.08; opacity: 1; } to { scale: 1; opacity: 1; } }
+@keyframes g-rattle { 0%, 100% { rotate: 0deg; translate: 0 0; } 25% { rotate: -1.6deg; translate: -1px 0; } 75% { rotate: 1.6deg; translate: 1px 0; } }
+@keyframes g-overflow { 0%, 100% { rotate: 0deg; filter: drop-shadow(0 0 0 rgba(255, 77, 77, 0)); } 25% { rotate: -2.5deg; } 50% { filter: drop-shadow(0 0 14px var(--glow-bad)); } 75% { rotate: 2.5deg; } }
+@keyframes g-red-pulse { 0%, 100% { scale: 1; } 50% { scale: 1.08; } }
+@keyframes g-shake { 0%, 100% { translate: 0 0; } 20% { translate: -10px 0; } 40% { translate: 9px 0; } 60% { translate: -6px 0; } 80% { translate: 4px 0; } }
+@keyframes g-squash { 0% { scale: 1.14 0.86; } 55% { scale: 0.95 1.06; } 100% { scale: 1 1; } }
+@keyframes g-pop { 0% { scale: 1; } 40% { scale: 1.16; } 100% { scale: 1; } }
+@keyframes g-wobble { 0%, 100% { rotate: 0deg; } 25% { rotate: -9deg; } 55% { rotate: 7deg; } 80% { rotate: -3deg; } }
+@keyframes g-hop { 0%, 100% { translate: 0 0; } 40% { translate: 0 -18px; } }
+@keyframes g-wiggle { 0%, 100% { rotate: 10deg; } 50% { rotate: 2deg; } }
+@keyframes g-bump { 0% { scale: 1; } 45% { scale: 1.09; } 100% { scale: 1; } }
+@keyframes g-heart-break { 0% { scale: 1; rotate: 0deg; } 30% { scale: 1.5; rotate: -12deg; } 60% { scale: 0.85; rotate: 10deg; } 100% { scale: 1; rotate: 0deg; } }
+@keyframes g-heart-float { 0% { translate: -50% 0; scale: 0.6; opacity: 0; } 20% { scale: 1.2; opacity: 1; } 100% { translate: -50% -90px; scale: 1; opacity: 0; } }
+@keyframes g-fade-out { to { opacity: 0; } }
+@keyframes g-fade-in { from { opacity: 0; } }
+@keyframes g-banner-in { from { translate: 0 12px; scale: 0.7; opacity: 0; } to { translate: 0 0; scale: 1; opacity: 1; } }
+@keyframes g-banner-out { to { translate: 0 10px; opacity: 0; } }
+@keyframes g-arrow-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
+@keyframes g-dash { to { stroke-dashoffset: -30; } }
+/* the tutorial ring pulses in place (no scale: it must not grow over the neighbouring bins) */
+@keyframes g-ring { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+@keyframes g-point { 0%, 100% { translate: -50% -100%; } 50% { translate: -50% calc(-100% - 14px); } }
+@keyframes g-stamp-in { from { scale: 2.4; opacity: 0; } to { scale: 1; opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .screen-game .g-cust,
+  .screen-game .g-figure,
+  .screen-game .g-art,
+  .screen-game .g-new,
+  .screen-game .g-tut-arrow,
+  .screen-game .g-tut-ring,
+  .screen-game .g-tut-point,
+  .screen-game .g-float { animation: none !important; }
+  .screen-game .g-cust.is-leavingHappy,
+  .screen-game .g-cust.is-leavingAngry { opacity: 0.4; transition: opacity 0.3s linear; }
+  .screen-game .g-decor-item,
+  .screen-game .g-cust { transition: none; }
+}

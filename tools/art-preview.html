@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Art Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap">
+<link rel="stylesheet" href="../css/base.css">
+<style>
+  /* Dev page: scrollable, light background, everything else from base.css tokens. */
+  html, body { height: auto; }
+  body {
+    overflow: auto;
+    background: var(--cream);
+    padding: 16px;
+    font-weight: 800;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 24px;
+    margin-bottom: 8px;
+  }
+  h1 { font-family: var(--font-display); font-weight: 400; font-size: 34px; margin: 0; color: var(--acai-2); }
+  h2 { font-family: var(--font-display); font-weight: 400; font-size: 24px; margin: 26px 0 10px; color: var(--acai); }
+  #status { font-size: 15px; padding: 6px 12px; border-radius: 10px; border: 2px solid var(--ink); background: var(--paper); }
+  #status.bad { background: var(--danger); color: var(--white); }
+  .grid { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    border-radius: 14px;
+    background: var(--paper);
+    border: 2px solid rgba(42, 18, 54, 0.15);
+    font-size: 12px;
+    text-align: center;
+    max-width: 480px;
+  }
+  .cell svg { display: block; }
+  .cell .row { display: flex; align-items: flex-end; gap: 6px; }
+  .dark { background: var(--acai); border-color: var(--acai-2); color: var(--white); }
+  .wall { background: #ffe6c4; }
+  .machine { position: relative; }
+  .machine > .cup { position: absolute; }
+  .wide svg { max-width: 100%; height: auto; }
+  .wide { max-width: none; width: calc(100% - 20px); }
+  .bubble { background: var(--white); border: 3px solid var(--ink); border-radius: 18px; padding: 4px; }
+  .mock { position: relative; width: 1280px; height: 800px; overflow: hidden; border-radius: 14px; background: var(--cream); flex: none; }
+  .mock > * { position: absolute; }
+  .mock .counter { left: 0; top: 300px; width: 1280px; height: 50px; background: var(--wood); border-top: 6px solid var(--wood-dark); box-shadow: 0 6px 0 rgba(42, 18, 54, 0.25); }
+  .mock .work { left: 0; top: 350px; width: 1280px; height: 450px; background: #bfeee9; }
+  .mock .order { background: var(--white); border: 3px solid var(--ink); border-radius: 18px; padding: 4px 6px; display: flex; align-items: center; gap: 2px; box-shadow: 0 4px 0 rgba(42, 18, 54, 0.3); }
+  .mock .bin { width: 86px; height: 100px; background: var(--paper); border: 3px solid var(--ink); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 4px 0 var(--ink); }
+  .mock .hud { left: 12px; top: 10px; display: flex; gap: 12px; align-items: center; }
+  .mock .pill { display: flex; align-items: center; gap: 6px; background: var(--paper); border: 3px solid var(--ink); border-radius: 999px; padding: 4px 14px 4px 6px; font-family: var(--font-display); font-size: 24px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title"></h1>
+  <button class="btn small" id="lang" type="button"></button>
+  <span id="status"></span>
+</header>
+<main id="out"></main>
+<script type="module">
+import * as art from '../js/art.js';
+import { INGREDIENTS, ingName, isSmoothieFruit } from '../js/data.js';
+import { createRng } from '../js/rng.js';
+import { registerStrings, t, setLang, getLang } from '../js/i18n.js';
+
+registerStrings({
+  de: {
+    'artprev.title': 'Açaí Fever – Grafik-Vorschau', 'artprev.lang': 'English',
+    'artprev.icons': 'Zutaten (64 px und 36 px)', 'artprev.packs': 'Tiefkühl-Packs', 'artprev.bowls': 'Bowls',
+    'artprev.bowlsSmall': 'Bowls klein (Bestellblase)', 'artprev.cups': 'Smoothie-Becher', 'artprev.customers': 'Kunden × Stimmungen',
+    'artprev.blender': 'Mixer', 'artprev.machine': 'Smoothie-Maschine', 'artprev.ui': 'UI-Symbole (64 px / 28 px)',
+    'artprev.decor': 'Deko', 'artprev.scene': 'Laden-Hintergrund', 'artprev.logo': 'Logo', 'artprev.map': 'Karten-Hintergrund',
+    'artprev.ok': 'Keine doppelten IDs ({n} SVGs)', 'artprev.dup': 'Doppelte IDs: {list}',
+    'artprev.empty': 'leer', 'artprev.baseOnly': 'nur Basis', 'artprev.mock': 'Im Spiel (Attrappe, 1280 × 800)',
+    'artprev.pours': 'Füllstand nach jedem Ausgießen (Portionen übrig)',
+  },
+  en: {
+    'artprev.title': 'Açaí Fever – art preview', 'artprev.lang': 'Deutsch',
+    'artprev.icons': 'Ingredients (64 px and 36 px)', 'artprev.packs': 'Frozen packs', 'artprev.bowls': 'Bowls',
+    'artprev.bowlsSmall': 'Small bowls (order bubble)', 'artprev.cups': 'Smoothie cups', 'artprev.customers': 'Customers × moods',
+    'artprev.blender': 'Blender', 'artprev.machine': 'Smoothie machine', 'artprev.ui': 'UI icons (64 px / 28 px)',
+    'artprev.decor': 'Decor', 'artprev.scene': 'Shop backdrop', 'artprev.logo': 'Logo', 'artprev.map': 'Map background',
+    'artprev.ok': 'No duplicate ids ({n} SVGs)', 'artprev.dup': 'Duplicate ids: {list}',
+    'artprev.empty': 'empty', 'artprev.baseOnly': 'base only', 'artprev.mock': 'In game (mock-up, 1280 × 800)',
+    'artprev.pours': 'Fill level after each pour (portions left)',
+  },
+});
+
+const params = new URLSearchParams(location.search);
+setLang(params.get('lang') === 'en' ? 'en' : 'de');
+
+const BOWLS = [
+  { base: null, mid: [], top: [] },
+  { base: 'acai', mid: [], top: [] },
+  { base: 'pitaya', mid: [], top: [] },
+  { base: 'spirulina', mid: [], top: [] },
+  { base: 'acai', mid: ['banana'], top: [] },
+  { base: 'acai', mid: ['granola'], top: ['honey'] },
+  { base: 'pitaya', mid: ['strawberry', 'kiwi'], top: [] },
+  { base: 'spirulina', mid: ['blueberry', 'mango'], top: ['coconut'] },
+  { base: 'acai', mid: ['banana', 'strawberry', 'blueberry'], top: [] },
+  { base: 'acai', mid: ['granola', 'mango', 'kiwi'], top: ['peanut', 'chia', 'mint'] },
+  { base: 'pitaya', mid: ['banana', 'granola'], top: ['chocolate', 'cacao'] },
+  { base: 'spirulina', mid: ['kiwi'], top: ['honey', 'chocolate', 'peanut'] },
+  { base: 'acai', mid: ['strawberry'], top: ['coconut', 'chia', 'cacao'] },
+  { base: 'pitaya', mid: ['mango', 'blueberry', 'banana'], top: ['honey', 'coconut', 'mint'] },
+  { base: 'acai', mid: ['banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi'], top: [] },
+  { base: 'acai', mid: ['banana', 'granola'], top: ['honey', 'chocolate', 'coconut', 'mint'] },
+];
+const MOODS = ['happy', 'neutral', 'impatient', 'angry'];
+
+const el = (html, cls = 'cell') => `<div class="${cls}">${html}</div>`;
+const section = (key, body) => `<h2>${t(key)}</h2><div class="grid">${body}</div>`;
+const bowlLabel = (b) => (!b.base ? t('artprev.empty') : [b.base, ...b.mid, ...b.top].map((id) => ingName(id, true)).join(' · '));
+
+function render() {
+  document.getElementById('title').textContent = t('artprev.title');
+  document.getElementById('lang').textContent = t('artprev.lang');
+  let h = '';
+
+  h += section('artprev.icons', INGREDIENTS.map((i) =>
+    el(`<div class="row">${art.ingredientIcon(i.id, 64)}${art.ingredientIcon(i.id, 36)}</div>${ingName(i.id, true)}`)).join(''));
+
+  h += section('artprev.packs', ['acai', 'pitaya', 'spirulina'].map((id) =>
+    el(`<div class="row">${art.packIcon(id, 72)}${art.packIcon(id, 48)}</div>${ingName(id, true)}`)).join(''));
+
+  h += section('artprev.bowls', BOWLS.map((b) => el(`${art.bowlSVG(b, 150)}${bowlLabel(b)}`)).join(''));
+  h += section('artprev.bowlsSmall', BOWLS.slice(0, 14).map((b) => el(`<div class="bubble">${art.bowlSVG(b, 64)}</div>`)).join(''));
+
+  const fruits = [null, ...INGREDIENTS.filter((i) => isSmoothieFruit(i.id)).map((i) => i.id)];
+  h += section('artprev.cups', fruits.map((id) =>
+    el(`<div class="row">${['empty', 'mixing', 'ready'].map((st) => art.cupSVG(id, st, 70)).join('')}</div>${id ? ingName(id, true) : '–'}`)).join(''));
+
+  const looks = [];
+  const rng = createRng(2024);
+  for (let i = 0; i < 6; i++) looks.push(art.randomLook(rng));
+  for (let i = 0; i < 6; i++) looks.push(art.lookFromSeed(i * 7 + 3));
+  h += section('artprev.customers', looks.map((look) =>
+    el(`<div class="row">${MOODS.map((m) => art.customerSVG(look, m, 110)).join('')}</div>${look.hairStyle} · ${look.accessory} · ${look.pattern}`, 'cell wall')).join(''));
+  h += `<div class="grid" style="margin-top:12px">${MOODS.map((m) => el(art.customerSVG(looks[1], m, 160) + m, 'cell wall')).join('')}</div>`;
+
+  const blenders = [
+    { state: 'empty' },
+    { state: 'blending', base: 'acai', progress: 0.25 },
+    { state: 'blending', base: 'pitaya', progress: 0.7 },
+    { state: 'ready', base: 'acai', portions: 2, maxPortions: 2 },
+    { state: 'ready', base: 'spirulina', portions: 1, maxPortions: 3 },
+    { state: 'ready', base: 'pitaya', portions: 3, maxPortions: 3 },
+    { state: 'overflowing', base: 'acai', portions: 2, maxPortions: 2 },
+    { state: 'overflowing', base: 'spirulina', portions: 1, maxPortions: 2 },
+    { state: 'ruined', base: 'acai' },
+  ];
+  const portionsLabel = (b) => (b.maxPortions ? ` · ${b.portions}/${b.maxPortions}` : '');
+  // a ready jug drops one step per pour: 2 → 1 (standard) and 3 → 2 → 1 (jug upgrade)
+  const pours = (base, max) => Array.from({ length: max }, (_, i) => ({ state: 'ready', base, portions: max - i, maxPortions: max }));
+  h += section('artprev.blender', blenders.map((b) => el(`${art.blenderSVG(b, 150)}${b.state}${b.base ? ` · ${b.base}` : ''}${portionsLabel(b)}`)).join('') +
+    el(`<div class="row">${art.blenderSVG(blenders[3], 90)}${art.blenderSVG(blenders[6], 90)}</div>90 px`) +
+    el(`<div class="row">${pours('acai', 2).map((b) => art.blenderSVG(b, 120)).join('')}</div>` +
+      `<div class="row">${pours('pitaya', 3).map((b) => art.blenderSVG(b, 120)).join('')}</div>${t('artprev.pours')}: 2/2 → 1/2 · 3/3 → 2/3 → 1/3`));
+
+  const machine = (slots, fruitsIn, states, size) => {
+    const cup = Math.round(size * art.SMOOTHIE_CUP_SIZE);
+    const cups = art.SMOOTHIE_SLOT_X[slots].map((fx, i) => states[i] ? `<div class="cup" style="left:${fx * size - cup / 2}px;top:${art.SMOOTHIE_SLOT_Y * size - cup}px">${art.cupSVG(fruitsIn[i], states[i], cup)}</div>` : '').join('');
+    return el(`<div class="machine" style="width:${size}px;height:${size}px">${art.smoothieMachineSVG(slots, size)}${cups}</div>${slots}×`);
+  };
+  h += section('artprev.machine', machine(1, [null], [null], 200) + machine(1, ['strawberry'], ['mixing'], 200) +
+    machine(2, ['mango', 'kiwi'], ['ready', 'mixing'], 220) + machine(2, ['blueberry', 'banana'], ['ready', 'ready'], 160));
+
+  const ui = (fn) => `<div class="row">${fn(64)}${fn(28)}</div>`;
+  h += section('artprev.ui', [
+    ui((s) => art.trashSVG(s)), ui((s) => art.coinSVG(s)), ui((s) => art.heartSVG(true, s)), ui((s) => art.heartSVG(false, s)),
+    ui((s) => art.starSVG(true, s)), ui((s) => art.starSVG(false, s)), ui((s) => art.clockSVG(s)), ui((s) => art.lockSVG(s)),
+  ].map((x) => el(x)).join('') + el(`<div class="row">${art.coinSVG(28)}${art.heartSVG(true, 28)}${art.heartSVG(true, 28)}${art.heartSVG(false, 28)}${art.starSVG(true, 28)}${art.starSVG(false, 28)}</div>`, 'cell dark'));
+
+
+  // In-context mock of the gameplay screen (stage px) to judge readability.
+  const seats = [200, 493, 787, 1080];
+  const orders = [
+    { bowl: { base: 'acai', mid: ['banana', 'granola'], top: ['honey'] }, smoothie: null, mood: 'happy' },
+    { bowl: { base: 'pitaya', mid: ['strawberry'], top: ['coconut', 'mint'] }, smoothie: 'mango', mood: 'neutral' },
+    { bowl: { base: 'spirulina', mid: ['blueberry', 'kiwi'], top: [] }, smoothie: null, mood: 'impatient' },
+    { bowl: { base: 'acai', mid: ['mango', 'banana', 'blueberry'], top: ['chocolate', 'chia'] }, smoothie: 'strawberry', mood: 'angry' },
+  ];
+  let m = art.shopSceneSVG(1280, 330).replace('<svg', '<svg style="position:absolute;left:0;top:0"');
+  m += `<div style="left:300px;top:150px">${art.decorSVG('plants', 130)}</div><div style="left:868px;top:96px">${art.decorSVG('neon', 100)}</div>`;
+  seats.forEach((x, i) => {
+    m += `<div style="left:${x - 80}px;top:160px">${art.customerSVG(looks[i + 2], orders[i].mood, 160)}</div>`;
+    const o = orders[i];
+    const items = [...o.bowl.mid, ...o.bowl.top].map((id) => art.ingredientIcon(id, 30)).join('');
+    m += `<div class="order" style="left:${x - 20}px;top:78px">${art.bowlSVG(o.bowl, 64)}<div style="display:grid;grid-template-columns:repeat(2,30px)">${items}</div>${o.smoothie ? art.cupSVG(o.smoothie, 'ready', 48) : ''}</div>`;
+  });
+  m += '<div class="counter"></div><div class="work"></div>';
+  m += `<div class="hud"><div class="pill">${art.heartSVG(true, 30)}${art.heartSVG(true, 30)}${art.heartSVG(false, 30)}</div><div class="pill">${art.coinSVG(32)} 128</div><div class="pill">${art.clockSVG(32)} 1:12</div><div class="pill">${art.starSVG(true, 30)}${art.starSVG(false, 30)}</div></div>`;
+  m += `<div style="left:20px;top:360px">${art.blenderSVG({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 136)}</div>`;
+  m += `<div style="left:156px;top:360px">${art.blenderSVG({ state: 'blending', base: 'pitaya', progress: 0.4 }, 136)}</div>`;
+  ['acai', 'pitaya', 'spirulina'].forEach((id, i) => { m += `<div class="bin" style="left:${22 + i * 92}px;top:540px">${art.packIcon(id, 64)}<span>${ingName(id, true)}</span></div>`; });
+  const slotBowls = [{ base: 'acai', mid: ['banana'], top: [] }, { base: null, mid: [], top: [] }, { base: 'pitaya', mid: ['strawberry', 'granola'], top: ['honey'] }, { base: null, mid: [], top: [] }];
+  slotBowls.forEach((b, i) => { m += `<div style="left:${330 + i * 160}px;top:380px">${art.bowlSVG(b, 150)}</div>`; });
+  const mids = INGREDIENTS.filter((i) => i.layer === 'mid');
+  const tops = INGREDIENTS.filter((i) => i.layer === 'top');
+  mids.forEach((ing, i) => { m += `<div class="bin" style="left:${330 + i * 92}px;top:568px">${art.ingredientIcon(ing.id, 56)}<span>${ingName(ing.id, true)}</span></div>`; });
+  tops.forEach((ing, i) => { m += `<div class="bin" style="left:${330 + i * 92}px;top:686px">${art.ingredientIcon(ing.id, 56)}<span>${ingName(ing.id, true)}</span></div>`; });
+  const ms = 220;
+  const cs = Math.round(ms * art.SMOOTHIE_CUP_SIZE);
+  m += `<div style="left:1010px;top:360px;width:${ms}px;height:${ms}px">${art.smoothieMachineSVG(2, ms)}${art.SMOOTHIE_SLOT_X[2].map((fx, i) => `<div style="position:absolute;left:${fx * ms - cs / 2}px;top:${art.SMOOTHIE_SLOT_Y * ms - cs}px">${art.cupSVG(i ? 'kiwi' : 'mango', i ? 'mixing' : 'ready', cs)}</div>`).join('')}</div>`;
+  m += `<div style="left:1170px;top:690px">${art.trashSVG(90)}</div>`;
+  h += section('artprev.mock', `<div class="mock">${m}</div>`);
+
+  h += section('artprev.decor', ['plants', 'jukebox', 'seating', 'neon'].map((id) => el(`${art.decorSVG(id, 140)}${id}`, 'cell wall')).join(''));
+  h += section('artprev.scene', el(art.shopSceneSVG(1280, 330), 'cell wide'));
+  h += section('artprev.logo', el(art.logoSVG(560), 'cell dark wide') + el(art.logoSVG(280), 'cell dark'));
+  h += section('artprev.map', el(art.mapBackgroundSVG(1280, 800), 'cell wide'));
+
+  document.getElementById('out').innerHTML = h;
+  checkIds();
+}
+
+function checkIds() {
+  const seen = new Map();
+  for (const node of document.querySelectorAll('#out [id]')) seen.set(node.id, (seen.get(node.id) || 0) + 1);
+  const dups = [...seen].filter(([, n]) => n > 1).map(([id]) => id);
+  const status = document.getElementById('status');
+  const n = document.querySelectorAll('#out svg').length;
+  status.textContent = dups.length ? t('artprev.dup', { list: dups.join(', ') }) : t('artprev.ok', { n });
+  status.className = dups.length ? 'bad' : '';
+  if (dups.length) console.error(`duplicate ids: ${dups.join(', ')}`);
+  document.body.dataset.ready = '1';
+}
+
+document.getElementById('lang').addEventListener('click', () => {
+  setLang(getLang() === 'de' ? 'en' : 'de');
+  render();
+});
+render();
+</script>
+</body>
+</html>
