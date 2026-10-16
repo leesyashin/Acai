@@ -1,0 +1,16 @@
+{
+  "name": "acai-fever",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Açaí Fever – a Cooking-Fever-style açaí bowl time-management game for the browser.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes http-server . -p 8080 -c-1 --silent",
+    "build": "node tools/build.mjs",
+    "test": "node --test tests/"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.0",
+    "playwright": "1.56.1"
+  }
+}
