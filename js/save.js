@@ -5,7 +5,7 @@ import {
   START_OWNED, ING, UPG, LEVELS, ENDLESS_UNLOCK_LEVEL, SMOOTHIE_LEVEL,
   getKitchenStats, qualityUpgradeCost, nextUpgradeCost,
 } from './data.js';
-import { detectLang } from './i18n.js';
+import { detectLang, LANGS } from './i18n.js';
 
 const KEY = 'acaiFever.save.v1';
 const listeners = new Set();
@@ -41,6 +41,9 @@ function merge(raw) {
   out.newIngredients = Array.isArray(raw.newIngredients) ? raw.newIngredients : [];
   out.seenIntros = { ...(raw.seenIntros || {}) };
   out.coins = Number.isFinite(raw.coins) ? Math.max(0, raw.coins) : 0;
+  out.owned = [...new Set(out.owned)];
+  if (!LANGS.includes(out.settings.lang)) out.settings.lang = d.settings.lang;
+  out.endlessBest = Number.isFinite(raw.endlessBest) ? Math.max(0, raw.endlessBest) : 0;
   return out;
 }
 

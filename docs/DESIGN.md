@@ -135,7 +135,7 @@ js/game-view.js       gameplay screen: DOM from engine state, drag wiring, HUD, 
 js/screens.js         menu screens: title, map, shop, settings, pre-level modal, results
 tools/build.mjs       esbuild bundle → dist/acai-fever.html (standalone) + dist/artifact.html
 tests/*.test.mjs      node --test unit tests (engine, orders, save helpers, balance simulation)
-tests/e2e/*.mjs       Playwright smoke/playthrough scripts (Chromium at /opt/pw-browsers)
+tests/e2e/*.e2e.mjs   Playwright scripts (drag, gameplay, screens, playthrough, build) – `npm run e2e`
 ```
 
 Rules:
@@ -187,7 +187,10 @@ bowlMatchesOrder(bowl, orderBowl) → boolean
 
 Reasons (i18n key `reason.<code>` in game-view): `needBase`, `toppingsOnTop`, `alreadyAdded`, `bowlFull`,
 `blenderBusy`, `blenderNotReady`, `blenderRuined`, `bowlHasBase`, `notOwned`, `wrongLayer`, `wrongOrder`,
-`noSmoothieWanted`, `noBowlWanted`, `alreadyDelivered`, `slotBusy`, `notReady`, `notSmoothieFruit`, `emptyBowl`.
+`noSmoothieWanted`, `noBowlWanted`, `alreadyDelivered`, `slotBusy`, `notReady`, `notSmoothieFruit`, `emptyBowl`,
+plus `noCustomer` (customer gone or leaving), `notPlaying` (paused / game over) and `invalid` (bad index,
+no smoothie machine). `loadBlender` checks `wrongLayer` → `notOwned` → `blenderBusy`; `cleanBlender` returns
+`blenderBusy` while blending and `blenderNotReady` when empty (a blending blender cannot be thrown away).
 
 State (read-only for the view):
 ```js
@@ -201,8 +204,12 @@ game = {
   blenders: [ { state, base, t, duration, portions, maxPortions } ],
   bowls:    [ { base: id|null, mid: id[], top: id[], uid } ],     // length = kitchen.bowlSlots
   smoothie: null | { slots: [ { state: 'empty'|'mixing'|'ready', fruit, t, duration } ] },
-  owned, ingLevels, kitchen, events: []
+  owned, ingLevels, kitchen, events: [],
+  result: null|'won'|'lost', stars, endReason: null|'goal'|'hearts', featured   // set at game over
 }
+// blenders and smoothie slots also carry progress (0–1 within the current state; for a ready
+// blender it counts toward overflow). bowl.uid changes whenever a bowl is reset.
+// Internal state lives in game._sim – never read or write it from the view.
 customer = { id, seat, look, order: { bowl: {base, mid[], top[]}, smoothie: fruitId|null },
              delivered: { bowl: bool, smoothie: bool }, patience, maxPatience,
              state: 'arriving'|'waiting'|'leavingHappy'|'leavingAngry', t, mood, paid }
@@ -212,14 +219,26 @@ Events (`{type, …}`): `customerArrive{customerId, seat}`, `customerPaid{custom
 `blenderOverflow{idx}`, `blenderRuined{idx}`, `blenderEmpty{idx}`, `basePoured{bowlIdx, blenderIdx}`,
 `ingredientAdded{bowlIdx, id}`, `smoothieStart{idx}`, `smoothieReady{idx}`, `trash{what}`,
 `closingTime`, `stageUp{stage}` (endless), `gameOver{result: 'won'|'lost', stars, reason: 'hearts'|'goal'|null}`.
+`trash` events always carry `idx` (`trash{what:'bowl'|'blender'|'smoothie', idx}`); `cleanBlender` emits
+`blenderEmpty` then `trash`. `gameOver.reason` is `null` when won, `'goal'` when lost on goal 1, `'hearts'` when
+hearts ran out (endless always ends `lost`/`'hearts'`). Once the first customer has arrived, `game.time` stops
+while `tutorialHold` is on, so the tutorial does not eat level time (blenders keep running).
+`customer.look` is `{seed}` – the view builds the look with `lookFromSeed(seed)` from art.js.
 
 ### 4.3 Drag & drop (`js/drag.js`) – contract
 ```js
-const dnd = createDragManager({ root /* #stage element */, toStage, ghostLayer /* element inside stage */ })
-dnd.source(el, { payload: () => obj|null, ghost: (payload) => HTMLElement, onStart?, onEnd? }) → unregister
+const dnd = createDragManager({ root /* #stage element */, toStage, ghostLayer /* element inside stage */,
+                                 onPickup?(payload), onDrop?(result), onCancel?(result) })
+dnd.source(el, { payload: () => obj|null, ghost: (payload) => HTMLElement|markup, onStart?, onEnd?, onTap? }) → unregister
 dnd.target(el, { accepts: (payload) => boolean, drop: (payload) => {ok, reason?} }) → unregister
 dnd.cancel(); dnd.destroy(); dnd.isDragging()
+// result = { ok, reason, payload, targetEl, tap, cancelled, pointerType }
 ```
+- A release that moved ≤ 6 CSS px within 300 ms is a **tap** (`onTap`, then `onEnd`/`onDrop` with `tap: true`).
+  Order on release: source `onEnd(result)` → manager `onDrop(result)`; on cancel `onEnd({cancelled})` → `onCancel`.
+- The hit-test point is the **ghost centre** (40 stage px above the finger for touch), not the pointer.
+- Classes: root `is-dragging`, source `drag-source`, targets `drop-ok` / `drop-hover`, ghost `.drag-ghost` >
+  `.drag-ghost-body`; registered elements get `data-dnd-source` / `data-dnd-target`.
 - Pointer Events + `setPointerCapture`; works for touch, pen, mouse. One active drag at a time (ignore other pointers).
 - Ghost follows the pointer in stage coordinates (centered under finger, slightly above on touch so it is visible).
 - While dragging, every registered target whose `accepts(payload)` is true gets class `drop-ok`; the target under the
@@ -238,7 +257,7 @@ bowlSVG(bowl, size = 150)            // bowl {base, mid[], top[]}; empty bowl wh
 cupSVG(fruitId|null, state, size=70) // smoothie cup: state 'empty'|'mixing'|'ready'
 customerSVG(look, mood, size = 160)  // mood: 'happy'|'neutral'|'impatient'|'angry'
 randomLook(rng)                       // → look object (skin, hair colour/style, shirt, accessory) – diverse
-blenderSVG({state, base, progress, portions, maxPortions}, size = 150)
+blenderSVG({state, base, progress, portions, maxPortions, badge?}, size = 150)  // badge:false hides the status badge
 smoothieMachineSVG(slotCount, size)   // machine body without cups (cups drawn separately)
 trashSVG(size), coinSVG(size), heartSVG(filled, size), starSVG(filled, size)
 decorSVG(id, size)                    // 'plants' | 'jukebox' | 'seating' | 'neon'
@@ -264,14 +283,21 @@ plop, coin, bell, angry, happy, trash, purchase, star, win, lose, closing, heart
 // main.js
 go(name, params)  // 'title' | 'map' | 'shop' | 'settings' | 'game' | 'results'
 // every screen module exports: render(container, params, ctx) → cleanup()
-ctx = { go, audio, dnd?: created by game-view itself, t, save helpers via import }
+ctx = { go, audio, t, screen /* current name */, rerender /* true on a language re-render */ }
+// game-view creates its own drag manager; save helpers are imported from save.js
 ```
 - `screens.js` exports `screens = { title, map, shop, settings, results }` (each `{render}`) and
-  `openPreLevel(container, levelId, ctx)` (modal on the map). `game-view.js` exports `gameScreen = {render}`.
-- Game params: `{ mode: 'campaign', levelId }` or `{ mode: 'endless' }`. On game over the game view shows
-  a short "Level geschafft!/Level failed" stamp, then calls `ctx.go('results', resultObject)`.
+  `openPreLevel(container, levelId, ctx, { animate, onClose }?)` (modal on the map). `game-view.js` exports
+  `gameScreen = {render}`.
+- Params: map `{ openLevel? }`, shop `{ back: 'map'|'title', tab? }`, settings `{ back }`, results = resultObject.
+- Game params: `{ mode: 'campaign', levelId, seed? }` or `{ mode: 'endless', seed? }` (`seed` only for tests).
+  On game over the game view shows a short "Geschafft!/Level complete!" stamp, then calls
+  `ctx.go('results', resultObject)` (tapping the stamp skips the wait).
 - `resultObject = { mode, levelId, result:'won'|'lost', reason, stars, money, served, lost, newBest,
-  unlockedEndless, unlockedLevel, coinsTotal }` (game-view records the result through `save.js` first).
+  unlockedEndless, unlockedLevel, coinsTotal }` (game-view records the result through `save.js` first);
+  endless adds `best` and `stage` (0-based engine stage; the results screen shows `stage + 1`).
+- Test hooks: `window.__acaiGo(name, params)`, `window.__acaiScreen()`, `window.__acaiGame` (live game),
+  `window.__acaiSpeed` (simulation speed multiplier, tests only).
 
 ### 4.7 Gameplay screen layout (stage px, 1280 × 800)
 ```
@@ -314,4 +340,7 @@ Key `acaiFever.save.v1`. Shape:
 - Dev: `npm start` (static server on :8080) – ES modules need http(s), not `file://`.
 - `npm run build` → `dist/acai-fever.html` (single self-contained file, works from `file://`) and
   `dist/artifact.html` (same content without doctype/html/head/body wrapper, for publishing as a Claude artifact).
-- `npm test` → `node --test tests/`.
+- `npm test` → `node --test "tests/**/*.test.mjs"` (`node --test tests/` also works through `tests/index.js`;
+  Node 22 treats a bare directory argument as a module).
+- `npm run e2e` → every `tests/e2e/*.e2e.mjs` in sequence (Playwright, static server on :8090 by default,
+  `E2E_PORT` overrides). `node tools/shots.mjs <dir>` writes review screenshots of every screen.

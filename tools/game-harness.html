@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gameplay Harness</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800;900&display=swap">
+<link rel="stylesheet" href="../css/base.css">
+<link rel="stylesheet" href="../css/game.css">
+<style>
+  /* Dev harness for js/game-view.js – a stub router that logs ctx.go() calls. */
+  #harness-log {
+    position: fixed;
+    left: 8px;
+    bottom: 8px;
+    z-index: 200;
+    max-width: min(560px, calc(100vw - 16px));
+    max-height: 30vh;
+    overflow: auto;
+    margin: 0;
+    padding: 8px 12px;
+    border: 2px solid var(--ink);
+    border-radius: 10px;
+    background: var(--paper);
+    color: var(--ink);
+    font: 600 12px/1.35 ui-monospace, Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+  }
+  #harness-log:empty { display: none; }
+</style>
+</head>
+<body>
+<!--
+  Query parameters (all optional):
+    ?level=1..20        campaign level (default 1)      ?mode=endless   endless run
+    ?seed=123           fixed engine seed               ?lang=de|en     UI language
+    ?fresh=1            start from an empty save        ?tutorial=0|1   mark the level-1 tutorial as seen / unseen
+    ?owned=all          own all 16 ingredients          ?upgrades=max   buy every upgrade (decor included)
+    ?quality=1|2        quality level for owned items   ?new=kiwi,mint  "NEW" badges for these ids
+    ?best=250           endless best score              ?speed=4        simulation speed (window.__acaiSpeed)
+    ?mute=1             never unlock audio              ?log=0          hide the go() log
+-->
+<div id="app">
+  <div id="stage-wrap">
+    <div id="stage" aria-live="polite"></div>
+  </div>
+</div>
+<pre id="harness-log"></pre>
+<script type="module">
+  import { initStage } from '../js/stage.js';
+  import { setLang } from '../js/i18n.js';
+  import { loadSave, resetSave, updateSave, getSave } from '../js/save.js';
+  import { INGREDIENTS, UPGRADES } from '../js/data.js';
+  import { audio } from '../js/audio.js';
+  import { gameScreen } from '../js/game-view.js';
+
+  const q = new URLSearchParams(location.search);
+  const num = (key, fallback) => (q.has(key) && Number.isFinite(Number(q.get(key))) ? Number(q.get(key)) : fallback);
+  const logEl = document.getElementById('harness-log');
+  const calls = [];
+
+  // ---------------------------------------------------------------- save setup
+  loadSave();
+  if (q.get('fresh') === '1') resetSave();
+  updateSave((d) => {
+    if (q.get('owned') === 'all') d.owned = INGREDIENTS.map((i) => i.id);
+    if (q.get('upgrades') === 'max') for (const u of UPGRADES) d.upgrades[u.id] = u.levels.length;
+    if (q.has('quality')) for (const id of d.owned) d.ingLevels[id] = Math.max(0, Math.min(2, num('quality', 0)));
+    if (q.has('new')) d.newIngredients = q.get('new').split(',').filter((id) => d.owned.includes(id));
+    if (q.has('best')) d.endlessBest = num('best', 0);
+    if (q.get('tutorial') === '0') d.seenIntros.basics = true;
+    if (q.get('tutorial') === '1') delete d.seenIntros.basics;
+    if (q.has('lang')) d.settings.lang = q.get('lang');
+  });
+  setLang(getSave().settings.lang);
+  if (q.has('speed')) window.__acaiSpeed = num('speed', 1);
+
+  // ---------------------------------------------------------------- stage + audio
+  initStage(document.getElementById('app'), document.getElementById('stage-wrap'), document.getElementById('stage'));
+  audio.setSfx(getSave().settings.sfx !== false);
+  audio.setMusic(getSave().settings.music !== false);
+  if (q.get('mute') !== '1') {
+    const unlock = () => audio.unlock();
+    document.addEventListener('pointerdown', unlock, { capture: true });
+    document.addEventListener('keydown', unlock, { capture: true });
+  }
+
+  // ---------------------------------------------------------------- stub router
+  const stage = document.getElementById('stage');
+  let cleanup = null;
+
+  function log(name, params) {
+    calls.push({ name, params });
+    if (q.get('log') !== '0') logEl.textContent = `go('${name}', ${JSON.stringify(params, null, 2)})`;
+  }
+
+  function render(params) {
+    cleanup?.();
+    cleanup = gameScreen.render(stage, params, { go, audio });
+  }
+
+  function go(name, params) {
+    log(name, params);
+    if (name === 'game') render({ ...params, seed: undefined });
+    else {
+      cleanup?.();
+      cleanup = null;
+    }
+  }
+
+  const params = q.get('mode') === 'endless'
+    ? { mode: 'endless' }
+    : { mode: 'campaign', levelId: num('level', 1) };
+  if (q.has('seed')) params.seed = num('seed', 1);
+  window.__harness = { calls, render, go, params, getSave };
+  render(params);
+</script>
+</body>
+</html>

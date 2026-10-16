@@ -10,24 +10,24 @@ export const LAYERS = ['base', 'mid', 'top'];
 // style tells art.js how the ingredient sits on a bowl.
 export const INGREDIENTS = [
   // Base – comes out of the blender
-  { id: 'acai',       layer: 'base', price: 5, cost: 0,   upgradeCosts: [120, 320], color: '#4a1a5e', color2: '#7b3a96', style: 'base' },
-  { id: 'pitaya',     layer: 'base', price: 6, cost: 260, upgradeCosts: [180, 420], color: '#ff3d8b', color2: '#ff86b8', style: 'base' },
-  { id: 'spirulina',  layer: 'base', price: 7, cost: 620, upgradeCosts: [240, 520], color: '#2a9fd8', color2: '#7fd3f5', style: 'base' },
+  { id: 'acai',       layer: 'base', price: 5, cost: 0,   upgradeCosts: [100, 260],  color: '#4a1a5e', color2: '#7b3a96', style: 'base' },
+  { id: 'pitaya',     layer: 'base', price: 7, cost: 180, upgradeCosts: [140, 330],  color: '#ff3d8b', color2: '#ff86b8', style: 'base' },
+  { id: 'spirulina',  layer: 'base', price: 9, cost: 320, upgradeCosts: [180, 400],  color: '#2a9fd8', color2: '#7fd3f5', style: 'base' },
   // Fruits & crunch
-  { id: 'banana',     layer: 'mid', price: 2, cost: 0,   upgradeCosts: [80, 220],  color: '#ffe066', color2: '#f2c230', style: 'slices', smoothie: true },
-  { id: 'granola',    layer: 'mid', price: 2, cost: 0,   upgradeCosts: [80, 220],  color: '#d9973f', color2: '#a8692a', style: 'pile' },
-  { id: 'strawberry', layer: 'mid', price: 3, cost: 90,  upgradeCosts: [110, 280], color: '#ff3b47', color2: '#3fae4a', style: 'halves', smoothie: true },
-  { id: 'blueberry',  layer: 'mid', price: 3, cost: 150, upgradeCosts: [130, 320], color: '#4656c9', color2: '#2c3687', style: 'berries', smoothie: true },
-  { id: 'mango',      layer: 'mid', price: 3, cost: 220, upgradeCosts: [150, 360], color: '#ffad1f', color2: '#ff8a00', style: 'cubes', smoothie: true },
-  { id: 'kiwi',       layer: 'mid', price: 4, cost: 340, upgradeCosts: [180, 420], color: '#8cc63f', color2: '#5a3d1c', style: 'slices', smoothie: true },
+  { id: 'banana',     layer: 'mid', price: 2, cost: 0,   upgradeCosts: [60, 170],   color: '#ffe066', color2: '#f2c230', style: 'slices', smoothie: true },
+  { id: 'granola',    layer: 'mid', price: 2, cost: 0,   upgradeCosts: [60, 170],   color: '#d9973f', color2: '#a8692a', style: 'pile' },
+  { id: 'strawberry', layer: 'mid', price: 3, cost: 70,  upgradeCosts: [80, 220],   color: '#ff3b47', color2: '#3fae4a', style: 'halves', smoothie: true },
+  { id: 'blueberry',  layer: 'mid', price: 3, cost: 100, upgradeCosts: [100, 250],  color: '#4656c9', color2: '#2c3687', style: 'berries', smoothie: true },
+  { id: 'mango',      layer: 'mid', price: 4, cost: 130, upgradeCosts: [110, 280],  color: '#ffad1f', color2: '#ff8a00', style: 'cubes', smoothie: true },
+  { id: 'kiwi',       layer: 'mid', price: 5, cost: 200, upgradeCosts: [140, 320],  color: '#8cc63f', color2: '#5a3d1c', style: 'slices', smoothie: true },
   // Toppings & sauces
-  { id: 'honey',      layer: 'top', price: 1, cost: 0,   upgradeCosts: [60, 180],  color: '#ffb81c', color2: '#e08a00', style: 'drizzle' },
-  { id: 'coconut',    layer: 'top', price: 1, cost: 70,  upgradeCosts: [70, 200],  color: '#fffaf0', color2: '#e8dcc4', style: 'flakes' },
-  { id: 'chia',       layer: 'top', price: 2, cost: 130, upgradeCosts: [100, 260], color: '#3a3a3a', color2: '#8a8a8a', style: 'seeds' },
-  { id: 'peanut',     layer: 'top', price: 2, cost: 230, upgradeCosts: [130, 320], color: '#c47a35', color2: '#8e5220', style: 'drizzle' },
-  { id: 'chocolate',  layer: 'top', price: 2, cost: 360, upgradeCosts: [160, 380], color: '#5a2e17', color2: '#3a1c0c', style: 'drizzle' },
-  { id: 'mint',       layer: 'top', price: 2, cost: 460, upgradeCosts: [180, 420], color: '#2fbf5a', color2: '#1d8a3e', style: 'leaves' },
-  { id: 'cacao',      layer: 'top', price: 3, cost: 560, upgradeCosts: [200, 460], color: '#6b3a22', color2: '#3f2012', style: 'chunks' },
+  { id: 'honey',      layer: 'top', price: 1, cost: 0,   upgradeCosts: [50, 140],   color: '#ffb81c', color2: '#e08a00', style: 'drizzle' },
+  { id: 'coconut',    layer: 'top', price: 2, cost: 50,  upgradeCosts: [55, 150],   color: '#fffaf0', color2: '#e8dcc4', style: 'flakes' },
+  { id: 'chia',       layer: 'top', price: 2, cost: 90,  upgradeCosts: [75, 200],   color: '#3a3a3a', color2: '#8a8a8a', style: 'seeds' },
+  { id: 'peanut',     layer: 'top', price: 3, cost: 150, upgradeCosts: [100, 250],  color: '#c47a35', color2: '#8e5220', style: 'drizzle' },
+  { id: 'chocolate',  layer: 'top', price: 3, cost: 200, upgradeCosts: [120, 290],  color: '#5a2e17', color2: '#3a1c0c', style: 'drizzle' },
+  { id: 'mint',       layer: 'top', price: 3, cost: 240, upgradeCosts: [140, 320],  color: '#2fbf5a', color2: '#1d8a3e', style: 'leaves' },
+  { id: 'cacao',      layer: 'top', price: 4, cost: 280, upgradeCosts: [150, 350],  color: '#6b3a22', color2: '#3f2012', style: 'chunks' },
 ];
 
 export const START_OWNED = ['acai', 'banana', 'granola', 'honey'];
@@ -79,26 +79,26 @@ export function qualityUpgradeCost(id, currentLevel = 0) {
 // mid / top = how many layer-2 / layer-3 items an order has [min,max] (capped by owned items)
 // overflow = blender can spoil; intro = mechanic explained before the level.
 export const LEVELS = [
-  { id: 1,  duration: 90,  seats: 2, spawnGap: [7, 10],    patience: 60, mid: [1, 1], top: [0, 1], smoothieChance: 0,    goals: [40, 60, 80],    overflow: false, intro: 'basics' },
-  { id: 2,  duration: 90,  seats: 2, spawnGap: [6.5, 9.5], patience: 56, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [50, 70, 90],    overflow: false, intro: null },
-  { id: 3,  duration: 100, seats: 2, spawnGap: [6, 9],     patience: 54, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [60, 85, 110],   overflow: true,  intro: 'overflow' },
-  { id: 4,  duration: 100, seats: 2, spawnGap: [6, 8.5],   patience: 52, mid: [1, 2], top: [1, 1], smoothieChance: 0,    goals: [70, 95, 120],   overflow: true,  intro: null },
-  { id: 5,  duration: 110, seats: 3, spawnGap: [5.5, 8.5], patience: 52, mid: [1, 2], top: [0, 2], smoothieChance: 0,    goals: [85, 115, 145],  overflow: true,  intro: 'moreSeats' },
-  { id: 6,  duration: 110, seats: 3, spawnGap: [5.5, 8],   patience: 50, mid: [1, 2], top: [1, 2], smoothieChance: 0,    goals: [95, 130, 160],  overflow: true,  intro: null },
-  { id: 7,  duration: 120, seats: 3, spawnGap: [5.5, 8],   patience: 52, mid: [1, 2], top: [0, 2], smoothieChance: 0.35, goals: [110, 150, 185], overflow: true,  intro: 'smoothie' },
-  { id: 8,  duration: 120, seats: 3, spawnGap: [5, 7.5],   patience: 50, mid: [1, 2], top: [1, 2], smoothieChance: 0.35, goals: [120, 160, 200], overflow: true,  intro: null },
-  { id: 9,  duration: 120, seats: 3, spawnGap: [5, 7.5],   patience: 48, mid: [2, 2], top: [1, 2], smoothieChance: 0.4,  goals: [130, 175, 215], overflow: true,  intro: null },
-  { id: 10, duration: 130, seats: 3, spawnGap: [4.8, 7],   patience: 48, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [145, 195, 240], overflow: true,  intro: null },
-  { id: 11, duration: 130, seats: 3, spawnGap: [4.6, 7],   patience: 46, mid: [2, 3], top: [1, 2], smoothieChance: 0.4,  goals: [155, 210, 260], overflow: true,  intro: 'endless' },
-  { id: 12, duration: 130, seats: 4, spawnGap: [4.6, 7],   patience: 48, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [165, 225, 280], overflow: true,  intro: 'fourSeats' },
-  { id: 13, duration: 140, seats: 4, spawnGap: [4.4, 6.6], patience: 46, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [180, 245, 305], overflow: true,  intro: null },
-  { id: 14, duration: 140, seats: 4, spawnGap: [4.2, 6.4], patience: 45, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [195, 265, 330], overflow: true,  intro: null },
-  { id: 15, duration: 140, seats: 4, spawnGap: [4, 6.2],   patience: 44, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [210, 285, 355], overflow: true,  intro: null },
-  { id: 16, duration: 150, seats: 4, spawnGap: [4, 6],     patience: 43, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [230, 310, 385], overflow: true,  intro: null },
-  { id: 17, duration: 150, seats: 4, spawnGap: [3.8, 5.8], patience: 42, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [245, 330, 410], overflow: true,  intro: null },
-  { id: 18, duration: 150, seats: 4, spawnGap: [3.7, 5.6], patience: 41, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [260, 350, 435], overflow: true,  intro: null },
-  { id: 19, duration: 160, seats: 4, spawnGap: [3.6, 5.4], patience: 40, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [280, 375, 465], overflow: true,  intro: null },
-  { id: 20, duration: 160, seats: 4, spawnGap: [3.5, 5.2], patience: 40, mid: [2, 3], top: [2, 3], smoothieChance: 0.55, goals: [300, 400, 500], overflow: true,  intro: null },
+  { id: 1,  duration: 90,  seats: 2, spawnGap: [7, 10],    patience: 60, mid: [1, 1], top: [0, 1], smoothieChance: 0,    goals: [45, 65, 85],    overflow: false, intro: 'basics' },
+  { id: 2,  duration: 90,  seats: 2, spawnGap: [6.5, 9.5], patience: 56, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [55, 80, 100],   overflow: false, intro: null },
+  { id: 3,  duration: 100, seats: 2, spawnGap: [6, 9],     patience: 54, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [95, 125, 145],  overflow: true,  intro: 'overflow' },
+  { id: 4,  duration: 100, seats: 2, spawnGap: [6, 8.5],   patience: 52, mid: [1, 2], top: [1, 1], smoothieChance: 0,    goals: [105, 140, 165], overflow: true,  intro: null },
+  { id: 5,  duration: 110, seats: 3, spawnGap: [5.5, 8.5], patience: 52, mid: [1, 2], top: [0, 2], smoothieChance: 0,    goals: [125, 170, 195], overflow: true,  intro: 'moreSeats' },
+  { id: 6,  duration: 110, seats: 3, spawnGap: [5.5, 8],   patience: 50, mid: [1, 2], top: [1, 2], smoothieChance: 0,    goals: [135, 190, 225], overflow: true,  intro: null },
+  { id: 7,  duration: 120, seats: 3, spawnGap: [5.5, 8],   patience: 52, mid: [1, 2], top: [0, 2], smoothieChance: 0.35, goals: [165, 235, 285], overflow: true,  intro: 'smoothie' },
+  { id: 8,  duration: 120, seats: 3, spawnGap: [5, 7.5],   patience: 50, mid: [1, 2], top: [1, 2], smoothieChance: 0.35, goals: [170, 245, 310], overflow: true,  intro: null },
+  { id: 9,  duration: 120, seats: 3, spawnGap: [5, 7.5],   patience: 48, mid: [2, 2], top: [1, 2], smoothieChance: 0.4,  goals: [180, 255, 330], overflow: true,  intro: null },
+  { id: 10, duration: 130, seats: 3, spawnGap: [4.8, 7],   patience: 48, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [195, 270, 360], overflow: true,  intro: null },
+  { id: 11, duration: 130, seats: 3, spawnGap: [4.6, 7],   patience: 46, mid: [2, 3], top: [1, 2], smoothieChance: 0.4,  goals: [205, 280, 380], overflow: true,  intro: 'endless' },
+  { id: 12, duration: 130, seats: 4, spawnGap: [4.6, 7],   patience: 48, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [215, 285, 390], overflow: true,  intro: 'fourSeats' },
+  { id: 13, duration: 140, seats: 4, spawnGap: [4.4, 6.6], patience: 46, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [245, 330, 450], overflow: true,  intro: null },
+  { id: 14, duration: 140, seats: 4, spawnGap: [4.2, 6.4], patience: 45, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [250, 335, 460], overflow: true,  intro: null },
+  { id: 15, duration: 140, seats: 4, spawnGap: [4, 6.2],   patience: 44, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [255, 340, 470], overflow: true,  intro: null },
+  { id: 16, duration: 150, seats: 4, spawnGap: [4, 6],     patience: 43, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [285, 380, 520], overflow: true,  intro: null },
+  { id: 17, duration: 150, seats: 4, spawnGap: [3.8, 5.8], patience: 42, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [290, 385, 530], overflow: true,  intro: null },
+  { id: 18, duration: 150, seats: 4, spawnGap: [3.7, 5.6], patience: 41, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [295, 390, 540], overflow: true,  intro: null },
+  { id: 19, duration: 160, seats: 4, spawnGap: [3.6, 5.4], patience: 40, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [305, 400, 555], overflow: true,  intro: null },
+  { id: 20, duration: 160, seats: 4, spawnGap: [3.5, 5.2], patience: 40, mid: [2, 3], top: [2, 3], smoothieChance: 0.55, goals: [315, 410, 570], overflow: true,  intro: null },
 ];
 for (const l of LEVELS) if (l.hearts === undefined) l.hearts = 3;
 
@@ -110,8 +110,8 @@ export function endlessConfig(stage) {
   return {
     id: 'endless',
     seats: Math.min(4, 2 + Math.floor((s + 1) / 2)),
-    spawnGap: [Math.max(3.0, 6.5 - 0.35 * s), Math.max(4.8, 9 - 0.45 * s)],
-    patience: Math.max(30, 54 - 2 * s),
+    spawnGap: [Math.max(2.4, 6.5 - 0.35 * s), Math.max(3.6, 9 - 0.45 * s)],
+    patience: Math.max(18, 54 - 2 * s),
     mid: [Math.min(2, 1 + Math.floor(s / 3)), Math.min(3, 1 + Math.ceil(s / 2))],
     top: [Math.min(2, Math.floor(s / 2)), Math.min(3, 1 + Math.floor(s / 2))],
     smoothieChance: Math.min(0.5, 0.3 + 0.03 * s),
@@ -135,15 +135,15 @@ export const KITCHEN_BASE = {
 };
 
 export const UPGRADES = [
-  { id: 'blenderSpeed',  cat: 'kitchen', levels: [{ cost: 150, blendTime: 4.8 }, { cost: 400, blendTime: 3.8 }, { cost: 900, blendTime: 3.0 }] },
-  { id: 'jug',           cat: 'kitchen', levels: [{ cost: 350, portions: 3 }] },
-  { id: 'blender2',      cat: 'kitchen', levels: [{ cost: 700, blenders: 2 }] },
-  { id: 'bowlSlots',     cat: 'kitchen', levels: [{ cost: 200, bowlSlots: 3 }, { cost: 600, bowlSlots: 4 }] },
-  { id: 'smoothieSlots', cat: 'kitchen', requiresLevel: SMOOTHIE_LEVEL, levels: [{ cost: 450, smoothieSlots: 2 }] },
-  { id: 'plants',        cat: 'decor',   levels: [{ cost: 150, patience: 0.08 }] },
-  { id: 'jukebox',       cat: 'decor',   levels: [{ cost: 400, patience: 0.10 }] },
-  { id: 'seating',       cat: 'decor',   levels: [{ cost: 700, patience: 0.12 }] },
-  { id: 'neon',          cat: 'decor',   levels: [{ cost: 1000, patience: 0.10 }] },
+  { id: 'blenderSpeed',  cat: 'kitchen', levels: [{ cost: 120, blendTime: 4.8 }, { cost: 250, blendTime: 3.8 }, { cost: 450, blendTime: 3.0 }] },
+  { id: 'jug',           cat: 'kitchen', levels: [{ cost: 220, portions: 3 }] },
+  { id: 'blender2',      cat: 'kitchen', levels: [{ cost: 400, blenders: 2 }] },
+  { id: 'bowlSlots',     cat: 'kitchen', levels: [{ cost: 150, bowlSlots: 3 }, { cost: 300, bowlSlots: 4 }] },
+  { id: 'smoothieSlots', cat: 'kitchen', requiresLevel: SMOOTHIE_LEVEL, levels: [{ cost: 230, smoothieSlots: 2 }] },
+  { id: 'plants',        cat: 'decor',   levels: [{ cost: 120, patience: 0.08 }] },
+  { id: 'jukebox',       cat: 'decor',   levels: [{ cost: 250, patience: 0.10 }] },
+  { id: 'seating',       cat: 'decor',   levels: [{ cost: 350, patience: 0.12 }] },
+  { id: 'neon',          cat: 'decor',   levels: [{ cost: 550, patience: 0.10 }] },
 ];
 export const UPG = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
 
