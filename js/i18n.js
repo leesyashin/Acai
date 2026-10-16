@@ -28,6 +28,16 @@ export function getLang() {
   return lang;
 }
 
+// Locale number format for the current language: 1534 → "1.534" (de) / "1,534" (en).
+const numFormatters = new Map();
+export function formatNumber(n, maxFrac = 0) {
+  const key = `${lang}|${maxFrac}`;
+  if (!numFormatters.has(key)) {
+    numFormatters.set(key, new Intl.NumberFormat(lang === 'de' ? 'de-DE' : 'en-US', { maximumFractionDigits: maxFrac }));
+  }
+  return numFormatters.get(key).format(Number(n) || 0);
+}
+
 export function setLang(next) {
   if (!LANGS.includes(next) || next === lang) {
     if (LANGS.includes(next)) syncDocumentLang();

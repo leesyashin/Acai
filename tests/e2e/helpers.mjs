@@ -5,6 +5,7 @@
 //   const errors = collectConsoleErrors(page);
 //   await page.goto(srv.url);
 //   await dragBetween(page, '[data-bin="banana"]', '[data-bowl="0"]', { touch: true });
+//   const scale = await pinch(page, { x: 580, y: 20 }, { x: 600, y: 20 });   // isMobile + touch
 //   assertNoConsoleErrors(errors);
 //   await close(); await srv.close();
 
@@ -158,6 +159,34 @@ export async function dragBetween(page, from, to, {
   }
   await pause(stepDelay);
   return { from: a, to: b };
+}
+
+/**
+ * Two-finger pinch-out via CDP touch events, starting at viewport points a and b. Each finger moves
+ * `spread` px away from the other (along the a→b line, horizontal when a = b) in `steps` moves.
+ * Launch with { touch: true, isMobile: true }: only a mobile context lets Chromium zoom the page
+ * the way a phone or tablet browser does (Input.synthesizePinchGesture does nothing in headless).
+ * Returns visualViewport.scale after the gesture (1 = the page did not zoom).
+ */
+export async function pinch(page, a, b, { spread = 160, steps = 20, stepDelay = 16, settleMs = 300 } = {}) {
+  const len = Math.hypot(b.x - a.x, b.y - a.y);
+  const u = len ? { x: (b.x - a.x) / len, y: (b.y - a.y) / len } : { x: 1, y: 0 };
+  const fingers = (i) => {
+    const d = (spread * i) / steps;
+    return [
+      { ...touchPoint({ x: a.x - u.x * d, y: a.y - u.y * d }), id: 1 },
+      { ...touchPoint({ x: b.x + u.x * d, y: b.y + u.y * d }), id: 2 },
+    ];
+  };
+  const cdp = await cdpFor(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: fingers(0) });
+  for (let i = 1; i <= steps; i++) {
+    await pause(stepDelay);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(i) });
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await pause(settleMs);
+  return page.evaluate(() => window.visualViewport?.scale ?? 1);
 }
 
 // Directory for screenshots / traces – outside the repo unless E2E_OUT_DIR says otherwise.

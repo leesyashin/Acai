@@ -14,7 +14,11 @@ const VIEWPORTS = [
   { width: 1024, height: 768, label: '1024×768' },
   { width: 1600, height: 1000, label: '1600×1000' },
 ];
-const TOUCH_LIFT = 40;
+// Touch lift (DESIGN §4.3): the ghost centre floats 48 css px above the finger, clamped to 40–80 stage px.
+const LIFT_CSS = 48;
+const LIFT_MIN = 40;
+const LIFT_MAX = 80;
+const expectedLift = (scale) => Math.min(LIFT_MAX, Math.max(LIFT_MIN, LIFT_CSS / scale));
 
 const results = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -94,6 +98,8 @@ async function openDemo(browser, viewport, { touch = false, query = '' } = {}) {
 
 const frame = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => r())));
 
+const stageScale = (page) => page.evaluate(() => document.getElementById('stage').getBoundingClientRect().width / 1280);
+
 // Client-space centre of an element.
 const centre = (page, sel) => page.evaluate((s) => {
   const r = document.querySelector(s).getBoundingClientRect();
@@ -153,6 +159,37 @@ function lastEnd(evs) {
   return ends[0];
 }
 
+// A release that must count as "drop on nothing": no target drop(), a plain ok:false result.
+function assertSilentReturn(evs, what) {
+  const end = lastEnd(evs);
+  assert(byType(evs, 'targetDrop').length === 0, `${what}: a target drop() was called`);
+  assert(byType(evs, 'tap').length === 0, `${what}: onTap was called`);
+  assert(end.ok === false && end.target === null && end.reason === null && !end.tap && !end.cancelled,
+    `${what}: onEnd ${JSON.stringify(end)}`);
+}
+
+// The game's counter: a bowl sits 4 px above the fruit bins, closer than touch lift + hit pad, so the
+// lifted ghost of a finger resting on a bin is over the bowl. This puts a strawberry bin (game height,
+// 98 stage px) 4 px under the demo bowl and returns its client centre and top; removeBinUnderBowl()
+// takes it away.
+async function binUnderBowl(page) {
+  return page.evaluate(() => {
+    const bowl = document.getElementById('tgt-bowl');
+    const el = window.__dragDemo.rebuildSource('strawberry');
+    Object.assign(el.style, {
+      left: `${bowl.offsetLeft + (bowl.offsetWidth - el.offsetWidth) / 2}px`,
+      top: `${bowl.offsetTop + bowl.offsetHeight + 4}px`,
+      height: '98px',
+      overflow: 'hidden',
+    });
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, top: r.top };
+  });
+}
+
+const removeBinUnderBowl = (page) => page.evaluate(() => window.__dragDemo.rebuildSource('strawberry', false));
+const bowlHas = (page, id) => page.evaluate((i) => window.__dragDemo.state.bowl.includes(i), id);
+
 async function mouseDrag(page, from, to, steps = 10) {
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
@@ -179,7 +216,7 @@ async function touchDrag(page, cdp, from, to, { steps = 12, onMove, end = 'touch
 async function mouseSuite(browser, vp) {
   const { context, page, errors } = await openDemo(browser, vp);
   const tag = `[${vp.label} mouse]`;
-  const scale = await page.evaluate(() => document.getElementById('stage').getBoundingClientRect().width / 1280);
+  const scale = await stageScale(page);
   console.log(`${tag} stage scale ${scale.toFixed(3)}`);
   const banana = await centre(page, '#src-banana');
   const honey = await centre(page, '#src-honey');
@@ -449,6 +486,48 @@ async function mouseSuite(browser, vp) {
     await page.emulateMedia({ reducedMotion: 'no-preference' });
   });
 
+  await check(`${tag} (13) a press resting on a bin right under the bowl never drops into it`, async () => {
+    const bin = await binUnderBowl(page);
+    try {
+      // slow press on the bin's top edge (inside the bowl's padded rect), wiggle along the bin, release
+      let m = await mark(page);
+      const edge = { x: bin.x, y: bin.top + 3 };
+      await page.mouse.move(edge.x, edge.y);
+      await page.mouse.down();
+      await page.mouse.move(edge.x + 14, edge.y + 2, { steps: 3 });
+      await sleep(350);
+      let s = await snapshot(page);
+      assert(s.dragging && s.dropOk.includes('tgt-bowl'), 'drag not active or bowl not accepting');
+      assert(!s.dropHover.length, `drop-hover while the pointer rests on its source: ${s.dropHover}`);
+      await page.mouse.up();
+      assertSilentReturn(await eventsSince(page, m), 'edge press');
+      await settled(page, 'edge press');
+      // up into the bowl (hover), back onto the bin (no hover), release there: put back
+      m = await mark(page);
+      await page.mouse.move(bin.x, bin.y);
+      await page.mouse.down();
+      await page.mouse.move(bin.x, bin.top - 40 * scale, { steps: 5 });
+      s = await snapshot(page);
+      assert(s.dropHover.join() === 'tgt-bowl', `over the bowl: drop-hover ${s.dropHover}`);
+      await page.mouse.move(bin.x, bin.y, { steps: 5 });
+      s = await snapshot(page);
+      assert(!s.dropHover.length, `back on the bin: drop-hover ${s.dropHover}`);
+      await page.mouse.up();
+      assertSilentReturn(await eventsSince(page, m), 'put back');
+      await settled(page, 'put back');
+      assert(!(await bowlHas(page, 'strawberry')), 'strawberry ended up in the bowl');
+      // the bowl stays easy to reach: a short drag just past the bin's edge drops
+      m = await mark(page);
+      await mouseDrag(page, bin, { x: bin.x, y: bin.top - 10 * scale }, 5);
+      const end = lastEnd(await eventsSince(page, m));
+      assert(end.ok === true && end.target === 'tgt-bowl' && end.id === 'strawberry', `short drag up: ${JSON.stringify(end)}`);
+      assert(await bowlHas(page, 'strawberry'), 'bowl state not updated');
+      await settled(page);
+    } finally {
+      await removeBinUnderBowl(page);
+    }
+  });
+
   await check(`${tag} (12) destroy() removes listeners, ghosts and markers`, async () => {
     await page.mouse.move(banana.x, banana.y);
     await page.mouse.down();
@@ -479,6 +558,9 @@ async function mouseSuite(browser, vp) {
 async function touchSuite(browser, vp) {
   const { context, page, cdp, errors } = await openDemo(browser, vp, { touch: true, query: '?scroll=1' });
   const tag = `[${vp.label} touch]`;
+  const scale = await stageScale(page);
+  const lift = expectedLift(scale);
+  console.log(`${tag} stage scale ${scale.toFixed(3)}, touch lift ${lift.toFixed(1)} stage px = ${(lift * scale).toFixed(1)} css px`);
   const banana = await centre(page, '#src-banana');
   const bowl = await centre(page, '#tgt-bowl');
   const scrollY = () => page.evaluate(() => window.scrollY);
@@ -502,7 +584,7 @@ async function touchSuite(browser, vp) {
           const s = await snapshot(page);
           assert(s.dragging && s.rootDragging, 'touch drag not active');
           const f = await toStagePt(page, p);
-          near(s.ghost, { x: f.x, y: f.y - TOUCH_LIFT }, 3, `touch ghost at step ${i}`);
+          near(s.ghost, { x: f.x, y: f.y - lift }, 3, `touch ghost at step ${i}`);
         }
       },
     });
@@ -600,6 +682,61 @@ async function touchSuite(browser, vp) {
     await settled(page);
   });
 
+  await check(`${tag} (10) hold, sloppy press or put back on a bin right under the bowl never drops into it`, async () => {
+    const bin = await binUnderBowl(page);
+    try {
+      // the fixture must set the trap: a finger resting on the bin has its lifted ghost over the bowl
+      const trap = await page.evaluate(([x, y, l]) => {
+        const r = document.getElementById('tgt-bowl').getBoundingClientRect();
+        const p = window.__dragDemo.toStage(x, y);
+        return p.y - l <= window.__dragDemo.toStage(r.left, r.bottom).y + 18;
+      }, [bin.x, bin.y, lift]);
+      assert(trap, 'fixture: the lifted ghost of a finger on the bin centre is not over the bowl');
+      // (a) stationary long press
+      let m = await mark(page);
+      await touch(cdp, 'touchStart', [bin]);
+      await sleep(450);
+      let s = await snapshot(page);
+      assert(s.dragging && s.ghosts === 1 && s.dropOk.includes('tgt-bowl'), 'long press did not pick up the strawberry');
+      assert(!s.dropHover.length, `drop-hover while the finger rests on the bin: ${s.dropHover}`);
+      await touch(cdp, 'touchEnd', []);
+      assertSilentReturn(await eventsSince(page, m), 'long press');
+      await settled(page, 'long press');
+      // (b) sloppy, slow press: 10 css px of wobble over 400 ms
+      m = await mark(page);
+      await touch(cdp, 'touchStart', [bin]);
+      await sleep(150);
+      await touch(cdp, 'touchMove', [{ x: bin.x + 6, y: bin.y - 8 }]);
+      await sleep(250);
+      await touch(cdp, 'touchEnd', []);
+      assertSilentReturn(await eventsSince(page, m), 'sloppy press');
+      await settled(page, 'sloppy press');
+      // (c) pick up, off the bin sideways (the ghost now hovers the bowl), back onto the bin, release
+      m = await mark(page);
+      const away = { x: bin.x + 120 * scale, y: bin.y };
+      await touch(cdp, 'touchStart', [bin]);
+      for (let i = 1; i <= 6; i++) await touch(cdp, 'touchMove', [{ x: bin.x + ((away.x - bin.x) * i) / 6, y: bin.y }]);
+      s = await snapshot(page);
+      assert(s.dropHover.join() === 'tgt-bowl', `off the bin: drop-hover ${s.dropHover}`);
+      for (let i = 5; i >= 0; i--) await touch(cdp, 'touchMove', [{ x: bin.x + ((away.x - bin.x) * i) / 6, y: bin.y }]);
+      s = await snapshot(page);
+      assert(!s.dropHover.length, `back on the bin: drop-hover ${s.dropHover}`);
+      await touch(cdp, 'touchEnd', []);
+      assertSilentReturn(await eventsSince(page, m), 'put back');
+      await settled(page, 'put back');
+      assert(!(await bowlHas(page, 'strawberry')), 'strawberry ended up in the bowl');
+      // (d) the bowl stays easy to reach: a short drag just past the bin's top edge drops
+      m = await mark(page);
+      await touchDrag(page, cdp, bin, { x: bin.x, y: bin.top - 10 * scale }, { steps: 6 });
+      const end = lastEnd(await eventsSince(page, m));
+      assert(end.ok === true && end.target === 'tgt-bowl' && end.id === 'strawberry', `short drag up: ${JSON.stringify(end)}`);
+      assert(await bowlHas(page, 'strawberry'), 'bowl state not updated');
+      await settled(page);
+    } finally {
+      await removeBinUnderBowl(page);
+    }
+  });
+
   // Proves the no-scroll checks above are meaningful: the same gesture outside the stage scrolls.
   await check(`${tag} control: a touch pan outside the stage does scroll this page`, async () => {
     await touchDrag(page, cdp, { x: 8, y: vp.height - 60 }, { x: 8, y: 120 }, { steps: 10 });
@@ -609,6 +746,36 @@ async function touchSuite(browser, vp) {
   });
 
   await check(`${tag} no page errors`, async () => {
+    assert(errors.length === 0, errors.join('\n'));
+  });
+  await context.close();
+}
+
+// ------------------------------------------------------------------ phone
+// On a phone-sized stage 48 css px would be > 100 stage px; the lift is capped so the trash at the
+// stage's bottom edge stays reachable.
+async function phoneLiftSuite(browser) {
+  const vp = { width: 844, height: 390, label: '844×390' };
+  const { context, page, cdp, errors } = await openDemo(browser, vp, { touch: true });
+  const tag = `[${vp.label} touch]`;
+  await checkWith(`${tag} touch lift is capped at ${LIFT_MAX} stage px`, async () => {
+    const scale = await stageScale(page);
+    assert(LIFT_CSS / scale > LIFT_MAX, `stage scale ${scale.toFixed(3)} does not reach the cap`);
+    const banana = await centre(page, '#src-banana');
+    const p = { x: banana.x + 30, y: banana.y - 40 };
+    await touch(cdp, 'touchStart', [banana]);
+    for (let i = 1; i <= 4; i++) await touch(cdp, 'touchMove', [{ x: banana.x + (30 * i) / 4, y: banana.y - (40 * i) / 4 }]);
+    await frame(page);
+    const s = await snapshot(page);
+    const f = await toStagePt(page, p);
+    near(s.ghost, { x: f.x, y: f.y - LIFT_MAX }, 3, 'phone touch ghost');
+    await touch(cdp, 'touchEnd', []);
+    await settled(page);
+  }, async () => {
+    await touch(cdp, 'touchCancel', []);
+    await resetDrag(page);
+  });
+  await checkWith(`${tag} no page errors`, async () => {
     assert(errors.length === 0, errors.join('\n'));
   });
   await context.close();
@@ -624,6 +791,7 @@ try {
     await mouseSuite(browser, vp);
     await touchSuite(browser, vp);
   }
+  await phoneLiftSuite(browser);
 } catch (err) {
   results.push({ name: 'harness', ok: false, err });
   console.error(err);

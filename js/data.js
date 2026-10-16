@@ -55,15 +55,19 @@ export function qualityMult(id, ingLevels = {}) {
   return QUALITY_MULT[Math.min(ingLevels[id] || 0, QUALITY_MULT.length - 1)];
 }
 
-// Coins one use of an ingredient is worth (rounded to 0.5 to keep numbers friendly).
+// Rounded UP to 0.5 (friendly numbers): rounding to nearest made some quality stars worth
+// nothing (honey 1 → 1.5 → 1.5). The epsilon keeps float noise (5 × 1.3 × 2) from rounding up.
+const toHalfUp = (v) => Math.ceil(v * 2 - 1e-9) / 2;
+
+// Coins one use of an ingredient is worth; every quality star adds coins.
 export function ingredientValue(id, ingLevels = {}) {
   const ing = ING[id];
   if (!ing) return 0;
-  return Math.round(ing.price * qualityMult(id, ingLevels) * 2) / 2;
+  return toHalfUp(ing.price * qualityMult(id, ingLevels));
 }
 
 export function smoothieValue(fruitId, ingLevels = {}) {
-  return Math.round(SMOOTHIE_PRICE * qualityMult(fruitId, ingLevels) * 2) / 2;
+  return toHalfUp(SMOOTHIE_PRICE * qualityMult(fruitId, ingLevels));
 }
 
 // Cost of the next quality upgrade, or null when maxed.
@@ -78,6 +82,10 @@ export function qualityUpgradeCost(id, currentLevel = 0) {
 // spawnGap = seconds between customers [min,max]; patience = seconds (before decor bonus)
 // mid / top = how many layer-2 / layer-3 items an order has [min,max] (capped by owned items)
 // overflow = blender can spoil; intro = mechanic explained before the level.
+// hearts = customers you may lose (default 3). With 4 seats the counter is full most of the time
+// and a customer waits about 4 orders long (3 before): those levels get 4 hearts and more patience
+// (58 s falling to 50 s) so a casual 2 s-per-drag player can still finish the campaign
+// (see tests/balance.test.mjs).
 export const LEVELS = [
   { id: 1,  duration: 90,  seats: 2, spawnGap: [7, 10],    patience: 60, mid: [1, 1], top: [0, 1], smoothieChance: 0,    goals: [45, 65, 85],    overflow: false, intro: 'basics' },
   { id: 2,  duration: 90,  seats: 2, spawnGap: [6.5, 9.5], patience: 56, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [55, 80, 100],   overflow: false, intro: null },
@@ -90,15 +98,15 @@ export const LEVELS = [
   { id: 9,  duration: 120, seats: 3, spawnGap: [5, 7.5],   patience: 48, mid: [2, 2], top: [1, 2], smoothieChance: 0.4,  goals: [180, 255, 330], overflow: true,  intro: null },
   { id: 10, duration: 130, seats: 3, spawnGap: [4.8, 7],   patience: 48, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [195, 270, 360], overflow: true,  intro: null },
   { id: 11, duration: 130, seats: 3, spawnGap: [4.6, 7],   patience: 46, mid: [2, 3], top: [1, 2], smoothieChance: 0.4,  goals: [205, 280, 380], overflow: true,  intro: 'endless' },
-  { id: 12, duration: 130, seats: 4, spawnGap: [4.6, 7],   patience: 48, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [215, 285, 390], overflow: true,  intro: 'fourSeats' },
-  { id: 13, duration: 140, seats: 4, spawnGap: [4.4, 6.6], patience: 46, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [245, 330, 450], overflow: true,  intro: null },
-  { id: 14, duration: 140, seats: 4, spawnGap: [4.2, 6.4], patience: 45, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [250, 335, 460], overflow: true,  intro: null },
-  { id: 15, duration: 140, seats: 4, spawnGap: [4, 6.2],   patience: 44, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [255, 340, 470], overflow: true,  intro: null },
-  { id: 16, duration: 150, seats: 4, spawnGap: [4, 6],     patience: 43, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [285, 380, 520], overflow: true,  intro: null },
-  { id: 17, duration: 150, seats: 4, spawnGap: [3.8, 5.8], patience: 42, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [290, 385, 530], overflow: true,  intro: null },
-  { id: 18, duration: 150, seats: 4, spawnGap: [3.7, 5.6], patience: 41, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [295, 390, 540], overflow: true,  intro: null },
-  { id: 19, duration: 160, seats: 4, spawnGap: [3.6, 5.4], patience: 40, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [305, 400, 555], overflow: true,  intro: null },
-  { id: 20, duration: 160, seats: 4, spawnGap: [3.5, 5.2], patience: 40, mid: [2, 3], top: [2, 3], smoothieChance: 0.55, goals: [315, 410, 570], overflow: true,  intro: null },
+  { id: 12, duration: 130, seats: 4, spawnGap: [4.6, 7],   patience: 58, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [215, 285, 390], hearts: 4, overflow: true,  intro: 'fourSeats' },
+  { id: 13, duration: 140, seats: 4, spawnGap: [4.4, 6.6], patience: 57, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [220, 330, 450], hearts: 4, overflow: true,  intro: null },
+  { id: 14, duration: 140, seats: 4, spawnGap: [4.2, 6.4], patience: 56, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [225, 335, 460], hearts: 4, overflow: true,  intro: null },
+  { id: 15, duration: 140, seats: 4, spawnGap: [4, 6.2],   patience: 55, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [230, 340, 470], hearts: 4, overflow: true,  intro: null },
+  { id: 16, duration: 150, seats: 4, spawnGap: [4, 6],     patience: 54, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [240, 380, 520], hearts: 4, overflow: true,  intro: null },
+  { id: 17, duration: 150, seats: 4, spawnGap: [3.8, 5.8], patience: 53, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [245, 385, 530], hearts: 4, overflow: true,  intro: null },
+  { id: 18, duration: 150, seats: 4, spawnGap: [3.7, 5.6], patience: 52, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [250, 390, 540], hearts: 4, overflow: true,  intro: null },
+  { id: 19, duration: 160, seats: 4, spawnGap: [3.6, 5.4], patience: 51, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [255, 400, 555], hearts: 4, overflow: true,  intro: null },
+  { id: 20, duration: 160, seats: 4, spawnGap: [3.5, 5.2], patience: 50, mid: [2, 3], top: [2, 3], smoothieChance: 0.55, goals: [260, 410, 570], hearts: 4, overflow: true,  intro: null },
 ];
 for (const l of LEVELS) if (l.hearts === undefined) l.hearts = 3;
 
@@ -136,7 +144,9 @@ export const KITCHEN_BASE = {
 
 export const UPGRADES = [
   { id: 'blenderSpeed',  cat: 'kitchen', levels: [{ cost: 120, blendTime: 4.8 }, { cost: 250, blendTime: 3.8 }, { cost: 450, blendTime: 3.0 }] },
-  { id: 'jug',           cat: 'kitchen', levels: [{ cost: 220, portions: 3 }] },
+  // A bigger batch needs longer to be used up, so it also stays fresh longer (otherwise the
+  // third portion mostly spoils and the upgrade costs coins instead of earning them).
+  { id: 'jug',           cat: 'kitchen', levels: [{ cost: 220, portions: 3, readyHold: 13.5 }] },
   { id: 'blender2',      cat: 'kitchen', levels: [{ cost: 400, blenders: 2 }] },
   { id: 'bowlSlots',     cat: 'kitchen', levels: [{ cost: 150, bowlSlots: 3 }, { cost: 300, bowlSlots: 4 }] },
   { id: 'smoothieSlots', cat: 'kitchen', requiresLevel: SMOOTHIE_LEVEL, levels: [{ cost: 230, smoothieSlots: 2 }] },
@@ -181,17 +191,18 @@ registerStrings({
     'ing.peanut': 'Erdnussbutter', 'ing.chocolate': 'Schoko-Soße', 'ing.mint': 'Minze', 'ing.cacao': 'Kakao-Nibs',
     'ingshort.spirulina': 'Spirulina', 'ingshort.blueberry': 'Blaubeere', 'ingshort.coconut': 'Kokos',
     'ingshort.chia': 'Chia', 'ingshort.peanut': 'Erdnuss', 'ingshort.chocolate': 'Schoko', 'ingshort.cacao': 'Kakao',
-    'smoothie.name': '{fruit}-Smoothie',
+    'smoothie.banana': 'Bananen-Smoothie', 'smoothie.strawberry': 'Erdbeer-Smoothie',
+    'smoothie.blueberry': 'Blaubeer-Smoothie', 'smoothie.mango': 'Mango-Smoothie', 'smoothie.kiwi': 'Kiwi-Smoothie',
     'layer.base': 'Basis', 'layer.mid': 'Früchte & Crunch', 'layer.top': 'Toppings & Soßen',
     'upg.blenderSpeed': 'Turbo-Mixer', 'upgdesc.blenderSpeed': 'Der Mixer ist schneller fertig.',
-    'upg.jug': 'Großer Mixkrug', 'upgdesc.jug': 'Eine Mischung reicht für 3 Bowls statt 2.',
+    'upg.jug': 'Großer Mixkrug', 'upgdesc.jug': '3 Bowls pro Mischung – und bleibt länger frisch.',
     'upg.blender2': 'Zweiter Mixer', 'upgdesc.blender2': 'Zwei Basen gleichzeitig mixen.',
     'upg.bowlSlots': 'Mehr Bowl-Plätze', 'upgdesc.bowlSlots': 'Mehr Bowls gleichzeitig vorbereiten.',
     'upg.smoothieSlots': 'Doppel-Smoothie', 'upgdesc.smoothieSlots': 'Zwei Smoothies gleichzeitig mixen.',
-    'upg.plants': 'Tropische Pflanzen', 'upgdesc.plants': 'Kunden warten 8 % länger.',
-    'upg.jukebox': 'Jukebox', 'upgdesc.jukebox': 'Gute Musik: Kunden warten 10 % länger.',
-    'upg.seating': 'Gemütliche Sitzecke', 'upgdesc.seating': 'Kunden warten 12 % länger.',
-    'upg.neon': 'Neon-Schild', 'upgdesc.neon': 'Leuchtet schön: Kunden warten 10 % länger.',
+    'upg.plants': 'Tropische Pflanzen', 'upgdesc.plants': 'Gäste warten 8 % länger.',
+    'upg.jukebox': 'Jukebox', 'upgdesc.jukebox': 'Gute Musik: Gäste warten 10 % länger.',
+    'upg.seating': 'Gemütliche Sitzecke', 'upgdesc.seating': 'Gäste warten 12 % länger.',
+    'upg.neon': 'Neon-Schild', 'upgdesc.neon': 'Leuchtet schön: Gäste warten 10 % länger.',
   },
   en: {
     'ing.acai': 'Açaí', 'ing.pitaya': 'Pitaya', 'ing.spirulina': 'Blue Spirulina',
@@ -201,10 +212,11 @@ registerStrings({
     'ing.peanut': 'Peanut butter', 'ing.chocolate': 'Chocolate sauce', 'ing.mint': 'Mint', 'ing.cacao': 'Cacao nibs',
     'ingshort.spirulina': 'Spirulina', 'ingshort.blueberry': 'Blueberry', 'ingshort.coconut': 'Coconut',
     'ingshort.chia': 'Chia', 'ingshort.peanut': 'Peanut', 'ingshort.chocolate': 'Choco', 'ingshort.cacao': 'Cacao',
-    'smoothie.name': '{fruit} smoothie',
+    'smoothie.banana': 'Banana smoothie', 'smoothie.strawberry': 'Strawberry smoothie',
+    'smoothie.blueberry': 'Blueberry smoothie', 'smoothie.mango': 'Mango smoothie', 'smoothie.kiwi': 'Kiwi smoothie',
     'layer.base': 'Base', 'layer.mid': 'Fruits & Crunch', 'layer.top': 'Toppings & Sauces',
     'upg.blenderSpeed': 'Turbo blender', 'upgdesc.blenderSpeed': 'The blender finishes faster.',
-    'upg.jug': 'Big blender jug', 'upgdesc.jug': 'One batch fills 3 bowls instead of 2.',
+    'upg.jug': 'Big blender jug', 'upgdesc.jug': '3 bowls per batch – and stays fresh longer.',
     'upg.blender2': 'Second blender', 'upgdesc.blender2': 'Blend two bases at the same time.',
     'upg.bowlSlots': 'More bowl spots', 'upgdesc.bowlSlots': 'Prepare more bowls at once.',
     'upg.smoothieSlots': 'Double smoothie', 'upgdesc.smoothieSlots': 'Mix two smoothies at the same time.',

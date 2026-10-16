@@ -29,6 +29,9 @@ registerStrings({
 const SCREENS = { ...screens, game: gameScreen };
 const MENU_SCREENS = new Set(['title', 'map', 'shop', 'settings', 'results']);
 const ROTATE_KEY = 'acaiFever.rotateDismissed';
+const ROTATE_MAX_W = 820; // portrait narrower than this: hint on every device
+const ROTATE_MAX_W_TOUCH = 1100; // portrait touch tablets up to the 12.9″ iPad Pro
+const ROTATE_EVENT = 'acai:rotate-hint'; // dispatched on window when the hint appears
 
 let stageEl = null;
 let current = null; // { name, params, cleanup }
@@ -144,9 +147,19 @@ function initRotateHint() {
     el.querySelector('p').textContent = t('screen.rotateText');
     el.querySelector('button').textContent = t('screen.rotatePlay');
   };
+  const coarse = window.matchMedia?.('(pointer: coarse)');
   const update = () => {
-    const portrait = window.innerHeight > window.innerWidth && window.innerWidth < 820;
-    el.hidden = dismissed || !portrait;
+    // Narrow portrait windows always get the hint. Portrait touch tablets too (iPad Air 820,
+    // iPad Pro 11″ 834, 12.9″ 1024 px): the 16:10 stage would shrink to about 60 % between
+    // huge bands. Tall desktop windows (mouse as primary pointer) are left alone.
+    const w = window.innerWidth;
+    const touch = coarse ? coarse.matches : navigator.maxTouchPoints > 0;
+    const portrait = window.innerHeight > w && (w < ROTATE_MAX_W || (touch && w < ROTATE_MAX_W_TOUCH));
+    const show = !dismissed && portrait;
+    if (show === !el.hidden) return;
+    el.hidden = !show;
+    // The card covers the whole stage: a running level pauses on this event (game-view.js).
+    if (show) window.dispatchEvent(new Event(ROTATE_EVENT));
   };
   el.addEventListener('click', (e) => {
     if (!e.target.closest('[data-action="dismiss-rotate"]')) return;
@@ -159,6 +172,7 @@ function initRotateHint() {
   update();
   window.addEventListener('resize', update);
   window.addEventListener('orientationchange', () => setTimeout(update, 120));
+  coarse?.addEventListener?.('change', update); // 2-in-1 switching between laptop and tablet mode
   onLangChange(draw);
 }
 

@@ -1,7 +1,7 @@
 # Açaí Fever
 
 Ein Zeitmanagement-Spiel im Stil von *Cooking Fever* für den Browser: Du führst eine kleine
-Açaí-Bar. Kundinnen und Kunden bestellen Bowls (und später Smoothies), du stellst sie per
+Açaí-Bar. Deine Gäste bestellen Bowls (und später Smoothies), du stellst sie per
 **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
 Maus am PC und (verkleinert) auf dem Handy. Deutsch und Englisch, Soundeffekte und Musik
 werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien.
@@ -20,37 +20,37 @@ und ein kurzer Hinweis erklärt, warum.
 2. **Bowl füllen:** Zieh den fertigen Mixer auf eine leere Bowl. Eine Mischung reicht für zwei Bowls
    (mit dem großen Mixkrug für drei).
 3. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen auf die Bowl.
-4. **Servieren:** Zieh die fertige Bowl auf den Kunden. Stimmt sie genau mit der Bestellung überein,
-   wird bezahlt – plus Trinkgeld, je geduldiger der Kunde noch war.
+4. **Servieren:** Zieh die fertige Bowl auf den Gast. Stimmt sie genau mit der Bestellung überein,
+   wird bezahlt – plus Trinkgeld, je geduldiger der Gast noch war.
 
 **Die Schichten-Regel:** Eine Bowl wird immer in derselben Reihenfolge gebaut:
 **Basis → Früchte & Crunch → Toppings & Soßen**. Innerhalb einer Schicht ist die Reihenfolge egal.
-Eine Frucht auf einem Topping, eine Zutat ohne Basis, doppelte Zutaten oder mehr als sechs Zutaten
+Eine Frucht auf einem Topping, ein Topping vor der ersten Frucht, eine Zutat ohne Basis, doppelte Zutaten oder mehr als sechs Zutaten
 werden abgelehnt.
 
 **Mixer läuft über:** Ab Level 3 wartet ein fertiger Mixer nicht ewig. Lässt du ihn zu lange stehen,
 fängt er an überzulaufen (rot, wackelt) – dann schnell ausgießen! Danach ist die Basis verdorben und
 der Mixer muss in den **Mülleimer** gezogen werden. Falsche Bowls und Becher kommen ebenfalls in den Müll.
 
-**Smoothies:** Ab Level 7 bestellen manche Kunden zusätzlich einen Smoothie. Zieh eine passende Frucht
+**Smoothies:** Ab Level 7 bestellen manche Gäste zusätzlich einen Smoothie. Zieh eine passende Frucht
 (Banane, Erdbeere, Blaubeere, Mango, Kiwi) in die Smoothie-Maschine, warte kurz und zieh den fertigen
-Becher auf den Kunden.
+Becher auf den Gast.
 
-**Herzen:** Jeder Kunde hat eine Geduldsanzeige. Läuft sie ab, geht er ohne zu bezahlen und du verlierst
-ein **Herz**. Bei 0 Herzen ist das Level verloren.
+**Herzen:** Jeder Gast hat eine Geduldsanzeige. Läuft sie ab, geht er ohne zu bezahlen und du verlierst
+ein **Herz**. Bei 0 Herzen ist das Level verloren. Ab Level 12 (vier Plätze) hast du vier statt drei Herzen.
 
 **Sterne:** Jedes der 20 Kampagnen-Level hat ein Zeitlimit und drei Geldziele. Erreichst du das erste Ziel,
 ist das Level geschafft (1 Stern), für 2 und 3 Sterne brauchst du mehr. Bei Ladenschluss kommen keine
-neuen Kunden mehr – wer schon wartet, wird noch bedient. Verdiente Münzen behältst du auch bei einer Niederlage.
+neuen Gäste mehr – wer schon wartet, wird noch bedient. Verdiente Münzen behältst du auch bei einer Niederlage.
 
 **Laden:** Mit deinen Münzen kaufst du im Shop neue Zutaten (am Anfang hast du nur Açaí, Banane, Granola
 und Honig – insgesamt gibt es 16), bessere Qualität (mehr Münzen pro Zutat), Küchen-Upgrades
 (schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Doppel-Smoothie) und Deko,
-die Kunden geduldiger macht.
+die Gäste geduldiger macht.
 
 **Endlos-Modus:** Nach Level 10 wird der Endlos-Modus freigeschaltet: kein Zeitlimit, alle 30 Sekunden
-wird es schwerer (mehr Plätze, mehr Kunden, größere Bestellungen). Gespielt wird, bis alle Herzen weg sind –
-dein Highscore wird gespeichert.
+wird es schwerer (mehr Plätze, mehr Gäste, größere Bestellungen). Gespielt wird, bis alle Herzen weg sind
+oder du im Pausenmenü die Schicht beendest – deine Münzen und dein Highscore werden gespeichert.
 
 Fortschritt, Sprache und Ton-Einstellungen werden im Browser gespeichert (`localStorage`).
 
@@ -75,14 +75,16 @@ Ohne Server spielen: `npm run build` ausführen und danach **`dist/acai-fever.ht
 | Befehl | Was passiert |
 |---|---|
 | `npm start` | Statischer Server (`tools/serve.mjs`) auf Port 8080, ohne Caching. Anderer Port: `node tools/serve.mjs 3000` |
-| `npm test` | Unit-Tests mit `node --test` (Engine, Bestellungen, Daten, Speicherstand, Übersetzungen, Audio, Balancing); `node --test tests/` geht auch |
+| `npm test` | Unit-Tests mit `node --test` (Engine, Bestellungen, Daten, Speicherstand, Übersetzungen, Audio, Grafik, Balancing); `node --test tests/` geht auch |
 | `npm run build` | Bündelt alles mit esbuild zu `dist/acai-fever.html` (eigenständig, läuft per `file://`) und `dist/artifact.html` (gleicher Inhalt ohne `<html>/<head>/<body>`-Hülle, zum Veröffentlichen als Claude-Artifact) |
 | `npm run e2e` | Führt alle Playwright-Skripte `tests/e2e/*.e2e.mjs` nacheinander aus (Chromium, headless, Server auf Port 8090 bzw. `E2E_PORT`). Filter: `npm run e2e -- playthrough` |
 
 `tools/build.mjs` versteht außerdem `--entry <datei>`, `--outdir <ordner>` und `--root <ordner>`.
 E2E-Skripte legen Screenshots in `$E2E_OUT_DIR` ab (Standard: Temp-Ordner), nie im Repository.
 `playthrough.e2e.mjs` spielt Level 1 komplett mit echten Maus-Drags durch (inkl. Tutorial, Shop-Kauf, Level 2),
-dann mit Touch auf 1024×768, testet den Endlos-Modus und die englische Oberfläche. `build.e2e.mjs` baut das
+dann mit Touch auf 1024×768, testet den Endlos-Modus und die englische Oberfläche, prüft, dass ein
+Zwei-Finger-Pinch im Rand um die Bühne die Seite nicht zoomt, und dass zwei offene Tabs sich den Spielstand
+nicht gegenseitig überschreiben. `build.e2e.mjs` baut das
 Spiel und startet es per `file://`. Für eine Sichtprüfung erzeugt `node tools/shots.mjs <ordner>` Screenshots
 aller Bildschirme in mehreren Größen.
 
@@ -92,7 +94,7 @@ aller Bildschirme in mehreren Größen.
 index.html            Seite: lädt css/*.css und js/main.js (type=module)
 css/base.css          Farb-Tokens, Schriften, Buttons, Panels, Stage-Skalierung
 css/screens.css       Titel, Karte, Shop, Einstellungen, Level-Start, Ergebnis
-css/game.css          Spielbildschirm (HUD, Kunden, Stationen, Zutaten, Drag-Ghost, Tutorial)
+css/game.css          Spielbildschirm (HUD, Gäste, Stationen, Zutaten, Drag-Ghost, Tutorial)
 js/main.js            Start, Speicherstand laden, Sprache, Bildschirm-Router
 js/stage.js           feste 1280×800-Bühne, skaliert auf den Bildschirm
 js/i18n.js            Übersetzungen (Deutsch/Englisch)
@@ -131,7 +133,8 @@ go into the trash. Smoothies: drag a fruit into the smoothie machine, then the c
 A customer who runs out of patience leaves and costs you a **heart** – 0 hearts loses the level.
 20 campaign levels with 1–3 **stars** (money goals); coins are kept even when you lose and buy new ingredients
 (4 at start, 16 total), quality, kitchen upgrades and decor in the **shop**. **Endless mode** unlocks after
-level 10 and gets harder every 30 seconds; your best score is saved.
+level 10 and gets harder every 30 seconds; end the shift from the pause menu at any time – coins and your best
+score are saved.
 
 **Run locally** (Node.js 22+):
 

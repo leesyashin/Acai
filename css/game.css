@@ -74,8 +74,10 @@
 
 .screen-game .g-cust.drop-ok .g-figure { filter: drop-shadow(0 0 5px var(--glow-ok)) drop-shadow(0 0 12px var(--glow-ok)); }
 .screen-game .g-cust.drop-ok .g-bubble { box-shadow: 0 0 0 5px var(--glow-ok), 0 0 22px 6px var(--glow-ok); }
-.screen-game .g-cust.drop-hover .g-figure { scale: 1.06; }
-.screen-game .g-cust.drop-hover .g-bubble { box-shadow: 0 0 0 6px var(--mango), 0 0 30px 10px var(--glow-ok); }
+.screen-game .g-cust.drop-ok.drop-hover .g-figure { scale: 1.06; }
+.screen-game .g-cust.drop-ok.drop-hover .g-bubble { box-shadow: 0 0 0 6px var(--mango), 0 0 30px 10px var(--glow-ok); }
+/* hovering a guest who will refuse it (cup still mixing, nothing ordered): muted red, no grow */
+.screen-game .g-cust.drop-bad .g-bubble { box-shadow: 0 0 0 4px var(--glow-bad); }
 
 /* order bubble */
 .screen-game .g-bubble {
@@ -118,6 +120,22 @@
 .screen-game .g-order-cup {
   padding-left: 6px;
   border-left: 3px dotted rgba(42, 18, 54, 0.25);
+}
+.screen-game .g-cup-wrap { position: relative; display: block; }
+/* which fruit: the same icon the bin shows, on the cup's lower right (inside the bubble padding) */
+.screen-game .g-cup-fruit {
+  position: absolute;
+  right: -6px;
+  bottom: -3px;
+  width: 26px;
+  height: 26px;
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  background: var(--white);
+  border: 2.5px solid var(--ink);
+  border-radius: 50%;
+  pointer-events: none;
 }
 .screen-game .g-check {
   position: absolute;
@@ -455,6 +473,27 @@
 }
 .screen-game .g-board::before { left: 18px; }
 .screen-game .g-board::after { right: 18px; }
+/* layer name on the board front ("2 · Früchte & Crunch"), in the layer colour like the number badges.
+   z-index 1 (not more): the next shelf's row still paints over it, so its badges stay visible */
+.screen-game .g-shelf-label {
+  position: absolute;
+  left: 50%;
+  top: 99px;
+  transform: translateX(-50%);
+  z-index: 1;
+  padding: 1px 10px 0;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  color: var(--white);
+  font-family: var(--font-display);
+  font-size: 13px;
+  line-height: 1.15;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.screen-game .g-shelf-label-mid { background: var(--l-mid); }
+.screen-game .g-shelf-label-top { background: var(--l-top); }
 .screen-game .g-bin {
   position: relative;
   width: 86px;
@@ -472,6 +511,7 @@
 .screen-game .g-bin .g-art { width: 56px; height: 56px; margin-bottom: 4px; }
 .screen-game .g-bin > .g-lnum { position: absolute; left: -6px; top: -6px; width: 20px; height: 20px; font-size: 12px; }
 .screen-game .g-quality { position: absolute; right: 4px; top: 4px; display: flex; }
+.screen-game .g-pack .g-quality { top: 3px; z-index: 1; }
 .screen-game .g-new {
   position: absolute;
   right: -10px;
@@ -555,8 +595,9 @@
 
 /* ------------------------------------------------------------ drag & drop feedback (js/drag.js) */
 .screen-game [data-dnd-source] { cursor: grab; }
-#stage.is-dragging .screen-game,
-#stage.is-dragging .screen-game * { cursor: grabbing; }
+/* Only the source (it holds pointer capture, so the mouse shows its cursor). Never put cursor on
+   .screen-game or a "*" rule here: toggling is-dragging would restyle the whole screen per drag. */
+#stage.is-dragging .screen-game .drag-source { cursor: grabbing; }
 .screen-game .drag-source { opacity: 0.5; }
 .screen-game .ghost-layer { position: absolute; inset: 0; pointer-events: none; z-index: 60; }
 .screen-game .drag-ghost-body svg { display: block; }
@@ -568,14 +609,18 @@
   background-color: rgba(255, 230, 90, 0.3);
   box-shadow: 0 0 0 5px var(--glow-ok), 0 0 26px 6px var(--glow-ok);
 }
-.screen-game .g-blender.drop-hover,
-.screen-game .g-bowl.drop-hover,
-.screen-game .g-slot.drop-hover,
-.screen-game .g-trash.drop-hover {
+.screen-game .g-blender.drop-ok.drop-hover,
+.screen-game .g-bowl.drop-ok.drop-hover,
+.screen-game .g-slot.drop-ok.drop-hover,
+.screen-game .g-trash.drop-ok.drop-hover {
   background-color: rgba(255, 230, 90, 0.5);
   box-shadow: 0 0 0 7px var(--mango), 0 0 36px 12px var(--glow-ok);
 }
-.screen-game .drop-hover > .g-art { scale: 1.06; }
+.screen-game .drop-ok.drop-hover > .g-art { scale: 1.06; }
+/* hovering a station that will reject the drop (it still explains why): muted red, no grow */
+.screen-game .g-blender.drop-bad,
+.screen-game .g-bowl.drop-bad,
+.screen-game .g-slot.drop-bad { box-shadow: 0 0 0 4px var(--glow-bad); }
 
 .screen-game .is-reject { animation: g-shake 0.4s ease-in-out; }
 .screen-game .g-blender.is-reject,
@@ -645,6 +690,7 @@
 .screen-game .g-heart { display: block; width: 30px; height: 30px; }
 .screen-game .g-heart.is-breaking { animation: g-heart-break 0.6s ease-out; }
 .screen-game .g-money { margin-left: auto; padding: 0 18px 0 6px; gap: 8px; }
+.screen-game[data-mode="campaign"] .g-money { height: 56px; }
 .screen-game .g-money.is-bump { animation: g-bump 0.25s ease-out; }
 .screen-game .g-money-num { min-width: 52px; font-size: 28px; font-weight: 400; text-align: right; }
 .screen-game .g-goalbar {
@@ -656,6 +702,8 @@
   border-radius: 999px;
   background: #f1e2ca;
 }
+/* campaign: lift the bar (and its marks) so the goal amounts below fit inside the pill */
+.screen-game[data-mode="campaign"] .g-goalbar { translate: 0 -6px; }
 .screen-game .g-goalfill {
   position: absolute;
   inset: 0;
@@ -680,7 +728,9 @@
   translate: -50% 0;
   font-family: var(--font-ui);
   font-weight: 900;
-  font-size: 11px;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
   color: var(--ink-soft);
 }
 .screen-game .g-goalmark.is-lit small { color: var(--ink); }
@@ -706,6 +756,7 @@
 .screen-game .g-fx { position: absolute; inset: 0; z-index: 40; pointer-events: none; }
 .screen-game .g-toast {
   translate: -50% -100%;
+  width: max-content;
   max-width: 420px;
   white-space: normal;
   text-align: center;
@@ -737,27 +788,31 @@
 .screen-game .g-float.is-heart { animation: g-heart-float 1.3s ease-out forwards; }
 .screen-game .g-flycoin { position: absolute; width: 30px; height: 30px; will-change: transform; }
 
-/* banner (non-blocking) */
+/* banner (non-blocking) – sits on the counter strip so customers' faces (y≈170-290) and bubbles stay visible */
 .screen-game .g-banner {
   position: absolute;
   left: 0;
   right: 0;
-  top: 206px;
+  top: 291px;
   display: flex;
   justify-content: center;
   z-index: 35;
   pointer-events: none;
 }
 .screen-game .g-banner-card {
-  max-width: 660px;
-  padding: 12px 30px 14px;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: 1060px;
+  padding: 6px 26px 7px;
+  text-align: left;
   animation: g-banner-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 .screen-game .g-banner-card.is-out { animation: g-banner-out 0.4s ease-in forwards; }
 .screen-game .g-banner-title {
+  flex: none;
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: 34px;
   line-height: 1.05;
   color: var(--pitaya);
   -webkit-text-stroke: 2px var(--ink);
@@ -766,7 +821,7 @@
 }
 .screen-game .g-banner-card.is-closing .g-banner-title { color: var(--mango); }
 .screen-game .g-banner-card.is-stage .g-banner-title { color: var(--lagoon); }
-.screen-game .g-banner-text { margin-top: 4px; font-size: 21px; line-height: 1.25; text-wrap: balance; }
+.screen-game .g-banner-text { margin-top: 0; font-size: 19px; line-height: 1.2; text-wrap: balance; }
 
 /* ------------------------------------------------------------ tutorial */
 .screen-game .g-tut { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
@@ -779,9 +834,9 @@
   position: absolute;
   translate: -50% -50%;
   box-sizing: border-box;
-  border: 5px solid var(--mango);
-  border-radius: 26px;
-  box-shadow: 0 0 0 3px var(--ink), 0 0 26px 8px var(--glow-ok);
+  border: 4px solid var(--mango);
+  border-radius: 19px;
+  box-shadow: 0 0 16px 6px var(--glow-ok);
   animation: g-ring 1s ease-in-out infinite;
 }
 .screen-game .g-tut-point {
@@ -832,6 +887,8 @@
 .screen-game .g-pause-title { margin: 0; font-size: 60px; font-weight: 400; color: var(--mango); }
 .screen-game .g-pause-btns { display: flex; flex-direction: column; gap: 14px; width: 100%; }
 .screen-game .g-pause-btns .btn { width: 100%; }
+.screen-game .g-pause-note { margin: -4px 0 0; font-size: 17px; font-weight: 800; line-height: 1.25; text-align: center; color: var(--ink-soft); text-wrap: balance; }
+.screen-game .g-pause-note[hidden] { display: none; }
 .screen-game .g-toggles { display: flex; gap: 12px; width: 100%; }
 .screen-game .g-toggle { flex: 1; min-height: 64px; font-size: 21px; }
 .screen-game .g-toggle.is-off { background: #e3d9ea; color: var(--ink-soft); }
@@ -873,10 +930,6 @@
 .screen-game .g-stamp-stars { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
 .screen-game .g-stamp-stars span { animation: pop-in 0.4s ease-out both; }
 
-/* paused: freeze every looping animation in the scene */
-.screen-game.is-paused > :not(.g-pause),
-.screen-game.is-paused > :not(.g-pause) * { animation-play-state: paused !important; }
-
 /* ------------------------------------------------------------ keyframes */
 @keyframes g-idle { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 @keyframes g-step { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
@@ -902,11 +955,12 @@
 @keyframes g-heart-float { 0% { translate: -50% 0; scale: 0.6; opacity: 0; } 20% { scale: 1.2; opacity: 1; } 100% { translate: -50% -90px; scale: 1; opacity: 0; } }
 @keyframes g-fade-out { to { opacity: 0; } }
 @keyframes g-fade-in { from { opacity: 0; } }
-@keyframes g-banner-in { from { translate: 0 -40px; scale: 0.7; opacity: 0; } to { translate: 0 0; scale: 1; opacity: 1; } }
-@keyframes g-banner-out { to { translate: 0 -30px; opacity: 0; } }
+@keyframes g-banner-in { from { translate: 0 12px; scale: 0.7; opacity: 0; } to { translate: 0 0; scale: 1; opacity: 1; } }
+@keyframes g-banner-out { to { translate: 0 10px; opacity: 0; } }
 @keyframes g-arrow-bob { 0%, 100% { translate: 0 0; } 50% { translate: 0 -6px; } }
 @keyframes g-dash { to { stroke-dashoffset: -30; } }
-@keyframes g-ring { 0%, 100% { scale: 1; opacity: 1; } 50% { scale: 1.06; opacity: 0.75; } }
+/* the tutorial ring pulses in place (no scale: it must not grow over the neighbouring bins) */
+@keyframes g-ring { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 @keyframes g-point { 0%, 100% { translate: -50% -100%; } 50% { translate: -50% calc(-100% - 14px); } }
 @keyframes g-stamp-in { from { scale: 2.4; opacity: 0; } to { scale: 1; opacity: 1; } }
 

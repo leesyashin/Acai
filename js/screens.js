@@ -2,7 +2,7 @@
 // Each screen: render(container, params, ctx) → cleanup(). ctx = { go, audio, rerender? }.
 // All markup is built from strings; user-visible text goes through t().
 
-import { registerStrings, t, getLang, setLang } from './i18n.js';
+import { registerStrings, t, getLang, setLang, formatNumber } from './i18n.js';
 import {
   LAYERS, LEVELS, UPGRADES, UPG, ENDLESS_UNLOCK_LEVEL, SMOOTHIE_LEVEL,
   getLevel, ingName, ingredientValue, ingredientsByLayer, qualityUpgradeCost, nextUpgradeCost, getKitchenStats,
@@ -51,17 +51,17 @@ registerStrings({
     'map.toShop': 'Zum Shop',
     'map.new': 'Neu',
     'intro.basics.title': 'So geht’s',
-    'intro.basics.text': 'Zieh die Açaí-Packung in den Mixer. Ist die Basis fertig, zieh den Mixer auf eine Bowl, leg die bestellten Zutaten darauf und bring die Bowl zum Kunden.',
+    'intro.basics.text': 'Zieh die Açaí-Packung in den Mixer. Ist die Basis fertig, zieh den Mixer auf eine Bowl, leg die bestellten Zutaten darauf und bring die Bowl zum Gast.',
     'intro.overflow.title': 'Achtung, Mixer!',
     'intro.overflow.text': 'Ab jetzt wartet ein fertiger Mixer nicht ewig: Bleibt er zu lange stehen, läuft er über und die Basis verdirbt. Verdorbenes kommt in den Müll.',
     'intro.moreSeats.title': 'Mehr Gäste',
-    'intro.moreSeats.text': 'Dein Laden hat jetzt 3 Plätze. Behalte die Geduld aller Kunden im Blick!',
+    'intro.moreSeats.text': 'Dein Laden hat jetzt 3 Plätze. Behalte die Geduld aller Gäste im Blick!',
     'intro.smoothie.title': 'Smoothies!',
-    'intro.smoothie.text': 'Neu: die Smoothie-Maschine! Zieh eine Frucht hinein, warte kurz und gib den fertigen Becher dem Kunden.',
+    'intro.smoothie.text': 'Neu: die Smoothie-Maschine! Zieh eine Frucht hinein, warte kurz und gib den fertigen Becher dem Gast.',
     'intro.endless.title': 'Endlos-Modus',
     'intro.endless.text': 'Alle 30 Sekunden wird es schwerer. Spiel, bis alle Herzen weg sind, und knack deinen Rekord!',
     'intro.fourSeats.title': 'Volles Haus',
-    'intro.fourSeats.text': 'Jetzt gibt es 4 Plätze. Mehr Bowl-Plätze und ein zweiter Mixer aus dem Shop helfen dir!',
+    'intro.fourSeats.text': 'Jetzt gibt es 4 Plätze – und dafür 4 Herzen. Mehr Bowl-Plätze und ein zweiter Mixer aus dem Shop helfen dir!',
     'shop.title': 'Shop',
     'shop.tab.ingredients': 'Zutaten',
     'shop.tab.kitchen': 'Küche',
@@ -89,20 +89,20 @@ registerStrings({
     'shop.stat.blenders': 'Mixer',
     'shop.stat.bowlSlots': 'Bowl-Plätze',
     'shop.stat.smoothieSlots': 'Smoothie-Plätze',
-    'shop.stat.patience': 'Kundengeduld',
+    'shop.stat.patience': 'Geduld der Gäste',
     'shop.seconds': '{n} s',
     'shop.percent': '+{n} %',
     'shop.kitchenNow': 'Deine Küche',
-    'shop.decorNow': 'Deko macht Kunden geduldiger',
+    'shop.decorNow': 'Deko macht Gäste geduldiger',
     'settings.title': 'Einstellungen',
     'settings.language': 'Sprache',
     'settings.music': 'Musik',
-    'settings.sfx': 'Soundeffekte',
+    'settings.sfx': 'Sounds',
     'settings.on': 'An',
     'settings.off': 'Aus',
     'settings.stats': 'Statistik',
     'settings.statPlayed': 'Gespielte Runden',
-    'settings.statServed': 'Bediente Kunden',
+    'settings.statServed': 'Bediente Gäste',
     'settings.statEarned': 'Verdiente Münzen',
     'settings.statStars': 'Sterne',
     'settings.statBest': 'Endlos-Rekord',
@@ -118,7 +118,7 @@ registerStrings({
     'results.won': 'Level {n} geschafft!',
     'results.lost': 'Level {n} verloren',
     'results.endless': 'Spiel vorbei!',
-    'results.reasonHearts': 'Keine Herzen mehr – zu viele Kunden sind gegangen.',
+    'results.reasonHearts': 'Keine Herzen mehr – zu viele Gäste sind gegangen.',
     'results.reasonGoal': 'Ziel verfehlt: Du brauchst mindestens {n} Münzen.',
     'results.nextStar': 'Nächster Stern ab {n} Münzen.',
     'results.perfect': 'Perfekt – alle drei Sterne!',
@@ -178,14 +178,14 @@ registerStrings({
     'intro.basics.text': 'Drag the açaí pack into the blender. When the base is ready, drag the blender onto a bowl, add the ordered ingredients and hand the bowl to the customer.',
     'intro.overflow.title': 'Watch the blender!',
     'intro.overflow.text': 'From now on a ready blender won’t wait forever: leave it too long and it overflows and the base spoils. Spoiled stuff goes in the trash.',
-    'intro.moreSeats.title': 'More guests',
+    'intro.moreSeats.title': 'More customers',
     'intro.moreSeats.text': 'Your shop now has 3 seats. Keep an eye on everyone’s patience!',
     'intro.smoothie.title': 'Smoothies!',
     'intro.smoothie.text': 'New: the smoothie machine! Drag a fruit into it, wait a moment and hand the cup to the customer.',
     'intro.endless.title': 'Endless mode',
     'intro.endless.text': 'It gets harder every 30 seconds. Play until your hearts run out and beat your best score!',
     'intro.fourSeats.title': 'Full house',
-    'intro.fourSeats.text': 'Now there are 4 seats. More bowl spots and a second blender from the shop will help!',
+    'intro.fourSeats.text': 'Now there are 4 seats – and 4 hearts. More bowl spots and a second blender from the shop will help!',
     'shop.title': 'Shop',
     'shop.tab.ingredients': 'Ingredients',
     'shop.tab.kitchen': 'Kitchen',
@@ -221,7 +221,7 @@ registerStrings({
     'settings.title': 'Settings',
     'settings.language': 'Language',
     'settings.music': 'Music',
-    'settings.sfx': 'Sound effects',
+    'settings.sfx': 'Sounds',
     'settings.on': 'On',
     'settings.off': 'Off',
     'settings.stats': 'Statistics',
@@ -276,14 +276,7 @@ const STAGE_H = 800;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-const formatters = new Map();
-function numFmt(n, maxFrac = 1) {
-  const key = `${getLang()}|${maxFrac}`;
-  if (!formatters.has(key)) {
-    formatters.set(key, new Intl.NumberFormat(getLang() === 'de' ? 'de-DE' : 'en-US', { maximumFractionDigits: maxFrac }));
-  }
-  return formatters.get(key).format(n);
-}
+const numFmt = (n, maxFrac = 1) => formatNumber(n, maxFrac);
 // Wallet amounts are shown floored so "can I afford it?" always matches the number on screen.
 const coinsText = (n) => numFmt(Math.floor((Number(n) || 0) + 1e-6), 0);
 const timeText = (sec) => `${Math.floor(sec / 60)}:${String(Math.round(sec % 60)).padStart(2, '0')}`;
@@ -1053,10 +1046,16 @@ function upgradesTab(cat) {
     <div class="upg-grid upg-grid-${cat}">${list.map(upgradeCard).join('')}</div>`;
 }
 
+// A purchase redraws its card in place, so the next price button of the same card (for a new
+// ingredient: its quality upgrade) appears right under the finger. For this long after a
+// purchase the card ignores further clicks; the button shows it (.is-bought .sc-price, 0.5 s).
+const BUY_COOLDOWN_MS = 500;
+
 const shop = {
   render(container, params = {}, ctx = {}) {
     const scope = createScope();
     let tab = SHOP_TABS.includes(params.tab) ? params.tab : 'ingredients';
+    let lastBuy = { id: null, at: -Infinity };
     container.innerHTML = `
       <div class="shop-awning" aria-hidden="true">${awningSVG()}</div>
       ${header({ title: t('shop.title'), right: coinsPill() })}
@@ -1086,8 +1085,12 @@ const shop = {
       });
     };
 
-    const purchase = (btn) => {
+    const purchase = (btn, e) => {
       const { buy: kind, id } = btn.dataset;
+      const now = performance.now();
+      // The second click of a double tap / double click (detail ≥ 2) or a quick second tap lands
+      // on the redrawn button of the card just bought: swallow it silently (no reject either).
+      if (id === lastBuy.id && ((e?.detail ?? 0) > 1 || now - lastBuy.at < BUY_COOLDOWN_MS)) return;
       const card = btn.closest('.shop-card');
       const wasOwned = kind === 'ing' && isOwned(id);
       const res = kind === 'ing' ? (wasOwned ? upgradeIngredient(id) : buyIngredient(id)) : buyUpgrade(id);
@@ -1100,6 +1103,7 @@ const shop = {
         showToast(container, scope, msg, { anchor: btn });
         return;
       }
+      lastBuy = { id, at: now };
       sfx(ctx, 'purchase'); // the save listener below has already redrawn the cards
       const fresh = body.querySelector(`[data-card="${id}"]`);
       if (fresh) {
@@ -1124,6 +1128,11 @@ const shop = {
         draw();
       },
       'data-buy': purchase,
+    });
+    // Holding Enter repeats the click on the focused price button (focus stays on the redrawn
+    // card), which would buy level after level – only the first key press counts.
+    scope.listen(body, 'keydown', (e) => {
+      if (e.repeat && e.key === 'Enter' && e.target.closest?.('[data-buy]')) e.preventDefault();
     });
     // Arrow keys move between tabs (WAI-ARIA tabs pattern).
     scope.listen(container.querySelector('.shop-tabs'), 'keydown', (e) => {

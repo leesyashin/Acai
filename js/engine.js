@@ -20,7 +20,7 @@ registerStrings({
   en: {
     'reason.noCustomer': 'This customer has already left.',
     'reason.notPlaying': 'Not possible right now.',
-    'reason.invalid': 'That does not go here.',
+    'reason.invalid': 'That doesn’t go here.',
   },
 });
 
@@ -330,13 +330,25 @@ function resetBowl(game, bowlIdx) {
 
 // ------------------------------------------------------------------ blender actions
 
-export function loadBlender(game, blenderIdx, baseId) {
-  if (!canAct(game)) return fail('notPlaying');
+// The *Error(…) checks are pure: they return the reason the matching action would reject with
+// right now, or null. Every action runs its check first; the view uses them to decide which drop
+// targets glow (docs/DESIGN.md §4.3 valid()).
+export function loadBlenderError(game, blenderIdx, baseId) {
+  if (!canAct(game)) return 'notPlaying';
   const b = game.blenders[blenderIdx];
-  if (!b) return fail('invalid');
-  if (ING[baseId]?.layer !== 'base') return fail('wrongLayer');
-  if (!game.owned.includes(baseId)) return fail('notOwned');
-  if (b.state !== 'empty') return fail('blenderBusy');
+  if (!b) return 'invalid';
+  if (ING[baseId]?.layer !== 'base') return 'wrongLayer';
+  if (!game.owned.includes(baseId)) return 'notOwned';
+  // A spoiled blender never frees itself – point to the trash instead of "busy, wait".
+  if (b.state === 'ruined') return 'blenderRuined';
+  if (b.state !== 'empty') return 'blenderBusy';
+  return null;
+}
+
+export function loadBlender(game, blenderIdx, baseId) {
+  const err = loadBlenderError(game, blenderIdx, baseId);
+  if (err) return fail(err);
+  const b = game.blenders[blenderIdx];
   setTimer(b, 'blending', game.kitchen.blendTime);
   b.base = baseId;
   b.portions = 0;
@@ -345,14 +357,22 @@ export function loadBlender(game, blenderIdx, baseId) {
   return success();
 }
 
-export function pourBlender(game, blenderIdx, bowlIdx) {
-  if (!canAct(game)) return fail('notPlaying');
+export function pourError(game, blenderIdx, bowlIdx) {
+  if (!canAct(game)) return 'notPlaying';
   const b = game.blenders[blenderIdx];
   const bowl = game.bowls[bowlIdx];
-  if (!b || !bowl) return fail('invalid');
-  if (b.state === 'ruined') return fail('blenderRuined');
-  if (b.state !== 'ready' && b.state !== 'overflowing') return fail('blenderNotReady');
-  if (bowl.base) return fail('bowlHasBase');
+  if (!b || !bowl) return 'invalid';
+  if (b.state === 'ruined') return 'blenderRuined';
+  if (b.state !== 'ready' && b.state !== 'overflowing') return 'blenderNotReady';
+  if (bowl.base) return 'bowlHasBase';
+  return null;
+}
+
+export function pourBlender(game, blenderIdx, bowlIdx) {
+  const err = pourError(game, blenderIdx, bowlIdx);
+  if (err) return fail(err);
+  const b = game.blenders[blenderIdx];
+  const bowl = game.bowls[bowlIdx];
   bowl.base = b.base;
   b.portions--;
   emit(game, 'basePoured', { bowlIdx, blenderIdx });
@@ -382,17 +402,27 @@ export function cleanBlender(game, blenderIdx) {
 
 // ------------------------------------------------------------------ bowl actions
 
-export function addIngredient(game, bowlIdx, ingId) {
-  if (!canAct(game)) return fail('notPlaying');
+export function addIngredientError(game, bowlIdx, ingId) {
+  if (!canAct(game)) return 'notPlaying';
   const bowl = game.bowls[bowlIdx];
-  if (!bowl) return fail('invalid');
+  if (!bowl) return 'invalid';
   const ing = ING[ingId];
-  if (!ing || !game.owned.includes(ingId)) return fail('notOwned');
-  if (ing.layer === 'base') return fail('wrongLayer');
-  if (!bowl.base) return fail('needBase');
-  if (bowl.mid.includes(ingId) || bowl.top.includes(ingId)) return fail('alreadyAdded');
-  if (ing.layer === 'mid' && bowl.top.length) return fail('toppingsOnTop');
-  if (bowl.mid.length + bowl.top.length >= MAX_BOWL_ITEMS) return fail('bowlFull');
+  if (!ing || !game.owned.includes(ingId)) return 'notOwned';
+  if (ing.layer === 'base') return 'wrongLayer';
+  if (!bowl.base) return 'needBase';
+  if (bowl.mid.includes(ingId) || bowl.top.includes(ingId)) return 'alreadyAdded';
+  if (ing.layer === 'mid' && bowl.top.length) return 'toppingsOnTop';
+  // Every order has at least one fruit/crunch, so a topping on a bare base could never be served.
+  if (ing.layer === 'top' && !bowl.mid.length) return 'toppingsOnTop';
+  if (bowl.mid.length + bowl.top.length >= MAX_BOWL_ITEMS) return 'bowlFull';
+  return null;
+}
+
+export function addIngredient(game, bowlIdx, ingId) {
+  const err = addIngredientError(game, bowlIdx, ingId);
+  if (err) return fail(err);
+  const bowl = game.bowls[bowlIdx];
+  const ing = ING[ingId];
   bowl[ing.layer].push(ingId);
   emit(game, 'ingredientAdded', { bowlIdx, id: ingId });
   return success();
@@ -411,13 +441,20 @@ export function trashBowl(game, bowlIdx) {
 
 // ------------------------------------------------------------------ smoothie actions
 
-export function loadSmoothie(game, slotIdx, fruitId) {
-  if (!canAct(game)) return fail('notPlaying');
+export function loadSmoothieError(game, slotIdx, fruitId) {
+  if (!canAct(game)) return 'notPlaying';
   const slot = game.smoothie?.slots[slotIdx];
-  if (!slot) return fail('invalid');
-  if (!isSmoothieFruit(fruitId)) return fail('notSmoothieFruit');
-  if (!game.owned.includes(fruitId)) return fail('notOwned');
-  if (slot.state !== 'empty') return fail('slotBusy');
+  if (!slot) return 'invalid';
+  if (!isSmoothieFruit(fruitId)) return 'notSmoothieFruit';
+  if (!game.owned.includes(fruitId)) return 'notOwned';
+  if (slot.state !== 'empty') return 'slotBusy';
+  return null;
+}
+
+export function loadSmoothie(game, slotIdx, fruitId) {
+  const err = loadSmoothieError(game, slotIdx, fruitId);
+  if (err) return fail(err);
+  const slot = game.smoothie.slots[slotIdx];
   setTimer(slot, 'mixing', game.kitchen.smoothieTime);
   slot.fruit = fruitId;
   emit(game, 'smoothieStart', { idx: slotIdx });
@@ -442,32 +479,46 @@ function servableCustomer(game, customerId) {
   return c && ACTIVE.has(c.state) ? c : null;
 }
 
-export function serveBowl(game, bowlIdx, customerId) {
-  if (!canAct(game)) return fail('notPlaying');
+export function serveBowlError(game, bowlIdx, customerId) {
+  if (!canAct(game)) return 'notPlaying';
   const bowl = game.bowls[bowlIdx];
-  if (!bowl) return fail('invalid');
+  if (!bowl) return 'invalid';
   const c = servableCustomer(game, customerId);
-  if (!c) return fail('noCustomer');
-  if (!c.order.bowl) return fail('noBowlWanted');
-  if (c.delivered.bowl) return fail('alreadyDelivered');
-  if (!bowl.base) return fail('emptyBowl');
-  if (!bowlMatchesOrder(bowl, c.order.bowl)) return fail('wrongOrder');
+  if (!c) return 'noCustomer';
+  if (!c.order.bowl) return 'noBowlWanted';
+  if (c.delivered.bowl) return 'alreadyDelivered';
+  if (!bowl.base) return 'emptyBowl';
+  if (!bowlMatchesOrder(bowl, c.order.bowl)) return 'wrongOrder';
+  return null;
+}
+
+export function serveBowl(game, bowlIdx, customerId) {
+  const err = serveBowlError(game, bowlIdx, customerId);
+  if (err) return fail(err);
+  const c = findCustomer(game, customerId);
   c.delivered.bowl = true;
   resetBowl(game, bowlIdx);
   delivered(game, c);
   return success();
 }
 
-export function serveSmoothie(game, slotIdx, customerId) {
-  if (!canAct(game)) return fail('notPlaying');
+export function serveSmoothieError(game, slotIdx, customerId) {
+  if (!canAct(game)) return 'notPlaying';
   const slot = game.smoothie?.slots[slotIdx];
-  if (!slot) return fail('invalid');
+  if (!slot) return 'invalid';
   const c = servableCustomer(game, customerId);
-  if (!c) return fail('noCustomer');
-  if (slot.state !== 'ready') return fail('notReady');
-  if (!c.order.smoothie) return fail('noSmoothieWanted');
-  if (c.delivered.smoothie) return fail('alreadyDelivered');
-  if (slot.fruit !== c.order.smoothie) return fail('wrongOrder');
+  if (!c) return 'noCustomer';
+  if (slot.state !== 'ready') return 'notReady';
+  if (!c.order.smoothie) return 'noSmoothieWanted';
+  if (c.delivered.smoothie) return 'alreadyDelivered';
+  if (slot.fruit !== c.order.smoothie) return 'wrongOrder';
+  return null;
+}
+
+export function serveSmoothie(game, slotIdx, customerId) {
+  const err = serveSmoothieError(game, slotIdx, customerId);
+  if (err) return fail(err);
+  const c = findCustomer(game, customerId);
   c.delivered.smoothie = true;
   game.smoothie.slots[slotIdx] = emptySlot();
   delivered(game, c);
@@ -506,4 +557,12 @@ export function releaseTutorialHold(game) {
   if (!game.tutorialHold) return;
   game.tutorialHold = false;
   game._sim.nextSpawn = game.time + TUTORIAL_RELEASE_DELAY;
+}
+
+// Endless only: the player ends the shift from the pause menu. Same path as running out of
+// hearts (gameOver → the view banks coins and the best score), with reason 'quit'.
+export function endRun(game) {
+  if (game.mode !== 'endless' || game.result) return false;
+  finish(game, 'lost', 'quit');
+  return true;
 }

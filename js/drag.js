@@ -1,13 +1,19 @@
 // Generic pointer-based drag & drop manager (touch, pen, mouse), stage-scale aware.
 // Contract: docs/DESIGN.md §4.3. Works purely in stage coordinates via toStage().
 //
-// Classes it sets:  root.is-dragging · source.drag-source · target.drop-ok / .drop-hover
+// Classes it sets:  root.is-dragging · source.drag-source · target.drop-ok / .drop-hover / .drop-bad
 //                   ghost wrapper .drag-ghost (+ .is-returning / .is-dropping while flying),
 //                   inner .drag-ghost-body (scale + shadow)
 // Attributes:       [data-dnd-source] / [data-dnd-target] on registered elements.
 
 const HIT_PAD = 18; // stage px added around every target rect
-const TOUCH_LIFT = 40; // stage px the ghost floats above a finger
+// Touch: the ghost centre floats TOUCH_LIFT_CSS css px (~9 mm on a tablet) above the finger, clamped to
+// TOUCH_LIFT…TOUCH_LIFT_MAX stage px – never less than on a big screen, and never so much that the trash
+// at the stage's bottom edge gets out of reach on a phone.
+const TOUCH_LIFT_CSS = 48;
+const TOUCH_LIFT = 40;
+const TOUCH_LIFT_MAX = 80;
+const SOURCE_PAD = 6; // stage px around the source: a pointer resting there never hits a target
 const TAP_SLOP = 6; // css px a tap may wander
 const TAP_MS = 300;
 const RECT_TTL = 100; // ms between target rect refreshes while dragging
@@ -85,9 +91,31 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, w: b.x - a.x, h: b.y - a.y, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
   }
 
-  function pointerPos(d, e) {
-    const p = toStage(e.clientX, e.clientY);
-    return { x: p.x, y: p.y - d.lift };
+  // Touch lift in stage px for the current stage scale. A fixed stage-px lift would shrink with the
+  // scale and hide the ghost under the fingertip on small tablets and phones.
+  function touchLift() {
+    const a = toStage(0, 0);
+    const b = toStage(100, 0);
+    const stagePerCss = (b.x - a.x) / 100;
+    if (!(stagePerCss > 0) || !Number.isFinite(stagePerCss)) return TOUCH_LIFT;
+    return Math.min(TOUCH_LIFT_MAX, Math.max(TOUCH_LIFT, TOUCH_LIFT_CSS * stagePerCss));
+  }
+
+  // Follow the pointer: d.finger is the pointer itself, d.pos the ghost centre = hit-test point.
+  function track(d, e) {
+    d.moved = Math.max(d.moved, Math.hypot(e.clientX - d.sx, e.clientY - d.sy));
+    d.finger = toStage(e.clientX, e.clientY);
+    d.pos = { x: d.finger.x, y: d.finger.y - d.lift };
+  }
+
+  // The pointer (not the lifted ghost) still rests on its source: it has not left the tap slop yet,
+  // or it is back over the source rect. Holding an item or putting it back must never drop it into a
+  // target next to the source (in the game a bowl sits 4 px above the fruit bins, within the lift).
+  function onSource(d) {
+    if (d.moved <= TAP_SLOP) return true;
+    const s = d.src;
+    const f = d.finger;
+    return f.x >= s.x1 - SOURCE_PAD && f.x <= s.x2 + SOURCE_PAD && f.y >= s.y1 - SOURCE_PAD && f.y <= s.y2 + SOURCE_PAD;
   }
 
   function refreshRects(d) {
@@ -101,6 +129,7 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
   }
 
   function hitTest(d) {
+    if (onSource(d)) return null; // no drop-hover, and a release here is a silent return
     if (now() - d.rectsAt > RECT_TTL) refreshRects(d);
     const { x, y } = d.pos;
     let best = null;
@@ -116,11 +145,20 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     return best;
   }
 
+  // valid(payload) is optional: an accepting target that is not valid can still be hit (its drop()
+  // explains the rejection) but does not glow; hovering it shows drop-bad instead.
+  function isValid(reg, payload) {
+    return reg.cfg.valid ? call(reg.cfg.valid, payload) !== false : true;
+  }
+
   function setHover(d, reg) {
     if (reg === d.hover) return;
-    d.hover?.el.classList.remove('drop-hover');
+    d.hover?.el.classList.remove('drop-hover', 'drop-bad');
     d.hover = reg;
-    reg?.el.classList.add('drop-hover');
+    if (reg) {
+      reg.el.classList.add('drop-hover');
+      reg.el.classList.toggle('drop-bad', !isValid(reg, d.payload));
+    }
   }
 
   // Where a returning ghost flies to: the source's current centre, or its last known one.
@@ -137,7 +175,7 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     const r = rectOf(el);
     const clone = el.cloneNode(true);
     clone.removeAttribute('id');
-    clone.classList.remove('drag-source', 'drop-ok', 'drop-hover');
+    clone.classList.remove('drag-source', 'drop-ok', 'drop-hover', 'drop-bad');
     Object.assign(clone.style, { width: `${r.w}px`, height: `${r.h}px`, margin: '0', boxSizing: 'border-box' });
     return clone;
   }
@@ -236,22 +274,32 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     if (reg.el === d.el) return;
     if (call(reg.cfg.accepts, d.payload)) {
       d.oks.add(reg);
-      reg.el.classList.add('drop-ok');
+      reg.el.classList.toggle('drop-ok', isValid(reg, d.payload));
     }
+  }
+
+  // Re-evaluate valid() of the hittable targets mid-drag (state can change under a still finger).
+  // classList.toggle with an unchanged state does not touch the DOM, so this is cheap per frame.
+  function refresh() {
+    const d = drag;
+    if (!d) return;
+    for (const reg of d.oks) reg.el.classList.toggle('drop-ok', isValid(reg, d.payload));
+    if (d.hover) d.hover.el.classList.toggle('drop-bad', !isValid(d.hover, d.payload));
   }
 
   function startDrag(e, reg, payload) {
     settleFlightsOf(reg.el);
-    const lift = e.pointerType === 'touch' ? TOUCH_LIFT : 0;
+    const lift = e.pointerType === 'touch' ? touchLift() : 0;
     const d = {
       id: e.pointerId, pointerType: e.pointerType || 'mouse', el: reg.el, cfg: reg.cfg, payload, lift,
       captureEl: reg.el,
       sx: e.clientX, sy: e.clientY, t0: now(), moved: 0,
-      pos: null, home: null, origin: { x: 0, y: 0 }, ghost: null,
+      finger: null, pos: null, src: null, home: null, origin: { x: 0, y: 0 }, ghost: null,
       oks: new Set(), rects: new Map(), rectsAt: 0, hover: null,
     };
-    d.pos = pointerPos(d, e);
-    const r = rectOf(reg.el);
+    track(d, e);
+    const r = rectOf(reg.el); // before .drag-source restyles it
+    d.src = r;
     d.home = { x: r.cx, y: r.cy };
     drag = d;
     try {
@@ -287,22 +335,22 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     }
     root?.classList.remove('is-dragging');
     setHover(d, null);
-    for (const reg of d.oks) reg.el.classList.remove('drop-ok');
+    for (const reg of d.oks) reg.el.classList.remove('drop-ok', 'drop-bad');
     d.oks.clear();
     d.rects.clear();
   }
 
+  // pos = the ghost centre (the hit-test point) in stage px at release.
   function makeResult(d, fields) {
     return {
       ok: false, reason: null, payload: d.payload, targetEl: null,
-      tap: false, cancelled: false, pointerType: d.pointerType, ...fields,
+      tap: false, cancelled: false, pointerType: d.pointerType, pos: d.pos ? { x: d.pos.x, y: d.pos.y } : null, ...fields,
     };
   }
 
   function finishDrag(d, e) {
     if (e) {
-      d.moved = Math.max(d.moved, Math.hypot(e.clientX - d.sx, e.clientY - d.sy));
-      d.pos = pointerPos(d, e);
+      track(d, e);
       placeGhost(d);
     }
     if (d.moved <= TAP_SLOP && now() - d.t0 < TAP_MS) {
@@ -325,7 +373,9 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
       result = makeResult(d, { ok, reason: res?.reason ?? null, targetEl: target.el });
       fly(d, ok ? { x: dest.cx, y: dest.cy } : home, ok ? 'drop' : 'return');
     } else {
-      result = makeResult(d, {});
+      // pos is null while the pointer still rests on the source: a hold or put-back is a plain return,
+      // the view must not explain it as a drop on a wrong station.
+      result = makeResult(d, { pos: onSource(d) ? null : { x: d.pos.x, y: d.pos.y } });
       fly(d, home, 'return');
     }
     call(d.cfg.onEnd, result);
@@ -360,8 +410,7 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
       finishDrag(d, e); // the button was released somewhere we never heard about
       return;
     }
-    d.moved = Math.max(d.moved, Math.hypot(e.clientX - d.sx, e.clientY - d.sy));
-    d.pos = pointerPos(d, e);
+    track(d, e);
     placeGhost(d);
     setHover(d, hitTest(d));
   }
@@ -469,7 +518,7 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
         drag.oks.delete(reg);
         drag.rects.delete(reg);
       }
-      el.classList.remove('drop-ok', 'drop-hover');
+      el.classList.remove('drop-ok', 'drop-hover', 'drop-bad');
       el.removeAttribute('data-dnd-target');
     };
     return reg.off;
@@ -489,5 +538,5 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     destroyed = true;
   }
 
-  return { source, target, cancel, destroy, isDragging: () => !!drag };
+  return { source, target, cancel, destroy, refresh, isDragging: () => !!drag };
 }

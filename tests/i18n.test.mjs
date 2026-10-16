@@ -2,7 +2,7 @@ import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  t, registerStrings, setLang, getLang, onLangChange, hasString, missingKeys, detectLang, LANGS,
+  t, registerStrings, setLang, getLang, onLangChange, hasString, missingKeys, detectLang, LANGS, formatNumber,
 } from '../js/i18n.js';
 import '../js/data.js';
 
@@ -19,6 +19,16 @@ describe('i18n', () => {
 
   test('every string registered by data.js exists in German and English', () => {
     assert.deepEqual(missingKeys().filter((k) => !k.includes(P)), []);
+  });
+
+  test('formatNumber() uses the locale of the current language', () => {
+    assert.equal(formatNumber(1534), '1.534');
+    assert.equal(formatNumber(2.5, 1), '2,5');
+    assert.equal(formatNumber(2.54), '3');
+    setLang('en');
+    assert.equal(formatNumber(1534), '1,534');
+    assert.equal(formatNumber(2.5, 1), '2.5');
+    assert.equal(formatNumber('x'), '0');
   });
 
   test('t() translates and interpolates {placeholders}', () => {

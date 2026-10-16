@@ -18,6 +18,9 @@ export function initStage(app, wrap, stage) {
   window.addEventListener('resize', fit);
   window.addEventListener('orientationchange', () => setTimeout(fit, 120));
   if (window.visualViewport) window.visualViewport.addEventListener('resize', fit);
+  // The page itself never zooms (touch-action: none on html/body in base.css). iOS Safari also
+  // fires its own pinch events; cancelling them covers iOS versions without touch-action support.
+  document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
   return stageEl;
 }
 

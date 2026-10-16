@@ -948,6 +948,9 @@
   box-shadow: 0 5px 0 var(--ink);
 }
 .shop-card.is-bought { animation: sc-card-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1); }
+/* Purchase cooldown (BUY_COOLDOWN_MS in js/screens.js ignores clicks on the card for 0.5 s):
+   the redrawn price button fades back in, so a second tap visibly does nothing. */
+.shop-card.is-bought .sc-price { animation: sc-price-cooldown 0.5s cubic-bezier(0.7, 0, 1, 1); }
 .shop-card .card-name {
   font-family: var(--font-ui);
   font-weight: 900;
@@ -1465,6 +1468,7 @@
 @keyframes sc-toast-out { to { opacity: 0; transform: translate(-50%, -130%); } }
 @keyframes sc-burst { 0% { transform: rotate(var(--a)) translateY(0) scale(0.5); opacity: 1; } 100% { transform: rotate(var(--a)) translateY(-96px) scale(0.9); opacity: 0; } }
 @keyframes sc-card-pop { 0% { transform: scale(1); } 35% { transform: scale(1.1) rotate(-2deg); } 100% { transform: scale(1); } }
+@keyframes sc-price-cooldown { from { opacity: 0.45; filter: saturate(0.4); } }
 @keyframes sc-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes sc-star-in { 0% { transform: scale(0) rotate(-40deg); opacity: 0; } 100% { transform: scale(1) rotate(0); opacity: 1; } }
 @keyframes sc-confetti { from { transform: translateY(0) rotate(var(--r)); } to { transform: translateY(880px) rotate(calc(var(--r) + 600deg)); } }

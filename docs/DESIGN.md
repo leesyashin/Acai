@@ -41,7 +41,8 @@ player decisions listed in §1.
 3. Player drags the **ready blender** onto an **empty bowl** → bowl gets the base (1 portion used).
 4. Player drags **fruit/crunch** bins onto the bowl (layer 2), then **toppings/sauces** (layer 3).
    - Adding anything before the base → rejected (`needBase`).
-   - Adding a fruit after a topping is on → rejected (`toppingsOnTop`).
+   - Adding a fruit after a topping is on, or a topping before any fruit/crunch → rejected (`toppingsOnTop`) –
+     every order has at least one fruit/crunch.
    - Same ingredient twice → rejected (`alreadyAdded`).
    - More than 6 items on top of the base → rejected (`bowlFull`).
 5. Player drags the **finished bowl** onto the **customer**. If it matches the order
@@ -57,7 +58,8 @@ player decisions listed in §1.
 ### Blender lifecycle
 `empty → blending (blendTime) → ready (readyHold) → overflowing (overflowTime) → ruined`
 - `ready` and `overflowing` can both be poured into bowls. `overflowing` shakes red and warns.
-- `ruined` cannot be used; drag it to the trash → `empty`.
+- `ruined` cannot be used; drag it to the trash → `empty`. When a blender spoils, the view shows a short hint at it
+  ("Spoiled! Drag the blender to the trash.") and wiggles the trash can.
 - If a level has `overflow: false` (levels 1–2) the blender stays `ready` forever.
 - Pouring the last portion → `empty`.
 
@@ -77,9 +79,12 @@ player decisions listed in §1.
 - **Campaign:** when `time ≥ duration` the shop **closes** (banner "Ladenschluss!/Closing time!"): no new
   customers. The level ends when all seats are empty. Result: `won` if `money ≥ goals[0]` and `hearts > 0`,
   else `lost`. Stars = number of `goals` reached (only when won).
+- Each campaign level starts with `level.hearts` hearts (3; 4 on the 4-seat levels 12–20).
 - **Hearts 0** at any time → immediate `lost`.
 - **Endless:** no time limit; every 30 s the stage increases (`endlessConfig(stage)` – more seats, faster
-  spawns, less patience, bigger orders). Ends when hearts hit 0. Score = coins earned; best score is saved.
+  spawns, less patience, bigger orders). Ends when hearts hit 0, or when the player ends the shift from the
+  pause menu ("Schicht beenden/End shift" or "Neu starten/Restart" once anything was earned – the run then
+  ends like a lost one, so coins and the best score are banked). Score = coins earned; best score is saved.
   Endless is unlocked after winning campaign level 10.
 
 ### Tutorial & intros
@@ -106,10 +111,10 @@ player decisions listed in §1.
 
 Smoothie flavours = smoothie-capable `mid` fruits the player owns (banana, strawberry, blueberry, mango, kiwi).
 
-Upgrades (`UPGRADES` in data.js): `blenderSpeed` (3 levels), `jug` (portions 2→3), `blender2` (2nd blender),
+Upgrades (`UPGRADES` in data.js): `blenderSpeed` (3 levels), `jug` (portions 2→3, readyHold 9→13.5 s so the bigger batch does not spoil), `blender2` (2nd blender),
 `bowlSlots` (2→3→4), `smoothieSlots` (1→2, needs level 7 reached), decor: `plants`, `jukebox`, `seating`,
 `neon` (each adds patience %, and appears visibly in the shop scene). Ingredient quality: each owned
-ingredient has 2 quality upgrades (value ×1.3, ×1.6).
+ingredient has 2 quality upgrades (value ×1.3, ×1.6, rounded up to 0.5 so every star adds coins).
 
 ---
 
@@ -134,7 +139,7 @@ js/audio.js           WebAudio synthesized SFX + music loops (no audio files)
 js/game-view.js       gameplay screen: DOM from engine state, drag wiring, HUD, pause, tutorial, FX
 js/screens.js         menu screens: title, map, shop, settings, pre-level modal, results
 tools/build.mjs       esbuild bundle → dist/acai-fever.html (standalone) + dist/artifact.html
-tests/*.test.mjs      node --test unit tests (engine, orders, save helpers, balance simulation)
+tests/*.test.mjs      node --test unit tests (engine, orders, data, save, i18n, audio, art, balance simulation)
 tests/e2e/*.e2e.mjs   Playwright scripts (drag, gameplay, screens, playthrough, build) – `npm run e2e`
 ```
 
@@ -152,8 +157,13 @@ Rules:
 ### 4.1 Stage (`js/stage.js`)
 Logical size **1280 × 800** (16:10 tablet landscape). `#stage` is scaled with `transform: scale(s)` to fit
 `#app` (letterboxed, centered). All screens render inside `#stage` and use stage pixels.
-`toStage(clientX, clientY)` converts pointer coordinates. In portrait on narrow screens `#rotate-hint`
-shows "Please rotate your device" with a "Play anyway" button.
+`toStage(clientX, clientY)` converts pointer coordinates. In portrait on phones and touch tablets (< 820 px wide,
+or < 1100 px on a coarse pointer) `#rotate-hint` shows "Please rotate your device" with a "Play anyway" button.
+When the hint appears, `main.js` dispatches `acai:rotate-hint` on `window`; a running level pauses (the game view
+listens), so nothing runs on behind the hint.
+The page never pinch-zooms or pans: `touch-action: none` on `html, body` (letterbox bands, rotate hint)
+as well as on `#stage`, plus a cancelled `gesturestart` for iOS Safari (`initStage`). A scrollable list
+added later needs its own `touch-action: pan-y`.
 
 ### 4.2 Engine (`js/engine.js`) – contract
 
@@ -181,6 +191,11 @@ serveBowl(game, bowlIdx, customerId)          → { ok, reason? }
 serveSmoothie(game, slotIdx, customerId)      → { ok, reason? }
 setPaused(game, bool)
 releaseTutorialHold(game)
+endRun(game) → boolean                        // endless only: ends the run (gameOver, reason 'quit')
+// Pure checks (no state change) – the reason the matching action would reject with right now, or null:
+loadBlenderError(game, blenderIdx, baseId), pourError(game, blenderIdx, bowlIdx),
+addIngredientError(game, bowlIdx, ingId), loadSmoothieError(game, slotIdx, fruitId),
+serveBowlError(game, bowlIdx, customerId), serveSmoothieError(game, slotIdx, customerId)
 drainEvents(game) → Event[]                   // returns and clears queued events
 bowlMatchesOrder(bowl, orderBowl) → boolean
 ```
@@ -189,7 +204,7 @@ Reasons (i18n key `reason.<code>` in game-view): `needBase`, `toppingsOnTop`, `a
 `blenderBusy`, `blenderNotReady`, `blenderRuined`, `bowlHasBase`, `notOwned`, `wrongLayer`, `wrongOrder`,
 `noSmoothieWanted`, `noBowlWanted`, `alreadyDelivered`, `slotBusy`, `notReady`, `notSmoothieFruit`, `emptyBowl`,
 plus `noCustomer` (customer gone or leaving), `notPlaying` (paused / game over) and `invalid` (bad index,
-no smoothie machine). `loadBlender` checks `wrongLayer` → `notOwned` → `blenderBusy`; `cleanBlender` returns
+no smoothie machine). `loadBlender` checks `wrongLayer` → `notOwned` → `blenderRuined` (spoiled blender) → `blenderBusy`; `cleanBlender` returns
 `blenderBusy` while blending and `blenderNotReady` when empty (a blending blender cannot be thrown away).
 
 State (read-only for the view):
@@ -205,7 +220,7 @@ game = {
   bowls:    [ { base: id|null, mid: id[], top: id[], uid } ],     // length = kitchen.bowlSlots
   smoothie: null | { slots: [ { state: 'empty'|'mixing'|'ready', fruit, t, duration } ] },
   owned, ingLevels, kitchen, events: [],
-  result: null|'won'|'lost', stars, endReason: null|'goal'|'hearts', featured   // set at game over
+  result: null|'won'|'lost', stars, endReason: null|'goal'|'hearts'|'quit', featured   // set at game over
 }
 // blenders and smoothie slots also carry progress (0–1 within the current state; for a ready
 // blender it counts toward overflow). bowl.uid changes whenever a bowl is reset.
@@ -218,10 +233,10 @@ Events (`{type, …}`): `customerArrive{customerId, seat}`, `customerPaid{custom
 `customerLost{customerId, seat}`, `partialDelivery{customerId}`, `blenderStart{idx}`, `blenderReady{idx}`,
 `blenderOverflow{idx}`, `blenderRuined{idx}`, `blenderEmpty{idx}`, `basePoured{bowlIdx, blenderIdx}`,
 `ingredientAdded{bowlIdx, id}`, `smoothieStart{idx}`, `smoothieReady{idx}`, `trash{what}`,
-`closingTime`, `stageUp{stage}` (endless), `gameOver{result: 'won'|'lost', stars, reason: 'hearts'|'goal'|null}`.
+`closingTime`, `stageUp{stage}` (endless), `gameOver{result: 'won'|'lost', stars, reason: 'hearts'|'goal'|'quit'|null}`.
 `trash` events always carry `idx` (`trash{what:'bowl'|'blender'|'smoothie', idx}`); `cleanBlender` emits
 `blenderEmpty` then `trash`. `gameOver.reason` is `null` when won, `'goal'` when lost on goal 1, `'hearts'` when
-hearts ran out (endless always ends `lost`/`'hearts'`). Once the first customer has arrived, `game.time` stops
+hearts ran out (endless always ends `lost`, with `'hearts'` or – after `endRun` – `'quit'`). Once the first customer has arrived, `game.time` stops
 while `tutorialHold` is on, so the tutorial does not eat level time (blenders keep running).
 `customer.look` is `{seed}` – the view builds the look with `lookFromSeed(seed)` from art.js.
 
@@ -230,21 +245,33 @@ while `tutorialHold` is on, so the tutorial does not eat level time (blenders ke
 const dnd = createDragManager({ root /* #stage element */, toStage, ghostLayer /* element inside stage */,
                                  onPickup?(payload), onDrop?(result), onCancel?(result) })
 dnd.source(el, { payload: () => obj|null, ghost: (payload) => HTMLElement|markup, onStart?, onEnd?, onTap? }) → unregister
-dnd.target(el, { accepts: (payload) => boolean, drop: (payload) => {ok, reason?} }) → unregister
-dnd.cancel(); dnd.destroy(); dnd.isDragging()
-// result = { ok, reason, payload, targetEl, tap, cancelled, pointerType }
+dnd.target(el, { accepts: (payload) => boolean, valid?: (payload) => boolean, drop: (payload) => {ok, reason?} }) → unregister
+dnd.cancel(); dnd.destroy(); dnd.isDragging(); dnd.refresh()
+// result = { ok, reason, payload, targetEl, tap, cancelled, pointerType, pos }   // pos = ghost centre (stage px) at release
 ```
 - A release that moved ≤ 6 CSS px within 300 ms is a **tap** (`onTap`, then `onEnd`/`onDrop` with `tap: true`).
   Order on release: source `onEnd(result)` → manager `onDrop(result)`; on cancel `onEnd({cancelled})` → `onCancel`.
-- The hit-test point is the **ghost centre** (40 stage px above the finger for touch), not the pointer.
-- Classes: root `is-dragging`, source `drag-source`, targets `drop-ok` / `drop-hover`, ghost `.drag-ghost` >
+- The hit-test point is the **ghost centre**, not the pointer. For touch the ghost centre floats 48 CSS px above the
+  finger (~9 mm on a tablet), clamped to 40–80 stage px: never less than on a big screen, never so much that the
+  trash at the stage's bottom edge gets out of reach on a phone.
+- Classes: root `is-dragging`, source `drag-source`, targets `drop-ok` / `drop-hover` / `drop-bad`, ghost `.drag-ghost` >
   `.drag-ghost-body`; registered elements get `data-dnd-source` / `data-dnd-target`.
 - Pointer Events + `setPointerCapture`; works for touch, pen, mouse. One active drag at a time (ignore other pointers).
 - Ghost follows the pointer in stage coordinates (centered under finger, slightly above on touch so it is visible).
-- While dragging, every registered target whose `accepts(payload)` is true gets class `drop-ok`; the target under the
-  pointer gets `drop-hover`. Hit test: target rect expanded by 18 stage px; nearest center wins when overlapping.
+- While dragging, every registered target whose `accepts(payload)` is true can be hit (its `drop()` runs, so a
+  rejection shows its reason); it gets class `drop-ok` only when `valid(payload)` (optional, default true) also
+  holds. The target under the pointer gets `drop-hover`, plus `drop-bad` when it is not valid. `refresh()`
+  re-evaluates `valid()` mid-drag (game-view calls it every frame). Hit test: target rect expanded by 18 stage px;
+  nearest center wins when overlapping.
 - Drop on a target → `drop(payload)`. If `{ok:false}` or no target: ghost animates back to its source and
-  `onEnd({ok:false, reason})` fires; the view shows the reason. Drop on nothing = silent return.
+  `onEnd({ok:false, reason})` fires; the view shows the reason. Drop on nothing = silent return. A release over a
+  station that does not accept the payload is a drop on nothing for the manager; the game view uses `pos` to
+  explain it (e.g. pack on a bowl → "The pack goes into the blender first!").
+- While the pointer itself (not the ghost) still rests on its source – it has not moved more than the 6 CSS px tap
+  slop, or it is over the source rect expanded by 6 stage px – nothing is hit: no `drop-hover`, and a release there
+  is a silent return (`ok:false`, `targetEl:null`, `pos:null`, not a tap). Holding a bin, a slow sloppy press, or
+  picking an item up and putting it back never drops it into the target next to it (bowls sit 4 px above the fruit
+  bins).
 - Must prevent page scroll/zoom/text selection/long-press callout during drags (`touch-action:none`,
   `user-select:none`, `-webkit-touch-callout:none`, `preventDefault` on pointerdown for sources).
 - `pointercancel`, window `blur` and `visibilitychange` cancel the drag cleanly.
@@ -305,12 +332,14 @@ y   0– 64  HUD: [pause] [Level n / Endless stage] [hearts]   [money bar with �
 y  64–330  shop scene: back wall, window, sign, decor; customers stand behind the counter at seat centers
            seat x-centers: 2 → [420, 860]; 3 → [270, 640, 1010]; 4 → [200, 493, 787, 1080]
            order bubble above/next to each customer; patience ring/bar on the bubble
-y 300–350  counter top (front edge overlaps customers' bodies)
+y 300–350  counter top (front edge overlaps customers' bodies); level/closing/stage banners (non-blocking)
+           sit on the counter strip y≈291–356 so faces and bubbles stay visible
 y 350–800  work area
   x  16–300  blenders (1–2) + base pack bins (owned bases only)
   x 316–964  bowl slots (2–4) y≈370–550 with small content chips under each bowl;
              ingredient shelf: row "Fruits & Crunch" y≈565–675, row "Toppings & Sauces" y≈685–790
-             (owned ingredients only, 84–88 px bins with icon + short name)
+             (owned ingredients only, 84–88 px bins with icon + short name); each shelf board carries its
+             layer name ("2 · Fruits & Crunch", "3 · Toppings & Sauces") like the freezer's "1 · Base"
   x 980–1264 smoothie machine (when present, slots = kitchen.smoothieSlots) + trash can bottom-right
 ```
 Interaction targets must be ≥ 64 stage px (tablet fingers). Valid drop targets glow while dragging.
@@ -335,6 +364,12 @@ Key `acaiFever.save.v1`. Shape:
   stars: { [levelId]: 0..3 }, endlessBest: 0, newIngredients: [], seenIntros: {},
   settings: { lang: 'de'|'en', music: true, sfx: true }, stats: { served, earned, played } }
 ```
+- Loading repairs every field (unknown ids dropped, levels clamped to their range as whole numbers,
+  amounts finite and ≥ 0, `newIngredients` ⊆ `owned`, only an explicit `false` mutes), so a damaged or
+  hand-edited save can never break the map, the shop or a level. Non-finite amounts never reach the wallet.
+- Several tabs share one save: before each change `save.js` adopts what another tab stored since this tab
+  last read or wrote it, and a `storage` event updates open menus (`onSaveChange`) right away. While
+  writes fail (quota, blocked storage) the in-memory state wins.
 
 ### 4.10 Build & hosting
 - Dev: `npm start` (static server on :8080) – ES modules need http(s), not `file://`.

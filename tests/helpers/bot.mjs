@@ -7,7 +7,9 @@ import {
   createGame, tick, drainEvents, loadBlender, pourBlender, addIngredient, trashBowl,
   cleanBlender, loadSmoothie, trashSmoothie, serveBowl, serveSmoothie, bowlMatchesOrder,
 } from '../../js/engine.js';
-import { getKitchenStats, getLevel, SMOOTHIE_LEVEL, START_OWNED, ING, UPG } from '../../js/data.js';
+import {
+  getKitchenStats, getLevel, SMOOTHIE_LEVEL, START_OWNED, ING, UPG, LEVELS, INGREDIENTS, UPGRADES,
+} from '../../js/data.js';
 
 const STEP = 0.05;
 const POURABLE = new Set(['ready', 'overflowing']);
@@ -229,6 +231,7 @@ export function playLevel({
   });
   const mem = { bowlOf: new Map(), lastBase: null };
   let actions = 0;
+  let ruined = 0;
   while (game.status === 'playing' && game.time < maxTime) {
     const action = chooseAction(game, mem);
     if (action) {
@@ -238,7 +241,7 @@ export function playLevel({
     } else {
       wait(game, STEP);
     }
-    drainEvents(game);
+    for (const e of drainEvents(game)) if (e.type === 'blenderRuined') ruined++;
   }
   return {
     result: game.result || 'timeout',
@@ -251,6 +254,7 @@ export function playLevel({
     time: game.time,
     stage: game.stage,
     actions,
+    ruined,     // blenders that spoiled
   };
 }
 
@@ -295,4 +299,83 @@ export function tierCost(tier) {
   }
   for (const id of tier.quality) sum += ING[id].upgradeCosts[0];
   return sum;
+}
+
+// ------------------------------------------------------------------ meta progression
+// Shopping order: the SCHEDULE tiers first, then every remaining upgrade level and quality star
+// by price. Items are { kind: 'ing'|'upg'|'q', id, lvl } (lvl = level to reach).
+function shoppingList() {
+  const list = [];
+  for (const tier of SCHEDULE) {
+    for (const id of tier.ingredients) list.push({ kind: 'ing', id });
+    for (const [id, lvl] of Object.entries(tier.upgrades)) list.push({ kind: 'upg', id, lvl });
+    for (const id of tier.quality) list.push({ kind: 'q', id, lvl: 1 });
+  }
+  const rest = [];
+  for (const ing of INGREDIENTS) {
+    if (ing.cost) rest.push({ kind: 'ing', id: ing.id, cost: ing.cost });
+    ing.upgradeCosts.forEach((cost, i) => rest.push({ kind: 'q', id: ing.id, lvl: i + 1, cost }));
+  }
+  for (const u of UPGRADES) u.levels.forEach((l, i) => rest.push({ kind: 'upg', id: u.id, lvl: i + 1, cost: l.cost }));
+  rest.sort((a, b) => a.cost - b.cost);
+  return [...list, ...rest];
+}
+
+// Buys down the list until the next item is too expensive (the player saves up for it).
+// Mutates inv; returns the ingredients bought (they are "new" in the next level).
+function shop(inv, list, levelId) {
+  const bought = [];
+  for (const item of list) {
+    if (item.kind === 'ing') {
+      if (inv.owned.includes(item.id)) continue;
+      if (inv.coins < ING[item.id].cost) break;
+      inv.coins -= ING[item.id].cost;
+      inv.owned.push(item.id);
+      bought.push(item.id);
+      continue;
+    }
+    if (item.kind === 'upg' && (UPG[item.id].requiresLevel || 0) > levelId) continue;
+    if (item.kind === 'q' && !inv.owned.includes(item.id)) continue;
+    const levels = item.kind === 'upg' ? inv.upgrades : inv.ingLevels;
+    const costs = item.kind === 'upg' ? UPG[item.id].levels.map((l) => l.cost) : ING[item.id].upgradeCosts;
+    let short = false;
+    while ((levels[item.id] || 0) < Math.min(item.lvl, costs.length)) {
+      const cost = costs[levels[item.id] || 0];
+      if (inv.coins < cost) {
+        short = true;
+        break;
+      }
+      inv.coins -= cost;
+      levels[item.id] = (levels[item.id] || 0) + 1;
+    }
+    if (short) break;
+  }
+  return bought;
+}
+
+// A player who plays the campaign in order, banks the coins of every attempt (won or lost, like
+// save.recordLevelResult), shops before each attempt and replays a level until it is won.
+export function playCampaign({ actionTime = 1.3, seed = 1000, maxAttempts = 40 } = {}) {
+  const inv = { coins: 0, owned: START_OWNED.slice(), upgrades: {}, ingLevels: {} };
+  const list = shoppingList();
+  const attempts = {};
+  let plays = 0;
+  let nextSeed = seed;
+  for (const lvl of LEVELS) {
+    attempts[lvl.id] = 0;
+    let won = false;
+    while (!won && attempts[lvl.id] < maxAttempts) {
+      const featured = shop(inv, list, lvl.id);
+      const r = playLevel({
+        level: lvl, owned: inv.owned, upgrades: inv.upgrades, ingLevels: inv.ingLevels,
+        featured, seed: nextSeed++, actionTime,
+      });
+      inv.coins += r.money;
+      attempts[lvl.id]++;
+      plays++;
+      won = r.result === 'won';
+    }
+    if (!won) return { reachedEnd: false, stuckAt: lvl.id, plays, attempts, inventory: inv };
+  }
+  return { reachedEnd: true, stuckAt: null, plays, attempts, inventory: inv };
 }

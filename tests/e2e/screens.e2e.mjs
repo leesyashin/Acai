@@ -2,6 +2,7 @@
 // Run: node tests/e2e/screens.e2e.mjs
 //   Serves the repo on :8092 (reuses a server already listening there), drives index.html
 //   title → map → pre-level → shop purchases → settings (language, audio, reset) → results,
+//   then a touch tablet pass (rotate hint in portrait, double tap in the shop, pause on rotate),
 //   then the results variants through tools/screens-harness.html. Exits non-zero on failure.
 //   If js/game-view.js does not exist yet, its URL is answered with a stub module so the shell
 //   can still be tested through index.html.
@@ -27,6 +28,8 @@ const STUB_GAME_VIEW = `export const gameScreen = {
 
 const results = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Mirrors BUY_COOLDOWN_MS in js/screens.js: a shop card ignores clicks this long after a purchase.
+const BUY_COOLDOWN_MS = 500;
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -87,8 +90,8 @@ async function launch() {
   return chromium.launch({ proxy });
 }
 
-async function newPage(browser, { viewport = { width: 1280, height: 800 }, locale = 'de-DE' } = {}) {
-  const context = await browser.newContext({ viewport, locale, ignoreHTTPSErrors: true });
+async function newPage(browser, { viewport = { width: 1280, height: 800 }, locale = 'de-DE', touch = false } = {}) {
+  const context = await browser.newContext({ viewport, locale, hasTouch: touch, ignoreHTTPSErrors: true });
   if (FONTS === 'stub') {
     await context.route(/fonts\.googleapis\.com/, (r) => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
     await context.route(/fonts\.gstatic\.com/, (r) => r.abort());
@@ -303,6 +306,7 @@ async function mainFlow(browser, base) {
     await page.keyboard.press('Enter');
     eq(await page.getAttribute('[data-shop-item="honey"] .card-quality', 'aria-label'), 'Qualität 1 von 2', 'quality 1');
     eq(await page.evaluate(() => document.activeElement.closest('[data-card]')?.dataset.card), 'honey', 'focus kept');
+    await sleep(BUY_COOLDOWN_MS + 100); // the card ignores clicks right after a purchase
     await page.click('[data-shop-item="honey"] [data-buy]');
     eq(await page.getAttribute('[data-shop-item="honey"]', 'data-state'), 'max', 'honey maxed');
     eq((await saveState(page)).ingLevels.honey, 2, 'saved quality');
@@ -333,6 +337,32 @@ async function mainFlow(browser, base) {
     eq((await saveState(page)).upgrades.bowlSlots, 1, 'saved upgrade');
     await assertTouchTargets(page, 'shop kitchen');
     await assertNoOverflow(page, 'shop kitchen');
+  });
+
+  await check('shop: a double click buys once, a held Enter key too; later clicks buy again', async () => {
+    await setCoins(page, 2000);
+    const btn = '[data-upgrade="blenderSpeed"] [data-buy]';
+    const level = async () => (await saveState(page)).upgrades.blenderSpeed ?? 0;
+    const price = Number((await text(page, btn)).replace(/\D/g, ''));
+    await page.dblclick(btn);
+    eq(await level(), 1, 'one level after a double click');
+    eq((await saveState(page)).coins, 2000 - price, 'paid exactly the first level');
+    eq(await page.locator('[data-upgrade="blenderSpeed"] .upg-pips i.on').count(), 1, 'one pip');
+    // Holding Enter longer than the cooldown: Playwright marks the repeated keyboard.down as a repeat.
+    await sleep(BUY_COOLDOWN_MS + 100);
+    await page.focus(btn);
+    await page.keyboard.down('Enter');
+    for (let i = 0; i < 3; i++) {
+      await sleep(BUY_COOLDOWN_MS / 2 + 50);
+      await page.keyboard.down('Enter');
+    }
+    await page.keyboard.up('Enter');
+    eq(await level(), 2, 'one level while Enter is held');
+    eq(await page.evaluate(() => document.activeElement.closest('[data-card]')?.dataset.card), 'blenderSpeed', 'focus kept');
+    await sleep(BUY_COOLDOWN_MS + 100);
+    await page.click(btn);
+    eq(await level(), 3, 'a later click buys the next level');
+    await setCoins(page, 1000);
   });
 
   await check('shop: decor tab – buy plants', async () => {
@@ -423,7 +453,11 @@ async function mainFlow(browser, base) {
     await page.keyboard.press('Escape');
   }, () => page.evaluate(() => window.__acaiGo('title')));
 
-  await check('rotate hint: portrait phone shows it, "Trotzdem spielen" dismisses it', async () => {
+  await check('rotate hint: not for a tall desktop window; portrait phone shows it, "Trotzdem spielen" dismisses it', async () => {
+    await page.setViewportSize({ width: 1000, height: 1100 });
+    await page.waitForFunction(() => window.innerWidth === 1000);
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+    assert(await page.evaluate(() => document.getElementById('rotate-hint').hidden), 'no hint for a mouse window 1000×1100');
     await page.setViewportSize({ width: 600, height: 900 });
     await page.waitForFunction(() => !document.getElementById('rotate-hint').hidden);
     eq(await text(page, '#rotate-hint h2'), 'Bitte dreh dein Gerät', 'hint text');
@@ -443,6 +477,75 @@ async function mainFlow(browser, base) {
   });
 
   await check('index.html: no console errors', async () => {
+    assert(!errors.length, errors.join('\n'));
+  });
+  await context.close();
+}
+
+// ------------------------------------------------------------------ touch tablet (index.html)
+async function cdpTap(page, selector) {
+  const b = await page.locator(selector).boundingBox();
+  if (!b) throw new Error(`no box for ${selector}`);
+  const cdp = await page.context().newCDPSession(page);
+  const p = { x: b.x + b.width / 2, y: b.y + b.height / 2, radiusX: 4, radiusY: 4, force: 1, id: 1 };
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [p] });
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}
+
+const hintShown = (page) => page.evaluate(() => !document.getElementById('rotate-hint').hidden);
+
+async function touchFlow(browser, base) {
+  // An iPad Air held upright: 820×1180 is wider than a phone but the stage would shrink to ~60 %.
+  const { context, page, errors } = await newPage(browser, { viewport: { width: 820, height: 1180 }, touch: true });
+  shotPage = page;
+  console.log('index.html on a touch tablet');
+  await page.goto(`${base}index.html`);
+
+  await check('rotate hint: portrait touch tablet (820×1180) shows it, landscape hides it', async () => {
+    await waitScreen(page, 'title');
+    assert(await hintShown(page), 'hint on a portrait iPad Air');
+    await page.setViewportSize({ width: 1180, height: 820 });
+    await page.waitForFunction(() => document.getElementById('rotate-hint').hidden);
+  });
+
+  await check('shop (touch): a double tap buys a new ingredient once, not its quality upgrade too', async () => {
+    await setCoins(page, 400);
+    await page.evaluate(() => window.__acaiGo('shop', { back: 'map' }));
+    await waitScreen(page, 'shop');
+    const btn = '[data-shop-item="strawberry"] [data-buy]';
+    const price = Number((await text(page, btn)).replace(/\D/g, ''));
+    await cdpTap(page, btn);
+    await sleep(150);
+    await cdpTap(page, btn);
+    await sleep(100);
+    const s = await saveState(page);
+    assert(s.owned.includes('strawberry'), 'strawberry bought');
+    eq(s.ingLevels.strawberry ?? 0, 0, 'no quality level bought by the second tap');
+    eq(s.coins, 400 - price, 'coins');
+  });
+
+  if (HAS_GAME_VIEW) {
+    await check('rotate hint: turning the tablet upright mid-level pauses the game', async () => {
+      await page.evaluate(() => window.__acaiGo('game', { mode: 'campaign', levelId: 5 }));
+      await waitScreen(page, 'game');
+      await page.waitForFunction(() => window.__acaiGame?.status === 'playing' && window.__acaiGame.time > 0.3);
+      await page.setViewportSize({ width: 820, height: 1180 });
+      await page.waitForFunction(() => !document.getElementById('rotate-hint').hidden);
+      eq(await page.evaluate(() => window.__acaiGame.status), 'paused', 'game status');
+      assert(await page.isVisible('[data-pause-overlay]'), 'pause overlay behind the hint');
+      const t0 = await page.evaluate(() => window.__acaiGame.time);
+      await sleep(400);
+      eq(await page.evaluate(() => window.__acaiGame.time), t0, 'level clock stopped');
+      await page.click('[data-action="dismiss-rotate"]');
+      assert(!(await hintShown(page)), 'hint dismissed');
+      assert(await page.isVisible('[data-pause-overlay]'), 'still paused after "Trotzdem spielen"');
+      await page.setViewportSize({ width: 1180, height: 820 });
+      await page.evaluate(() => window.__acaiGo('title'));
+    }, () => page.evaluate(() => window.__acaiGo('title')));
+  }
+
+  await check('touch tablet: no console errors', async () => {
     assert(!errors.length, errors.join('\n'));
   });
   await context.close();
@@ -562,6 +665,7 @@ const srv = await serve();
 const browser = await launch();
 try {
   await mainFlow(browser, srv.url);
+  await touchFlow(browser, srv.url);
   await harnessFlow(browser, srv.url);
 } finally {
   await browser.close();

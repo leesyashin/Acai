@@ -35,8 +35,12 @@
   color-scheme: light;
 }
 
+/* No page pinch/double-tap zoom or panning anywhere: the letterbox bands (#app), #rotate-hint and
+   #stage are one fixed game surface, and a page zoomed from the bands could not be pinched back on
+   the stage. Nothing scrolls; a scrollable list added later needs touch-action: pan-y. */
 html, body {
   height: 100%;
+  touch-action: none;
 }
 
 body {

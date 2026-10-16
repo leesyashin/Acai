@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
   createGame, tick, drainEvents, loadBlender, pourBlender, addIngredient, trashBowl, cleanBlender,
-  loadSmoothie, trashSmoothie, serveBowl, serveSmoothie, setPaused, releaseTutorialHold,
+  loadSmoothie, trashSmoothie, serveBowl, serveSmoothie, setPaused, releaseTutorialHold, endRun,
+  loadBlenderError, pourError, addIngredientError, loadSmoothieError, serveBowlError, serveSmoothieError,
   bowlMatchesOrder, moodFor, starsFor, MAX_DT, ARRIVE_TIME, LEAVE_TIME, SEAT_REUSE_DELAY,
 } from '../js/engine.js';
 import {
@@ -84,8 +85,9 @@ describe('createGame', () => {
     assert.equal(g.blenders[0].maxPortions, kitchen.portions);
     assert.equal(g.smoothie.slots.length, 2);
     assert.equal(g.smoothie.slots[0].state, 'empty');
-    assert.equal(g.hearts, 3);
-    assert.equal(g.maxHearts, 3);
+    assert.equal(LEVELS[11].hearts, 4, '4-seat levels give an extra heart');
+    assert.equal(g.hearts, LEVELS[11].hearts);
+    assert.equal(g.maxHearts, LEVELS[11].hearts);
     assert.equal(g.money, 0);
     assert.deepEqual(g.events, []);
   });
@@ -205,6 +207,22 @@ describe('blender', () => {
     assert.equal(loadBlender(g, 5, 'acai').ok, false);
   });
 
+  test('loadBlender on a ruined blender says "spoiled" (not "busy") until it is trashed', () => {
+    const g = newGame({ owned: START_OWNED });
+    const k = g.kitchen;
+    assert.equal(loadBlender(g, 0, 'acai').ok, true);
+    run(g, k.blendTime + k.readyHold + k.overflowTime + 0.3);
+    assert.equal(g.blenders[0].state, 'ruined');
+    drainEvents(g);
+    assert.deepEqual(loadBlender(g, 0, 'acai'), { ok: false, reason: 'blenderRuined' });
+    assert.deepEqual(loadBlender(g, 0, 'banana'), { ok: false, reason: 'wrongLayer' });
+    assert.deepEqual(loadBlender(g, 0, 'pitaya'), { ok: false, reason: 'notOwned' });
+    assert.equal(g.blenders[0].state, 'ruined');
+    assert.deepEqual(drainEvents(g), []);
+    assert.equal(cleanBlender(g, 0).ok, true);
+    assert.equal(loadBlender(g, 0, 'acai').ok, true);
+  });
+
   test('pour uses portions and empties the blender after the last one', () => {
     const g = newGame({ kitchen: getKitchenStats({ bowlSlots: 1, jug: 1 }) });
     readyBlender(g);
@@ -272,6 +290,19 @@ describe('bowl building', () => {
     assert.deepEqual(drainEvents(g), [{ type: 'ingredientAdded', bowlIdx: 0, id: 'banana' }]);
     assert.deepEqual(addIngredient(g, 0, 'banana'), { ok: false, reason: 'alreadyAdded' });
     assert.deepEqual(g.bowls[0].mid, ['banana']);
+  });
+
+  test('toppings need at least one fruit/crunch first (every order has one)', () => {
+    const g = newGame({ owned: START_OWNED });
+    readyBlender(g);
+    pourBlender(g, 0, 0);
+    drainEvents(g);
+    assert.deepEqual(addIngredient(g, 0, 'honey'), { ok: false, reason: 'toppingsOnTop' });
+    assert.deepEqual(drainEvents(g), []);
+    assert.deepEqual(g.bowls[0].top, []);
+    assert.deepEqual(addIngredient(g, 0, 'granola'), { ok: true });
+    assert.deepEqual(addIngredient(g, 0, 'honey'), { ok: true });
+    assert.deepEqual(g.bowls[0], { base: 'acai', mid: ['granola'], top: ['honey'], uid: g.bowls[0].uid });
   });
 
   test('fruits cannot go on top of toppings, but toppings can follow toppings', () => {
@@ -727,6 +758,110 @@ describe('pause and events', () => {
     assert.deepEqual(evs, [{ type: 'blenderStart', idx: 0 }]);
     assert.deepEqual(drainEvents(g), []);
     assert.equal(g.events.length, 0);
+  });
+});
+
+describe('endRun (endless quit)', () => {
+  test('a paused endless run ends lost/quit with one gameOver event', () => {
+    const g = createGame({ mode: 'endless', owned: START_OWNED, seed: 3 });
+    run(g, 2);
+    g.money = 420;
+    setPaused(g, true);
+    drainEvents(g);
+    assert.equal(endRun(g), true);
+    assert.equal(g.status, 'lost');
+    assert.equal(g.result, 'lost');
+    assert.equal(g.endReason, 'quit');
+    assert.equal(g.stars, 0);
+    assert.equal(g.money, 420);
+    assert.deepEqual(drainEvents(g), [{ type: 'gameOver', result: 'lost', stars: 0, reason: 'quit' }]);
+    const t0 = g.time;
+    run(g, 5);
+    assert.equal(g.time, t0, 'the finished run stays frozen');
+    setPaused(g, false);
+    assert.equal(g.status, 'lost');
+  });
+
+  test('no-op for campaign games and runs that already ended', () => {
+    const c = newGame();
+    assert.equal(endRun(c), false);
+    assert.equal(c.status, 'playing');
+    assert.equal(c.result, null);
+    const e = createGame({ mode: 'endless', owned: START_OWNED, seed: 3 });
+    assert.equal(endRun(e), true);
+    drainEvents(e);
+    assert.equal(endRun(e), false);
+    assert.deepEqual(drainEvents(e), []);
+  });
+});
+
+describe('action checks (*Error)', () => {
+  // Every check must report exactly the reason its action rejects with (null when it succeeds).
+  const same = (check, action) => {
+    const reason = check();
+    const r = action();
+    assert.equal(reason, r.ok ? null : r.reason);
+    return reason;
+  };
+
+  test('blender: loadBlenderError / pourError mirror loadBlender / pourBlender', () => {
+    const g = newGame({ owned: ['acai', 'banana', 'honey'] });
+    assert.equal(same(() => loadBlenderError(g, 5, 'acai'), () => loadBlender(g, 5, 'acai')), 'invalid');
+    assert.equal(same(() => loadBlenderError(g, 0, 'banana'), () => loadBlender(g, 0, 'banana')), 'wrongLayer');
+    assert.equal(same(() => loadBlenderError(g, 0, 'pitaya'), () => loadBlender(g, 0, 'pitaya')), 'notOwned');
+    assert.equal(same(() => pourError(g, 0, 0), () => pourBlender(g, 0, 0)), 'blenderNotReady');
+    assert.equal(same(() => loadBlenderError(g, 0, 'acai'), () => loadBlender(g, 0, 'acai')), null);
+    assert.equal(same(() => loadBlenderError(g, 0, 'acai'), () => loadBlender(g, 0, 'acai')), 'blenderBusy');
+    run(g, g.kitchen.blendTime + 0.05);
+    assert.equal(same(() => pourError(g, 0, 0), () => pourBlender(g, 0, 0)), null);
+    assert.equal(same(() => pourError(g, 0, 0), () => pourBlender(g, 0, 0)), 'bowlHasBase');
+    g.blenders[0].state = 'ruined';
+    assert.equal(same(() => pourError(g, 0, 1), () => pourBlender(g, 0, 1)), 'blenderRuined');
+    setPaused(g, true);
+    assert.equal(same(() => loadBlenderError(g, 0, 'acai'), () => loadBlender(g, 0, 'acai')), 'notPlaying');
+    assert.equal(pourError(g, 0, 1), 'notPlaying');
+  });
+
+  test('bowl: addIngredientError mirrors addIngredient', () => {
+    const g = newGame({ owned: ['acai', 'banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi', 'honey', 'coconut'] });
+    const chk = (bowl, id) => same(() => addIngredientError(g, bowl, id), () => addIngredient(g, bowl, id));
+    assert.equal(chk(9, 'banana'), 'invalid');
+    assert.equal(chk(0, 'mint'), 'notOwned');
+    assert.equal(chk(0, 'acai'), 'wrongLayer');
+    assert.equal(chk(0, 'banana'), 'needBase');
+    g.bowls[0].base = 'acai';
+    assert.equal(chk(0, 'banana'), null);
+    assert.equal(chk(0, 'banana'), 'alreadyAdded');
+    assert.equal(chk(0, 'honey'), null);
+    assert.equal(chk(0, 'granola'), 'toppingsOnTop');
+    g.bowls[1].base = 'acai';
+    for (const id of ['banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi']) assert.equal(chk(1, id), null);
+    assert.equal(chk(1, 'coconut'), 'bowlFull');
+  });
+
+  test('smoothie + serving: loadSmoothieError / serveBowlError / serveSmoothieError mirror their actions', () => {
+    const g = newGame({ owned: ALL, smoothies: true });
+    assert.equal(same(() => loadSmoothieError(g, 3, 'banana'), () => loadSmoothie(g, 3, 'banana')), 'invalid');
+    assert.equal(same(() => loadSmoothieError(g, 0, 'granola'), () => loadSmoothie(g, 0, 'granola')), 'notSmoothieFruit');
+    assert.equal(same(() => loadSmoothieError(g, 0, 'banana'), () => loadSmoothie(g, 0, 'banana')), null);
+    assert.equal(same(() => loadSmoothieError(g, 0, 'mango'), () => loadSmoothie(g, 0, 'mango')), 'slotBusy');
+
+    const c = waitForCustomer(g);
+    setOrder(c, { base: 'acai', mid: ['banana'] }, 'kiwi');
+    assert.equal(same(() => serveSmoothieError(g, 0, c.id), () => serveSmoothie(g, 0, c.id)), 'notReady');
+    run(g, g.kitchen.smoothieTime + 0.05);
+    assert.equal(same(() => serveSmoothieError(g, 0, c.id), () => serveSmoothie(g, 0, c.id)), 'wrongOrder');
+    assert.equal(same(() => serveBowlError(g, 0, c.id), () => serveBowl(g, 0, c.id)), 'emptyBowl');
+    g.bowls[0].base = 'acai';
+    assert.equal(same(() => serveBowlError(g, 0, c.id), () => serveBowl(g, 0, c.id)), 'wrongOrder');
+    g.bowls[0].mid.push('banana');
+    assert.equal(same(() => serveBowlError(g, 0, c.id), () => serveBowl(g, 0, c.id)), null);
+    g.bowls[1].base = 'acai';
+    g.bowls[1].mid.push('banana');
+    assert.equal(same(() => serveBowlError(g, 1, c.id), () => serveBowl(g, 1, c.id)), 'alreadyDelivered');
+    assert.equal(same(() => serveBowlError(g, 1, 999), () => serveBowl(g, 1, 999)), 'noCustomer');
+    c.order.smoothie = null;
+    assert.equal(same(() => serveSmoothieError(g, 0, c.id), () => serveSmoothie(g, 0, c.id)), 'noSmoothieWanted');
   });
 });
 

@@ -6,7 +6,8 @@
 //   audio.music(track)        'menu' | 'game' | null – crossfades, remembers the request
 //   audio.loop(id, on)        continuous sounds: 'blender'
 //   audio.setSfx(bool) / audio.setMusic(bool) / audio.sfxOn() / audio.musicOn()
-//   audio.suspend() / audio.resume()   pause menu (tab hiding is handled here too)
+//   audio.suspend() / audio.resume()   pause menu: music fades, the context freezes after
+//                                      SUSPEND_DELAY_MS (tab hiding is handled here too, at once)
 //
 // Importing this module never touches WebAudio; the AudioContext is created
 // lazily inside unlock(). Every call is a safe no-op while locked, unsupported or muted.
@@ -26,6 +27,13 @@ const SFX_LEVEL = 0.5;
 const MASTER_LEVEL = 0.9;
 const LOOKAHEAD = 0.12;       // seconds of music scheduled ahead
 const PUMP_MS = 25;           // scheduler interval
+const START_DELAY = 0.05;     // a new track's first step, counted from the first scheduler tick
+const LATE_OK = 0.02;         // a step this late still plays; later ones are skipped (main thread stalled)
+// Pause menu: fade the music bus, then freeze the context once in-flight sounds are over –
+// the tap's own click (~90 ms) and the blender loop's stop tail (0.35 s) – instead of cutting them.
+const PAUSE_FADE = 0.08;
+const UNPAUSE_FADE = 0.25;
+const SUSPEND_DELAY_MS = 400;
 const FADE_IN = 0.6;
 const CROSSFADE = 1.0;
 const FADE_OUT = 0.8;
@@ -664,6 +672,7 @@ let requested = null;          // requested music track (kept while muted / lock
 let current = null;            // playing (non-fading) music instance
 const instances = [];          // all music instances incl. fading ones
 let pumpTimer = null;
+let suspendTimer = null;       // pending freeze after a pause-menu suspend()
 const loopWanted = new Set();
 const loopsRunning = new Map();
 const lastPlayed = new Map();
@@ -683,6 +692,35 @@ function applySuspendState() {
   } else if (ctx.state !== 'running') {
     ctx.resume().catch(() => {});
   }
+}
+
+function clearSuspendTimer() {
+  if (suspendTimer !== null) clearTimeout(suspendTimer);
+  suspendTimer = null;
+}
+
+// Player pause: suspending right away would freeze the tap's click before it is heard (it then
+// plays stacked onto the next click) and cut music and loop tails mid-waveform. So fade the music,
+// let the context run out what is already playing, then freeze. New sfx are blocked by quiet() meanwhile.
+function softSuspend() {
+  clearSuspendTimer();
+  if (!ctx || ctx.state === 'closed') return;
+  setBus(mix.music, 0, PAUSE_FADE);
+  if (hidden || ctx.state !== 'running') {
+    applySuspendState();
+    return;
+  }
+  suspendTimer = setTimeout(() => {
+    suspendTimer = null;
+    applySuspendState(); // re-checks quiet(): a resume within the window keeps the context running
+  }, SUSPEND_DELAY_MS);
+}
+
+function softResume() {
+  clearSuspendTimer();
+  if (!ctx || ctx.state === 'closed') return;
+  applySuspendState();
+  setBus(mix.music, MUSIC_LEVEL, UNPAUSE_FADE);
 }
 
 function playSilence() {
@@ -712,15 +750,18 @@ function createContext() {
   return true;
 }
 
-function setBus(bus, value) {
+function setBus(bus, value, dur = 0.08) {
   if (!ctx) return;
   const t = ctx.currentTime;
   bus.gain.cancelScheduledValues(t);
   bus.gain.setValueAtTime(bus.gain.value, t);
-  bus.gain.linearRampToValueAtTime(value, t + 0.08);
+  bus.gain.linearRampToValueAtTime(value, t + dur);
 }
 
 // ---- music scheduling
+// music() usually runs right before a heavy synchronous screen render, so a first step fixed at
+// call time would already be in the past when the scheduler next runs and play late and bunched.
+// next = -1 anchors the first step to the first scheduler tick instead (the fade-in hides the delay).
 function startInstance(name, fade) {
   const t = ctx.currentTime;
   const gain = ctx.createGain();
@@ -728,7 +769,7 @@ function startInstance(name, fade) {
   gain.gain.linearRampToValueAtTime(TRACKS[name].level, t + fade);
   gain.connect(mix.music);
   const inst = {
-    name, track: TRACKS[name], ctx, out: gain, gain, step: 0, next: t + 0.06, stopAt: null,
+    name, track: TRACKS[name], ctx, out: gain, gain, step: 0, next: -1, stopAt: null,
     rng: createRng(name === 'menu' ? 96 : 124),
   };
   instances.push(inst);
@@ -756,10 +797,17 @@ function pump() {
   const t = ctx.currentTime;
   for (let i = instances.length - 1; i >= 0; i--) {
     const inst = instances[i];
-    if (inst.next < t - 0.25) inst.next = t + 0.03; // stalled (e.g. after resume) – skip ahead
+    const sd = 60 / inst.track.bpm / 4;
+    if (inst.next < 0) inst.next = t + START_DELAY; // new track: first tick after the screen render
+    // Main thread stalled: skip the steps already past instead of playing them late and bunched.
+    // Advancing step keeps bar and arrangement on the grid.
+    while (inst.next < t - LATE_OK) {
+      inst.next += sd;
+      inst.step++;
+    }
     while (inst.next < t + LOOKAHEAD && (inst.stopAt === null || inst.next < inst.stopAt)) {
       playStep(inst, inst.step, inst.next);
-      inst.next += 60 / inst.track.bpm / 4;
+      inst.next += sd;
       inst.step++;
     }
     if (inst.stopAt !== null && t > inst.stopAt + 0.1) {
@@ -851,7 +899,7 @@ export const audio = {
     // A track change means the screen changed – a forgotten pause must not keep us silent.
     if (userSuspended) {
       userSuspended = false;
-      applySuspendState();
+      softResume();
     }
     syncMusic();
   },
@@ -882,14 +930,15 @@ export const audio = {
     return musicEnabled;
   },
 
+  // No early returns: leave() and destroy() call resume() unconditionally to get a running context.
   suspend() {
     userSuspended = true;
-    applySuspendState();
+    softSuspend();
   },
 
   resume() {
     userSuspended = false;
-    applySuspendState();
+    softResume();
   },
 
   // Debug / test helpers (not part of the gameplay contract).
@@ -931,6 +980,7 @@ export const audio = {
   // Stops everything and releases the AudioContext (used when a new copy of the module takes over).
   dispose() {
     disposed = true;
+    clearSuspendTimer();
     stopPump();
     instances.length = 0;
     current = null;

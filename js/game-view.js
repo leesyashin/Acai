@@ -3,11 +3,12 @@
 // Every player action is a drag & drop through js/drag.js.
 
 import { INGREDIENTS, LEVELS, SMOOTHIE_LEVEL, getLevel, ingName } from './data.js';
-import { registerStrings, t, onLangChange } from './i18n.js';
+import { registerStrings, t, onLangChange, getLang, formatNumber } from './i18n.js';
 import {
-  createGame, tick, drainEvents, setPaused, releaseTutorialHold, bowlMatchesOrder,
+  createGame, tick, drainEvents, setPaused, releaseTutorialHold, endRun, bowlMatchesOrder,
   loadBlender, pourBlender, addIngredient, trashBowl, cleanBlender,
   loadSmoothie, trashSmoothie, serveBowl, serveSmoothie,
+  loadBlenderError, pourError, addIngredientError, loadSmoothieError, serveBowlError, serveSmoothieError,
 } from './engine.js';
 import {
   ingredientIcon, packIcon, bowlSVG, cupSVG, customerSVG, lookFromSeed, blenderSVG,
@@ -26,19 +27,20 @@ registerStrings({
     'game.level': 'Level {n}',
     'game.endless': 'Endlos',
     'game.stage': 'Stufe {n}',
-    'game.best': 'Rekord {n}',
+    'game.best': 'Rekord: {n}',
     'game.noBest': 'Erster Versuch',
     'game.newBest': 'Neuer Rekord!',
     'game.closed': 'Ladenschluss',
     'game.closingBanner': 'Ladenschluss!',
     'game.closingText': 'Keine neuen Gäste mehr – bediene die letzten!',
     'game.goal': 'Verdiene {n} Münzen!',
-    'game.endlessGoal': 'Halte so lange durch, wie du kannst!',
     'game.pause': 'Pause',
     'game.resume': 'Weiter',
     'game.restart': 'Neu starten',
     'game.quitMap': 'Zur Karte',
     'game.quitTitle': 'Zum Titel',
+    'game.endShift': 'Schicht beenden',
+    'game.quitLoses': 'Neu starten oder verlassen: Die Münzen dieser Runde gehen verloren.',
     'game.music': 'Musik',
     'game.sfx': 'Sounds',
     'game.on': 'An',
@@ -81,8 +83,8 @@ registerStrings({
     'game.tut.wait': 'Der Mixer mixt … einen Moment!',
     'game.tut.waitWrong': 'Das ist die falsche Basis. Warte, bis der Mixer fertig ist.',
     'game.tut.pour': 'Fertig! Zieh den Mixer auf eine Bowl.',
-    'game.tut.add': 'Jetzt {ing} auf die Bowl ziehen – schau in die Sprechblase!',
-    'game.tut.addTop': 'Toppings kommen zum Schluss: zieh {ing} auf die Bowl!',
+    'game.tut.add': 'Zieh jetzt {ing} auf die Bowl – schau in die Sprechblase!',
+    'game.tut.addTop': 'Toppings kommen zum Schluss: Zieh {ing} auf die Bowl!',
     'game.tut.trash': 'Ups, das passt nicht zur Bestellung. Wirf die Bowl in den Müll.',
     'game.tut.clean': 'Diese Basis brauchst du nicht. Zieh den Mixer in den Müll.',
     'game.tut.serve': 'Perfekt! Gib die Bowl deinem Gast.',
@@ -93,7 +95,7 @@ registerStrings({
     'game.aria.money': '{n} Münzen',
     'game.aria.time': 'Zeit',
     'reason.needBase': 'Erst die Basis aus dem Mixer!',
-    'reason.toppingsOnTop': 'Früchte & Crunch kommen vor die Toppings!',
+    'reason.toppingsOnTop': 'Erst Früchte & Crunch, dann Toppings & Soßen!',
     'reason.alreadyAdded': 'Ist schon drin!',
     'reason.bowlFull': 'Die Bowl ist voll!',
     'reason.blenderBusy': 'Der Mixer ist noch belegt!',
@@ -102,11 +104,13 @@ registerStrings({
     'reason.bowlHasBase': 'Die Bowl hat schon eine Basis!',
     'reason.notOwned': 'Diese Zutat hast du noch nicht.',
     'reason.wrongLayer': 'Nur Basis-Packungen kommen in den Mixer!',
+    'reason.packToBlender': 'Die Packung kommt zuerst in den Mixer!',
     'reason.wrongOrder': 'Das hat der Gast nicht bestellt!',
+    'reason.bowlIncomplete': 'Da fehlt noch etwas – schau in die Sprechblase!',
     'reason.noSmoothieWanted': 'Dieser Gast möchte keinen Smoothie.',
     'reason.noBowlWanted': 'Dieser Gast möchte keine Bowl.',
     'reason.alreadyDelivered': 'Das hat der Gast schon bekommen!',
-    'reason.slotBusy': 'Der Platz ist noch belegt!',
+    'reason.slotBusy': 'Hier steht schon ein Smoothie!',
     'reason.notReady': 'Der Smoothie ist noch nicht fertig!',
     'reason.notSmoothieFruit': 'Daraus wird kein Smoothie!',
     'reason.emptyBowl': 'Die Bowl ist noch leer!',
@@ -118,19 +122,20 @@ registerStrings({
     'game.level': 'Level {n}',
     'game.endless': 'Endless',
     'game.stage': 'Stage {n}',
-    'game.best': 'Best {n}',
+    'game.best': 'Best: {n}',
     'game.noBest': 'First try',
     'game.newBest': 'New best!',
     'game.closed': 'Closed',
     'game.closingBanner': 'Closing time!',
     'game.closingText': 'No new customers – serve the last ones!',
     'game.goal': 'Earn {n} coins!',
-    'game.endlessGoal': 'Keep going as long as you can!',
     'game.pause': 'Paused',
     'game.resume': 'Continue',
     'game.restart': 'Restart',
     'game.quitMap': 'Quit to map',
     'game.quitTitle': 'Quit to title',
+    'game.endShift': 'End shift',
+    'game.quitLoses': 'Restart or quit and the coins from this round are lost.',
     'game.music': 'Music',
     'game.sfx': 'Sounds',
     'game.on': 'On',
@@ -171,12 +176,12 @@ registerStrings({
     'game.tut.welcome': 'Welcome to your açaí shop! Your first customer is on the way.',
     'game.tut.pack': 'Drag the {base} pack into the blender!',
     'game.tut.wait': 'The blender is mixing … one moment!',
-    'game.tut.waitWrong': 'That is the wrong base. Wait until the blender is done.',
+    'game.tut.waitWrong': 'That’s the wrong base. Wait until the blender is done.',
     'game.tut.pour': 'Done! Drag the blender onto a bowl.',
     'game.tut.add': 'Now drag the {ing} onto the bowl – check the speech bubble!',
     'game.tut.addTop': 'Toppings go on last: drag the {ing} onto the bowl!',
-    'game.tut.trash': 'Oops, that does not match the order. Drop the bowl in the trash.',
-    'game.tut.clean': 'You do not need this base. Drag the blender to the trash.',
+    'game.tut.trash': 'Oops, that doesn’t match the order. Drop the bowl in the trash.',
+    'game.tut.clean': 'You don’t need this base. Drag the blender to the trash.',
     'game.tut.serve': 'Perfect! Hand the bowl to your customer.',
     'game.tut.done': 'Well done! Keep an eye on the patience bar – customers who wait too long will leave.',
     'game.tut.go': 'Let’s go!',
@@ -185,26 +190,28 @@ registerStrings({
     'game.aria.money': '{n} coins',
     'game.aria.time': 'Time',
     'reason.needBase': 'Base from the blender first!',
-    'reason.toppingsOnTop': 'Fruits & crunch go before the toppings!',
+    'reason.toppingsOnTop': 'First Fruits & Crunch, then Toppings & Sauces!',
     'reason.alreadyAdded': 'Already in there!',
     'reason.bowlFull': 'The bowl is full!',
     'reason.blenderBusy': 'The blender is still busy!',
-    'reason.blenderNotReady': 'The blender is not ready yet!',
+    'reason.blenderNotReady': 'The blender isn’t ready yet!',
     'reason.blenderRuined': 'Spoiled! Into the trash with it.',
     'reason.bowlHasBase': 'This bowl already has a base!',
-    'reason.notOwned': 'You do not own this ingredient yet.',
+    'reason.notOwned': 'You don’t own this ingredient yet.',
     'reason.wrongLayer': 'Only base packs go into the blender!',
-    'reason.wrongOrder': 'That is not what they ordered!',
-    'reason.noSmoothieWanted': 'This customer does not want a smoothie.',
-    'reason.noBowlWanted': 'This customer does not want a bowl.',
+    'reason.packToBlender': 'The pack goes into the blender first!',
+    'reason.wrongOrder': 'That’s not what they ordered!',
+    'reason.bowlIncomplete': 'Something’s still missing – check the bubble!',
+    'reason.noSmoothieWanted': 'This customer doesn’t want a smoothie.',
+    'reason.noBowlWanted': 'This customer doesn’t want a bowl.',
     'reason.alreadyDelivered': 'They already have that!',
-    'reason.slotBusy': 'That slot is still busy!',
-    'reason.notReady': 'The smoothie is not ready yet!',
-    'reason.notSmoothieFruit': 'That does not make a smoothie!',
+    'reason.slotBusy': 'There’s already a smoothie here!',
+    'reason.notReady': 'The smoothie isn’t ready yet!',
+    'reason.notSmoothieFruit': 'That doesn’t make a smoothie!',
     'reason.emptyBowl': 'The bowl is still empty!',
     'reason.noCustomer': 'This customer has already left.',
     'reason.notPlaying': 'Not possible right now.',
-    'reason.invalid': 'That does not go here.',
+    'reason.invalid': 'That doesn’t go here.',
   },
 });
 
@@ -227,6 +234,12 @@ const LAYER_NUM = { base: 1, mid: 2, top: 3 };
 const MOODS = ['happy', 'neutral', 'impatient', 'angry'];
 const STAMP_MS = 1700;
 const MAX_FRAME_DT = 0.25;
+// Progress bars (patience, blender/smoothie timers, blender ring) write on one shared cadence:
+// in Chromium every frame with such a write re-layerizes the whole stage.
+const BAR_TICK = 0.1; // s
+const BAR_STEPS = 100;
+const BAR_JUMP = 0.05; // bigger changes (a refill, a new blend) are written at once
+const HIT_PAD = 18; // stage px around a station, as in drag.js
 
 const ACTIVE = new Set(['arriving', 'waiting']);
 const POURABLE = new Set(['ready', 'overflowing', 'ruined']);
@@ -258,6 +271,12 @@ function patch(node, sig, markup) {
 function setText(node, text) {
   if (node.textContent !== text) node.textContent = text;
 }
+
+// Coin amounts in the locale format of the menus ("1.534" / "1,534"), floored like the wallet.
+const coins = (n) => formatNumber(Math.floor((Number(n) || 0) + 1e-6), 0);
+
+// The rotate hint (js/main.js) covers the whole stage while it is shown.
+const rotateHintShown = () => document.getElementById('rotate-hint')?.hidden === false;
 
 function fmtClock(sec) {
   const s = Math.max(0, Math.floor(sec));
@@ -314,6 +333,9 @@ class GameView {
     this.seatCount = 0;
     this.hintAt = 0;
     this.bestBeaten = false;
+    this.barAcc = BAR_TICK;
+    this.barTick = true;
+    this.frozenAnims = null;
 
     this.setupGame();
     this.build();
@@ -324,6 +346,7 @@ class GameView {
     this.audio.music('game');
     this.last = performance.now();
     this.raf = requestAnimationFrame((ts) => this.frame(ts));
+    if (rotateHintShown()) this.pause(); // started while the rotate hint covers the stage
   }
 
   // ---------------------------------------------------------------- setup
@@ -406,7 +429,7 @@ class GameView {
       timer.append(fill);
       node.append(el('div', 'g-plate'), art, timer);
       work.append(node);
-      return { el: node, art, timer, fill, state: null };
+      return { el: node, art, timer, fill, state: null, ring: null, ringP: -1 };
     });
 
     // freezer with base packs (owned bases only)
@@ -418,7 +441,7 @@ class GameView {
     for (const ing of INGREDIENTS) {
       if (ing.layer !== 'base' || !g.owned.includes(ing.id)) continue;
       const node = el('div', 'g-pack', { 'data-pack': ing.id });
-      node.innerHTML = `<div class="g-art">${packIcon(ing.id, 74)}</div><span class="g-name"></span>${this.badgeMarkup(ing.id)}`;
+      node.innerHTML = `<div class="g-art">${packIcon(ing.id, 74)}</div><span class="g-name"></span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`;
       packs.append(node);
       this.packEls[ing.id] = node;
     }
@@ -440,22 +463,24 @@ class GameView {
       return { el: node, art, chips, match, isMatch: false };
     });
 
-    // ingredient shelves (owned only), fruits & crunch then toppings & sauces
+    // ingredient shelves (owned only), fruits & crunch then toppings & sauces; each board names its
+    // layer ("2 · Früchte & Crunch") like the freezer, so the layer-rule toasts point at visible words
     this.binEls = {};
+    this.shelfLabels = {};
     for (const layer of ['mid', 'top']) {
       const shelf = el('div', `g-shelf g-shelf-${layer}`, { 'data-layer': layer });
       const row = el('div', 'g-shelf-row');
       for (const ing of INGREDIENTS) {
         if (ing.layer !== layer || !g.owned.includes(ing.id)) continue;
         const node = el('div', 'g-bin', { 'data-bin': ing.id, 'data-layer': layer });
-        const q = Math.min(2, g.ingLevels[ing.id] || 0);
-        const stars = q ? `<span class="g-quality">${starSVG(true, 15).repeat(q)}</span>` : '';
-        node.innerHTML = `<span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span><div class="g-art">${ingredientIcon(ing.id, 56)}</div><span class="g-name"></span>${stars}${this.badgeMarkup(ing.id)}`;
+        node.innerHTML = `<span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span><div class="g-art">${ingredientIcon(ing.id, 56)}</div><span class="g-name"></span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`;
         row.append(node);
         this.binEls[ing.id] = node;
       }
       const inner = el('div', 'g-shelf-in');
-      inner.append(row, el('div', 'g-board'));
+      const label = el('span', `g-shelf-label g-shelf-label-${layer}`);
+      inner.append(row, el('div', 'g-board'), label);
+      this.shelfLabels[layer] = label;
       shelf.append(inner);
       work.append(shelf);
     }
@@ -503,6 +528,12 @@ class GameView {
     return this.featured.has(id) ? '<span class="g-new"></span>' : '';
   }
 
+  // Quality upgrades (0–2 stars) on packs and bins alike.
+  qualityMarkup(id) {
+    const q = Math.max(0, Math.min(2, Math.floor(Number(this.game.ingLevels[id]) || 0)));
+    return q ? `<span class="g-quality">${starSVG(true, 15).repeat(q)}</span>` : '';
+  }
+
   buildHud() {
     const hud = el('div', 'g-hud');
     this.pauseBtn = el('button', 'g-pause-btn', { type: 'button', 'data-pause': '' });
@@ -532,7 +563,7 @@ class GameView {
       goals.forEach((goal, i) => {
         const m = el('span', 'g-goalmark', { 'data-goal': goal });
         m.style.left = `${(goal / max) * 100}%`;
-        m.innerHTML = `${starSVG(false, 26)}<small>${goal}</small>`;
+        m.innerHTML = `${starSVG(false, 26)}<small>${coins(goal)}</small>`;
         bar.append(m);
         this.goalMarks.push({ el: m, goal, lit: false, i });
       });
@@ -562,13 +593,15 @@ class GameView {
       quit: el('button', 'btn pink', { type: 'button', 'data-action': 'quit' }),
     };
     btns.append(this.pauseButtons.resume, this.pauseButtons.restart, this.pauseButtons.quit);
+    // campaign: leaving forfeits the round (endless banks it instead, see exitRun)
+    this.pauseNote = el('p', 'g-pause-note', { hidden: '' });
     const toggles = el('div', 'g-toggles');
     this.toggleBtns = {
       music: el('button', 'btn small cream g-toggle', { type: 'button', 'data-toggle': 'music' }),
       sfx: el('button', 'btn small cream g-toggle', { type: 'button', 'data-toggle': 'sfx' }),
     };
     toggles.append(this.toggleBtns.music, this.toggleBtns.sfx);
-    panel.append(this.pauseTitle, btns, toggles);
+    panel.append(this.pauseTitle, btns, this.pauseNote, toggles);
     ov.append(panel);
     this.pauseEl = ov;
     return ov;
@@ -582,19 +615,23 @@ class GameView {
     for (const [id, node] of Object.entries(this.binEls)) setText(node.querySelector('.g-name'), ingName(id, true));
     for (const node of this.root.querySelectorAll('.g-new')) setText(node, t('game.new'));
     setText(this.freezerLabel, `${LAYER_NUM.base} · ${t('game.freezer')}`);
+    for (const [layer, node] of Object.entries(this.shelfLabels)) setText(node, `${LAYER_NUM[layer]} · ${t(`layer.${layer}`)}`);
     if (this.lockLabel) setText(this.lockLabel, t('game.lockedSmoothie', { n: SMOOTHIE_LEVEL }));
     this.trashEl.setAttribute('aria-label', t('game.trash'));
     this.pauseBtn.setAttribute('aria-label', t('game.aria.pause'));
     this.clockEl.setAttribute('aria-label', t('game.aria.time'));
+    for (const v of this.custViews.values()) v.bubble.setAttribute('aria-label', this.bubbleLabel(v.c));
     setText(this.pauseTitle, t('game.pause'));
     setText(this.pauseButtons.resume, t('game.resume'));
     setText(this.pauseButtons.restart, t('game.restart'));
-    setText(this.pauseButtons.quit, t(this.mode === 'endless' ? 'game.quitTitle' : 'game.quitMap'));
+    setText(this.pauseButtons.quit, t(this.mode === 'endless' ? 'game.endShift' : 'game.quitMap'));
+    setText(this.pauseNote, t('game.quitLoses'));
     this.updateToggles();
     this.bannerEl?.replaceChildren(); // a banner in the old language just disappears
     this.levelSig = '';
     this.clockSig = '';
     this.shownHearts = -1;
+    this.moneyShownInt = null; // number format + aria follow the language
     if (this.bestEl) this.bestSig = '';
     if (this.tut) this.tut.key = '';
   }
@@ -611,6 +648,7 @@ class GameView {
 
   // ---------------------------------------------------------------- geometry
   // Untransformed position of an element in stage px (relative to the screen root).
+  // Ignores CSS transforms, includes ancestor borders (offsetLeft starts inside the parent's border).
   posOf(node) {
     let x = 0;
     let y = 0;
@@ -619,8 +657,20 @@ class GameView {
       x += n.offsetLeft;
       y += n.offsetTop;
       n = n.offsetParent;
+      if (n && n !== this.root) {
+        x += n.clientLeft;
+        y += n.clientTop;
+      }
     }
     return { x, y, w: node.offsetWidth, h: node.offsetHeight, cx: x + node.offsetWidth / 2, cy: y + node.offsetHeight / 2 };
+  }
+
+  // Rect of an element as drawn (transforms included) in stage px – the way drag.js hit-tests it.
+  stageRect(node) {
+    const r = node.getBoundingClientRect();
+    const a = this.toStage(r.left, r.top);
+    const b = this.toStage(r.right, r.bottom);
+    return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
   }
 
   toStage(clientX, clientY) {
@@ -673,6 +723,7 @@ class GameView {
       });
       dnd.target(v.el, {
         accepts: (p) => p.kind === 'pack',
+        valid: (p) => !loadBlenderError(g, i, p.id),
         drop: (p) => act(() => loadBlender(g, i, p.id)),
       });
       this.listen(v.el, 'pointerdown', () => {
@@ -690,6 +741,7 @@ class GameView {
       });
       dnd.target(v.el, {
         accepts: (p) => p.kind === 'blender' || p.kind === 'ing',
+        valid: (p) => !(p.kind === 'blender' ? pourError(g, p.idx, i) : addIngredientError(g, i, p.id)),
         drop: (p) => act(() => (p.kind === 'blender' ? pourBlender(g, p.idx, i) : addIngredient(g, i, p.id))),
       });
       this.listen(v.el, 'pointerdown', () => {
@@ -708,6 +760,7 @@ class GameView {
       });
       dnd.target(v.el, {
         accepts: (p) => p.kind === 'ing' && p.layer === 'mid',
+        valid: (p) => !loadSmoothieError(g, i, p.id),
         drop: (p) => act(() => loadSmoothie(g, i, p.id)),
       });
       this.listen(v.el, 'pointerdown', () => {
@@ -727,13 +780,24 @@ class GameView {
   }
 
   // Customer elements come and go – they register as drop targets while they exist.
+  // A wrong order still glows: reading the order bubble is the player's job.
   wireCustomer(v) {
     const g = this.game;
     v.offTarget = this.dnd.target(v.el, {
       accepts: (p) => (p.kind === 'bowl' || p.kind === 'cup') && ACTIVE.has(v.c.state),
+      valid: (p) => {
+        const r = p.kind === 'bowl' ? serveBowlError(g, p.idx, v.id) : serveSmoothieError(g, p.idx, v.id);
+        return !r || r === 'wrongOrder';
+      },
       drop: (p) => {
         if (!this.canAct()) return { ok: false, reason: 'notPlaying' };
-        return p.kind === 'bowl' ? serveBowl(g, p.idx, v.id) : serveSmoothie(g, p.idx, v.id);
+        if (p.kind !== 'bowl') return serveSmoothie(g, p.idx, v.id);
+        const r = serveBowl(g, p.idx, v.id);
+        // right so far, just not finished: say so instead of "not what they ordered"
+        if (!r.ok && r.reason === 'wrongOrder' && v.c.order.bowl && bowlOnTrack(g.bowls[p.idx], v.c.order.bowl)) {
+          return { ok: false, reason: 'bowlIncomplete' };
+        }
+        return r;
       },
     });
   }
@@ -749,9 +813,64 @@ class GameView {
       this.audio.sfx('reject');
       restartAnim(r.targetEl, 'is-reject');
       if (r.reason) this.toast(t(`reason.${r.reason}`), r.targetEl, 'bad');
-    } else {
-      this.audio.sfx('drop');
+      return;
     }
+    const w = r.pos && this.canAct() ? this.wrongStation(r) : null;
+    if (w) {
+      this.audio.sfx('reject');
+      restartAnim(w.el, 'is-reject');
+      this.toast(t(w.key), w.el, 'bad');
+    } else {
+      this.audio.sfx('drop'); // drop on empty floor: silent return (§4.3)
+    }
+  }
+
+  // drag.js only hit-tests stations that accept the item, so a pack let go over a bowl is a "drop on
+  // nothing" there. Find the station under the release point that does not take this kind of item
+  // and the hint to show (§1 #4: bounce back + hint). Returns { el, key } or null for empty floor.
+  wrongStation(r) {
+    const g = this.game;
+    const p = r.payload;
+    if (!p) return null;
+    const ruined = p.kind === 'blender' && g.blenders[p.idx]?.state === 'ruined';
+    const hint = {
+      pack: 'game.hint.pack', ing: 'game.hint.bin', bowl: 'game.hint.bowl', cup: 'game.hint.cup',
+      blender: ruined ? 'game.hint.blenderRuined' : 'game.hint.blender',
+    }[p.kind];
+    // station type → hint, only for the stations that never take this kind of item
+    const wrong = {
+      pack: { bowl: 'reason.packToBlender', slot: hint, trash: hint, cust: hint },
+      ing: { blender: 'reason.wrongLayer', slot: p.layer === 'mid' ? null : 'reason.notSmoothieFruit', trash: hint, cust: hint },
+      blender: { blender: hint, slot: hint, cust: hint },
+      bowl: { blender: hint, bowl: hint, slot: hint },
+      cup: { blender: hint, bowl: hint, slot: hint },
+    }[p.kind];
+    if (!wrong) return null;
+    const source = { blender: this.blenderViews, bowl: this.bowlViews, cup: this.slotViews }[p.kind]?.[p.idx]?.el;
+    const stations = {
+      blender: this.blenderViews.map((v) => v.el),
+      bowl: this.bowlViews.map((v) => v.el),
+      slot: this.slotViews.map((v) => v.el),
+      trash: [this.trashEl],
+      cust: [...this.custViews.values()].filter((v) => ACTIVE.has(v.c.state)).map((v) => v.el),
+    };
+    const { x, y } = r.pos;
+    let best = null;
+    let bestDist = Infinity;
+    for (const [type, key] of Object.entries(wrong)) {
+      if (!key) continue;
+      for (const node of stations[type]) {
+        if (node === source) continue;
+        const b = this.stageRect(node);
+        if (x < b.x1 - HIT_PAD || x > b.x2 + HIT_PAD || y < b.y1 - HIT_PAD || y > b.y2 + HIT_PAD) continue;
+        const dist = Math.hypot(x - b.cx, y - b.cy);
+        if (dist < bestDist) {
+          best = { el: node, key };
+          bestDist = dist;
+        }
+      }
+    }
+    return best;
   }
 
   canAct() {
@@ -786,8 +905,8 @@ class GameView {
       this.pause();
     });
     this.listen(this.pauseButtons.resume, 'click', () => this.resume());
-    this.listen(this.pauseButtons.restart, 'click', () => this.leave('game', { ...this.params, seed: undefined }));
-    this.listen(this.pauseButtons.quit, 'click', () => this.leave(this.mode === 'endless' ? 'title' : 'map', {}));
+    this.listen(this.pauseButtons.restart, 'click', () => this.exitRun('game', { ...this.params, seed: undefined }));
+    this.listen(this.pauseButtons.quit, 'click', () => this.exitRun(this.mode === 'endless' ? 'title' : 'map', {}));
     for (const [key, btn] of Object.entries(this.toggleBtns)) {
       this.listen(btn, 'click', () => {
         const on = getSave().settings[key] === false;
@@ -800,25 +919,32 @@ class GameView {
     this.listen(document, 'keydown', (e) => {
       if (e.key !== 'Escape' || this.over) return;
       e.preventDefault();
+      if (this.paused && rotateHintShown()) return; // the hint covers the game: stay paused
       if (this.paused) this.resume();
       else this.pause();
     });
     this.listen(document, 'visibilitychange', () => {
       if (document.visibilityState === 'hidden') this.pause();
     });
+    // main.js fires this when the rotate hint appears over the stage: pause like on a hidden tab,
+    // so the player resumes on purpose after rotating back
+    this.listen(window, 'acai:rotate-hint', () => this.pause());
     this.listen(this.stampEl, 'pointerdown', () => this.goResults());
     this.offs.push(onLangChange(() => this.applyTexts()));
   }
 
   pause() {
-    if (this.paused || this.over || this.destroyed) return;
+    // game.result: the run already ended (gameOver is drained on the next frame)
+    if (this.paused || this.over || this.destroyed || this.game.result) return;
     this.paused = true;
     setPaused(this.game, true);
     this.dnd.cancel();
     this.audio.loop('blender', false);
     this.audio.suspend();
     this.root.classList.add('is-paused');
+    this.freezeAnims(true);
     this.updateToggles();
+    this.pauseNote.hidden = !(this.mode === 'campaign' && this.game.money > 0);
     this.pauseEl.hidden = false;
     this.pauseButtons.resume.focus({ preventScroll: true });
   }
@@ -829,9 +955,45 @@ class GameView {
     setPaused(this.game, false);
     this.audio.resume();
     this.audio.sfx('click');
+    this.freezeAnims(false);
     this.root.classList.remove('is-paused');
     this.pauseEl.hidden = true;
     this.last = performance.now();
+  }
+
+  // Freeze the scene's CSS animations while paused (the pause card keeps its own). A class with a
+  // descendant * rule would restyle the whole screen; and only what was paused here plays again,
+  // so finished pop-ins and walk-ins never replay.
+  freezeAnims(on) {
+    if (!on) {
+      for (const a of this.frozenAnims || []) if (a.playState === 'paused') a.play();
+      this.frozenAnims = null;
+      return;
+    }
+    if (typeof this.root.getAnimations !== 'function' || typeof CSSAnimation !== 'function') return;
+    this.frozenAnims = this.root.getAnimations({ subtree: true }).filter((a) => {
+      const target = a.effect?.target;
+      return a instanceof CSSAnimation && a.playState === 'running' && target && !this.pauseEl.contains(target);
+    });
+    for (const a of this.frozenAnims) a.pause();
+  }
+
+  // Pause menu "Neu starten" / "Zur Karte". Endless has no closing time, so leaving ends the shift:
+  // coins and the record are banked through the normal gameOver → recordResult → results flow
+  // (results offers Menu / Retry). A campaign round is forfeited (the pause card says so).
+  exitRun(name, params) {
+    const g = this.game;
+    if (this.mode === 'endless' && !this.over && (g.money > 0 || g.served > 0)) {
+      this.paused = false;
+      this.pauseEl.hidden = true;
+      this.freezeAnims(false);
+      this.root.classList.remove('is-paused');
+      this.audio.resume();
+      this.audio.sfx('click');
+      endRun(g); // sets the status itself; the next frame() drains gameOver → onGameOver()
+      return;
+    }
+    this.leave(name, params);
   }
 
   leave(name, params) {
@@ -849,6 +1011,7 @@ class GameView {
     for (const off of this.offs) off();
     this.offs = [];
     this.dnd?.destroy();
+    this.frozenAnims = null;
     this.audio.loop('blender', false);
     this.audio.resume();
     if (window.__acaiGame === this.game) delete window.__acaiGame;
@@ -873,10 +1036,15 @@ class GameView {
   }
 
   updateAll(dt) {
+    this.barAcc += dt;
+    this.barTick = this.barAcc >= BAR_TICK;
+    if (this.barTick) this.barAcc = 0;
     this.updateCustomers();
     this.updateBlenders();
     this.updateBowls();
     this.updateSlots();
+    // drop-target glow follows the state under a still finger (a cup finishes, a guest leaves)
+    if (this.dnd.isDragging()) this.dnd.refresh();
     this.updateHud(dt);
     this.updateTutorial();
     if (!this.paused && !this.over) {
@@ -915,9 +1083,14 @@ class GameView {
       case 'blenderOverflow':
         a.sfx('overflow');
         break;
-      case 'blenderRuined':
+      case 'blenderRuined': {
         a.sfx('ruined');
+        // point to the trash right away – a spoiled blender never frees itself
+        const v = this.blenderViews[ev.idx];
+        if (v && this.canAct()) this.toast(t('game.hint.blenderRuined'), v.el, 'info');
+        restartAnim(this.trashEl.querySelector('.g-art'), 'is-wobble');
         break;
+      }
       case 'basePoured':
         a.sfx('pour');
         break;
@@ -982,7 +1155,7 @@ class GameView {
       'data-seat': c.seat, 'data-customer-id': c.id, 'data-state': c.state,
     });
     node.style.left = `${x}px`;
-    const bubble = el('div', 'g-bubble', { role: 'img' });
+    const bubble = el('div', 'g-bubble', { role: 'img', 'aria-label': this.bubbleLabel(c) });
     bubble.innerHTML = this.bubbleMarkup(c);
     const fig = el('div', 'g-figure');
     node.append(fig, bubble);
@@ -1004,10 +1177,20 @@ class GameView {
     const top = o.bowl.top.map((id) => `<span class="g-ico">${ingredientIcon(id, 32)}</span>`).join('');
     const base = `<div class="g-order-base"><span class="g-lnum g-lnum-base">1</span>${bowlSVG({ base: o.bowl.base, mid: [], top: [] }, 50)}</div>`;
     const bowl = `<div class="g-order-part g-order-bowl" data-part="bowl">${base}<div class="g-rows">${row('mid', mid)}${row('top', top)}</div><span class="g-check">${CHECK_SVG}</span></div>`;
+    // the fruit badge names the smoothie like the bowl rows name their items (colour alone is too little)
     const cup = o.smoothie
-      ? `<div class="g-order-part g-order-cup" data-part="smoothie">${cupSVG(o.smoothie, 'ready', 50)}<span class="g-check">${CHECK_SVG}</span></div>`
+      ? `<div class="g-order-part g-order-cup" data-part="smoothie"><span class="g-cup-wrap">${cupSVG(o.smoothie, 'ready', 50)}<span class="g-cup-fruit">${ingredientIcon(o.smoothie, 22)}</span></span><span class="g-check">${CHECK_SVG}</span></div>`
       : '';
     return `<div class="g-order">${bowl}${cup}</div><div class="g-patience"><i></i></div>`;
+  }
+
+  // Accessible name of the order bubble (it is role="img"), with what was already handed over.
+  bubbleLabel(c) {
+    const o = c.order;
+    const done = (yes) => (yes ? ` (${t('game.served')})` : '');
+    const bowl = [o.bowl.base, ...o.bowl.mid, ...o.bowl.top].map((id) => ingName(id)).join(', ');
+    const cup = o.smoothie ? `; ${t(`smoothie.${o.smoothie}`)}${done(c.delivered.smoothie)}` : '';
+    return `${t('game.order')}: ${bowl}${done(c.delivered.bowl)}${cup}`;
   }
 
   updateCustomer(v, c, seat) {
@@ -1033,11 +1216,12 @@ class GameView {
       v.delivered = delivered;
       v.bubble.querySelector('[data-part="bowl"]')?.classList.toggle('is-done', c.delivered.bowl);
       v.bubble.querySelector('[data-part="smoothie"]')?.classList.toggle('is-done', c.delivered.smoothie);
+      v.bubble.setAttribute('aria-label', this.bubbleLabel(c));
     }
-    const ratio = Math.max(0, Math.min(1, c.patience / c.maxPatience));
-    if (Math.abs(ratio - v.ratio) > 0.002) {
-      v.ratio = ratio;
-      v.fill.style.transform = `scaleX(${ratio.toFixed(4)})`;
+    const q = Math.round(Math.max(0, Math.min(1, c.patience / c.maxPatience)) * BAR_STEPS) / BAR_STEPS;
+    if (this.barDue(v.ratio, q)) {
+      v.ratio = q;
+      v.fill.style.transform = `scaleX(${q})`;
     }
   }
 
@@ -1066,9 +1250,19 @@ class GameView {
   updateBlenders() {
     this.game.blenders.forEach((b, i) => {
       const v = this.blenderViews[i];
-      const pq = b.state === 'blending' ? Math.round(b.progress * 48) : 0;
-      patch(v.art, `${b.state}|${b.base}|${pq}|${b.portions}|${b.maxPortions}`,
-        () => blenderSVG({ state: b.state, base: b.base, progress: b.progress, portions: b.portions, maxPortions: b.maxPortions }, BLENDER_SIZE));
+      // the art is re-rendered only on state changes; the badge ring follows the blend in place
+      if (patch(v.art, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}`,
+        () => blenderSVG({ state: b.state, base: b.base, progress: 0, portions: b.portions, maxPortions: b.maxPortions }, BLENDER_SIZE))) {
+        v.ring = v.art.querySelector('[data-ring]');
+        v.ringP = -1;
+      }
+      const rp = b.state === 'blending' ? Math.round(b.progress * 48) / 48 : 0;
+      if (v.ring && this.barDue(v.ringP, rp)) {
+        v.ringP = rp;
+        const len = Number(v.ring.dataset.ring);
+        v.ring.setAttribute('stroke-dasharray', `${(len * rp).toFixed(1)} ${len}`);
+        v.ring.setAttribute('opacity', rp > 0 ? '1' : '0');
+      }
       if (v.state !== b.state) {
         v.state = b.state;
         v.el.dataset.state = b.state;
@@ -1083,17 +1277,24 @@ class GameView {
 
   setTimer(v, k) {
     const show = k >= 0;
-    if (v.timerShown !== show) {
+    const fresh = v.timerShown !== show;
+    if (fresh) {
       v.timerShown = show;
       v.timer.classList.toggle('is-on', show);
     }
     if (show) {
-      const q = Math.round(k * 200) / 200;
-      if (q !== v.timerK) {
+      const q = Math.round(k * BAR_STEPS) / BAR_STEPS;
+      if (q !== v.timerK && (fresh || this.barDue(v.timerK, q))) {
         v.timerK = q;
         v.fill.style.transform = `scaleX(${q})`;
       }
     }
+  }
+
+  // Should a progress value move from prev to q in this frame? On the shared tick, on the first
+  // write (prev unset / -1) and on jumps; small steps in between wait for the tick.
+  barDue(prev, q) {
+    return q !== prev && (this.barTick || !(prev >= 0) || Math.abs(q - prev) > BAR_JUMP);
   }
 
   updateBowls() {
@@ -1166,8 +1367,8 @@ class GameView {
     const shown = Math.round(this.shownMoney);
     if (shown !== this.moneyShownInt) {
       this.moneyShownInt = shown;
-      setText(this.moneyNum, String(shown));
-      this.moneyEl.setAttribute('aria-label', t('game.aria.money', { n: shown }));
+      setText(this.moneyNum, coins(shown));
+      this.moneyEl.setAttribute('aria-label', t('game.aria.money', { n: coins(shown) }));
     }
     if (this.moneyEl.dataset.value !== String(g.money)) this.moneyEl.dataset.value = String(g.money);
     this.updateGoalBar();
@@ -1232,7 +1433,7 @@ class GameView {
     const sig = `${best}|${beaten}`;
     if (sig !== this.bestSig) {
       this.bestSig = sig;
-      setText(this.bestEl, best > 0 ? (beaten ? t('game.newBest') : t('game.best', { n: best })) : t('game.noBest'));
+      setText(this.bestEl, best > 0 ? (beaten ? t('game.newBest') : t('game.best', { n: coins(best) })) : t('game.noBest'));
       this.bestEl.classList.toggle('is-beaten', beaten);
       if (beaten && !this.bestBeaten) {
         this.bestBeaten = true;
@@ -1250,11 +1451,12 @@ class GameView {
     const p = this.posOf(fig || anchor);
     const node = el('div', `toast g-toast ${kind === 'info' ? '' : kind}`, { role: 'status' });
     node.textContent = text;
-    const x = Math.max(170, Math.min(STAGE_W - 170, p.cx));
     const y = fig ? p.y + 70 : Math.max(84, p.y + 6);
-    node.style.left = `${x}px`;
     node.style.top = `${y}px`;
     this.fxEl.append(node);
+    // centre on the anchor, clamped with the real width (it wraps by its own max-width, not by left)
+    const half = node.offsetWidth / 2;
+    node.style.left = `${Math.round(Math.min(STAGE_W - 12 - half, Math.max(12 + half, p.cx)))}px`;
     this.toastEl = node;
     this.later(() => node.remove(), 1700);
   }
@@ -1274,8 +1476,8 @@ class GameView {
     const face = v ? this.posOf(v.fig) : { cx: this.seatX(ev.seat), y: 170 };
     const from = { cx: face.cx, cy: v ? this.posOf(v.bubble).cy : 140 };
     const total = ev.amount + ev.tip;
-    this.float(t('game.plus', { n: total }), face.cx, face.y + 46, 'is-money');
-    if (ev.tip > 0) this.later(() => this.float(t('game.tip', { n: ev.tip }), face.cx, face.y + 88, 'is-tip'), 160);
+    this.float(t('game.plus', { n: coins(total) }), face.cx, face.y + 46, 'is-money');
+    if (ev.tip > 0) this.later(() => this.float(t('game.tip', { n: coins(ev.tip) }), face.cx, face.y + 88, 'is-tip'), 160);
     restartAnim(v?.el.querySelector('.g-figure'), 'is-hop');
     if (reducedMotion() || typeof Element.prototype.animate !== 'function') {
       restartAnim(this.moneyEl, 'is-bump');
@@ -1351,7 +1553,7 @@ class GameView {
       this.later(() => this.banner(t('game.endless'), t('game.banner.endlessMode'), 3600, 'is-intro'), 350);
       return;
     }
-    const goal = t('game.goal', { n: this.game.config.goals[0] });
+    const goal = t('game.goal', { n: coins(this.game.config.goals[0]) });
     const intro = this.level.intro && this.level.intro !== 'basics' ? t(`game.banner.${this.level.intro}`) : '';
     const text = intro ? `${goal} ${intro}` : goal;
     this.later(() => this.banner(t('game.level', { n: this.levelId }), text, intro ? 4600 : 2600, 'is-intro'), 350);
@@ -1408,13 +1610,15 @@ class GameView {
   }
 
   renderTutorial(step) {
+    // ingredient names are title-case labels; inside an English sentence they are common nouns
+    const nm = (id) => (getLang() === 'en' ? ingName(id).toLowerCase() : ingName(id));
     const texts = {
       welcome: () => t('game.tut.welcome'),
-      pack: () => t('game.tut.pack', { base: ingName(step.base) }),
+      pack: () => t('game.tut.pack', { base: nm(step.base) }),
       wait: () => t('game.tut.wait'),
       waitWrong: () => t('game.tut.waitWrong'),
       pour: () => t('game.tut.pour'),
-      add: () => t(step.top ? 'game.tut.addTop' : 'game.tut.add', { ing: ingName(step.ing) }),
+      add: () => t(step.top ? 'game.tut.addTop' : 'game.tut.add', { ing: nm(step.ing) }),
       trash: () => t('game.tut.trash'),
       clean: () => t('game.tut.clean'),
       serve: () => t('game.tut.serve'),
@@ -1430,7 +1634,8 @@ class GameView {
     }
     const ring = step.from ? (() => {
       const p = this.posOf(step.from);
-      return `<div class="g-tut-ring" style="left:${p.cx}px;top:${p.cy}px;width:${p.w + 22}px;height:${p.h + 22}px"></div>`;
+      // 3 px outside the target on every side: shelf bins are only 6 px apart
+      return `<div class="g-tut-ring" style="left:${p.cx}px;top:${p.cy}px;width:${p.w + 6}px;height:${p.h + 6}px"></div>`;
     })() : '';
     this.tutEl.innerHTML = `${ring}${arrow}<div class="panel g-tut-panel" data-tutorial-step="${step.key}">`
       + `<div class="g-tut-head"><span>${t('game.tut.title')}</span><span class="g-tut-dots">${dots}</span></div>`
@@ -1490,19 +1695,21 @@ class GameView {
     this.over = true;
     this.dnd.cancel();
     this.audio.loop('blender', false);
+    this.audio.music(null); // fade the game track out so the jingle stands alone; results requests 'menu'
     this.toastEl?.remove();
     this.bannerEl.replaceChildren();
     this.tutEl.replaceChildren();
     const g = this.game;
     const won = ev.result === 'won';
-    this.audio.sfx(won ? 'win' : 'lose');
+    // an endless shift ended from the pause menu closes the shop instead of failing
+    this.audio.sfx(won ? 'win' : ev.reason === 'quit' ? 'closing' : 'lose');
     this.result = this.recordResult();
 
     let title;
     let sub = '';
     if (this.mode === 'endless') {
       title = t('game.stamp.endless');
-      sub = t('game.endlessScore', { n: g.money });
+      sub = t('game.endlessScore', { n: coins(g.money) });
     } else {
       title = t(won ? 'game.stamp.won' : 'game.stamp.lost');
       if (!won && ev.reason) sub = t(`game.reason.${ev.reason}`);

@@ -10,6 +10,9 @@ import { detectLang, LANGS } from './i18n.js';
 const KEY = 'acaiFever.save.v1';
 const listeners = new Set();
 let data = null;
+// The stored JSON this tab last read or wrote successfully. Storage holding anything else means
+// another tab of the game saved in the meantime (see sync() and the 'storage' listener below).
+let lastRaw = null;
 
 export function defaultSave() {
   return {
@@ -27,31 +30,65 @@ export function defaultSave() {
   };
 }
 
+// Whole number in 0..max. Strings, NaN, negatives and fractions from a damaged save are clamped.
+const int = (v, max) => Math.max(0, Math.min(max, Math.floor(Number(v)) || 0));
+// A finite amount ≥ 0 (coins, best score, stats), otherwise 0.
+const amount = (v) => (Number.isFinite(v) ? Math.max(0, v) : 0);
+const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+
+// Stored data → a valid save. Every field is checked, because a save that was edited by hand,
+// written by an older version or damaged must never break the shop, the map or a level.
 function merge(raw) {
   const d = defaultSave();
   if (!raw || typeof raw !== 'object') return d;
   const out = { ...d, ...raw };
-  out.settings = { ...d.settings, ...(raw.settings || {}) };
-  out.stats = { ...d.stats, ...(raw.stats || {}) };
+  out.settings = { ...d.settings, ...obj(raw.settings) };
+  if (!LANGS.includes(out.settings.lang)) out.settings.lang = d.settings.lang;
+  out.settings.music = out.settings.music !== false; // only an explicit false mutes
+  out.settings.sfx = out.settings.sfx !== false;
+  const stats = obj(raw.stats);
+  out.stats = {};
+  for (const k of Object.keys(d.stats)) out.stats[k] = amount(stats[k]);
+
   out.owned = Array.isArray(raw.owned) ? raw.owned.filter((id) => ING[id]) : d.owned;
   for (const id of START_OWNED) if (!out.owned.includes(id)) out.owned.push(id);
-  out.ingLevels = { ...(raw.ingLevels || {}) };
-  out.upgrades = { ...(raw.upgrades || {}) };
-  out.stars = { ...(raw.stars || {}) };
-  out.newIngredients = Array.isArray(raw.newIngredients) ? raw.newIngredients : [];
-  out.seenIntros = { ...(raw.seenIntros || {}) };
-  out.coins = Number.isFinite(raw.coins) ? Math.max(0, raw.coins) : 0;
   out.owned = [...new Set(out.owned)];
-  if (!LANGS.includes(out.settings.lang)) out.settings.lang = d.settings.lang;
-  out.endlessBest = Number.isFinite(raw.endlessBest) ? Math.max(0, raw.endlessBest) : 0;
+  out.newIngredients = Array.isArray(raw.newIngredients)
+    ? [...new Set(raw.newIngredients.filter((id) => ING[id] && out.owned.includes(id)))]
+    : [];
+
+  // Only values > 0 are kept, so an untouched save keeps its empty objects.
+  const stars = obj(raw.stars);
+  out.stars = {};
+  for (const l of LEVELS) {
+    const n = int(stars[l.id], 3);
+    if (n) out.stars[l.id] = n;
+  }
+  const ingLevels = obj(raw.ingLevels);
+  out.ingLevels = {};
+  for (const id of Object.keys(ING)) {
+    const n = int(ingLevels[id], ING[id].upgradeCosts.length);
+    if (n) out.ingLevels[id] = n;
+  }
+  const upgrades = obj(raw.upgrades);
+  out.upgrades = {};
+  for (const id of Object.keys(UPG)) {
+    const n = int(upgrades[id], UPG[id].levels.length);
+    if (n) out.upgrades[id] = n;
+  }
+  out.seenIntros = { ...obj(raw.seenIntros) };
+  out.coins = amount(raw.coins);
+  out.endlessBest = amount(raw.endlessBest);
   return out;
 }
 
 // initial = optional snapshot (e.g. from the artifact hot-reload hook) used when storage is empty.
 export function loadSave(initial) {
   let raw = null;
+  lastRaw = null;
   try {
     const s = localStorage.getItem(KEY);
+    lastRaw = s;
     if (s) raw = JSON.parse(s);
   } catch {
     raw = null;
@@ -67,14 +104,35 @@ export function getSave() {
 
 export function persist() {
   try {
-    localStorage.setItem(KEY, JSON.stringify(data));
+    const s = JSON.stringify(data);
+    localStorage.setItem(KEY, s);
+    lastRaw = s;
   } catch {
     /* storage blocked – keep in memory */
   }
   for (const fn of listeners) fn(data);
 }
 
+// Two tabs of the game share one save. Before every change, adopt what another tab stored since
+// this tab last read or wrote, so a stale tab never overwrites newer progress with its old copy.
+// Memory wins when storage is unreadable, holds no save, or still holds the value this tab read
+// before its own writes started failing (quota): that progress exists only in memory.
+function sync() {
+  if (!data) return;
+  try {
+    const s = localStorage.getItem(KEY);
+    if (!s || s === lastRaw) return;
+    const raw = JSON.parse(s);
+    if (!raw || typeof raw !== 'object') return;
+    data = merge(raw);
+    lastRaw = s;
+  } catch {
+    /* blocked or corrupt – keep memory */
+  }
+}
+
 export function updateSave(fn) {
+  sync();
   fn(getSave());
   persist();
   return data;
@@ -83,6 +141,23 @@ export function updateSave(fn) {
 export function onSaveChange(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
+}
+
+// Another tab saved: take its state over right away, so open menus (coins pill, shop) show it.
+// Settings changed there (language, audio) are kept in the save but not applied to this tab.
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== KEY || !e.newValue || e.newValue === lastRaw || !data) return;
+    try {
+      const raw = JSON.parse(e.newValue);
+      if (!raw || typeof raw !== 'object') return;
+      data = merge(raw);
+      lastRaw = e.newValue;
+    } catch {
+      return;
+    }
+    for (const fn of listeners) fn(data);
+  });
 }
 
 export function resetSave() {
@@ -110,13 +185,21 @@ export const upgradeLevel = (id) => getSave().upgrades[id] || 0;
 export const ingLevel = (id) => getSave().ingLevels[id] || 0;
 
 // ---------------------------------------------------------------- actions
+// A non-finite amount must never reach the wallet: JSON stores NaN as null, which loads as 0 coins.
+const finite = (n) => (Number.isFinite(n) ? n : 0);
+const addTo = (coins, n) => Math.max(0, Math.round((coins + n) * 10) / 10);
+
+// Actions that check something first (owned, coins, unlocked) call sync() before the check, so it
+// sees what another tab may have saved in the meantime; updateSave() syncs for all the others.
 export function addCoins(n) {
+  const m = finite(n);
   updateSave((d) => {
-    d.coins = Math.max(0, Math.round((d.coins + n) * 10) / 10);
+    d.coins = addTo(d.coins, m);
   });
 }
 
 export function buyIngredient(id) {
+  sync();
   const ing = ING[id];
   if (!ing) return { ok: false, reason: 'unknown' };
   if (isOwned(id)) return { ok: false, reason: 'owned' };
@@ -130,6 +213,7 @@ export function buyIngredient(id) {
 }
 
 export function upgradeIngredient(id) {
+  sync();
   if (!isOwned(id)) return { ok: false, reason: 'notOwned' };
   const cost = qualityUpgradeCost(id, ingLevel(id));
   if (cost === null) return { ok: false, reason: 'maxed' };
@@ -147,6 +231,7 @@ export function upgradeLocked(upgradeId) {
 }
 
 export function buyUpgrade(upgradeId) {
+  sync();
   const u = UPG[upgradeId];
   if (!u) return { ok: false, reason: 'unknown' };
   if (upgradeLocked(upgradeId)) return { ok: false, reason: 'locked' };
@@ -162,18 +247,21 @@ export function buyUpgrade(upgradeId) {
 
 // Called once per finished campaign level. Coins are always banked.
 export function recordLevelResult(levelId, { won, stars, money, served }) {
+  sync();
+  const m = finite(money);
+  const n = int(stars, 3);
   const wasEndlessUnlocked = isEndlessUnlocked();
   const wasUnlocked = isLevelUnlocked(levelId + 1);
   let newBest = false;
   updateSave((d) => {
-    d.coins = Math.round((d.coins + money) * 10) / 10;
-    d.stats.earned += money;
-    d.stats.served += served;
+    d.coins = addTo(d.coins, m);
+    d.stats.earned += m;
+    d.stats.served += finite(served);
     d.stats.played += 1;
     d.newIngredients = [];
-    if (won && stars > (d.stars[levelId] || 0)) {
+    if (won && n > (d.stars[levelId] || 0)) {
       newBest = true;
-      d.stars[levelId] = stars;
+      d.stars[levelId] = n;
     }
   });
   return {
@@ -185,15 +273,16 @@ export function recordLevelResult(levelId, { won, stars, money, served }) {
 }
 
 export function recordEndless({ money, served }) {
+  const m = finite(money);
   let newBest = false;
   updateSave((d) => {
-    d.coins = Math.round((d.coins + money) * 10) / 10;
-    d.stats.earned += money;
-    d.stats.served += served;
+    d.coins = addTo(d.coins, m);
+    d.stats.earned += m;
+    d.stats.served += finite(served);
     d.stats.played += 1;
     d.newIngredients = [];
-    if (money > d.endlessBest) {
-      d.endlessBest = money;
+    if (m > d.endlessBest) {
+      d.endlessBest = m;
       newBest = true;
     }
   });

@@ -47,6 +47,7 @@ export function generateOrder(rng, { owned, config, smoothies = false, featured 
   const tops = ownedOfLayer(owned, 'top');
 
   const base = bases.length ? weightedPick(rng, bases, weightOf) : null;
+  // At least one fruit/crunch: the engine rejects toppings on a bowl without one.
   const mid = weightedSample(rng, mids, countInRange(rng, config.mid, mids.length, 1), weightOf);
   const top = weightedSample(rng, tops, countInRange(rng, config.top, tops.length), weightOf);
 

@@ -7,12 +7,16 @@
 //   2. Touch 1024×768 (CDP touch events), fresh profile: at least 3 customers served in level 1.
 //   3. Injected save (stars 1–10, 5000 coins): endless starts, is played, and ends on the results.
 //   4. Language EN: title, map, shop and the game HUD show English text.
+//   5. Touch tablet/phone (mobile viewport): a two-finger pinch in the letterbox bands or on the
+//      rotate hint does not zoom the page; touch taps and the rotate hint's dismiss button still work.
+//   6. Two tabs on one profile: tab B's open shop shows the coins tab A banks, and a purchase in B
+//      keeps A's win instead of overwriting it with B's stale copy of the save.
 // Every scenario asserts zero console errors and page errors.
 // Env: E2E_PORT (default 8090), E2E_FONTS=real|stub (default stub), E2E_OUT_DIR for failure shots.
 
 import path from 'node:path';
 import {
-  startServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, e2eOutDir,
+  startServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, pinch, e2eOutDir,
 } from './helpers.mjs';
 
 const PORT = Number(process.env.E2E_PORT) || 8090;
@@ -470,6 +474,142 @@ async function endlessAndLanguage(srv) {
   }
 }
 
+const viewportScale = (page) => page.evaluate(() => window.visualViewport?.scale ?? 1);
+const wrapRect = (page) => page.evaluate(() => {
+  const r = document.getElementById('stage-wrap').getBoundingClientRect();
+  return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+});
+
+async function noPageZoom(srv) {
+  console.log('[touch, mobile viewports: the page never zooms]');
+  for (const viewport of [{ width: 1180, height: 820 }, { width: 844, height: 390 }]) {
+    const { width: w, height: h } = viewport;
+    const label = `${w}×${h}`;
+    const b = await launchBrowser({ fonts: FONTS, touch: true, isMobile: true, viewport });
+    const { page } = b;
+    const errors = collectConsoleErrors(page);
+    page.setDefaultTimeout(8000);
+    try {
+      await page.goto(`${srv.url}/index.html`);
+      await screenIs(page, 'title');
+      await check(`${label}: pinches starting in the letterbox bands do not zoom the page`, async () => {
+        const r = await wrapRect(page);
+        const cases = [];
+        if (r.top >= 30) {
+          cases.push(['two fingers in the top band', { x: w / 2 - 10, y: r.top / 2 }, { x: w / 2 + 10, y: r.top / 2 }, 160]);
+          cases.push(['one finger in the band, one on the stage', { x: w / 2, y: r.top / 2 }, { x: w / 2, y: r.top + 200 }, 60]);
+        }
+        if (r.left >= 30) {
+          cases.push(['two fingers in the left band', { x: r.left / 2, y: h / 2 - 10 }, { x: r.left / 2, y: h / 2 + 10 }, 120]);
+          cases.push(['a thumb in each side band', { x: r.left / 2, y: h / 2 }, { x: (r.right + w) / 2, y: h / 2 }, 40]);
+          cases.push(['one finger in the band, one on the stage', { x: r.left / 2, y: h / 2 }, { x: r.left + 200, y: h / 2 }, 60]);
+        }
+        assert(cases.length >= 2, `no letterbox band at ${label} (stage-wrap ${JSON.stringify(r)})`);
+        for (const [what, p1, p2, spread] of cases) {
+          const scale = await pinch(page, p1, p2, { spread });
+          assert(scale === 1, `${what}: page zoomed to ${scale}×`);
+        }
+        // touch-action does not inherit, but a gesture only gets what every ancestor allows.
+        const css = await page.evaluate(() => [document.documentElement, document.body, document.getElementById('stage')]
+          .map((el) => `${el.id || el.localName}:${getComputedStyle(el).touchAction}`));
+        assert(css.every((x) => x.endsWith(':none')), `touch-action: ${css.join(', ')}`);
+        const prevented = await page.evaluate(() => {
+          const e = new Event('gesturestart', { bubbles: true, cancelable: true });
+          document.body.dispatchEvent(e);
+          return e.defaultPrevented;
+        });
+        assert(prevented, 'iOS gesturestart is not cancelled');
+      }, page);
+
+      await check(`${label}: touch taps still work`, async () => {
+        await press(page, '[data-action="play"]', true);
+        await screenIs(page, 'map');
+      }, page);
+      await check(`${label}: no console errors`, async () => assertNoConsoleErrors(errors, label));
+    } finally {
+      await b.close();
+    }
+  }
+
+  const b = await launchBrowser({ fonts: FONTS, touch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  const { page } = b;
+  const errors = collectConsoleErrors(page);
+  try {
+    await page.goto(`${srv.url}/index.html`);
+    await screenIs(page, 'title');
+    await check('390×844 portrait: a pinch on the rotate hint does not zoom, its button still dismisses it', async () => {
+      await page.waitForSelector('#rotate-hint:not([hidden])', { timeout: 3000 });
+      const scale = await pinch(page, { x: 180, y: 300 }, { x: 210, y: 300 }, { spread: 120 });
+      assert(scale === 1, `page zoomed to ${scale}×`);
+      await press(page, '[data-action="dismiss-rotate"]', true);
+      await page.waitForSelector('#rotate-hint[hidden]', { state: 'attached', timeout: 3000 });
+      assert(await viewportScale(page) === 1, 'page zoomed by the tap');
+    }, page);
+    await check('portrait: no console errors', async () => assertNoConsoleErrors(errors, 'portrait'));
+  } finally {
+    await b.close();
+  }
+}
+
+async function twoTabs(srv) {
+  const b = await launchBrowser({ fonts: FONTS, viewport: { width: 1280, height: 800 } });
+  const tabA = b.page;
+  const errorsA = collectConsoleErrors(tabA);
+  tabA.setDefaultTimeout(8000);
+  console.log('[two tabs, one profile]');
+  try {
+    await tabA.goto(`${srv.url}/index.html`);
+    await screenIs(tabA, 'title');
+    const start = { version: 1, coins: 200, stars: { 1: 1 }, seenIntros: { basics: true } };
+    await tabA.evaluate(([k, s]) => localStorage.setItem(k, JSON.stringify(s)), [SAVE_KEY, start]);
+    await tabA.reload();
+    await screenIs(tabA, 'title');
+
+    const tabB = await b.context.newPage();
+    const errorsB = collectConsoleErrors(tabB);
+    tabB.setDefaultTimeout(8000);
+    await tabB.goto(`${srv.url}/index.html`);
+
+    await check('two tabs: B\'s open shop shows the coins A banks', async () => {
+      await screenIs(tabB, 'title');
+      await press(tabB, '[data-action="play"]');
+      await screenIs(tabB, 'map');
+      await press(tabB, '.screen-map [data-action="shop"]');
+      await screenIs(tabB, 'shop');
+      assert(await tabB.getAttribute('.sc-coins', 'data-coins') === '200', 'B does not start with 200 coins');
+      // Tab A wins level 2 with 3 stars (the call the results flow makes).
+      await tabA.evaluate(async () => (await import('/js/save.js')).recordLevelResult(2, { won: true, stars: 3, money: 150, served: 6 }));
+      await tabB.waitForFunction(() => document.querySelector('.sc-coins')?.dataset.coins === '350', null, { timeout: 3000 });
+    }, tabB);
+
+    await check('two tabs: a purchase in B keeps A\'s win, and A shows both after a reload', async () => {
+      await press(tabB, '[data-buy="ing"][data-id="coconut"]');
+      await tabB.waitForFunction(() => document.querySelector('[data-shop-item="coconut"]')?.dataset.state === 'upgrade', null, { timeout: 3000 });
+      const saved = await tabB.evaluate((k) => JSON.parse(localStorage.getItem(k)), SAVE_KEY);
+      assert(saved.stars['2'] === 3, `A's 3-star win was overwritten (stars ${JSON.stringify(saved.stars)})`);
+      assert(saved.coins === 300, `coins ${saved.coins}, expected 200 + 150 − 50`);
+      assert(saved.owned.includes('coconut'), 'coconut not owned');
+      assert(saved.stats.played === 1, `stats.played ${saved.stats.played}`);
+
+      await tabA.reload();
+      await screenIs(tabA, 'title');
+      await press(tabA, '[data-action="play"]');
+      await screenIs(tabA, 'map');
+      const lvl3 = await tabA.getAttribute('.map-level[data-level="3"]', 'data-state');
+      assert(lvl3 === 'current', `level 3 node state is "${lvl3}" after A's level 2 win`);
+      const coins = await tabA.getAttribute('.sc-coins', 'data-coins');
+      assert(coins === '300', `A's coin pill data-coins="${coins}"`);
+    }, tabA);
+
+    await check('two tabs: no console errors', async () => {
+      assertNoConsoleErrors(errorsA, 'tab A');
+      assertNoConsoleErrors(errorsB, 'tab B');
+    });
+  } finally {
+    await b.close();
+  }
+}
+
 // ------------------------------------------------------------------ main
 async function main() {
   const srv = await startServer({ port: PORT });
@@ -479,6 +619,8 @@ async function main() {
     await mouseCampaign(srv);
     await touchCampaign(srv);
     await endlessAndLanguage(srv);
+    await noPageZoom(srv);
+    await twoTabs(srv);
   } finally {
     await srv.close();
   }

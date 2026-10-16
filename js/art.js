@@ -1117,7 +1117,9 @@ function badge(cx, cy, fill, inner, sw) {
   return circle(cx, cy + 2, 14, INK, op(0.25)) + circle(cx, cy, 14, fill, stroke(sw)) + inner;
 }
 
-function blenderContents(state, ing, progress) {
+// portions/maxPortions: bowls left in a ready jug – the fill level drops with every pour
+// (the dots on the motor base repeat the count). Callers without portions get a full jug.
+function blenderContents(state, ing, progress, portions, maxPortions) {
   const main = mix(ing.color, ing.color2, 0.35);
   const lite = ing.color2;
   const surf = (y, c, dip = 0) => path(`M${f(jugL(y) + 3)} ${y}Q75 ${y + 4 + dip} ${f(jugR(y) - 3)} ${y}Q75 ${y - 4} ${f(jugL(y) + 3)} ${y}Z`, c);
@@ -1129,8 +1131,14 @@ function blenderContents(state, ing, progress) {
       circle(62, 76, 2, WHITE, op(0.7)) + circle(88, 90, 1.6, WHITE, op(0.7));
   }
   if (state === 'ready') {
-    return path(jugFill(50), main) + surf(50, lite) + gloss(58, 50, 9, 1.8, 0, 0.6) + line('M54 62Q60 78 58 94', lighten(main, 0.25), 3, op(0.5));
+    // full → 50; 1 of 2 → 66; 2 of 3 → 61, 1 of 3 → 71 (near the jug ticks at 52/66/80). A ready jug always keeps a clear layer.
+    const n = Math.max(1, maxPortions || 1);
+    const k = Math.max(1, Math.min(n, portions ?? n));
+    const y = Math.round(50 + (1 - k / n) * 32);
+    return path(jugFill(y), main) + surf(y, lite) + gloss(58, y, 9, 1.8, 0, 0.6) +
+      line(`M54 ${y + 12}Q60 ${Math.min(90, y + 28)} 58 94`, lighten(main, 0.25), 3, op(0.5));
   }
+  // overflowing keeps the brim-full jug + foam blob: that silhouette is the warning, the dots carry the count
   if (state === 'overflowing') {
     return path(jugFill(38, 2.5), main) + line('M54 52Q60 74 58 94', lighten(main, 0.25), 3, op(0.5));
   }
@@ -1152,8 +1160,11 @@ function motorBase(state, o, sw) {
   s += circle(59, 126.5, 7.5, LAGOON, stroke(sw * 0.8)) + line(`M59 126.5L${f(59 + Math.cos(a) * 5)} ${f(126.5 + Math.sin(a) * 5)}`, INK, 2.4);
   const n = Math.max(1, Math.min(4, o.maxPortions || 2));
   const left = state === 'ready' || state === 'overflowing' ? Math.max(0, Math.min(n, o.portions ?? n)) : 0;
+  // portion lamps right of the dial; spacing shrinks for 4 so they stay clear of the dial and inside the panel
+  const gap = Math.min(11, 30 / Math.max(1, n - 1));
+  const r = Math.min(4.4, gap * 0.38);
   for (let i = 0; i < n; i++) {
-    s += circle(85 + (i - (n - 1) / 2) * 10, 126.5, 3.6, i < left ? LEAF : '#e3d9ea', stroke(sw * 0.6));
+    s += circle(85 + (i - (n - 1) / 2) * gap, 126.5, r, i < left ? LEAF : '#e3d9ea', stroke(sw * 0.6));
   }
   return s;
 }
@@ -1175,7 +1186,7 @@ function drawBlender(state, o, p, size) {
   if (state === 'blending') s += line('M24 52Q18 64 24 76M16 58Q12 64 16 70M136 106Q142 98 140 88', INK, 3, op(0.55));
   s += tube('M110 48C132 46 134 54 132 66L128 88C126 96 118 98 106 96', LAGOON, 7, sw);
   s += path(JUG, '#e6f7fc', op(0.6));
-  s += blenderContents(state, ing, p);
+  s += blenderContents(state, ing, p, o.portions, o.maxPortions);
   s += path(`M60 ${JUG_BOT - 4}L90 ${JUG_BOT - 8}M60 ${JUG_BOT - 8}L90 ${JUG_BOT - 4}`, 'none', stroke(3, '#9aa7b6'));
   s += line('M45 44L52 98', WHITE, 4, op(0.75)) + line('M56 44L57.5 58', WHITE, 2.5, op(0.6));
   for (const y of [52, 66, 80]) s += line(`M${f(jugR(y) - 10)} ${y}H${f(jugR(y) - 4)}`, INK, 1.8, op(0.35));
@@ -1202,8 +1213,9 @@ function drawBlender(state, o, p, size) {
   } else if (state === 'blending') {
     const r = 8.5;
     const len = 2 * Math.PI * r;
+    // data-ring: the game view updates this ring's dasharray in place instead of re-rendering the art
     s += badge(127, 22, WHITE, circle(127, 22, r, 'none', stroke(5, '#e3d9ea')) +
-      (p > 0 ? `<circle cx="127" cy="22" r="${r}" fill="none" stroke="${LAGOON}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${f(len * p)} ${f(len)}" transform="rotate(-90 127 22)"/>` : ''), sw);
+      `<circle data-ring="${f(len)}" opacity="${p > 0 ? 1 : 0}" cx="127" cy="22" r="${r}" fill="none" stroke="${LAGOON}" stroke-width="5" stroke-linecap="round" stroke-dasharray="${f(len * p)} ${f(len)}" transform="rotate(-90 127 22)"/>`, sw);
   } else if (state === 'ready') {
     s += badge(127, 22, LEAF, line('M120.5 22.5L125 27L134 17.5', WHITE, 3.8), sw);
   } else if (state === 'overflowing') {
@@ -1570,7 +1582,6 @@ export function mapBackgroundSVG(width = 1280, height = 800) {
   s += line('M380 70q8 -8 16 0q8 -8 16 0M700 110q6 -6 12 0q6 -6 12 0M440 140q6 -6 12 0q6 -6 12 0', INK, 2.5);
   s += rect(0, 200, W, 150, 0, `url(#${sea})`) + rect(0, 200, W, 8, 0, '#178fb0');
   s += path('M250 206Q330 168 410 206Z', '#ffe2a6', stroke(sw)) + palmTree(334, 196, 46, 10, 2.2, 34);
-  s += path('M760 246H820L810 260H770Z', WHITE, stroke(sw)) + path('M790 244V200L824 244Z', PINK, stroke(sw)) + path('M788 244V210L764 244Z', MANGO, stroke(sw));
   let waves = '';
   const rng = rngFor('map-waves');
   for (let i = 0; i < 26; i++) {
@@ -1579,6 +1590,9 @@ export function mapBackgroundSVG(width = 1280, height = 800) {
     waves += `M${f(x)} ${f(y)}q10 -7 20 0`;
   }
   s += line(waves, WHITE, 2.5, op(0.65));
+  // sailboat in open sea right of node 16 (clear of level nodes, star pills and the road bulge),
+  // drawn after the wave strokes so no wave crosses its sails
+  s += g('translate(400 0)', path('M760 246H820L810 260H770Z', WHITE, stroke(sw)) + path('M790 244V200L824 244Z', PINK, stroke(sw)) + path('M788 244V210L764 244Z', MANGO, stroke(sw)));
   // shore foam + sand
   let foam = 'M0 336';
   for (let x = 0; x < W; x += 80) foam += `Q${x + 40} 318 ${x + 80} 336`;
@@ -1606,11 +1620,13 @@ export function mapBackgroundSVG(width = 1280, height = 800) {
   s += g('translate(132 596) rotate(-10) scale(0.8)', line('M0 -36V112', '#9aa7b6', 5) + line('M0 -36V112', INK, 1.2, op(0.4)) +
     shape(canopy, CREAM, sw, stripes + line('M-48 -24Q-30 -38 -8 -38', WHITE, 3, op(0.6))) + circle(0, -42, 4, PINK, stroke(sw * 0.8)));
   s += g('rotate(-8 170 670)', shape(rrect(110, 640, 120, 56, 8), LAGOON, sw, line('M130 640V696M150 640V696', WHITE, 6, op(0.8))));
-  s += ball(1080, 690, 22, WHITE, '#d9d2e0', sw) + path('M1080 668A22 22 0 0 1 1102 690H1080Z', PINK) + path('M1080 712A22 22 0 0 1 1058 690H1080Z', LAGOON) + circle(1080, 690, 22, 'none', stroke(sw));
+  // beach ball on open sand between road rows 1 and 2 (no level node, star pill or road nearby)
+  s += ball(540, 600, 22, WHITE, '#d9d2e0', sw) + path('M540 578A22 22 0 0 1 562 600H540Z', PINK) + path('M540 622A22 22 0 0 1 518 600H540Z', LAGOON) + circle(540, 600, 22, 'none', stroke(sw));
   const starfish = (x, y, k, deg) => g(`translate(${x} ${y}) rotate(${deg}) scale(${k})`, path(polyPath(starPoints(0, 0, 16, 7)), '#ff8a5c', stroke(sw / k)) + circle(0, 0, 2, '#ffd0b8'));
   s += starfish(380, 420, 1, 12) + starfish(1180, 520, 0.8, -20) + starfish(860, 760, 0.7, 30);
   const shell = (x, y, deg) => g(`translate(${x} ${y}) rotate(${deg})`, path('M0 10L-12 -2Q0 -16 12 -2Z', '#ffd6e6', stroke(2.4)) + line('M0 10L-6 -6M0 10V-9M0 10L6 -6', '#e8a0bd', 1.6));
-  s += shell(160, 470, -10) + shell(1000, 430, 15) + shell(560, 770, 0);
+  // shells sit in the sand pockets between road rows (the old spots hid under node 15 and the left road loop)
+  s += shell(350, 600, -10) + shell(945, 460, 15) + shell(560, 770, 0);
   s += palmTree(62, 700, 310, 64, sw, 110) + palmTree(1222, 690, 290, -60, sw, 104);
   return svgWrap(width, height, W, H, s, ' preserveAspectRatio="xMidYMid slice"');
 }

@@ -91,7 +91,8 @@
   #src-granola { left: 240px; }
   #src-honey { left: 444px; }
   #src-kiwi { left: 648px; }
-  #stage.is-dragging, #stage.is-dragging * { cursor: grabbing; }
+  /* only the source (it holds the pointer capture, so its cursor shows) – same rule as css/game.css */
+  #stage.is-dragging .drag-source { cursor: grabbing; }
 
   .ghost-ing { display: grid; place-items: center; width: 112px; height: 112px; border-radius: 56px; background: rgba(255, 250, 240, 0.9); border: var(--outline); }
 
@@ -120,9 +121,9 @@
   #ghost-layer { position: absolute; inset: 0; pointer-events: none; z-index: 60; }
   .toast { transform: translateX(-50%); animation: pop-in 0.25s ease-out both; }
 
-  /* ?scroll=1: page becomes scrollable and the stage itself stops blocking pans,
-     so only drag.js protects the sources against scrolling (used by the e2e test). */
-  html.scroll-test, html.scroll-test body { height: auto; overflow: auto; }
+  /* ?scroll=1: page becomes scrollable and neither the page nor the stage blocks pans (base.css sets
+     touch-action: none on both), so only drag.js protects the sources against scrolling (used by the e2e test). */
+  html.scroll-test, html.scroll-test body { height: auto; overflow: auto; touch-action: auto; }
   html.scroll-test #app { height: 100vh; }
   html.scroll-test #stage { touch-action: auto; }
   #scroll-spacer { height: 1400px; background: repeating-linear-gradient(0deg, transparent 0 60px, rgba(255, 255, 255, 0.06) 60px 120px); }

@@ -73,19 +73,26 @@ describe('ingredients', () => {
     for (let i = 1; i < QUALITY_MULT.length; i++) assert.ok(QUALITY_MULT[i] > QUALITY_MULT[i - 1]);
   });
 
-  test('ingredientValue / smoothieValue apply quality and round to 0.5', () => {
+  test('ingredientValue / smoothieValue apply quality and round up to 0.5', () => {
     for (const ing of INGREDIENTS) {
       const values = QUALITY_MULT.map((_, lv) => ingredientValue(ing.id, { [ing.id]: lv }));
       assert.equal(values[0], Math.round(ing.price * 2) / 2);
       for (const v of values) assert.equal(v * 2, Math.round(v * 2), `${ing.id}: ${v} not a multiple of 0.5`);
-      for (let i = 1; i < values.length; i++) assert.ok(values[i] >= values[i - 1], `${ing.id}: value drops`);
+      // every paid quality star must add coins (honey used to stay at 1.5 for 140 coins)
+      for (let i = 1; i < values.length; i++) assert.ok(values[i] > values[i - 1], `${ing.id}: quality ${i} adds nothing`);
+      values.forEach((v, lv) => {
+        const exact = ing.price * QUALITY_MULT[lv];
+        assert.ok(v >= exact - 1e-9 && v < exact + 0.5, `${ing.id} q${lv}: ${v} is not ${exact} rounded up`);
+      });
       assert.equal(ingredientValue(ing.id, { [ing.id]: 99 }), values.at(-1), 'quality level is clamped');
     }
     assert.equal(ingredientValue('nope'), 0);
-    const s0 = smoothieValue('banana');
-    const s2 = smoothieValue('banana', { banana: 2 });
-    assert.ok(s0 > 0 && s2 > s0);
-    assert.equal(s2 * 2, Math.round(s2 * 2));
+    assert.deepEqual(QUALITY_MULT.map((_, lv) => ingredientValue('honey', { honey: lv })), [1, 1.5, 2]);
+    assert.equal(ingredientValue('acai', { acai: 1 }), 6.5, 'exact products are not rounded up by float noise');
+    const sv = QUALITY_MULT.map((_, lv) => smoothieValue('banana', { banana: lv }));
+    assert.ok(sv[0] > 0);
+    for (let i = 1; i < sv.length; i++) assert.ok(sv[i] > sv[i - 1], `smoothie quality ${i} adds nothing`);
+    for (const v of sv) assert.equal(v * 2, Math.round(v * 2));
   });
 
   test('qualityUpgradeCost walks the upgrade list and ends with null', () => {
@@ -231,6 +238,8 @@ describe('upgrades & kitchen stats', () => {
     assert.equal(getKitchenStats({ bowlSlots: 1 }).bowlSlots, 3);
     assert.equal(getKitchenStats({ bowlSlots: 2 }).bowlSlots, 4);
     assert.equal(getKitchenStats({ jug: 1 }).portions, 3);
+    assert.equal(getKitchenStats({ jug: 1 }).readyHold, 13.5, 'the big jug stays fresh longer');
+    assert.ok(getKitchenStats({ jug: 1 }).readyHold > KITCHEN_BASE.readyHold);
     assert.equal(getKitchenStats({ blender2: 1 }).blenders, 2);
     assert.equal(getKitchenStats({ smoothieSlots: 1 }).smoothieSlots, 2);
     assert.deepEqual(getKitchenStats({ unknownThing: 3 }), KITCHEN_BASE);
@@ -259,7 +268,7 @@ describe('strings', () => {
     ...INGREDIENTS.map((i) => `ing.${i.id}`),
     ...UPGRADES.flatMap((u) => [`upg.${u.id}`, `upgdesc.${u.id}`]),
     ...LAYERS.map((l) => `layer.${l}`),
-    'smoothie.name',
+    ...INGREDIENTS.filter((i) => i.smoothie).map((i) => `smoothie.${i.id}`),
   ];
 
   test('every ingredient, upgrade and layer has German and English text', () => {
