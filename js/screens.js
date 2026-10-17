@@ -16,6 +16,8 @@ import {
   coinSVG, starSVG, heartSVG, clockSVG, lockSVG, mapBackgroundSVG,
   SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
 } from './art.js';
+import { pictureMarkup } from './art3d.js';
+import { blenderLook, BLENDER_MODELS } from './kitchen3d.js';
 
 registerStrings({
   de: {
@@ -93,6 +95,8 @@ registerStrings({
     'shop.seconds': '{n} s',
     'shop.percent': '+{n} %',
     'shop.kitchenNow': 'Deine Küche',
+    'shop.nextModel': 'Neues Modell: {name}',
+    'shop.yourModel': 'Dein Modell: {name}',
     'shop.decorNow': 'Deko macht Gäste geduldiger',
     'settings.title': 'Einstellungen',
     'settings.language': 'Sprache',
@@ -217,6 +221,8 @@ registerStrings({
     'shop.seconds': '{n} s',
     'shop.percent': '+{n}%',
     'shop.kitchenNow': 'Your kitchen',
+    'shop.nextModel': 'New model: {name}',
+    'shop.yourModel': 'Your model: {name}',
     'shop.decorNow': 'Decor makes customers more patient',
     'settings.title': 'Settings',
     'settings.language': 'Language',
@@ -745,17 +751,24 @@ const map = {
   },
 };
 
+// The blender in the player's model (blenderLook: Turbo-Mixer level and jug) as a 3D picture,
+// or the drawn art without WebGL. look overrides the model (shop cards show the next one).
+function blenderArt(o, size, look = null, svgOpts = { badge: false }) {
+  const model = look || blenderLook(getSave().upgrades);
+  return pictureMarkup('blender', { ...model, ...o }, size, () => blenderSVG({ ...svgOpts, ...o }, size), o.state === 'overflowing' ? 0.7 : 0.4);
+}
+
 // =====================================================================
 // Pre-level modal
 // =====================================================================
 function introArt(key) {
   switch (key) {
     case 'basics':
-      return `<div class="intro-art intro-art-steps">${packIcon('acai', 54)}<i></i>${blenderSVG({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 64)}<i></i>${bowlSVG(null, 60)}<i></i>${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 70)}</div>`;
+      return `<div class="intro-art intro-art-steps">${packIcon('acai', 54)}<i></i>${blenderArt({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 64, null, {})}<i></i>${bowlSVG(null, 60)}<i></i>${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 70)}</div>`;
     case 'overflow':
-      return `<div class="intro-art">${blenderSVG({ state: 'overflowing', base: 'acai', portions: 2, maxPortions: 2 }, 110)}</div>`;
+      return `<div class="intro-art">${blenderArt({ state: 'overflowing', base: 'acai', portions: 2, maxPortions: 2 }, 110, null, {})}</div>`;
     case 'smoothie':
-      return `<div class="intro-art">${cupSVG('strawberry', 'ready', 92)}${cupSVG('mango', 'ready', 74)}</div>`;
+      return `<div class="intro-art">${smoothieMachineArt(132, ['strawberry'])}</div>`;
     case 'endless':
       return `<div class="intro-art intro-art-endless">${ICON.endless(96)}</div>`;
     case 'moreSeats':
@@ -901,7 +914,7 @@ const LAYER_NUM = { base: 1, mid: 2, top: 3 };
 
 function tabIcon(tab) {
   if (tab === 'ingredients') return ingredientIcon('strawberry', 40);
-  if (tab === 'kitchen') return blenderSVG({ badge: false, state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 44);
+  if (tab === 'kitchen') return blenderArt({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 44);
   return decorSVG('plants', 44);
 }
 
@@ -970,22 +983,29 @@ function statLine(u) {
     + `<span class="upg-stat-value">${esc(spec.fmt(now))}${next !== null ? ` <i>→</i> <b>${esc(spec.fmt(next))}</b>` : ''}</span>`;
 }
 
-function smoothieMachineArt(size) {
+// The smoothie machine with a ready cup per fruit (one fruit: the one-tank machine of level 7).
+function smoothieMachineArt(size, fruits = ['strawberry', 'kiwi']) {
   const cup = Math.round(size * SMOOTHIE_CUP_SIZE);
-  const xs = SMOOTHIE_SLOT_X[2];
-  const fruits = ['strawberry', 'kiwi'];
-  return `<div class="upg-machine" style="width:${size}px;height:${size}px">${smoothieMachineSVG(2, size)}${xs.map((fx, i) =>
+  const xs = SMOOTHIE_SLOT_X[fruits.length];
+  const machine = pictureMarkup('machine', { slots: fruits.map((fruit) => ({ state: 'ready', fruit })) }, size, () => smoothieMachineSVG(fruits.length, size));
+  return `<div class="upg-machine" style="width:${size}px;height:${size}px">${machine}${xs.map((fx, i) =>
     `<span style="left:${Math.round(fx * size - cup / 2)}px;top:${Math.round(SMOOTHIE_SLOT_Y * size - cup)}px">${cupSVG(fruits[i], 'ready', cup)}</span>`).join('')}</div>`;
 }
 
 function upgradeArt(id) {
   switch (id) {
-    case 'blenderSpeed':
-      return `<div class="upg-art-speed">${blenderSVG({ badge: false, state: 'blending', base: 'acai', progress: 0.7 }, 180)}<span class="upg-bolt">${ICON.bolt(46)}</span></div>`;
+    case 'blenderSpeed': {
+      // every Turbo-Mixer level is a new blender model: the card shows the one you get next
+      const lvl = upgradeLevel('blenderSpeed');
+      const tier = Math.min(UPG.blenderSpeed.levels.length, lvl + 1);
+      const look = { ...blenderLook(getSave().upgrades), tier };
+      const label = t(lvl < UPG.blenderSpeed.levels.length ? 'shop.nextModel' : 'shop.yourModel', { name: BLENDER_MODELS[tier] });
+      return `<div class="upg-art-speed">${blenderArt({ state: 'blending', base: 'acai', progress: 0.7, remaining: 2 }, 180, look)}<span class="upg-bolt">${ICON.bolt(46)}</span><span class="upg-model">${esc(label)}</span></div>`;
+    }
     case 'jug':
-      return blenderSVG({ badge: false, state: 'ready', base: 'pitaya', portions: 3, maxPortions: 3 }, 180);
+      return blenderArt({ state: 'ready', base: 'pitaya', portions: 3, maxPortions: 3 }, 180, { ...blenderLook(getSave().upgrades), big: true });
     case 'blender2':
-      return `<div class="upg-art-pair">${blenderSVG({ badge: false, state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 128)}${blenderSVG({ badge: false, state: 'blending', base: 'spirulina', progress: 0.45 }, 128)}</div>`;
+      return `<div class="upg-art-pair">${blenderArt({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 128)}${blenderArt({ state: 'blending', base: 'spirulina', progress: 0.45, remaining: 3 }, 128)}</div>`;
     case 'bowlSlots':
       return `<div class="upg-art-bowls">${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 104)}${bowlSVG(null, 104)}${bowlSVG({ base: 'pitaya', mid: ['strawberry'], top: [] }, 104)}</div>`;
     case 'smoothieSlots':
@@ -1024,9 +1044,9 @@ function kitchenSummary() {
   const k = getKitchenStats(getSave().upgrades);
   const item = (art, label, value) => `<span class="shop-sum-item">${art}<span><small>${esc(label)}</small><b>${esc(value)}</b></span></span>`;
   return `<div class="shop-summary panel"><h3>${esc(t('shop.kitchenNow'))}</h3>
-    ${item(blenderSVG({ badge: false, state: 'blending', base: 'acai', progress: 0.5 }, 50), t('shop.stat.blendTime'), t('shop.seconds', { n: numFmt(k.blendTime) }))}
-    ${item(blenderSVG({ badge: false, state: 'ready', base: 'pitaya', portions: k.portions, maxPortions: k.portions }, 50), t('shop.stat.portions'), numFmt(k.portions))}
-    ${item(blenderSVG({ badge: false, state: 'empty', base: 'acai' }, 50), t('shop.stat.blenders'), numFmt(k.blenders))}
+    ${item(blenderArt({ state: 'blending', base: 'acai', progress: 0.5, remaining: 3 }, 50), t('shop.stat.blendTime'), t('shop.seconds', { n: numFmt(k.blendTime) }))}
+    ${item(blenderArt({ state: 'ready', base: 'pitaya', portions: k.portions, maxPortions: k.portions }, 50), t('shop.stat.portions'), numFmt(k.portions))}
+    ${item(blenderArt({ state: 'empty', base: 'acai' }, 50), t('shop.stat.blenders'), numFmt(k.blenders))}
     ${item(bowlSVG(null, 50), t('shop.stat.bowlSlots'), numFmt(k.bowlSlots))}
     ${item(cupSVG('mango', 'ready', 46), t('shop.stat.smoothieSlots'), numFmt(k.smoothieSlots))}
   </div>`;

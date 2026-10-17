@@ -30,6 +30,7 @@ player decisions listed in §1.
 | 14 | Sound | **SFX + music**, each mutable, remembered. |
 | 15 | Name | **Açaí Fever** |
 | 16 | Cups | A bowl is a **clear plastic cup**. An empty cup is **put down from the stack** on a free spot before anything goes into it; serving or trashing takes it off the counter. |
+| 17 | Appliances | The kitchen machines are **3D** (real-time WebGL) and **animated** (blending vortex, churning slush, pouring tap, lids and doors), modelled on **real household appliances**, with **a new model per upgrade level** (blender: Classic → Turbo → Pro → Pro Max, normal or big jug; smoothie machine: one tank → two tanks). Without WebGL the drawn SVG art is used. |
 
 ---
 
@@ -143,19 +144,25 @@ js/engine.js          pure game simulation (no DOM): createGame, tick, actions, 
 js/drag.js            generic pointer-based drag & drop manager (touch + mouse), stage-scale aware
 js/svg.js             shared SVG helpers + the shared gradients/clip paths (artDefsSVG, one hidden <svg> per page)
 js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, ingredient bowls, packs, smoothie cups
-js/art-kitchen.js     realistic kitchen art: work counter, freezer, trays, blender, smoothie machine, trash, café back wall, decor
+js/art-kitchen.js     realistic kitchen art: work counter, freezer, trays, café back wall, decor; blender, smoothie machine,
+                      trash and freezer as the SVG fallback of the 3D models
 js/art.js             people, HUD icons, logo, map; re-exports the food + kitchen art (screens import from here)
+js/geo3d.js           3D math, mesh builders (lathe, rounded box, tube, liquid surface) and materials – pure
+js/kitchen3d.js       3D models of the appliances as scene descriptions (blender tiers, smoothie machine, bin, freezer) – pure
+js/gl3d.js            WebGL renderer: one shared offscreen context, studio lighting, glass, patterns
+js/art3d.js           live 3D station views (canvas) and cached 3D pictures for menus; SVG fallback
 js/audio.js           WebAudio synthesized SFX + music loops (no audio files)
 js/game-view.js       gameplay screen: DOM from engine state, drag wiring, HUD, pause, tutorial, FX
 js/screens.js         menu screens: title, map, shop, settings, pre-level modal, results
 tools/build.mjs       esbuild bundle → dist/acai-fever.html (standalone) + dist/artifact.html
-tests/*.test.mjs      node --test unit tests (engine, orders, data, save, i18n, audio, art, balance simulation)
-tests/e2e/*.e2e.mjs   Playwright scripts (drag, gameplay, screens, playthrough, build) – `npm run e2e`
+tests/*.test.mjs      node --test unit tests (engine, orders, data, save, i18n, audio, art, 3D geometry + models, balance simulation)
+tests/e2e/*.e2e.mjs   Playwright scripts (drag, gameplay, screens, playthrough, appliances, build) – `npm run e2e`
 ```
 
 Rules:
 - **engine.js / orders.js / rng.js / data.js are pure** (no `document`, no `window`) so `node --test` can import them.
-  `data.js` may call `registerStrings` (pure).
+  `data.js` may call `registerStrings` (pure). So are **geo3d.js / kitchen3d.js** (scene descriptions only);
+  `gl3d.js` and `art3d.js` touch the DOM only when called, never at import time.
 - Only `save.js` touches `localStorage` (always inside try/catch).
 - Only `audio.js` touches WebAudio.
 - Every module that shows text registers its own strings via `registerStrings({de:{…}, en:{…}})` with a
@@ -327,6 +334,54 @@ gradient (café wall, work counter, logo, map) builds unique ids with `uid()`. P
 (`url(#af-steel) #cfd6dc`), so a page without the defs still shows plain fills. Guests are drawn with a thin warm
 outline (`withInk`), the HUD icons, logo and map keep the cartoon ink line of the menus.
 
+### 4.4.1 3D appliances (`js/geo3d.js`, `js/kitchen3d.js`, `js/gl3d.js`, `js/art3d.js`)
+The blender, smoothie machine, pedal bin and chest freezer are real 3D models rendered with WebGL (no library). Everything else
+(guests, food, cups, HUD) stays SVG.
+```js
+// kitchen3d.js (pure): scene = { frame, elev, persp?, time, items: [{ mesh, mat, m, pass }] }
+blenderScene({ tier 0–3, big, state, base, progress, remaining, portions, maxPortions }, t, frame?)
+machineScene({ slots: [{ state: 'empty'|'mixing'|'ready', fruit, progress }] }, t, frame?)   // 1 or 2 slots
+trashScene({ lid: 0 closed … 1 open }, t, frame?)
+freezerScene({ layer: 'back'|'front', door: 0 … 1 /* a pack is being taken */ }, t, frame?)
+VIEWS[kind] = { w, h, ax, ay, zoom }        // canvas size (stage px) and where the world origin sits in it
+blenderLook(save.upgrades) → { tier, big }  // tier = Turbo-Mixer level, big = big jug bought
+BLENDER_MODELS = ['Classic', 'Turbo', 'Pro', 'Pro Max'];  MACHINE_SLOT_X; pourFill(progress); isAnimated(kind, o)
+// art3d.js
+has3D() → bool                               // false without WebGL → callers keep the SVG art
+createView(kind, className?) → { el /* <canvas> */, draw(o, t), invalidate() }
+snapshot(view, cssWidth) → <canvas>          // drag ghost of a station
+pictureMarkup(kind, o, size, fallback, t?)   // <img> (cached data URL) or fallback() markup for menus
+```
+- **World:** y up, +z toward the player, units = stage px. One fixed orthographic camera looks down by 17° (the angle the
+  cup rims are drawn with), so every appliance shares one perspective and its canvas lines up with the DOM hit areas. The
+  chest freezer built into the worktop is seen from above like the worktop itself: `FREEZER_ELEV` 60° and a gentle
+  perspective (`scene.persp`, a camera 1100 px from the middle of its opening), so its frame tapers toward the back like
+  the counter's trays and the inner side walls show.
+- **Look:** metal/roughness shading with GGX highlights from three studio lights, reflections of a procedural photo studio
+  (soft boxes over a warm room), clear plastic with Fresnel reflections, procedural surface patterns (brushed steel, swirling
+  purée, slush crystals, frost, printed scales, seven-segment displays, LED rings), ACES tone mapping. Colours are sRGB in
+  the models and linear in the shader.
+- **Models per upgrade:** Turbo-Mixer level 0–3 picks the motor base (white Classic with a knob, brushed-steel Turbo with speed
+  LEDs, açaí-purple Pro with an LED ring that fills while blending, black Pro Max with a countdown display and light bar);
+  the big jug is taller and wider; the smoothie machine is a compact white one-tank machine or the stainless two-tank
+  machine, both with the café's açaí purple on the head with the taps.
+  Green LEDs on every base show the portions left. The shop's Turbo-Mixer card shows the next model ("New model: Pro").
+- **Animations** are functions of state and time: vortex, swirl and frozen chunks that melt away while blending, jug
+  vibration, foam, drips and a lifted lid when overflowing, mould and flies when spoiled; fruit tumbling into the tank,
+  auger and slush churning, then the lever opens and a stream fills the cup (the cup art fills with `pourFill`); the bin lid
+  opens while something trashable is carried (wide over the bin) and falls shut with a bounce; cold air spills out of the
+  chest freezer while a pack is taken.
+- **Rendering:** one shared offscreen WebGL context draws each view into the view's own 2D canvas (passes: contact shadow,
+  opaque, decals, glass back-to-front, glows). A view only redraws when its state changed or while it animates. If drawing is
+  slow (software WebGL), animation frames and progress updates are spaced out (state changes never); a lost context keeps
+  the last pictures until it is restored.
+- **In the game** (`game-view.js`): the root gets `is-3d`; blender `.g-art` holds the canvas plus the DOM status badge
+  (`blenderBadgeSVG`, the blending ring keeps `data-ring`); the freezer gets two canvases around the DOM packs (frame, frosty
+  well with spare packs on a step at the back and the sliding glass lids behind them; the frame's front edge and the cold
+  air in front of them; the canvases end at the worktop's front edge); the machine canvas sits under the DOM cups (slots); the bin canvas reaches above its hit area for the
+  lid. The animation clock `animT` only runs while the game runs (pause, game over and `prefers-reduced-motion` freeze it).
+- Preview of every model and state: `tools/appliances-3d.html` (`?z=2` zoom, `?only=` filter, `?t=` time).
+
 ### 4.5 Audio (`js/audio.js`) – contract
 ```js
 audio.unlock()                // call from first user gesture; creates/resumes AudioContext
@@ -403,7 +458,7 @@ Interaction targets must be ≥ 64 stage px (tablet fingers). Valid drop targets
   `--wood #c97d43`, `--wood-dark #8e4f22`, `--danger #ff4d4d`, `--ok #2fbf71`.
 - Chunky buttons: rounded 18px, thick dark outline (3px `--ink`), bottom shadow 0 6px 0 that compresses on press.
 - Feedback: pickup scale-up, drop squash, reject shake + red flash + reason toast, coin fly to HUD,
-  "+12" floating numbers, blender shake while blending, overflow red pulse + drips, customer bob.
+  "+12" floating numbers, blender vibration and vortex while blending (3D), overflow foam + drips + red glow, customer bob.
 - Respect `prefers-reduced-motion` (reduce shakes/bobs, keep state changes).
 
 ### 4.9 Persistence (`js/save.js`)
@@ -426,5 +481,7 @@ Key `acaiFever.save.v1`. Shape:
   `dist/artifact.html` (same content without doctype/html/head/body wrapper, for publishing as a Claude artifact).
 - `npm test` → `node --test "tests/**/*.test.mjs"` (`node --test tests/` also works through `tests/index.js`;
   Node 22 treats a bare directory argument as a module).
+- `appliances.e2e.mjs` checks the 3D stations in a real browser (canvases drawn, model per upgrade, blending animates,
+  bin lid and the freezer's cold air react to drags, the tap fills the cup, shop pictures) and the SVG fallback without WebGL.
 - `npm run e2e` → every `tests/e2e/*.e2e.mjs` in sequence (Playwright, static server on :8090 by default,
   `E2E_PORT` overrides). `node tools/shots.mjs <dir>` writes review screenshots of every screen.

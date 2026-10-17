@@ -1077,6 +1077,7 @@ export function cupSpotSVG(size = 150) {
 // ======================================================================
 const SMOOTHIE_COLORS = { banana: '#f8e27a', strawberry: '#f45d78', blueberry: '#7b5cc9', mango: '#ffb53b', kiwi: '#9dcc4a' };
 const smoothieColor = (id) => SMOOTHIE_COLORS[id] || '#f58fb4';
+export const smoothieColorOf = smoothieColor;
 
 function garnish(id, x, y) {
   const rng = rngFor(`garnish-${id}`);
@@ -1088,11 +1089,15 @@ function garnish(id, x, y) {
   return '';
 }
 
-export function cupSVG(fruitId = null, state = 'ready', size = 70) {
-  return memo(`c|${fruitId}|${state}|${size}`, () => drawSmoothieCup(fruitId, state, size));
+// opts.fill (mixing): how full the cup is (0–1) while the 3D machine pours into it; opts.stream
+// false leaves out the cup's own stream (the machine draws it).
+export function cupSVG(fruitId = null, state = 'ready', size = 70, opts = null) {
+  const level = opts && Number.isFinite(opts.fill) ? Math.round(Math.max(0, Math.min(1, opts.fill)) * 12) / 12 : null;
+  const stream = !(opts && opts.stream === false);
+  return memo(`c|${fruitId}|${state}|${size}|${level}|${stream}`, () => drawSmoothieCup(fruitId, state, size, level, stream));
 }
 
-function drawSmoothieCup(fruitId, state, size) {
+function drawSmoothieCup(fruitId, state, size, level = null, stream = true) {
   const col = smoothieColor(fruitId);
   const top = 36;
   const bot = 95;
@@ -1101,13 +1106,13 @@ function drawSmoothieCup(fruitId, state, size) {
   const body = `M22 ${top}L31 ${bot - 2}Q31.5 ${bot} 34 ${bot}H66Q68.5 ${bot} 69 ${bot - 2}L78 ${top}Z`;
   let s = softShadow(51, 96, 30, 4.5);
   s += path(body, paint('plastic-in', '#eaf6fa'));
-  if (state !== 'empty') {
-    const lvl = state === 'mixing' ? 70 : top + 3;
+  if (state !== 'empty' && !(state === 'mixing' && level !== null && level < 0.04)) {
+    const lvl = state === 'mixing' ? (level === null ? 70 : f(bot - 4 - (bot - 4 - (top + 5)) * level)) : top + 3;
     const fill = `M${f(xl(lvl) + 2)} ${lvl}L${f(xl(bot - 2) + 2)} ${bot - 2.5}H${f(xr(bot - 2) - 2)}L${f(xr(lvl) - 2)} ${lvl}Z`;
     s += path(fill, col) + path(fill, paint('cyl'));
     s += ellipse(50, lvl, (xr(lvl) - xl(lvl)) / 2 - 2, 3.4, lighten(col, 0.25));
     if (state === 'mixing') {
-      s += path(`M47 0H53L52.5 ${lvl}H47.5Z`, col) + path(`M47 0H53L52.5 ${lvl}H47.5Z`, paint('cyl'));
+      if (stream) s += path(`M47 0H53L52.5 ${lvl}H47.5Z`, col) + path(`M47 0H53L52.5 ${lvl}H47.5Z`, paint('cyl'));
       s += ellipse(50, lvl, 6, 1.8, lighten(col, 0.4));
       for (const [x, y] of [[40, 80], [58, 86], [46, 90]]) s += circle(x, y, 1.4, WHITE, op(0.7));
     } else {

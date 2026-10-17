@@ -12,9 +12,11 @@ import {
 } from './engine.js';
 import {
   ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, scoopSVG, cupStackSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
-  smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
+  blenderBadgeSVG, smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
   trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG, counterSVG, freezerSVG, traySVG,
 } from './art.js';
+import { has3D, createView, snapshot } from './art3d.js';
+import { blenderLook, pourFill } from './kitchen3d.js';
 import { createDragManager } from './drag.js';
 import defaultAudio from './audio.js';
 import {
@@ -362,6 +364,9 @@ class GameView {
     this.barAcc = BAR_TICK;
     this.barTick = true;
     this.frozenAnims = null;
+    this.animT = 0; // clock of the 3D appliance animations (stops while paused)
+    this.lid = { x: 0, v: 0 }; // trash lid and freezer cold-air springs (0 closed / still … 1 open / taking)
+    this.door = { x: 0, v: 0 };
 
     this.setupGame();
     this.build();
@@ -400,6 +405,9 @@ class GameView {
     });
     this.best = save.endlessBest || 0;
     this.tut = tutorial ? { key: '', done: false, finished: false } : null;
+    // the appliances are 3D (WebGL) with the upgraded models; without WebGL the drawn art stays
+    this.k3d = has3D();
+    this.look = blenderLook(save.upgrades);
     window.__acaiGame = this.game;
   }
 
@@ -408,6 +416,7 @@ class GameView {
     const g = this.game;
     const root = el('div', 'screen screen-game', { 'data-mode': this.mode, 'data-level': this.levelId ?? 'endless' });
     this.root = root;
+    if (this.k3d) root.classList.add('is-3d');
     if (g.smoothie) root.classList.add('has-smoothie');
     if (this.tut) root.classList.add('has-tutorial');
     root.append(this.buildScene(), el('div', 'g-counter'), this.buildWork(), this.buildHud());
@@ -449,7 +458,7 @@ class GameView {
     // blenders
     const bx = BLENDER_X[g.blenders.length] || BLENDER_X[2];
     this.blenderViews = g.blenders.map((b, i) => {
-      const node = el('div', 'g-blender', { 'data-blender': i, 'data-state': b.state });
+      const node = el('div', 'g-blender', { 'data-blender': i, 'data-state': b.state, 'data-model': this.look.tier });
       node.style.left = `${bx[i]}px`;
       const art = el('div', 'g-art');
       const timer = el('div', 'g-timer');
@@ -457,16 +466,18 @@ class GameView {
       timer.append(fill);
       node.append(art, timer);
       work.append(node);
-      return { el: node, art, timer, fill, state: null, ring: null, ringP: -1 };
+      const v = { el: node, art, timer, fill, state: null, ring: null, ringP: -1 };
+      if (this.k3d) {
+        v.view = createView('blender');
+        v.badge = el('div', 'g-badge');
+        art.append(v.view.el, v.badge);
+      }
+      return v;
     });
 
     // chest freezer built into the counter, the base packs (owned bases only) standing in it: the
     // frame's front edge is drawn over the packs, their names over the frame
     const freezer = el('div', 'g-freezer');
-    const well = el('div', 'g-freezer-well');
-    well.innerHTML = freezerSVG('well', FREEZER_W, FREEZER_H);
-    const rim = el('div', 'g-freezer-rim');
-    rim.innerHTML = freezerSVG('rim', FREEZER_W, FREEZER_H);
     const packs = el('div', 'g-packs');
     this.freezerLabel = el('span', 'g-freezer-label');
     this.packEls = {};
@@ -477,7 +488,19 @@ class GameView {
       packs.append(node);
       this.packEls[ing.id] = node;
     }
-    freezer.append(well, packs, rim, this.freezerLabel);
+    if (this.k3d) {
+      // 3D: the frosty well behind the packs, the glass lid and the frame in front of them
+      freezer.classList.add('is-3d');
+      this.freezerBack = createView('freezer', 'g-3d-back');
+      this.freezerFront = createView('freezer', 'g-3d-front');
+      freezer.append(this.freezerBack.el, packs, this.freezerFront.el, this.freezerLabel);
+    } else {
+      const well = el('div', 'g-freezer-well');
+      well.innerHTML = freezerSVG('well', FREEZER_W, FREEZER_H);
+      const rim = el('div', 'g-freezer-rim');
+      rim.innerHTML = freezerSVG('rim', FREEZER_W, FREEZER_H);
+      freezer.append(well, packs, rim, this.freezerLabel);
+    }
     work.append(freezer);
 
     // cup stack + bowl spots: a cup goes down from the stack before anything goes into it
@@ -533,8 +556,13 @@ class GameView {
     this.slotViews = [];
     if (g.smoothie) {
       const count = g.smoothie.slots.length;
-      const machine = el('div', 'g-machine');
-      machine.innerHTML = smoothieMachineSVG(count, MACHINE_SIZE);
+      const machine = el('div', 'g-machine', { 'data-model': count });
+      if (this.k3d) {
+        this.machineView = createView('machine');
+        machine.append(this.machineView.el);
+      } else {
+        machine.innerHTML = smoothieMachineSVG(count, MACHINE_SIZE);
+      }
       const cup = Math.round(MACHINE_SIZE * SMOOTHIE_CUP_SIZE);
       const xs = SMOOTHIE_SLOT_X[count] || SMOOTHIE_SLOT_X[2];
       g.smoothie.slots.forEach((s, i) => {
@@ -556,14 +584,26 @@ class GameView {
       // teaser: the machine arrives in a later level
       const machine = el('div', 'g-machine is-locked', { 'aria-hidden': 'true' });
       this.lockLabel = el('span', 'g-lock-label');
-      machine.innerHTML = `<div class="g-art">${smoothieMachineSVG(1, MACHINE_SIZE)}</div><span class="g-lock">${lockSVG(54)}</span>`;
+      machine.innerHTML = `<div class="g-art">${this.k3d ? '' : smoothieMachineSVG(1, MACHINE_SIZE)}</div><span class="g-lock">${lockSVG(54)}</span>`;
+      if (this.k3d) {
+        const teaser = createView('machine');
+        machine.querySelector('.g-art').append(teaser.el);
+        teaser.draw({ slots: [{ state: 'empty' }] }, 0);
+      }
       machine.append(this.lockLabel);
       work.append(machine);
     }
 
     // trash can
     this.trashEl = el('div', 'g-trash', { 'data-trash': '', role: 'img' });
-    this.trashEl.innerHTML = `<div class="g-art">${trashSVG(120)}</div>`;
+    if (this.k3d) {
+      this.trashView = createView('trash');
+      const art = el('div', 'g-art');
+      art.append(this.trashView.el);
+      this.trashEl.append(art);
+    } else {
+      this.trashEl.innerHTML = `<div class="g-art">${trashSVG(120)}</div>`;
+    }
     work.append(this.trashEl);
     return work;
   }
@@ -763,6 +803,7 @@ class GameView {
         },
         ghost: () => {
           const b = g.blenders[i];
+          if (v.view?.el.width) return snapshot(v.view, 124);
           return blenderSVG({ state: b.state, base: b.base, progress: b.progress, portions: b.portions, maxPortions: b.maxPortions }, 124);
         },
         onTap: () => this.hint(v.el, g.blenders[i].state === 'ruined' ? 'game.hint.blenderRuined' : 'game.hint.blender'),
@@ -1105,6 +1146,7 @@ class GameView {
     this.updateBlenders();
     this.updateBowls();
     this.updateSlots();
+    if (this.k3d) this.update3D(dt);
     // drop-target glow follows the state under a still finger (a cup finishes, a guest leaves)
     if (this.dnd.isDragging()) this.dnd.refresh();
     this.updateHud(dt);
@@ -1172,6 +1214,7 @@ class GameView {
       case 'trash':
         a.sfx('trash');
         restartAnim(this.trashEl.querySelector('.g-art'), 'is-wobble');
+        this.lid.v = -9; // the lid falls shut with a bounce
         break;
       case 'closingTime':
         a.sfx('closing');
@@ -1316,9 +1359,13 @@ class GameView {
     this.game.blenders.forEach((b, i) => {
       const v = this.blenderViews[i];
       // the art is re-rendered only on state changes; the badge ring follows the blend in place
-      if (patch(v.art, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}`,
-        () => blenderSVG({ state: b.state, base: b.base, progress: 0, portions: b.portions, maxPortions: b.maxPortions }, BLENDER_SIZE))) {
-        v.ring = v.art.querySelector('[data-ring]');
+      // (3D: the badge alone, the appliance is drawn in update3D)
+      const changed = v.view
+        ? patch(v.badge, b.state, () => blenderBadgeSVG(b.state, 30))
+        : patch(v.art, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}`,
+          () => blenderSVG({ state: b.state, base: b.base, progress: 0, portions: b.portions, maxPortions: b.maxPortions }, BLENDER_SIZE));
+      if (changed) {
+        v.ring = (v.badge || v.art).querySelector('[data-ring]');
         v.ringP = -1;
       }
       const rp = b.state === 'blending' ? Math.round(b.progress * 48) / 48 : 0;
@@ -1391,13 +1438,65 @@ class GameView {
     if (!slots) return;
     slots.forEach((s, i) => {
       const v = this.slotViews[i];
-      patch(v.art, `${s.state}|${s.fruit}`, () => cupSVG(s.fruit, s.state, v.cup));
+      if (this.k3d) {
+        // the machine pours from its tap: the cup fills up instead of showing its own stream
+        const fill = s.state === 'mixing' ? Math.round(pourFill(s.progress) * 12) / 12 : null;
+        patch(v.art, `${s.state}|${s.fruit}|${fill}`, () => cupSVG(s.fruit, s.state, v.cup, { fill, stream: false }));
+      } else {
+        patch(v.art, `${s.state}|${s.fruit}`, () => cupSVG(s.fruit, s.state, v.cup));
+      }
       if (v.state !== s.state) {
         v.state = s.state;
         v.el.dataset.state = s.state;
       }
       this.setTimer(v, s.state === 'mixing' ? s.progress : -1);
     });
+  }
+
+  // 3D appliances: the animation clock runs while the game runs; each view redraws only when its
+  // state changed or it animates (blending, mixing, overflowing, a moving lid or door).
+  update3D(dt) {
+    const g = this.game;
+    const still = reducedMotion();
+    if (!this.paused && !this.over && !still) this.animT += dt;
+    const t = Math.round(this.animT * 240) / 240;
+    g.blenders.forEach((b, i) => {
+      const v = this.blenderViews[i];
+      const blending = b.state === 'blending';
+      v.view?.draw({
+        ...this.look, state: b.state, base: b.base,
+        progress: blending ? Math.round(b.progress * 48) / 48 : 0,
+        remaining: blending ? Math.ceil((1 - b.progress) * (b.duration || 0)) : 0,
+        portions: b.portions, maxPortions: b.maxPortions,
+      }, t);
+    });
+    if (this.machineView && g.smoothie) {
+      this.machineView.draw({ slots: g.smoothie.slots.map((s) => ({ state: s.state, fruit: s.fruit, progress: s.state === 'mixing' ? Math.round(s.progress * 60) / 60 : 0 })) }, t);
+    }
+    // the bin opens a little while something that may go in is carried, wide over it
+    const tr = this.trashEl.classList;
+    this.spring(this.lid, tr.contains('drop-hover') ? 1 : tr.contains('drop-ok') ? 0.32 : 0, dt, still);
+    this.trashView?.draw({ lid: Math.round(this.lid.x * 100) / 100 }, t);
+    // cold air spills out of the freezer while a pack is taken out
+    const taking = Object.values(this.packEls).some((n) => n.classList.contains('drag-source'));
+    this.spring(this.door, taking ? 1 : 0, dt, still);
+    this.freezerBack?.draw({ layer: 'back' }, 0);
+    this.freezerFront?.draw({ layer: 'front', door: Math.round(this.door.x * 100) / 100 }, t);
+  }
+
+  // Damped spring toward target (a little bounce when a lid falls shut).
+  spring(s, target, dt, still) {
+    if (still || dt <= 0) {
+      if (still) Object.assign(s, { x: target, v: 0 });
+      return;
+    }
+    for (let left = Math.min(dt, 0.1); left > 1e-4; left -= 1 / 120) {
+      const h = Math.min(left, 1 / 120);
+      s.v += (190 * (target - s.x) - 15 * s.v) * h;
+      s.x += s.v * h;
+    }
+    s.x = Math.max(-0.08, Math.min(1.1, s.x));
+    if (Math.abs(target - s.x) < 0.002 && Math.abs(s.v) < 0.01) Object.assign(s, { x: target, v: 0 });
   }
 
   // ---------------------------------------------------------------- HUD

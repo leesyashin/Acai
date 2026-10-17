@@ -129,7 +129,8 @@ export function artifactPage(parsed, css, js) {
 
 function leftoverLocalRefs(page) {
   const refs = [...page.matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi)].map((m) => m[1]);
-  return refs.filter((u) => !isExternal(u) && !u.startsWith('#') && !u.startsWith('mailto:'));
+  // markup built in the bundled JS (src="${url}") is filled in at runtime, it is no file
+  return refs.filter((u) => !isExternal(u) && !u.startsWith('#') && !u.startsWith('mailto:') && !u.includes('${'));
 }
 
 const kb = (n) => `${(n / 1024).toFixed(1)} kB`;

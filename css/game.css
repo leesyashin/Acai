@@ -557,6 +557,27 @@
 }
 .screen-game .g-trash .g-art { width: 120px; height: 120px; transform-origin: 50% 100%; }
 
+/* ------------------------------------------------------------ 3D appliances (js/art3d.js, WebGL)
+   Each station holds a canvas drawn by the shared renderer; its size and the world origin inside it
+   come from VIEWS in js/kitchen3d.js. The status badge, timers and hit areas stay DOM. */
+.screen-game .g-3d { position: absolute; left: 0; top: 0; display: block; pointer-events: none; }
+.screen-game.is-3d .g-blender .g-art { width: 126px; height: 134px; }
+.screen-game.is-3d .g-blender .g-badge { position: absolute; left: 92px; top: 4px; width: 30px; height: 32px; }
+.screen-game.is-3d .g-blender .g-badge svg { display: block; }
+/* the 3D jug shakes itself while blending; overflowing keeps the red warning glow */
+.screen-game.is-3d .g-blender[data-state="blending"] .g-art { animation: none; }
+.screen-game.is-3d .g-blender[data-state="overflowing"] .g-art { animation: g-warn-glow 0.55s ease-in-out infinite; }
+.screen-game.is-3d .g-blender[data-state="ruined"] .g-art { filter: none; }
+/* freezer: the frame, the well and the glass lids behind the packs, the frame's front edge in front */
+.screen-game .g-freezer .g-3d { top: -8px; }
+.screen-game .g-freezer .g-3d-back { z-index: 0; }
+.screen-game .g-freezer .g-3d-front { z-index: 2; }
+/* smoothie machine: the cups stand on its drip trays */
+.screen-game .g-machine .g-slot { z-index: 1; }
+.screen-game.is-3d .g-slot[data-state="mixing"] .g-art { animation: none; }
+/* pedal bin: the canvas reaches above the hit area so the lid can open */
+.screen-game.is-3d .g-trash .g-art { position: absolute; left: -6px; top: -62px; width: 136px; height: 186px; transform-origin: 68px 170px; }
+
 /* ------------------------------------------------------------ drag & drop feedback (js/drag.js) */
 .screen-game [data-dnd-source] { cursor: grab; }
 /* Only the source (it holds pointer capture, so the mouse shows its cursor). Never put cursor on
@@ -920,6 +941,7 @@
 @keyframes g-rattle { 0%, 100% { rotate: 0deg; translate: 0 0; } 25% { rotate: -1.6deg; translate: -1px 0; } 75% { rotate: 1.6deg; translate: 1px 0; } }
 @keyframes g-overflow { 0%, 100% { rotate: 0deg; filter: drop-shadow(0 0 0 rgba(255, 77, 77, 0)); } 25% { rotate: -2.5deg; } 50% { filter: drop-shadow(0 0 14px var(--glow-bad)); } 75% { rotate: 2.5deg; } }
 @keyframes g-red-pulse { 0%, 100% { scale: 1; } 50% { scale: 1.08; } }
+@keyframes g-warn-glow { 0%, 100% { filter: drop-shadow(0 0 0 rgba(255, 77, 77, 0)); } 50% { filter: drop-shadow(0 0 12px var(--glow-bad)); } }
 @keyframes g-shake { 0%, 100% { translate: 0 0; } 20% { translate: -10px 0; } 40% { translate: 9px 0; } 60% { translate: -6px 0; } 80% { translate: 4px 0; } }
 @keyframes g-squash { 0% { scale: 1.14 0.86; } 55% { scale: 0.95 1.06; } 100% { scale: 1 1; } }
 @keyframes g-pop { 0% { scale: 1; } 40% { scale: 1.16; } 100% { scale: 1; } }
