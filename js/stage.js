@@ -22,10 +22,24 @@ export function initStage(app, wrap, stage) {
   window.addEventListener('resize', fit);
   window.addEventListener('orientationchange', () => setTimeout(fit, 120));
   if (window.visualViewport) window.visualViewport.addEventListener('resize', fit);
-  // The page itself never zooms (touch-action: none on html/body in base.css). iOS Safari also
-  // fires its own pinch events; cancelling them covers iOS versions without touch-action support.
-  document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+  // The page itself never zooms (touch-action: none on html/body in base.css). Safari also fires its
+  // own pinch events (iOS touch, Mac trackpad); cancelling them covers iOS versions without
+  // touch-action support and Safari on the Mac, where touch-action does not apply to trackpads.
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(type, preventDefault, { passive: false });
+  }
+  // Trackpad and mouse wheel (MacBook): Chrome, Edge and Firefox deliver a pinch as ctrl+wheel events
+  // and zoom the page, leaving the stage half outside the window; a two-finger swipe sideways goes
+  // back in the history and ends a running level. Nothing in the game scrolls, so every wheel event
+  // is cancelled. Wheel listeners on window are passive unless declared otherwise.
+  window.addEventListener('wheel', preventDefault, { passive: false });
+  // Force Touch trackpads: a firm press while dragging must not open Look Up or a preview (Safari).
+  document.addEventListener('webkitmouseforcewillbegin', preventDefault);
   return stageEl;
+}
+
+function preventDefault(e) {
+  if (e.cancelable) e.preventDefault();
 }
 
 export function fit() {
