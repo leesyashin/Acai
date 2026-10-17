@@ -11,6 +11,10 @@ Upgrade bringt ein neues Modell.
 Reines HTML/CSS/JavaScript (ES-Module), kein Framework, keine Laufzeit-Abhängigkeiten.
 Die verbindliche Spezifikation steht in [`docs/DESIGN.md`](docs/DESIGN.md).
 
+**Online spielen:** <https://leesyashin.github.io/Acai/> – jeder Push auf `main` veröffentlicht das Spiel dort
+automatisch über GitHub Pages (`.github/workflows/pages.yml`, vorher laufen die Unit-Tests). Dort liegen auch die
+Einzeldatei-Version (`acai-fever.html`) und die Vorschau aller 3D-Geräte (`tools/appliances-3d.html?anim=1`).
+
 ## So wird gespielt
 
 **Steuerung:** Alles läuft über Ziehen und Loslassen – mit dem Finger oder der Maus. Gültige Ziele
@@ -148,7 +152,8 @@ docs/DESIGN.md        Spieldesign, Regeln, Modul-Verträge, Layout
 
 **Açaí Fever** is a Cooking-Fever-style time-management game for the browser. You run an açaí bar:
 customers order bowls (and smoothies from level 7), and you build them by **drag & drop** before their
-patience runs out. Made for landscape tablets, also playable with a mouse and on phones. German and English UI.
+patience runs out. Made for landscape tablets, also playable with a mouse and on phones. German and English UI. Play online:
+<https://leesyashin.github.io/Acai/> (every push to `main` deploys there).
 The kitchen appliances are real-time 3D models (WebGL, no library) with animations – a vortex in the blender jug,
 churning slush and a pouring tap in the smoothie machine, a pedal bin lid and cold air from the chest freezer – and every kitchen upgrade
 brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-tank → two-tank smoothie machine).

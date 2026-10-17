@@ -477,6 +477,9 @@ Key `acaiFever.save.v1`. Shape:
 
 ### 4.10 Build & hosting
 - Dev: `npm start` (static server on :8080) – ES modules need http(s), not `file://`.
+- GitHub Pages: every push to `main` runs `.github/workflows/pages.yml` (Pages source "GitHub Actions"): unit tests,
+  then it publishes `index.html` + `css/` + `js/` (ES modules, no build step), `dist/acai-fever.html` and
+  `tools/appliances-3d.html` at https://leesyashin.github.io/Acai/.
 - `npm run build` → `dist/acai-fever.html` (single self-contained file, works from `file://`) and
   `dist/artifact.html` (same content without doctype/html/head/body wrapper, for publishing as a Claude artifact).
 - `npm test` → `node --test "tests/**/*.test.mjs"` (`node --test tests/` also works through `tests/index.js`;
