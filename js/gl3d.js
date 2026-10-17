@@ -400,7 +400,7 @@ class Renderer {
     return t;
   }
 
-  // Draws a scene { frame, elev, time, items } into the bottom-left w×h pixels of the canvas.
+  // Draws a scene { frame, elev, persp?, time, items } into the bottom-left w×h pixels of the canvas.
   render(scene, w, h) {
     if (this.lost) return false;
     const gl = this.gl;
@@ -413,7 +413,7 @@ class Renderer {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(this.prog);
     const u = this.u;
-    gl.uniformMatrix4fv(u.uViewProj, false, viewProjection(scene.frame, scene.elev));
+    gl.uniformMatrix4fv(u.uViewProj, false, viewProjection(scene.frame, scene.elev, scene.persp));
     const view = viewDir(scene.elev);
     gl.uniform3fv(u.uView, view);
     gl.uniform1f(u.uTime, scene.time || 0);

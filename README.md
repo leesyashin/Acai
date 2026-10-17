@@ -5,7 +5,7 @@ Açaí-Café. Deine Gäste bestellen Bowls – serviert in durchsichtigen Plasti
 Schichten sieht – und später Smoothies; du stellst sie per **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
 Maus am PC und (verkleinert) auf dem Handy. Deutsch und Englisch, Soundeffekte und Musik
 werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien. Die Küchengeräte (Mixer, Smoothie-Maschine,
-Mülleimer, Tiefkühlvitrine) sind echte 3D-Modelle, die per WebGL im Browser gerendert und animiert werden; jedes
+Mülleimer, Gefriertruhe) sind echte 3D-Modelle, die per WebGL im Browser gerendert und animiert werden; jedes
 Upgrade bringt ein neues Modell.
 
 Reines HTML/CSS/JavaScript (ES-Module), kein Framework, keine Laufzeit-Abhängigkeiten.
@@ -23,7 +23,7 @@ und ein kurzer Hinweis erklärt, warum.
    Platz. Ohne Becher geht nichts hinein – am besten stellst du ihn hin, während der Mixer noch läuft.
 3. **Bowl füllen:** Zieh den fertigen Mixer auf die leere Bowl. Eine Mischung reicht für zwei Bowls
    (mit dem großen Mixkrug für drei).
-4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus der Kühlschiene auf die Bowl.
+4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus den Schalen auf der Theke auf die Bowl.
 5. **Servieren:** Zieh die fertige Bowl auf den Gast. Stimmt sie genau mit der Bestellung überein,
    wird bezahlt – plus Trinkgeld, je geduldiger der Gast noch war. Der Platz ist danach frei für den
    nächsten Becher.
@@ -58,8 +58,9 @@ die Gäste geduldiger macht.
 und Lichtleiste. Der große Mixkrug ist sichtbar höher und breiter, die Smoothie-Maschine wächst vom kompakten Ein-Tank-
 zum Edelstahl-Zwei-Tank-Gerät. Beim Mixen dreht sich ein Strudel im Krug und gefrorene Stücke zerfallen, beim Überlaufen
 quillt Schaum unter dem Deckel hervor, in der Smoothie-Maschine wirbelt die Förderschnecke das Slush, dann öffnet der
-Zapfhahn und der Becher füllt sich. Der Mülleimer öffnet den Deckel, wenn du etwas Wegwerfbares darüber hältst, und die
-Tür der Tiefkühlvitrine schwingt auf, wenn du eine Packung herausnimmst. Ohne WebGL zeigt das Spiel die gezeichneten Geräte.
+Zapfhahn und der Becher füllt sich. Der Mülleimer öffnet den Deckel, wenn du etwas Wegwerfbares darüber hältst, und aus der
+Gefriertruhe in der Theke (Glasschiebedeckel, Vorratspackungen auf der Stufe hinten) quillt Kaltluft, wenn du eine Packung
+herausnimmst. Ohne WebGL zeigt das Spiel die gezeichneten Geräte.
 
 **Endlos-Modus:** Nach Level 10 wird der Endlos-Modus freigeschaltet: kein Zeitlimit, alle 30 Sekunden
 wird es schwerer (mehr Plätze, mehr Gäste, größere Bestellungen). Gespielt wird, bis alle Herzen weg sind
@@ -98,7 +99,7 @@ E2E-Skripte legen Screenshots in `$E2E_OUT_DIR` ab (Standard: Temp-Ordner), nie 
 dann mit Touch auf 1024×768, testet den Endlos-Modus und die englische Oberfläche, prüft, dass ein
 Zwei-Finger-Pinch im Rand um die Bühne die Seite nicht zoomt, und dass zwei offene Tabs sich den Spielstand
 nicht gegenseitig überschreiben. `appliances.e2e.mjs` prüft die 3D-Geräte (Modelle je Upgrade, Animationen, Deckel,
-Tür, Zapfhahn, Shop-Bilder) und die gezeichneten Geräte ohne WebGL. `build.e2e.mjs` baut das
+Kaltluft der Truhe, Zapfhahn, Shop-Bilder) und die gezeichneten Geräte ohne WebGL. `build.e2e.mjs` baut das
 Spiel und startet es per `file://`. Alle 3D-Geräte in allen Zuständen zeigt `tools/appliances-3d.html`
 (`npm start`, dann `http://localhost:8080/tools/appliances-3d.html?anim=1`). Für eine Sichtprüfung erzeugt `node tools/shots.mjs <ordner>` Screenshots
 aller Bildschirme in mehreren Größen.
@@ -120,8 +121,9 @@ js/orders.js          Bestellungen und Preise
 js/engine.js          Spiel-Simulation ohne DOM
 js/drag.js            Drag & Drop für Touch und Maus
 js/svg.js             gemeinsame SVG-Helfer + Farbverläufe (eine versteckte <svg> pro Seite)
-js/art-food.js        Becher mit Schichten, Zutaten, Wannen der Kühlschiene, Packungen, Smoothies
-js/art-kitchen.js     Mixer, Smoothie-Maschine, Mülleimer (Ersatz ohne WebGL), Café-Rückwand, Deko
+js/art-food.js        Becher mit Schichten, Zutaten, Zutaten-Schalen, Packungen, Smoothies
+js/art-kitchen.js     Theke in Perspektive (Arbeitsplatte, Regal), Gefriertruhe, Tabletts, Café-Rückwand, Deko;
+                      Mixer, Smoothie-Maschine, Mülleimer als Ersatz ohne WebGL
 js/art.js             Gäste, HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
 js/geo3d.js           3D-Mathematik, Geometrie (Drehkörper, abgerundete Boxen, Rohre, Flüssigkeitsoberflächen), Materialien
 js/kitchen3d.js       3D-Modelle der Küchengeräte mit allen Ausbaustufen und Animationen
@@ -148,7 +150,7 @@ docs/DESIGN.md        Spieldesign, Regeln, Modul-Verträge, Layout
 customers order bowls (and smoothies from level 7), and you build them by **drag & drop** before their
 patience runs out. Made for landscape tablets, also playable with a mouse and on phones. German and English UI.
 The kitchen appliances are real-time 3D models (WebGL, no library) with animations – a vortex in the blender jug,
-churning slush and a pouring tap in the smoothie machine, a pedal bin lid and a freezer door – and every kitchen upgrade
+churning slush and a pouring tap in the smoothie machine, a pedal bin lid and cold air from the chest freezer – and every kitchen upgrade
 brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-tank → two-tank smoothie machine).
 
 **How to play:** drag a frozen pack into the blender, put an empty bowl (a clear cup) from the stack on a

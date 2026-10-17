@@ -1,6 +1,6 @@
 // E2E checks of the 3D kitchen appliances (js/art3d.js + js/kitchen3d.js through js/game-view.js
 // and js/screens.js): WebGL canvases at every station, one model per upgrade level, animations that
-// follow the game (blending, bin lid, freezer door, smoothie tap) and the drawn SVG art when the
+// follow the game (blending, bin lid, cold air from the freezer, smoothie tap) and the drawn SVG art when the
 // browser has no WebGL.
 // Run: node tests/e2e/appliances.e2e.mjs   (serves the repo on :8090, exits non-zero on failure)
 
@@ -181,7 +181,7 @@ async function main() {
         assert(after.hash === closed.hash, 'the lid did not close again');
       });
 
-      await check('the freezer door swings open while a pack is carried', async () => {
+      await check('cold air spills out of the freezer while a pack is carried', async () => {
         const closed = await canvasInfo(page, '.g-freezer canvas.g-3d-front');
         const pack = await page.locator('[data-pack="pitaya"]').boundingBox();
         await page.mouse.move(pack.x + pack.width / 2, pack.y + pack.height / 2);
@@ -193,8 +193,8 @@ async function main() {
         await page.mouse.up(); // over the counter: the pack flies back
         await sleep(1600);
         const after = await canvasInfo(page, '.g-freezer canvas.g-3d-front');
-        assert(open.hash !== closed.hash, 'the door did not open');
-        assert(after.hash === closed.hash, 'the door did not close again');
+        assert(open.hash !== closed.hash, 'no cold air while the pack is taken');
+        assert(after.hash === closed.hash, 'the cold air does not settle again');
       });
 
       await check('smoothie machine: churn first, then the tap fills the cup', async () => {

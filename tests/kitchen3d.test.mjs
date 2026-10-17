@@ -1,21 +1,21 @@
 // 3D appliance models (js/kitchen3d.js): every state of every model builds, the upgrade levels
-// look different, the jug level shows the portions, and the smoothie machine's taps line up with
-// the cups the game puts on its drip trays.
+// look different, the jug level shows the portions, the smoothie machine's taps line up with
+// the cups the game puts on its drip trays and the chest freezer fills the counter's freezer opening.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ELEV, VIEWS, fitFrame, blenderScene, machineScene, trashScene, freezerScene, blenderLook, blenderJug, jugLevel,
-  isAnimated, slushPhase, pourFill, MACHINE_SLOT_X, CUP_Z, TRAY_Y, BLENDER_MODELS, SCENES,
+  ELEV, FREEZER_ELEV, VIEWS, fitFrame, blenderScene, machineScene, trashScene, freezerScene, blenderLook, blenderJug,
+  jugLevel, isAnimated, slushPhase, pourFill, MACHINE_SLOT_X, CUP_Z, TRAY_Y, BLENDER_MODELS, SCENES,
 } from '../js/kitchen3d.js';
-import { screenOf } from '../js/geo3d.js';
+import { screenOf, viewProjection, transformPoint } from '../js/geo3d.js';
 import { SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE } from '../js/art.js';
 import { getKitchenStats, UPG } from '../js/data.js';
 
 const PASSES = new Set(['shadow', 'opaque', 'decal', 'glass', 'glow']);
 
-function assertScene(scene, name) {
-  assert.ok(scene.items.length > 5, `${name}: has parts`);
-  assert.equal(scene.elev, ELEV);
+function assertScene(scene, name, { elev = ELEV, min = 6 } = {}) {
+  assert.ok(scene.items.length >= min, `${name}: has parts`);
+  assert.equal(scene.elev, elev);
   for (const it of scene.items) {
     assert.ok(PASSES.has(it.pass), `${name}: pass ${it.pass}`);
     assert.ok(it.mesh && it.mesh.pos.length > 0 && it.mesh.idx.length % 3 === 0, `${name}: mesh`);
@@ -115,15 +115,49 @@ test('smoothie machine: fill, churn, then pour – and the cup fills only while 
   assert.equal(streams(0.8), 1, 'a stream while pouring');
 });
 
-test('bin and freezer: lid and door move their parts', () => {
+test('bin: the lid moves its parts', () => {
   const lidY = (lid) => trashScene({ lid }, 0).items.map((it) => it.m[13]).reduce((a, b) => a + b, 0);
   assertScene(trashScene({ lid: 0 }), 'bin closed');
   assertScene(trashScene({ lid: 1 }), 'bin open');
   assert.notEqual(lidY(0), lidY(1));
-  assertScene(freezerScene({ layer: 'back' }), 'freezer cabinet');
-  assertScene(freezerScene({ layer: 'front', door: 0 }), 'freezer door');
-  const door = (d) => freezerScene({ layer: 'front', door: d }, 0.5).items;
-  assert.ok(door(1).length > door(0).length, 'cold air rolls out of an open door');
+});
+
+// Canvas box (CSS px) of a scene item: every vertex through the scene's camera.
+function canvasBox(scene, it) {
+  const vp = viewProjection(scene.frame, scene.elev, scene.persp);
+  const box = [Infinity, Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < it.mesh.pos.length; i += 3) {
+    const p = transformPoint(it.m, [it.mesh.pos[i], it.mesh.pos[i + 1], it.mesh.pos[i + 2]]);
+    const w = vp[3] * p[0] + vp[7] * p[1] + vp[11] * p[2] + vp[15];
+    const x = (((vp[0] * p[0] + vp[4] * p[1] + vp[8] * p[2] + vp[12]) / w + 1) / 2) * scene.frame.w;
+    const y = ((1 - (vp[1] * p[0] + vp[5] * p[1] + vp[9] * p[2] + vp[13]) / w) / 2) * scene.frame.h;
+    box[0] = Math.min(box[0], x);
+    box[1] = Math.min(box[1], y);
+    box[2] = Math.max(box[2], x);
+    box[3] = Math.max(box[3], y);
+  }
+  return box;
+}
+
+test('chest freezer: seen from above, its frame fills the freezer opening of the counter', () => {
+  const back = freezerScene({ layer: 'back' });
+  assertScene(back, 'freezer well', { elev: FREEZER_ELEV });
+  assert.ok(back.persp && back.persp.d > 0, 'a gentle perspective like the worktop');
+  const front = freezerScene({ layer: 'front', door: 0 });
+  assertScene(front, 'freezer front edge', { elev: FREEZER_ELEV, min: 1 });
+  const mist = (d) => freezerScene({ layer: 'front', door: d }, 0.5).items.length;
+  assert.ok(mist(1) > mist(0), 'cold air spills out while a pack is taken');
+  assert.equal(mist(0.02), mist(0), 'no cold air at rest');
+  // the frame: the full width of the freezer (284 px), from just below the canvas top (8 px above
+  // the freezer box) past the canvas bottom, which is the worktop's front edge
+  const [x0, y0, x1, y1] = back.items.map((it) => canvasBox(back, it)).reduce((a, b) => ((b[2] - b[0]) > (a[2] - a[0]) ? b : a));
+  const { w, h } = VIEWS.freezer;
+  assert.ok(Math.abs(x0) < 3 && Math.abs(x1 - w) < 3, `frame spans x ${x0.toFixed(1)}…${x1.toFixed(1)} of ${w}`);
+  assert.ok(y0 > 6 && y0 < 14, `frame's back edge at ${y0.toFixed(1)}`);
+  assert.ok(y1 >= h, `frame ends at ${y1.toFixed(1)}, above the worktop edge ${h}`);
+  // the front layer is the front edge only: it starts below the packs' heads (box y 92 + 8)
+  const [, fy0] = canvasBox(front, front.items[0]);
+  assert.ok(fy0 > 100, `front edge reaches up to ${fy0.toFixed(1)}`);
 });
 
 test('animated states and determinism', () => {
@@ -133,6 +167,8 @@ test('animated states and determinism', () => {
   assert.ok(isAnimated('machine', { slots: [{ state: 'empty' }, { state: 'mixing' }] }));
   assert.ok(!isAnimated('machine', { slots: [{ state: 'ready' }] }));
   assert.ok(!isAnimated('freezer', { layer: 'back' }));
+  assert.ok(isAnimated('freezer', { layer: 'front', door: 0.5 }));
+  assert.ok(!isAnimated('freezer', { layer: 'front', door: 0 }));
   // a scene is a pure function of state and time
   const o = { tier: 2, big: true, state: 'blending', base: 'pitaya', progress: 0.3 };
   const m = (t) => blenderScene(o, t).items.map((it) => [...it.m].join()).join('|');

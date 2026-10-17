@@ -158,10 +158,28 @@ export function screenOf(p, elev, zoom = 1) {
 }
 
 // Frame of a view: a w×h canvas (CSS px) with the world origin at (ax, ay) from its top left.
-export function viewProjection(frame, elev) {
+// persp = { d, at } adds a gentle perspective (the freezer built into the counter): a camera d
+// stage px from the world point `at`, which keeps its place and size; nearer points grow, farther
+// ones shrink toward it. Without persp the projection is orthographic.
+export function viewProjection(frame, elev, persp = null) {
   const { w, h, ax, ay, zoom = 1 } = frame;
   const proj = ortho(-ax / zoom, (w - ax) / zoom, -(h - ay) / zoom, ay / zoom, -2000, 2000);
-  return multiply(proj, viewMatrix(elev));
+  const vp = multiply(proj, viewMatrix(elev));
+  if (!persp) return vp;
+  // clip w = 1 + k·(z − zr): the orthographic clip depth z is −view depth / 2000
+  const [xp, yp, zr] = transformPoint(vp, persp.at || [0, 0, 0]);
+  const k = 2000 / persp.d;
+  const K = new Float32Array(16);
+  K[0] = 1;
+  K[5] = 1;
+  K[10] = 1;
+  K[8] = xp * k;
+  K[9] = yp * k;
+  K[11] = k;
+  K[12] = -xp * k * zr;
+  K[13] = -yp * k * zr;
+  K[15] = 1 - k * zr;
+  return multiply(K, vp);
 }
 
 // Unit vector from a surface toward the camera.

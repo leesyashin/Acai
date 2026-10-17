@@ -1,5 +1,5 @@
 // 3D models of the kitchen appliances: the blender (4 motor bases × 2 jugs, one per upgrade
-// level), the frozen-drink machine (1 or 2 tanks), the pedal bin and the display freezer.
+// level), the frozen-drink machine (1 or 2 tanks), the pedal bin and the chest freezer.
 // Pure module: every *Scene() returns { frame, elev, time, items } for js/gl3d.js – nothing here
 // touches the DOM. Geometry is in stage pixels, the floor is y = 0 and +z points at the player.
 // Animations are functions of the state and the time t (seconds), so a scene can be drawn at
@@ -19,10 +19,12 @@ export const ELEV = (17 * Math.PI) / 180;
 // Canvas of each view in CSS px (stage px) and where the world origin (floor centre under the
 // appliance) sits in it. The game places the canvases with the same numbers (css/game.css).
 export const VIEWS = {
-  blender: { w: 140, h: 172, ax: 70, ay: 153, zoom: 1.1 },
+  blender: { w: 126, h: 134, ax: 63, ay: 124, zoom: 0.9 },
   machine: { w: 236, h: 236, ax: 118, ay: 202.7 },
-  trash: { w: 130, h: 172, ax: 65, ay: 154, zoom: 1.1 },
-  freezer: { w: 284, h: 264, ax: 142, ay: 252 },
+  trash: { w: 136, h: 186, ax: 68, ay: 170, zoom: 1.2 },
+  // the freezer's origin is the floor of its well (FREEZER_ELEV, a gentle perspective)
+  // (the canvas ends at the worktop's front edge, the frame's front face reaches past it)
+  freezer: { w: 284, h: 194, ax: 142, ay: 142, zoom: 0.99 },
 };
 
 // The frame of a view scaled to fit a size×size square (shop and menu pictures).
@@ -615,12 +617,13 @@ function flies(J, t) {
 // ==================================================================
 // A fruit dropped into a slot fills that tank, the auger churns it into slush, then the tap
 // opens and pours it into the cup standing on the drip tray (the cup itself is the DOM art).
-// 1 slot: compact household machine; 2 slots (upgrade): stainless double-tank machine.
+// 1 slot: compact white household machine; 2 slots (upgrade): stainless double-tank machine. Both
+// wear the café's açaí purple on the head with the taps.
 // Cups stand at x = SLOT_X, y = 7, z = 30 – the game's smoothie slots line up with them.
 export const MACHINE_SLOT_X = { 1: [0], 2: [-47.2, 47.2] };
 const MACHINE = {
-  1: { w: 132, tankW: 100, tankD: 74, tankH: 64, cheek: MAT.blackGloss, head: MAT.steel, back: MAT.bayBlack, lid: MAT.blackGloss, lever: MAT.blackGloss, tray: MAT.chrome },
-  2: { w: 216, tankW: 86, tankD: 72, tankH: 64, cheek: MAT.steel, head: MAT.blackGloss, back: MAT.baySteel, lid: MAT.white, lever: MAT.blackGloss, tray: MAT.steel },
+  1: { w: 132, tankW: 100, tankD: 74, tankH: 64, cheek: MAT.white, head: MAT.purple, back: MAT.bayBlack, lid: MAT.white, lever: MAT.blackGloss, tray: MAT.chrome },
+  2: { w: 216, tankW: 86, tankD: 72, tankH: 64, cheek: MAT.steel, head: MAT.purple, back: MAT.baySteel, lid: MAT.white, lever: MAT.blackGloss, tray: MAT.steel },
 };
 export const CUP_Z = 30;
 export const TRAY_Y = 7.5;
@@ -787,7 +790,7 @@ export function machineScene(o = {}, t = 0, frame = VIEWS.machine) {
     const disp = once('mach-disp', () => texMat(segmentTexture('-4°C', '#7fd8ff'), 1.3, { color: '#000000' }));
     items.push(item(once('mach-disp-plane', () => plane(22, 8)), disp, at(0, (HEAD_Y[0] + HEAD_Y[1]) / 2, 40.35)));
   } else {
-    items.push(item(once('mach-plate', () => plane(26, 4.6)), labelMat('SLUSH', '#2a2c31'), at(26, (HEAD_Y[0] + HEAD_Y[1]) / 2, 40.3), 'decal'));
+    items.push(item(once('mach-plate', () => plane(26, 4.6)), labelMat('SLUSH', '#f3eefa'), at(26, (HEAD_Y[0] + HEAD_Y[1]) / 2, 40.3), 'decal'));
   }
   return { frame, elev: ELEV, time: t, items };
 }
@@ -840,96 +843,148 @@ export function trashScene(o = {}, t = 0, frame = VIEWS.trash) {
 }
 
 // ==================================================================
-// Display freezer for the base packs (the packs themselves are the DOM art)
+// Chest freezer built into the left end of the counter (the base packs are the DOM art)
 // ==================================================================
-// Two layers around the packs: 'back' = cabinet, lit frosty interior, wire shelf, control panel;
-// 'front' = the glass door with frame and handle (opens a little while a pack is taken).
-const FZ = { w: 272, d: 56, h: 248, open: [84, 238], x: 124 };
+// Seen from above like the worktop around it: a steeper camera with a gentle perspective. A steel
+// frame flush with the worktop, the frosty well with a step at the back where spare packs lean
+// on the wall, and the two sliding glass lids pushed back over them. Two layers around the packs:
+// 'back' = all of it, 'front' = the front of the frame (it hides the feet of the packs) and the
+// cold mist that spills over it while a pack is taken out (o.door 0 … 1).
+export const FREEZER_ELEV = (60 * Math.PI) / 180;
+// opening w × d, well depth h, frame width, step at the back
+const FZ = { w: 254, d: 190, h: 96, rim: 14, sq: 0.9, step: [38, 34] };
+const FZ_PERSP = { d: 1100, at: [0, FZ.h, 0] };
+const SPARE = ['acai', 'pitaya', 'acai', 'spirulina', 'pitaya', 'acai'];
+const PACK_COL = { acai: '#5a1f73', pitaya: '#e0266f', spirulina: '#1f86c6' };
 
 function freezerParts() {
-  return once('freezer', () => {
-    const { w, d, h, open } = FZ;
-    const wires = [];
-    for (let i = 0; i < 21; i++) wires.push({ mesh: tube([[-118 + i * 11.8, 0, -20], [-118 + i * 11.8, 0, 24]], 0.7, { segs: 6, caps: false }), m: I });
-    wires.push({ mesh: tube([[-120, 0.8, 25], [120, 0.8, 25]], 1.3, { segs: 10 }), m: I });
-    wires.push({ mesh: tube([[-120, 0.4, 2], [120, 0.4, 2]], 0.8, { segs: 8 }), m: I });
+  return once('chest', () => {
+    const r = FZ.w / 2;
+    const R = r + FZ.rim;
+    const H = FZ.h;
+    const opt = { segs: 160, sq: FZ.sq, depth: FZ.d / FZ.w };
+    // outside → over the frame → down the inner wall: the normals face up and into the well
+    const frame = [[R, H - 14], [R, H - 2.2], [R - 0.7, H - 0.5], [R - 2.2, H], [r + 2, H], [r + 0.6, H - 0.6], [r, H - 2.4]];
     return {
-      lower: roundedBox(w, open[0], d, 6, 3),
-      top: roundedBox(w, h - open[1], d, 4, 3),
-      post: roundedBox(w / 2 - FZ.x, open[1] - open[0] + 2, d, 2.5, 2),
-      back: plane(FZ.x * 2, open[1] - open[0]),
-      floor: plane(FZ.x * 2, d - 6, { up: true }),
-      shelf: merge(wires),
-      ledBar: roundedBox(FZ.x * 2 - 8, 1.8, 2, 0.8, 2),
-      plate: roundedBox(236, 46, 1.6, 5, 3),
-      vent: plane(200, 7),
-      foot: roundedBox(w - 6, 3, d - 6, 1.2, 2),
-      // door
-      frameV: roundedBox(7, open[1] - open[0] + 2, 4.5, 1.6, 2),
-      frameH: roundedBox(FZ.x * 2 + 4, 8, 4.5, 1.6, 2),
-      glass: plane(FZ.x * 2 - 8, open[1] - open[0] - 14),
-      handle: tube([[0, 0, 0], [0, 70, 0]], 2.2, { segs: 14 }),
-      standoff: cylinder(1.6, 0, 6, { segs: 12 }),
+      frame: lathe(frame, opt),
+      // the part in front of the packs: the front edge and the front corners
+      frameFront: lathe(frame, { ...opt, segs: 140, a0: Math.PI * 0.06, a1: Math.PI * 0.94 }),
+      walls: lathe([[r, H - 2.4], [r, 9], [r - 1.6, 2.6], [r - 6, 0]], opt),
+      floor: lathe([[r - 6, 0], [0, 0]], opt),
+      rime: lathe([[r - 0.25, H - 2.6], [r - 0.45, H - 10]], opt),
+      step: roundedBox(FZ.w - 4, FZ.step[0], FZ.step[1], 4, 3),
+      pouch: roundedBox(36, 48, 8, 3.6, 3),
+      seal: roundedBox(37, 6, 3, 1.2, 2),
+      label: plane(22, 20),
+      pane: plane(FZ.w + 12, 76, { up: true }),
+      paneEdge: roundedBox(5, 2.6, 76, 1.1, 2),
+      handle: roundedBox(226, 6, 9, 3, 3),
       mist: plane(2, 2),
+      r,
     };
   });
 }
 
-// o = { layer: 'back' | 'front', door: 0 closed … 1 open }
+// Label on a spare pack: the fruit on a white patch (the packs in front are the drawn art).
+function packLabelTexture(id) {
+  return {
+    key: `fz-label|${id}`,
+    w: 64,
+    h: 64,
+    draw(ctx) {
+      ctx.clearRect(0, 0, 64, 64);
+      ctx.fillStyle = '#fbf7f2';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(3, 3, 58, 58, 14) : ctx.rect(3, 3, 58, 58);
+      ctx.fill();
+      const dot = (x, y, rr, c) => {
+        ctx.fillStyle = c;
+        ctx.beginPath();
+        ctx.arc(x, y, rr, 0, Math.PI * 2);
+        ctx.fill();
+      };
+      if (id === 'pitaya') {
+        ctx.fillStyle = '#3fa34d';
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(32 + Math.cos(a) * 12, 34 + Math.sin(a) * 12);
+          ctx.lineTo(32 + Math.cos(a + 0.35) * 22, 34 + Math.sin(a + 0.35) * 22);
+          ctx.lineTo(32 + Math.cos(a + 0.7) * 12, 34 + Math.sin(a + 0.7) * 12);
+          ctx.fill();
+        }
+        dot(32, 34, 15, '#e2266f');
+        dot(28, 29, 4, '#ff8ab8');
+      } else if (id === 'spirulina') {
+        dot(32, 36, 16, '#1f86c6');
+        dot(27, 31, 5, '#8fd6f7');
+        ctx.fillStyle = '#c99a5a';
+        ctx.fillRect(40, 14, 14, 5);
+      } else {
+        for (const [x, y] of [[24, 30], [36, 28], [30, 40], [42, 39], [20, 42], [33, 51]]) dot(x, y, 7.5, '#3a0f4a');
+        for (const [x, y] of [[22, 28], [34, 26], [28, 38], [40, 37]]) dot(x, y, 2.4, '#a06ab8');
+        ctx.fillStyle = '#3fa34d';
+        ctx.beginPath();
+        ctx.ellipse(44, 18, 9, 4, -0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    },
+  };
+}
+
+// o = { layer: 'back' | 'front', door: 0 … 1 (a pack is being taken out) }
 export function freezerScene(o = {}, t = 0, frame = VIEWS.freezer) {
   const P = freezerParts();
-  const { w, d, h, open } = FZ;
+  const H = FZ.h;
   const items = [];
-  const front = d / 2;
+  const steel = once('fz-steel', () => material({ color: '#d4dae0', metal: 1, rough: 0.3, mode: MODE.BRUSHED, p: [0.7, 0, 0, 0] }));
+  const scene = { frame, elev: FREEZER_ELEV, persp: FZ_PERSP, time: t, items };
   if (o.layer === 'front') {
+    items.push(item(P.frameFront, steel));
     const door = clamp(Number(o.door) || 0, 0, 1);
-    const hinge = rotationAbout([-FZ.x - 2, 0, front + 3], 'y', -0.42 * door);
-    const mid = (open[0] + open[1]) / 2;
-    const frame0 = once('fz-frame', () => material({ color: '#25272c', metal: 0.6, rough: 0.32, coat: 0.4 }));
-    items.push(item(P.frameV, frame0, compose(hinge, at(-FZ.x + 1.5, mid, front + 2.6))));
-    items.push(item(P.frameV, frame0, compose(hinge, at(FZ.x - 1.5, mid, front + 2.6))));
-    items.push(item(P.frameH, frame0, compose(hinge, at(0, open[1] - 3, front + 2.6))));
-    items.push(item(P.frameH, frame0, compose(hinge, at(0, open[0] + 4, front + 2.6))));
-    items.push(item(P.glass, once('fz-glass', () => material({ color: '#e4f3fa', alpha: 0.05, rough: 0.04, glass: true, double: true, mode: MODE.FROST, p: [0.015, 0.5, 1, 0] })), compose(hinge, at(0, mid, front + 2.4)), 'glass'));
-    const hm = compose(hinge, at(FZ.x - 13, mid - 35, front + 11));
-    items.push(item(P.handle, MAT.chrome, hm));
-    for (const y of [4, 66]) items.push(item(P.standoff, MAT.chrome, compose(hinge, at(FZ.x - 13, mid - 35 + y, front + 4.6), rotationX(Math.PI / 2))));
     if (door > 0.04) {
-      // cold air rolling out of the open door
-      const q = Math.round(door * 8) / 8;
-      const mist = once(`mist|${q}`, () => material({ mode: MODE.GLOW, emit: '#f4fbff', glow: 1.1, alpha: 0.42 * q }));
-      for (let i = 0; i < 6; i++) {
-        const k = (t * 0.45 + i / 6) % 1;
-        const x = -60 + i * 26 + Math.sin(t + i) * 6;
-        const y = open[0] + 10 - k * 40;
-        const z = front + 8 + k * 16;
-        const fade = Math.sin(k * Math.PI);
-        items.push(item(P.mist, mist, compose(at(x, y, z), rotationX(-ELEV), scaling((14 + k * 18) * (0.4 + 0.6 * fade))), 'glow'));
+      // cold air spilling out of the well and over the front edge
+      const q = Math.max(1, Math.round(door * 8)) / 8;
+      const mist = once(`fz-mist|${q}`, () => material({ mode: MODE.GLOW, emit: '#f4fbff', glow: 1.2, alpha: 0.7 * q }));
+      for (let i = 0; i < 9; i++) {
+        const k = (t * 0.42 + i / 9) % 1;
+        const x = -110 + i * 27.5 + Math.sin(t * 0.8 + i * 1.7) * 8;
+        const y = H - 14 + k * 26;
+        const z = 30 + (i % 3) * 22 + k * 34;
+        const s = (16 + k * 26) * (0.35 + 0.65 * Math.sin(k * Math.PI));
+        items.push(item(P.mist, mist, compose(at(x, y, z), rotationX(-FREEZER_ELEV), scaling(s)), 'glow'));
       }
     }
-    return { frame, elev: ELEV, time: t, items };
+    return scene;
   }
-  items.push(shadow(w / 2 - 4, d / 2 - 3, 8, 12, 0.55));
-  const steel = once('fz-steel', () => material({ color: '#c9cfd4', metal: 1, rough: 0.3, mode: MODE.BRUSHED, p: [0.7, 0, 0, 0] }));
-  items.push(item(P.lower, steel, at(0, open[0] / 2, 0)));
-  items.push(item(P.top, steel, at(0, (open[1] + h) / 2, 0)));
-  for (const sx of [-1, 1]) items.push(item(P.post, steel, at(sx * (FZ.x + (w / 2 - FZ.x) / 2), (open[0] + open[1]) / 2, 0)));
-  items.push(item(P.foot, MAT.rubber, at(0, 1.4, 0)));
-  // interior: frosty back wall lit by the LED strip, floor, wire shelf for the packs
-  const inner = once('fz-inner', () => material({ color: '#93aec0', emit: '#0c1d2c', glow: 0.3, rough: 0.6, mode: MODE.FROST, p: [0.3, 0.25, 0, 0] }));
-  items.push(item(P.back, inner, at(0, (open[0] + open[1]) / 2, -front + 6)));
-  items.push(item(P.floor, inner, at(0, open[0] + 0.5, 3)));
-  items.push(item(P.shelf, MAT.chrome, at(0, 104, 0)));
-  items.push(item(P.ledBar, LED.white, at(0, open[1] - 2.5, front - 3)));
-  items.push(glow('#e8f6ff', 0, open[1] - 4, front - 2, 60, 0.18));
-  // control panel: black glass plate (the DOM label sits on it), display, vents
-  items.push(item(P.plate, MAT.panelGlass, at(0, 35.8, front + 0.6)));
-  const disp = once('fz-disp', () => texMat(segmentTexture('-18°C', '#7fd8ff', { w: 192, h: 64 }), 1.4, { color: '#000000' }));
-  items.push(item(once('fz-disp-plane', () => plane(32, 11)), disp, at(92, 35.8, front + 1.5)));
-  items.push(item(once('led-dome', () => sphere(1, 12, 8)), LED.blue, compose(at(-104, 35.8, front + 1.6), scaling(1.6, 1.6, 1))));
-  items.push(glow('#6aa0ff', -104, 35.8, front + 3, 6, 0.6));
-  items.push(item(P.vent, once('fz-vent', () => material({ color: '#aeb6bd', metal: 1, rough: 0.35, mode: MODE.GRILLE, p: [40, 1, 0.55, 0] })), at(0, 7.5, front + 0.15)));
-  return { frame, elev: ELEV, time: t, items };
+  items.push(item(P.frame, steel));
+  // the cold well: frosty walls and floor in their own cool light, rime along the top
+  const wall = once('fz-wall', () => material({ color: '#7ea7bd', rough: 0.55, mode: MODE.FROST, p: [0.12, 0, 0, 0] }));
+  const floor = once('fz-floor', () => material({ color: '#7fa5ba', rough: 0.6, mode: MODE.FROST, p: [0.16, 0, 0, 0] }));
+  items.push(item(P.walls, wall));
+  items.push(item(P.floor, floor));
+  items.push(item(P.rime, once('fz-rime', () => material({ color: '#d9edf6', rough: 0.8, mode: MODE.FROST, p: [0.8, 0, 0, 0] }))));
+  items.push(item(P.step, wall, at(0, FZ.step[0] / 2, -FZ.d / 2 + FZ.step[1] / 2)));
+  items.push(glow('#dff4ff', 0, 0.5, 30, 110, 0.16, { floor: true }));
+  // spare packs leaning on the back wall
+  const rng = rngFor('fz-spare');
+  SPARE.forEach((id, i) => {
+    const lean = 0.34 + rng.next() * 0.14;
+    const m = compose(at(-105 + i * 42, FZ.step[0], -FZ.d / 2 + 4.4 + 48 * Math.sin(lean) + 1), rotationY((rng.next() - 0.5) * 0.24), rotationX(-lean));
+    const col = PACK_COL[id];
+    items.push(item(P.pouch, once(`fz-pouch|${id}`, () => material({ color: col, rough: 0.42, coat: 0.5, mode: MODE.FROST, p: [0.08, 0, 0, 0] })), compose(m, at(0, 24, 0))));
+    items.push(item(P.seal, once(`fz-seal|${id}`, () => material({ color: mix(col, '#ffffff', 0.25), rough: 0.35, coat: 0.5 })), compose(m, at(0, 47, 0))));
+    items.push(item(P.label, once(`fz-label|${id}`, () => material({ mode: MODE.TEX, tex: packLabelTexture(id), p: [0, 1, 0, 0], rough: 0.4, coat: 0.3 })), compose(m, at(0, 23, 4.1)), 'decal'));
+  });
+  // the sliding glass lids pushed to the back, the upper one with its handle bar
+  const glass = once('fz-glass', () => material({ color: '#dff1f7', alpha: 0.03, rough: 0.05, glass: true, double: true, mode: MODE.FROST, p: [0.01, 0.5, 1, 0] }));
+  const lids = [[H + 1.6, -FZ.d / 2 + 30], [H + 4.6, -FZ.d / 2 + 35]];
+  lids.forEach(([y, z], i) => {
+    items.push(item(P.pane, glass, at(0, y, z), 'glass', i));
+    for (const sx of [-1, 1]) items.push(item(P.paneEdge, MAT.gray, at(sx * (P.r + 3.5), y, z)));
+  });
+  items.push(item(P.handle, steel, at(0, H + 7, lids[1][1] + 36)));
+  return scene;
 }
 
 export function isAnimated(kind, o = {}) {

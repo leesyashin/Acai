@@ -20,6 +20,7 @@ export {
 } from './art-food.js';
 export {
   blenderSVG, blenderBadgeSVG, smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE, trashSVG, shopSceneSVG, decorSVG,
+  counterSVG, freezerSVG, traySVG,
 } from './art-kitchen.js';
 export { artDefsSVG, ART_DEFS_ID } from './svg.js';
 

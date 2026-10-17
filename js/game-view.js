@@ -13,7 +13,7 @@ import {
 import {
   ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, scoopSVG, cupStackSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
   blenderBadgeSVG, smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
-  trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG,
+  trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG, counterSVG, freezerSVG, traySVG,
 } from './art.js';
 import { has3D, createView, snapshot } from './art3d.js';
 import { blenderLook, pourFill } from './kitchen3d.js';
@@ -236,17 +236,25 @@ registerStrings({
 // ------------------------------------------------------------------ layout (stage px)
 const STAGE_W = 1280;
 const WORK_Y = 350; // work area top; station coordinates below are relative to it
+const WORK_H = 450;
 const SEAT_X = [null, [640], [420, 860], [270, 640, 1010], [200, 493, 787, 1080]];
-const BLENDER_X = [null, [88], [14, 154]];
-const BLENDER_SIZE = 140;
+const BLENDER_X = [null, [95], [25, 165]];
+const BLENDER_SIZE = 126;
 // The cup stack stands at the left end of the bowl row; stack + spots are centred in the row.
-const BOWL_SLOT_W = 138;
-const BOWL_SIZE = 140;
+const BOWL_SLOT_W = 126;
+const BOWL_SIZE = 126;
 const BOWLS_X0 = 316;
 const BOWLS_W = 648;
-const STACK_W = 84;
+const STACK_W = 76;
 const STACK_GAP = 8;
-const BIN_ART = 84;
+const BIN_ART = 86; // also the width of a bin
+const BIN_GAP = 6;
+const TRAY_PAD = 14;
+const TRAY_H = 74;
+const TRAY_MIN = 300;
+const FREEZER_W = 284;
+const FREEZER_H = 186;
+const PACK_ART = 84;
 const MACHINE_SIZE = 236;
 const DECOR_IDS = ['plants', 'jukebox', 'seating', 'neon'];
 const DECOR_SIZE = { plants: 118, jukebox: 118, seating: 124, neon: 104 };
@@ -357,7 +365,7 @@ class GameView {
     this.barTick = true;
     this.frozenAnims = null;
     this.animT = 0; // clock of the 3D appliance animations (stops while paused)
-    this.lid = { x: 0, v: 0 }; // trash lid and freezer door springs (0 closed … 1 open)
+    this.lid = { x: 0, v: 0 }; // trash lid and freezer cold-air springs (0 closed / still … 1 open / taking)
     this.door = { x: 0, v: 0 };
 
     this.setupGame();
@@ -443,7 +451,9 @@ class GameView {
   buildWork() {
     const g = this.game;
     const work = el('div', 'g-work');
-    work.append(el('div', 'g-backsplash'));
+    const top = el('div', 'g-worktop');
+    top.innerHTML = counterSVG(STAGE_W, WORK_H);
+    work.append(top);
 
     // blenders
     const bx = BLENDER_X[g.blenders.length] || BLENDER_X[2];
@@ -465,27 +475,31 @@ class GameView {
       return v;
     });
 
-    // freezer with base packs (owned bases only)
+    // chest freezer built into the counter, the base packs (owned bases only) standing in it: the
+    // frame's front edge is drawn over the packs, their names over the frame
     const freezer = el('div', 'g-freezer');
-    const lid = el('div', 'g-freezer-lid');
     const packs = el('div', 'g-packs');
     this.freezerLabel = el('span', 'g-freezer-label');
     this.packEls = {};
     for (const ing of INGREDIENTS) {
       if (ing.layer !== 'base' || !g.owned.includes(ing.id)) continue;
       const node = el('div', 'g-pack', { 'data-pack': ing.id });
-      node.innerHTML = `<div class="g-art">${packIcon(ing.id, 74)}</div><span class="g-name"></span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`;
+      node.innerHTML = `<div class="g-art">${packIcon(ing.id, PACK_ART)}</div><span class="g-name"></span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`;
       packs.append(node);
       this.packEls[ing.id] = node;
     }
-    freezer.append(lid, packs, el('div', 'g-freezer-front'), this.freezerLabel);
     if (this.k3d) {
-      // cabinet behind the packs, glass door in front of them
+      // 3D: the frosty well behind the packs, the glass lid and the frame in front of them
       freezer.classList.add('is-3d');
       this.freezerBack = createView('freezer', 'g-3d-back');
       this.freezerFront = createView('freezer', 'g-3d-front');
-      freezer.prepend(this.freezerBack.el);
-      packs.after(this.freezerFront.el);
+      freezer.append(this.freezerBack.el, packs, this.freezerFront.el, this.freezerLabel);
+    } else {
+      const well = el('div', 'g-freezer-well');
+      well.innerHTML = freezerSVG('well', FREEZER_W, FREEZER_H);
+      const rim = el('div', 'g-freezer-rim');
+      rim.innerHTML = freezerSVG('rim', FREEZER_W, FREEZER_H);
+      freezer.append(well, packs, rim, this.freezerLabel);
     }
     work.append(freezer);
 
@@ -509,23 +523,30 @@ class GameView {
       return { el: node, art, chips, match, isMatch: false };
     });
 
-    // ingredient shelves (owned only), fruits & crunch then toppings & sauces; each board names its
-    // layer ("2 · Früchte & Crunch") like the freezer, so the layer-rule toasts point at visible words
+    // ingredient bowls (owned only) on two oak trays, fruits & crunch behind toppings & sauces; each
+    // tray names its layer ("2 · Früchte & Crunch") like the freezer, so the layer-rule toasts point
+    // at visible words
     this.binEls = {};
     this.shelfLabels = {};
     for (const layer of ['mid', 'top']) {
       const shelf = el('div', `g-shelf g-shelf-${layer}`, { 'data-layer': layer });
       const row = el('div', 'g-shelf-row');
+      let n = 0;
       for (const ing of INGREDIENTS) {
         if (ing.layer !== layer || !g.owned.includes(ing.id)) continue;
         const node = el('div', 'g-bin', { 'data-bin': ing.id, 'data-layer': layer });
         node.innerHTML = `<span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span><div class="g-art">${binSVG(ing.id, BIN_ART)}</div><span class="g-name"></span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`;
         row.append(node);
         this.binEls[ing.id] = node;
+        n++;
       }
       const inner = el('div', 'g-shelf-in');
+      const board = el('div', 'g-board');
+      const w = Math.max(TRAY_MIN, n * BIN_ART + Math.max(0, n - 1) * BIN_GAP + TRAY_PAD * 2);
+      board.style.width = `${w}px`;
+      board.innerHTML = traySVG(w, TRAY_H);
       const label = el('span', `g-shelf-label g-shelf-label-${layer}`);
-      inner.append(row, el('div', 'g-board'), label);
+      inner.append(board, row, label);
       this.shelfLabels[layer] = label;
       shelf.append(inner);
       work.append(shelf);
@@ -581,7 +602,7 @@ class GameView {
       art.append(this.trashView.el);
       this.trashEl.append(art);
     } else {
-      this.trashEl.innerHTML = `<div class="g-art">${trashSVG(96)}</div>`;
+      this.trashEl.innerHTML = `<div class="g-art">${trashSVG(120)}</div>`;
     }
     work.append(this.trashEl);
     return work;
@@ -1456,7 +1477,7 @@ class GameView {
     const tr = this.trashEl.classList;
     this.spring(this.lid, tr.contains('drop-hover') ? 1 : tr.contains('drop-ok') ? 0.32 : 0, dt, still);
     this.trashView?.draw({ lid: Math.round(this.lid.x * 100) / 100 }, t);
-    // the freezer door swings open while a pack is taken out
+    // cold air spills out of the freezer while a pack is taken out
     const taking = Object.values(this.packEls).some((n) => n.classList.contains('drag-source'));
     this.spring(this.door, taking ? 1 : 0, dt, still);
     this.freezerBack?.draw({ layer: 'back' }, 0);

@@ -81,6 +81,28 @@ test('camera: the world origin lands on the anchor, height and depth move it as 
   assert.ok(toCanvas([0, 50, 0])[1] < o[1], 'higher points sit higher on the screen');
 });
 
+test('camera with perspective: the aimed point keeps its place, nearer things grow, farther ones shrink', () => {
+  const frame = { w: 284, h: 194, ax: 142, ay: 142, zoom: 1 };
+  const elev = (60 * Math.PI) / 180;
+  const at = [0, 96, 0];
+  const persp = viewProjection(frame, elev, { d: 1100, at });
+  const flat = viewProjection(frame, elev);
+  const toCanvas = (vp, p) => {
+    const w = vp[3] * p[0] + vp[7] * p[1] + vp[11] * p[2] + vp[15];
+    const x = (vp[0] * p[0] + vp[4] * p[1] + vp[8] * p[2] + vp[12]) / w;
+    const y = (vp[1] * p[0] + vp[5] * p[1] + vp[9] * p[2] + vp[13]) / w;
+    return [((x + 1) / 2) * frame.w, ((1 - y) / 2) * frame.h];
+  };
+  const a = toCanvas(persp, at);
+  const b = toCanvas(flat, at);
+  assert.ok(close(a[0], b[0], 1e-3) && close(a[1], b[1], 1e-3), `aimed point at ${a}, not ${b}`);
+  const width = (vp, y, z) => toCanvas(vp, [60, y, z])[0] - toCanvas(vp, [-60, y, z])[0];
+  assert.ok(width(persp, 96, 90) > width(flat, 96, 90) + 1, 'the front edge grows');
+  assert.ok(width(persp, 96, -90) < width(flat, 96, -90) - 1, 'the back edge shrinks');
+  assert.ok(width(persp, 0, 0) < width(persp, 96, 0), 'the floor of a well is smaller than its rim');
+  assert.equal(flat.length, 16);
+});
+
 test('lathe: closed, outward normals, creases, rounded-square sections', () => {
   const cyl = lathe([[0, 0], [10, 0, 1], [10, 20, 1], [0, 20]], { segs: 24 });
   assertWinding(cyl, 'cylinder');

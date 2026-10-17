@@ -168,9 +168,9 @@ function assertSilentReturn(evs, what) {
     `${what}: onEnd ${JSON.stringify(end)}`);
 }
 
-// The game's counter: a bowl sits 4 px above the fruit bins, closer than touch lift + hit pad, so the
+// The game's counter: a bowl sits 2 px above the fruit bins, closer than touch lift + hit pad, so the
 // lifted ghost of a finger resting on a bin is over the bowl. This puts a strawberry bin (game height,
-// 98 stage px) 4 px under the demo bowl and returns its client centre and top; removeBinUnderBowl()
+// 84 stage px) 2 px under the demo bowl and returns its client centre and top; removeBinUnderBowl()
 // takes it away.
 async function binUnderBowl(page) {
   return page.evaluate(() => {
@@ -178,8 +178,8 @@ async function binUnderBowl(page) {
     const el = window.__dragDemo.rebuildSource('strawberry');
     Object.assign(el.style, {
       left: `${bowl.offsetLeft + (bowl.offsetWidth - el.offsetWidth) / 2}px`,
-      top: `${bowl.offsetTop + bowl.offsetHeight + 4}px`,
-      height: '98px',
+      top: `${bowl.offsetTop + bowl.offsetHeight + 2}px`,
+      height: '84px',
       overflow: 'hidden',
     });
     const r = el.getBoundingClientRect();
