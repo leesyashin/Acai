@@ -4,7 +4,9 @@ Ein Zeitmanagement-Spiel im Stil von *Cooking Fever* für den Browser: Du arbeit
 Açaí-Café. Deine Gäste bestellen Bowls – serviert in durchsichtigen Plastikbechern, in denen man die
 Schichten sieht – und später Smoothies; du stellst sie per **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
 Maus am PC und (verkleinert) auf dem Handy. Deutsch und Englisch, Soundeffekte und Musik
-werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien.
+werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien. Die Küchengeräte (Mixer, Smoothie-Maschine,
+Mülleimer, Tiefkühlvitrine) sind echte 3D-Modelle, die per WebGL im Browser gerendert und animiert werden; jedes
+Upgrade bringt ein neues Modell.
 
 Reines HTML/CSS/JavaScript (ES-Module), kein Framework, keine Laufzeit-Abhängigkeiten.
 Die verbindliche Spezifikation steht in [`docs/DESIGN.md`](docs/DESIGN.md).
@@ -51,6 +53,14 @@ und Honig – insgesamt gibt es 16), bessere Qualität (mehr Münzen pro Zutat),
 (schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Doppel-Smoothie) und Deko,
 die Gäste geduldiger macht.
 
+**Küchengeräte in 3D:** Jede Stufe des Turbo-Mixers ist ein neues Modell – vom weißen *Classic* mit Drehknopf über den
+*Turbo* aus gebürstetem Edelstahl und den açaí-lila *Pro* mit LED-Ring bis zum schwarzen *Pro Max* mit Countdown-Display
+und Lichtleiste. Der große Mixkrug ist sichtbar höher und breiter, die Smoothie-Maschine wächst vom kompakten Ein-Tank-
+zum Edelstahl-Zwei-Tank-Gerät. Beim Mixen dreht sich ein Strudel im Krug und gefrorene Stücke zerfallen, beim Überlaufen
+quillt Schaum unter dem Deckel hervor, in der Smoothie-Maschine wirbelt die Förderschnecke das Slush, dann öffnet der
+Zapfhahn und der Becher füllt sich. Der Mülleimer öffnet den Deckel, wenn du etwas Wegwerfbares darüber hältst, und die
+Tür der Tiefkühlvitrine schwingt auf, wenn du eine Packung herausnimmst. Ohne WebGL zeigt das Spiel die gezeichneten Geräte.
+
 **Endlos-Modus:** Nach Level 10 wird der Endlos-Modus freigeschaltet: kein Zeitlimit, alle 30 Sekunden
 wird es schwerer (mehr Plätze, mehr Gäste, größere Bestellungen). Gespielt wird, bis alle Herzen weg sind
 oder du im Pausenmenü die Schicht beendest – deine Münzen und dein Highscore werden gespeichert.
@@ -78,7 +88,7 @@ Ohne Server spielen: `npm run build` ausführen und danach **`dist/acai-fever.ht
 | Befehl | Was passiert |
 |---|---|
 | `npm start` | Statischer Server (`tools/serve.mjs`) auf Port 8080, ohne Caching. Anderer Port: `node tools/serve.mjs 3000` |
-| `npm test` | Unit-Tests mit `node --test` (Engine, Bestellungen, Daten, Speicherstand, Übersetzungen, Audio, Grafik, Balancing); `node --test tests/` geht auch |
+| `npm test` | Unit-Tests mit `node --test` (Engine, Bestellungen, Daten, Speicherstand, Übersetzungen, Audio, Grafik, 3D-Geometrie und -Modelle, Balancing); `node --test tests/` geht auch |
 | `npm run build` | Bündelt alles mit esbuild zu `dist/acai-fever.html` (eigenständig, läuft per `file://`) und `dist/artifact.html` (gleicher Inhalt ohne `<html>/<head>/<body>`-Hülle, zum Veröffentlichen als Claude-Artifact) |
 | `npm run e2e` | Führt alle Playwright-Skripte `tests/e2e/*.e2e.mjs` nacheinander aus (Chromium, headless, Server auf Port 8090 bzw. `E2E_PORT`). Filter: `npm run e2e -- playthrough` |
 
@@ -87,8 +97,10 @@ E2E-Skripte legen Screenshots in `$E2E_OUT_DIR` ab (Standard: Temp-Ordner), nie 
 `playthrough.e2e.mjs` spielt Level 1 komplett mit echten Maus-Drags durch (inkl. Tutorial, Shop-Kauf, Level 2),
 dann mit Touch auf 1024×768, testet den Endlos-Modus und die englische Oberfläche, prüft, dass ein
 Zwei-Finger-Pinch im Rand um die Bühne die Seite nicht zoomt, und dass zwei offene Tabs sich den Spielstand
-nicht gegenseitig überschreiben. `build.e2e.mjs` baut das
-Spiel und startet es per `file://`. Für eine Sichtprüfung erzeugt `node tools/shots.mjs <ordner>` Screenshots
+nicht gegenseitig überschreiben. `appliances.e2e.mjs` prüft die 3D-Geräte (Modelle je Upgrade, Animationen, Deckel,
+Tür, Zapfhahn, Shop-Bilder) und die gezeichneten Geräte ohne WebGL. `build.e2e.mjs` baut das
+Spiel und startet es per `file://`. Alle 3D-Geräte in allen Zuständen zeigt `tools/appliances-3d.html`
+(`npm start`, dann `http://localhost:8080/tools/appliances-3d.html?anim=1`). Für eine Sichtprüfung erzeugt `node tools/shots.mjs <ordner>` Screenshots
 aller Bildschirme in mehreren Größen.
 
 ## Projektstruktur
@@ -109,8 +121,12 @@ js/engine.js          Spiel-Simulation ohne DOM
 js/drag.js            Drag & Drop für Touch und Maus
 js/svg.js             gemeinsame SVG-Helfer + Farbverläufe (eine versteckte <svg> pro Seite)
 js/art-food.js        Becher mit Schichten, Zutaten, Wannen der Kühlschiene, Packungen, Smoothies
-js/art-kitchen.js     Mixer, Smoothie-Maschine, Mülleimer, Café-Rückwand, Deko
+js/art-kitchen.js     Mixer, Smoothie-Maschine, Mülleimer (Ersatz ohne WebGL), Café-Rückwand, Deko
 js/art.js             Gäste, HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
+js/geo3d.js           3D-Mathematik, Geometrie (Drehkörper, abgerundete Boxen, Rohre, Flüssigkeitsoberflächen), Materialien
+js/kitchen3d.js       3D-Modelle der Küchengeräte mit allen Ausbaustufen und Animationen
+js/gl3d.js            WebGL-Renderer (Studiolicht, Edelstahl, Glas, Muster) – ohne Bibliothek
+js/art3d.js           3D-Ansichten der Stationen im Spiel und 3D-Bilder für Shop und Menüs
 js/audio.js           Soundeffekte und Musik (WebAudio)
 js/game-view.js       Spielbildschirm
 js/screens.js         Menüs: Titel, Karte, Shop, Einstellungen, Ergebnis
@@ -118,7 +134,7 @@ tools/serve.mjs       Entwicklungsserver (ohne Abhängigkeiten)
 tools/build.mjs       esbuild-Build → dist/
 tools/run-e2e.mjs     startet die E2E-Skripte nacheinander
 tools/shots.mjs       Screenshots aller Bildschirme zur Sichtprüfung
-tools/*.html          Vorschauseiten für Grafiken, Sound und Drag & Drop
+tools/*.html          Vorschauseiten für Grafiken, 3D-Geräte (appliances-3d.html), Sound und Drag & Drop
 tests/*.test.mjs      Unit-Tests (node --test)
 tests/e2e/            Playwright-Skripte + gemeinsame Helfer (helpers.mjs)
 docs/DESIGN.md        Spieldesign, Regeln, Modul-Verträge, Layout
@@ -131,6 +147,9 @@ docs/DESIGN.md        Spieldesign, Regeln, Modul-Verträge, Layout
 **Açaí Fever** is a Cooking-Fever-style time-management game for the browser. You run an açaí bar:
 customers order bowls (and smoothies from level 7), and you build them by **drag & drop** before their
 patience runs out. Made for landscape tablets, also playable with a mouse and on phones. German and English UI.
+The kitchen appliances are real-time 3D models (WebGL, no library) with animations – a vortex in the blender jug,
+churning slush and a pouring tap in the smoothie machine, a pedal bin lid and a freezer door – and every kitchen upgrade
+brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-tank → two-tank smoothie machine).
 
 **How to play:** drag a frozen pack into the blender, put an empty bowl (a clear cup) from the stack on a
 free spot, drag the ready blender onto it, add *Fruits & Crunch*, then *Toppings & Sauces* (fixed layer order –
