@@ -1,8 +1,8 @@
 # Açaí Fever
 
-Ein Zeitmanagement-Spiel im Stil von *Cooking Fever* für den Browser: Du führst eine kleine
-Açaí-Bar. Deine Gäste bestellen Bowls (und später Smoothies), du stellst sie per
-**Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
+Ein Zeitmanagement-Spiel im Stil von *Cooking Fever* für den Browser: Du arbeitest in einem modernen
+Açaí-Café. Deine Gäste bestellen Bowls – serviert in durchsichtigen Plastikbechern, in denen man die
+Schichten sieht – und später Smoothies; du stellst sie per **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
 Maus am PC und (verkleinert) auf dem Handy. Deutsch und Englisch, Soundeffekte und Musik
 werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien.
 
@@ -15,13 +15,16 @@ Die verbindliche Spezifikation steht in [`docs/DESIGN.md`](docs/DESIGN.md).
 leuchten auf, während du etwas ziehst. Lässt du an einer falschen Stelle los, fliegt das Teil zurück
 und ein kurzer Hinweis erklärt, warum.
 
-1. **Basis mixen:** Zieh eine gefrorene Packung (Açaí, später Pitaya oder Blaue Spirulina) in einen
-   leeren Mixer. Nach ein paar Sekunden ist die Basis fertig.
-2. **Bowl füllen:** Zieh den fertigen Mixer auf eine leere Bowl. Eine Mischung reicht für zwei Bowls
+1. **Basis mixen:** Zieh eine gefrorene Packung (Açaí, später Pitaya oder Blaue Spirulina) aus der
+   Gefriertruhe in einen leeren Mixer. Nach ein paar Sekunden ist die Basis fertig.
+2. **Bowl hinstellen:** Zieh eine leere Bowl (einen durchsichtigen Becher) vom Stapel auf einen freien
+   Platz. Ohne Becher geht nichts hinein – am besten stellst du ihn hin, während der Mixer noch läuft.
+3. **Bowl füllen:** Zieh den fertigen Mixer auf die leere Bowl. Eine Mischung reicht für zwei Bowls
    (mit dem großen Mixkrug für drei).
-3. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen auf die Bowl.
-4. **Servieren:** Zieh die fertige Bowl auf den Gast. Stimmt sie genau mit der Bestellung überein,
-   wird bezahlt – plus Trinkgeld, je geduldiger der Gast noch war.
+4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus der Kühlschiene auf die Bowl.
+5. **Servieren:** Zieh die fertige Bowl auf den Gast. Stimmt sie genau mit der Bestellung überein,
+   wird bezahlt – plus Trinkgeld, je geduldiger der Gast noch war. Der Platz ist danach frei für den
+   nächsten Becher.
 
 **Die Schichten-Regel:** Eine Bowl wird immer in derselben Reihenfolge gebaut:
 **Basis → Früchte & Crunch → Toppings & Soßen**. Innerhalb einer Schicht ist die Reihenfolge egal.
@@ -30,7 +33,7 @@ werden abgelehnt.
 
 **Mixer läuft über:** Ab Level 3 wartet ein fertiger Mixer nicht ewig. Lässt du ihn zu lange stehen,
 fängt er an überzulaufen (rot, wackelt) – dann schnell ausgießen! Danach ist die Basis verdorben und
-der Mixer muss in den **Mülleimer** gezogen werden. Falsche Bowls und Becher kommen ebenfalls in den Müll.
+der Mixer muss in den **Mülleimer** gezogen werden. Falsche Bowls (samt Becher) und Smoothies kommen ebenfalls in den Müll.
 
 **Smoothies:** Ab Level 7 bestellen manche Gäste zusätzlich einen Smoothie. Zieh eine passende Frucht
 (Banane, Erdbeere, Blaubeere, Mango, Kiwi) in die Smoothie-Maschine, warte kurz und zieh den fertigen
@@ -104,7 +107,10 @@ js/rng.js             Zufallszahlen mit Seed
 js/orders.js          Bestellungen und Preise
 js/engine.js          Spiel-Simulation ohne DOM
 js/drag.js            Drag & Drop für Touch und Maus
-js/art.js             alle Cartoon-Grafiken als SVG
+js/svg.js             gemeinsame SVG-Helfer + Farbverläufe (eine versteckte <svg> pro Seite)
+js/art-food.js        Becher mit Schichten, Zutaten, Wannen der Kühlschiene, Packungen, Smoothies
+js/art-kitchen.js     Mixer, Smoothie-Maschine, Mülleimer, Café-Rückwand, Deko
+js/art.js             Gäste, HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
 js/audio.js           Soundeffekte und Musik (WebAudio)
 js/game-view.js       Spielbildschirm
 js/screens.js         Menüs: Titel, Karte, Shop, Einstellungen, Ergebnis
@@ -126,9 +132,9 @@ docs/DESIGN.md        Spieldesign, Regeln, Modul-Verträge, Layout
 customers order bowls (and smoothies from level 7), and you build them by **drag & drop** before their
 patience runs out. Made for landscape tablets, also playable with a mouse and on phones. German and English UI.
 
-**How to play:** drag a frozen pack into the blender, drag the ready blender onto a bowl, add
-*Fruits & Crunch*, then *Toppings & Sauces* (fixed layer order – wrong drops bounce back), and drag the
-finished bowl onto the customer. From level 3 a ready blender **overflows** if you leave it too long and has to
+**How to play:** drag a frozen pack into the blender, put an empty bowl (a clear cup) from the stack on a
+free spot, drag the ready blender onto it, add *Fruits & Crunch*, then *Toppings & Sauces* (fixed layer order –
+wrong drops bounce back), and drag the finished bowl onto the customer. From level 3 a ready blender **overflows** if you leave it too long and has to
 go into the trash. Smoothies: drag a fruit into the smoothie machine, then the cup onto the customer.
 A customer who runs out of patience leaves and costs you a **heart** – 0 hearts loses the level.
 20 campaign levels with 1–3 **stars** (money goals); coins are kept even when you lose and buy new ingredients

@@ -90,7 +90,7 @@ const snap = (page) => page.evaluate(() => {
     seats: g.seats.map((c) => c && {
       id: c.id, state: c.state, patience: c.patience, order: c.order, delivered: { ...c.delivered },
     }),
-    bowls: g.bowls.map((b) => ({ base: b.base, mid: [...b.mid], top: [...b.top], uid: b.uid })),
+    bowls: g.bowls.map((b) => ({ cup: b.cup, base: b.base, mid: [...b.mid], top: [...b.top], uid: b.uid })),
     blenders: g.blenders.map((b) => ({ state: b.state, base: b.base, portions: b.portions, maxPortions: b.maxPortions })),
     slots: g.smoothie ? g.smoothie.slots.map((s) => ({ state: s.state, fruit: s.fruit })) : [],
   };
@@ -106,7 +106,7 @@ function onTrack(b, o) {
 const nextMissing = (b, o) => o.mid.find((x) => !b.mid.includes(x)) || o.top.find((x) => !b.top.includes(x)) || null;
 const POURABLE = ['ready', 'overflowing'];
 
-// One decision per call, like a player: serve > smoothies > build bowls > pour > blend.
+// One decision per call, like a player: serve > smoothies > build bowls > pour > blend > put cups down.
 function plan(s) {
   const waiting = s.seats.filter((c) => c && c.state === 'waiting').sort((a, b) => a.patience - b.patience);
 
@@ -149,7 +149,7 @@ function plan(s) {
   for (const c of needBowl) {
     const empty = s.bowls.findIndex((b) => !b.base);
     const bl = s.blenders.findIndex((b) => POURABLE.includes(b.state) && b.base === c.order.bowl.base);
-    if (empty >= 0 && bl >= 0) return { kind: 'pour', blender: bl, bowl: empty };
+    if (empty >= 0 && bl >= 0) return s.bowls[empty].cup ? { kind: 'pour', blender: bl, bowl: empty } : { kind: 'placeCup', bowl: empty };
     if (empty < 0) {
       const junk = s.bowls.findIndex((b, i) => !assigned.has(i) && b.base);
       if (junk >= 0) return { kind: 'trashBowl', bowl: junk };
@@ -171,6 +171,10 @@ function plan(s) {
     const wrong = s.blenders.findIndex((b) => POURABLE.includes(b.state) && !demand[b.base]);
     if (wrong >= 0) return { kind: 'cleanBlender', blender: wrong };
   }
+
+  // a spare moment: an empty cup on a free spot
+  const noCup = s.bowls.findIndex((b) => !b.cup);
+  if (noCup >= 0) return { kind: 'placeCup', bowl: noCup };
   return null;
 }
 
@@ -187,6 +191,8 @@ function dragFor(a, s) {
       return { from: `[data-bin="${a.ing}"]`, to: `[data-bowl="${a.bowl}"]`, ok: [(x) => { const b = window.__acaiGame.bowls[x.i]; return b.mid.includes(x.id) || b.top.includes(x.id); }, { i: a.bowl, id: a.ing }] };
     case 'pour':
       return { from: `[data-blender="${a.blender}"]`, to: `[data-bowl="${a.bowl}"]`, ok: [(x) => !!window.__acaiGame.bowls[x.i].base, { i: a.bowl }] };
+    case 'placeCup':
+      return { from: '[data-cup-stack]', to: `[data-bowl="${a.bowl}"]`, ok: [(x) => window.__acaiGame.bowls[x.i].cup, { i: a.bowl }] };
     case 'loadBlender':
       return { from: `[data-pack="${a.base}"]`, to: `[data-blender="${a.blender}"]`, ok: [(x) => window.__acaiGame.blenders[x.i].state !== 'empty', { i: a.blender }] };
     case 'cleanBlender':
@@ -271,13 +277,17 @@ async function mouseCampaign(srv) {
 
     await check('level 1: full tutorial + every customer served with real mouse drags → results ≥ 1★', async () => {
       bot = await playBot(page, { timeout: 260000 });
-      const order = ['pack', 'wait', 'pour', 'add', 'serve', 'done'];
+      // The bot puts its cups down while the first guest walks in, so the tutorial's cup steps
+      // ("cupWait"/"cup", see gameplay.e2e.mjs) may be skipped; when shown they come before the pour.
+      const order = ['pack', 'pour', 'add', 'serve', 'done'];
       let at = -1;
       for (const k of order) {
         const i = bot.tutSteps.indexOf(k, at + 1);
         assert(i > at, `tutorial step "${k}" not seen in order (seen: ${bot.tutSteps.join(' → ')})`);
         at = i;
       }
+      const cupStep = bot.tutSteps.findIndex((k) => k === 'cup' || k === 'cupWait');
+      assert(cupStep < 0 || cupStep < bot.tutSteps.indexOf('pour'), `cup step after the pour (${bot.tutSteps.join(' → ')})`);
       const s = await page.evaluate(() => {
         const g = window.__acaiGame;
         return g ? { status: g.status, stars: g.stars, money: g.money, served: g.served, lost: g.lost } : null;

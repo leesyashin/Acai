@@ -3,14 +3,15 @@
 
 .screen-game {
   --glow-bad: rgba(255, 77, 77, 0.9);
-  --g-tile: #c6efe8;
-  --g-tile-line: rgba(255, 255, 255, 0.55);
-  --g-shelf: var(--wood);
   --g-orange: #ff8a3d;
-  --g-frost: #e3f7fb;
-  --g-frost-2: #b9e6f0;
-  --g-ice: #2f86ad;
-  --g-ice-2: #1f6386;
+  --g-steel-hi: #f4f6f8;
+  --g-steel: #d4dae0;
+  --g-steel-lo: #a7b0ba;
+  --g-steel-edge: #7f8a95;
+  --g-quartz: #e1dcd3;
+  --g-quartz-2: #d6d0c5;
+  --g-label: #2b2d33;
+  --g-soft-shadow: 0 6px 14px rgba(40, 24, 50, 0.18);
   --l-base: var(--acai-2);
   --l-mid: var(--leaf);
   --l-top: var(--pitaya);
@@ -87,10 +88,10 @@
   translate: -50% 0;
   min-width: 96px;
   background: var(--white);
-  border: 3px solid var(--ink);
-  border-radius: 20px;
+  border: 2px solid #ddd2e3;
+  border-radius: 18px;
   padding: 6px 9px 7px;
-  box-shadow: 0 4px 0 rgba(42, 18, 54, 0.3);
+  box-shadow: 0 8px 18px rgba(40, 20, 50, 0.2);
   animation: g-bubble-in 0.35s 0.35s ease-out backwards;
   transition: box-shadow 0.12s ease;
 }
@@ -104,8 +105,8 @@
   translate: -50% 0;
   rotate: 45deg;
   background: var(--white);
-  border-right: 3px solid var(--ink);
-  border-bottom: 3px solid var(--ink);
+  border-right: 2px solid #ddd2e3;
+  border-bottom: 2px solid #ddd2e3;
   border-bottom-right-radius: 4px;
 }
 .screen-game .g-order { display: flex; align-items: center; gap: 6px; }
@@ -119,7 +120,7 @@
 .screen-game .g-ico { display: block; flex: none; }
 .screen-game .g-order-cup {
   padding-left: 6px;
-  border-left: 3px dotted rgba(42, 18, 54, 0.25);
+  border-left: 2px dotted rgba(42, 18, 54, 0.2);
 }
 .screen-game .g-cup-wrap { position: relative; display: block; }
 /* which fruit: the same icon the bin shows, on the cup's lower right (inside the bubble padding) */
@@ -133,8 +134,9 @@
   display: grid;
   place-items: center;
   background: var(--white);
-  border: 2.5px solid var(--ink);
+  border: 1.5px solid #cfc3d6;
   border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(40, 20, 50, 0.25);
   pointer-events: none;
 }
 .screen-game .g-check {
@@ -148,11 +150,11 @@
 .screen-game .g-order-part.is-done .g-check { display: block; animation: pop-in 0.35s ease-out both; }
 
 .screen-game .g-patience {
-  margin-top: 5px;
-  height: 9px;
-  border: 2.5px solid var(--ink);
+  margin-top: 6px;
+  height: 8px;
   border-radius: 999px;
-  background: #ece2f1;
+  background: #ebe4ef;
+  box-shadow: inset 0 1px 2px rgba(40, 20, 50, 0.25);
   overflow: hidden;
 }
 .screen-game .g-patience i {
@@ -176,7 +178,8 @@
   width: 17px;
   height: 17px;
   border-radius: 50%;
-  border: 2px solid var(--ink);
+  border: 1.5px solid var(--white);
+  box-shadow: 0 1px 2px rgba(40, 20, 50, 0.35);
   color: var(--white);
   font-family: var(--font-display);
   font-size: 11px;
@@ -188,7 +191,7 @@
 .screen-game .g-lnum-mid { background: var(--l-mid); }
 .screen-game .g-lnum-top { background: var(--l-top); }
 
-/* ------------------------------------------------------------ counter (y 292–356) */
+/* ------------------------------------------------------------ counter (y 295–352): white marble */
 .screen-game .g-counter {
   position: absolute;
   left: 0;
@@ -197,23 +200,27 @@
   height: 57px;
   z-index: 3;
   background:
-    linear-gradient(180deg, #f0b57a 0 11px, var(--ink) 11px 14px, var(--pitaya) 14px 21px, var(--ink) 21px 24px, transparent 24px),
-    repeating-linear-gradient(90deg, var(--wood) 0 37px, #b86d36 37px 40px);
-  border-top: 3px solid var(--ink);
-  border-bottom: 3px solid var(--ink);
-  box-shadow: 0 6px 0 rgba(42, 18, 54, 0.18);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0 2px, transparent 2px),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='48' viewBox='0 0 640 48'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M-10 34C60 18 110 44 180 26S300 6 360 22S470 40 520 20S600 6 650 30' stroke='%23a99e91' stroke-opacity='.3' stroke-width='1.3'/%3E%3Cpath d='M120 50C160 34 200 38 250 18S330 2 400 9' stroke='%23b9b0a5' stroke-opacity='.35' stroke-width='.8'/%3E%3Cpath d='M440 -2C462 14 494 20 536 46' stroke='%23b4aa9e' stroke-opacity='.3' stroke-width='.7'/%3E%3Cpath d='M30 -2C50 10 70 12 96 6S140 4 170 16' stroke='%23c2b9ae' stroke-opacity='.3' stroke-width='.6'/%3E%3C/g%3E%3C/svg%3E") 0 2px / 640px 48px repeat-x,
+    radial-gradient(ellipse 45% 160% at 26% 0%, rgba(255, 255, 255, 0.8), transparent 70%),
+    linear-gradient(180deg, #f8f6f2 0%, #ece8e1 70%, #e1dbd2 82%);
+  border-top: 1px solid #a99f92;
+  box-shadow: 0 8px 14px rgba(40, 24, 50, 0.2);
   pointer-events: none;
 }
+/* front edge of the stone */
 .screen-game .g-counter::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 9px;
-  background: var(--wood-dark);
+  height: 10px;
+  background: linear-gradient(180deg, #d3ccc1 0, #b5ab9d 70%, #8f8576 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.7);
 }
-/* ------------------------------------------------------------ work area (y 350–800) */
+
+/* ------------------------------------------------------------ work area (y 350–800): quartz worktop */
 .screen-game .g-work {
   position: absolute;
   left: 0;
@@ -225,12 +232,16 @@
 .screen-game .g-backsplash {
   position: absolute;
   inset: 0;
-  background-color: var(--g-tile);
+  background-color: var(--g-quartz);
   background-image:
-    linear-gradient(var(--g-tile-line) 3px, transparent 3px),
-    linear-gradient(90deg, var(--g-tile-line) 3px, transparent 3px);
-  background-size: 54px 54px;
-  background-position: -2px 8px;
+    radial-gradient(rgba(110, 98, 88, 0.22) 0.8px, transparent 1.4px),
+    radial-gradient(rgba(255, 255, 255, 0.65) 0.8px, transparent 1.4px),
+    radial-gradient(rgba(150, 138, 126, 0.16) 1.2px, transparent 1.8px),
+    radial-gradient(ellipse 55% 45% at 22% 18%, rgba(255, 255, 255, 0.42), transparent 70%),
+    radial-gradient(ellipse 45% 55% at 82% 72%, rgba(255, 255, 255, 0.25), transparent 70%),
+    linear-gradient(180deg, #e6e1d9 0%, var(--g-quartz-2) 100%);
+  background-size: 23px 19px, 29px 31px, 41px 37px, auto, auto, auto;
+  background-position: 3px 5px, 13px 2px, 7px 11px, 0 0, 0 0, 0 0;
 }
 .screen-game .g-art { position: relative; }
 
@@ -240,17 +251,8 @@
   top: 8px;
   width: 140px;
   height: 170px;
-  border-radius: 26px;
+  border-radius: 22px;
   transition: box-shadow 0.12s ease, background-color 0.12s ease;
-}
-.screen-game .g-blender .g-plate {
-  position: absolute;
-  left: 18px;
-  right: 18px;
-  top: 126px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(42, 18, 54, 0.12);
 }
 .screen-game .g-blender .g-art { width: 140px; height: 140px; transform-origin: 50% 90%; }
 .screen-game .g-blender[data-state="blending"] .g-art { animation: g-rattle 0.16s linear infinite; }
@@ -259,13 +261,15 @@
 
 .screen-game .g-timer {
   position: absolute;
-  left: 22px;
-  right: 22px;
-  top: 148px;
-  height: 14px;
-  border: 3px solid var(--ink);
+  left: 26px;
+  right: 26px;
+  top: 147px;
+  height: 11px;
   border-radius: 999px;
-  background: var(--white);
+  background: rgba(43, 45, 51, 0.82);
+  box-shadow: 0 2px 5px rgba(40, 24, 50, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.4);
+  padding: 2px;
+  box-sizing: border-box;
   overflow: hidden;
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -274,15 +278,16 @@
 .screen-game .g-timer i {
   display: block;
   height: 100%;
-  background: var(--lagoon);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #7ff0f4, var(--lagoon));
   transform-origin: 0 50%;
   transform: scaleX(0);
 }
-.screen-game [data-state="ready"] > .g-timer i { background: var(--leaf); }
+.screen-game [data-state="ready"] > .g-timer i { background: linear-gradient(180deg, #7ef0a8, var(--leaf)); }
 .screen-game [data-state="overflowing"] > .g-timer { animation: g-red-pulse 0.55s ease-in-out infinite; }
-.screen-game [data-state="overflowing"] > .g-timer i { background: var(--danger); }
+.screen-game [data-state="overflowing"] > .g-timer i { background: linear-gradient(180deg, #ff9a9a, var(--danger)); }
 
-/* freezer with base packs (x 16–300, y 544–794) */
+/* freezer with base packs (x 16–300, y 544–794): stainless chest freezer with a glass lid */
 .screen-game .g-freezer {
   position: absolute;
   left: 16px;
@@ -290,31 +295,46 @@
   width: 284px;
   height: 250px;
   box-sizing: border-box;
-  border: 3px solid var(--ink);
-  border-radius: 26px;
-  background: linear-gradient(180deg, var(--g-frost) 0, var(--g-frost-2) 100%);
-  box-shadow: 0 6px 0 var(--ink);
+  border: 1px solid var(--g-steel-edge);
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--g-steel-hi) 0, var(--g-steel) 55%, var(--g-steel-lo) 100%);
+  box-shadow: var(--g-soft-shadow), inset 0 1px 0 #ffffff;
 }
 .screen-game .g-freezer-lid {
   position: absolute;
   left: 10px;
   right: 10px;
   top: 10px;
-  height: 160px;
-  border: 3px solid var(--ink);
-  border-radius: 18px;
+  height: 162px;
+  box-sizing: border-box;
+  border: 3px solid #9aa4ae;
+  border-radius: 12px;
   background:
-    radial-gradient(circle at 18% 22%, rgba(255, 255, 255, 0.5) 0 3px, transparent 4px),
-    radial-gradient(circle at 74% 64%, rgba(255, 255, 255, 0.4) 0 3px, transparent 4px),
-    radial-gradient(circle at 46% 86%, rgba(255, 255, 255, 0.35) 0 2px, transparent 3px),
-    linear-gradient(180deg, var(--g-ice-2) 0, var(--g-ice) 100%);
-  box-shadow: inset 0 8px 0 rgba(0, 0, 0, 0.18);
+    radial-gradient(circle at 16% 24%, rgba(255, 255, 255, 0.7) 0 2px, transparent 3px),
+    radial-gradient(circle at 78% 30%, rgba(255, 255, 255, 0.6) 0 2px, transparent 3px),
+    radial-gradient(circle at 42% 88%, rgba(255, 255, 255, 0.6) 0 2px, transparent 3px),
+    radial-gradient(circle at 88% 80%, rgba(255, 255, 255, 0.5) 0 1.5px, transparent 2.5px),
+    linear-gradient(180deg, #a9d3e3 0, #d7eef6 60%, #eef8fb 100%);
+  box-shadow: inset 0 10px 16px rgba(20, 60, 80, 0.35), inset 0 -2px 0 rgba(255, 255, 255, 0.6);
+}
+/* glass reflection over the packs */
+.screen-game .g-freezer::before {
+  content: "";
+  position: absolute;
+  left: 13px;
+  right: 13px;
+  top: 13px;
+  height: 156px;
+  border-radius: 10px;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.34) 0 18%, transparent 19% 58%, rgba(255, 255, 255, 0.18) 59% 66%, transparent 67%);
+  z-index: 2;
+  pointer-events: none;
 }
 .screen-game .g-packs {
   position: absolute;
   left: 10px;
   right: 10px;
-  top: 30px;
+  top: 26px;
   display: flex;
   justify-content: center;
   gap: 6px;
@@ -324,81 +344,84 @@
   position: absolute;
   left: 22px;
   right: 22px;
-  bottom: 14px;
-  height: 46px;
-  border: 3px solid var(--ink);
-  border-radius: 14px;
-  background: var(--lagoon);
-  box-shadow: inset 0 -6px 0 var(--lagoon-2);
+  bottom: 16px;
+  height: 44px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #3a3d45 0, var(--g-label) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 4px rgba(0, 0, 0, 0.25);
 }
 .screen-game .g-freezer-label {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 24px;
+  bottom: 27px;
   text-align: center;
   font-family: var(--font-display);
-  font-size: 22px;
+  font-size: 20px;
   color: var(--white);
-  -webkit-text-stroke: 2px var(--ink);
-  paint-order: stroke fill;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
   pointer-events: none;
 }
 .screen-game .g-pack {
   position: relative;
   width: 82px;
-  height: 120px;
+  height: 124px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
   padding-bottom: 6px;
-  border: 3px solid var(--ink);
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff 0, var(--g-frost) 100%);
-  box-shadow: 0 4px 0 var(--ink);
+  border-radius: 14px;
 }
-.screen-game .g-pack .g-art { width: 74px; height: 74px; margin-bottom: 2px; }
+.screen-game .g-pack .g-art { width: 76px; height: 76px; margin-bottom: 4px; }
 .screen-game .g-pack .g-name,
-.screen-game .g-bin .g-name {
-  font-size: 14px;
+.screen-game .g-bin .g-name,
+.screen-game .g-stack .g-name {
+  box-sizing: border-box;
+  max-width: 84px;
+  padding: 2px 7px 1px;
+  border-radius: 6px;
+  background: var(--g-label);
+  color: var(--white);
+  font-size: 13px;
   font-weight: 900;
-  line-height: 1.05;
+  line-height: 1.1;
   white-space: nowrap;
-  max-width: 78px;
   overflow: hidden;
   text-overflow: ellipsis;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
+.screen-game .g-pack .g-name { background: rgba(255, 255, 255, 0.94); color: var(--ink); }
 
-/* bowl slots (x 316–964, y 354–550) */
+/* cup stack + bowl spots (x 316–964, y 354–550) */
+.screen-game .g-stack {
+  position: absolute;
+  top: 6px;
+  width: 84px;
+  height: 172px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 18px;
+}
+.screen-game .g-stack .g-art { width: 84px; height: 140px; transform-origin: 50% 100%; }
+.screen-game .g-stack .g-name { margin-top: 6px; }
 .screen-game .g-bowl {
   position: absolute;
   top: 4px;
-  width: 156px;
+  width: 138px;
   height: 196px;
-  border-radius: 28px;
+  border-radius: 22px;
   transition: box-shadow 0.12s ease, background-color 0.12s ease;
 }
-.screen-game .g-bowl .g-mat {
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  top: 104px;
-  height: 40px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  border: 3px solid var(--ink);
-  background: radial-gradient(ellipse at 50% 40%, #fff9ee 0 45%, #f3dfc0 46% 100%);
-  box-shadow: 0 4px 0 rgba(42, 18, 54, 0.25);
-}
-.screen-game .g-bowl .g-art { position: absolute; left: 8px; top: 2px; width: 140px; height: 140px; transform-origin: 50% 80%; }
+.screen-game .g-bowl .g-art { position: absolute; left: -1px; top: 2px; width: 140px; height: 140px; transform-origin: 50% 90%; }
 .screen-game .g-bowl .g-chips {
   position: absolute;
-  left: -4px;
-  right: -4px;
-  top: 152px;
+  left: -8px;
+  right: -8px;
+  top: 150px;
   display: flex;
   justify-content: center;
   padding-left: 4px;
@@ -411,8 +434,9 @@
   margin-left: -4px;
   border-radius: 50%;
   background: var(--white);
-  border: 2px solid var(--ink);
+  border: 1.5px solid rgba(43, 45, 51, 0.35);
   box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(40, 24, 50, 0.25);
   overflow: hidden;
   flex: none;
 }
@@ -422,14 +446,14 @@
 .screen-game .g-chip-top { background: #ffe6f0; }
 .screen-game .g-match {
   position: absolute;
-  right: 6px;
-  top: 14px;
+  right: 4px;
+  top: 10px;
   display: none;
   pointer-events: none;
 }
 .screen-game .g-bowl.is-match .g-match { display: block; animation: pop-in 0.3s ease-out both; }
 
-/* ingredient shelves (x 316–964): fruits & crunch y 554–672, toppings y 676–794 */
+/* ingredient prep rail (x 316–964): fruits & crunch y 554–672, toppings & sauces y 676–794 */
 .screen-game .g-shelf {
   position: absolute;
   left: 316px;
@@ -448,41 +472,31 @@
   gap: 6px;
   height: 104px;
 }
+/* the stainless rail the pans and bottles sit in */
 .screen-game .g-board {
   position: absolute;
-  left: -14px;
-  right: -14px;
-  top: 94px;
-  height: 14px;
-  border: 3px solid var(--ink);
-  border-radius: 7px;
-  background: linear-gradient(180deg, #e9a96b 0 40%, var(--g-shelf) 40% 100%);
-  box-shadow: 0 4px 0 rgba(42, 18, 54, 0.25);
+  left: -12px;
+  right: -12px;
+  top: 2px;
+  height: 100px;
+  box-sizing: border-box;
+  border: 1px solid var(--g-steel-edge);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0 1px, transparent 1px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 2px, transparent 2px 5px),
+    linear-gradient(180deg, var(--g-steel-hi) 0, var(--g-steel) 60%, var(--g-steel-lo) 100%);
+  box-shadow: var(--g-soft-shadow);
 }
-.screen-game .g-board::before,
-.screen-game .g-board::after {
-  content: "";
-  position: absolute;
-  top: 11px;
-  width: 10px;
-  height: 14px;
-  background: var(--wood-dark);
-  border: 3px solid var(--ink);
-  border-top: 0;
-  border-radius: 0 0 4px 4px;
-}
-.screen-game .g-board::before { left: 18px; }
-.screen-game .g-board::after { right: 18px; }
-/* layer name on the board front ("2 · Früchte & Crunch"), in the layer colour like the number badges.
-   z-index 1 (not more): the next shelf's row still paints over it, so its badges stay visible */
+/* layer name on the rail's front edge ("2 · Früchte & Crunch"), in the layer colour like the number badges.
+   z-index 1 (not more): the next rail's row still paints over it, so its badges stay visible */
 .screen-game .g-shelf-label {
   position: absolute;
   left: 50%;
-  top: 99px;
+  top: 95px;
   transform: translateX(-50%);
   z-index: 1;
-  padding: 1px 10px 0;
-  border: 2px solid var(--ink);
+  padding: 2px 10px 1px;
   border-radius: 999px;
   color: var(--white);
   font-family: var(--font-display);
@@ -490,6 +504,7 @@
   line-height: 1.15;
   letter-spacing: 0.02em;
   white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(40, 24, 50, 0.3);
   pointer-events: none;
 }
 .screen-game .g-shelf-label-mid { background: var(--l-mid); }
@@ -502,23 +517,22 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  border: 3px solid var(--ink);
-  border-radius: 16px;
-  background: var(--paper);
-  box-shadow: 0 4px 0 var(--ink);
+  justify-content: flex-start;
+  padding-top: 4px;
+  border-radius: 14px;
 }
-.screen-game .g-bin .g-art { width: 56px; height: 56px; margin-bottom: 4px; }
-.screen-game .g-bin > .g-lnum { position: absolute; left: -6px; top: -6px; width: 20px; height: 20px; font-size: 12px; }
-.screen-game .g-quality { position: absolute; right: 4px; top: 4px; display: flex; }
-.screen-game .g-pack .g-quality { top: 3px; z-index: 1; }
+.screen-game .g-bin .g-art { width: 84px; height: 67px; }
+.screen-game .g-bin .g-name { margin-top: 3px; }
+.screen-game .g-bin > .g-lnum { position: absolute; left: -4px; top: -4px; width: 20px; height: 20px; font-size: 12px; }
+.screen-game .g-quality { position: absolute; right: 2px; top: 2px; display: flex; z-index: 1; }
+.screen-game .g-pack .g-quality { top: 3px; }
 .screen-game .g-new {
   position: absolute;
   right: -10px;
   top: -12px;
   z-index: 2;
   padding: 3px 7px 2px;
-  border: 2.5px solid var(--ink);
+  border: 2px solid var(--white);
   border-radius: 10px;
   background: var(--pitaya);
   color: var(--white);
@@ -527,13 +541,14 @@
   line-height: 1;
   letter-spacing: 0.04em;
   rotate: 10deg;
-  box-shadow: 0 3px 0 var(--ink);
+  box-shadow: 0 3px 6px rgba(40, 24, 50, 0.35);
   animation: g-wiggle 1.6s ease-in-out infinite;
 }
 
 /* sources: pressed feedback */
 .screen-game .g-pack:active,
-.screen-game .g-bin:active { translate: 0 3px; box-shadow: 0 1px 0 var(--ink); }
+.screen-game .g-bin:active,
+.screen-game .g-stack:active { translate: 0 2px; }
 
 /* smoothie machine (x 1000–1236) */
 .screen-game .g-machine {
@@ -557,13 +572,13 @@
   height: var(--cup);
   transform-origin: 50% 100%;
 }
-.screen-game .g-slot .g-timer { left: 14px; right: 14px; top: auto; bottom: -6px; height: 12px; }
+.screen-game .g-slot .g-timer { left: 14px; right: 14px; top: auto; bottom: -6px; height: 10px; }
 .screen-game .g-slot[data-state="mixing"] .g-art { animation: g-rattle 0.22s linear infinite; }
 .screen-game .g-slot[data-state="ready"] .g-art { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95)); }
 
 .screen-game .g-machine.is-locked { pointer-events: none; }
 .screen-game.has-tutorial .g-machine.is-locked { visibility: hidden; }
-.screen-game .g-machine.is-locked .g-art { opacity: 0.4; filter: grayscale(0.85); }
+.screen-game .g-machine.is-locked .g-art { opacity: 0.45; filter: grayscale(0.85); }
 .screen-game .g-lock { position: absolute; left: 50%; top: 104px; translate: -50% 0; }
 .screen-game .g-lock-label {
   position: absolute;
@@ -571,13 +586,13 @@
   top: 168px;
   translate: -50% 0;
   padding: 5px 12px 4px;
-  border: 3px solid var(--ink);
-  border-radius: 12px;
-  background: var(--paper);
+  border-radius: 10px;
+  background: var(--g-label);
+  color: var(--white);
   font-size: 15px;
   font-weight: 900;
   white-space: nowrap;
-  box-shadow: 0 3px 0 var(--ink);
+  box-shadow: var(--g-soft-shadow);
 }
 
 /* trash can (bottom right) */
@@ -657,16 +672,16 @@
   padding: 0;
   display: grid;
   place-items: center;
-  border: 3px solid var(--ink);
+  border: 2px solid rgba(255, 255, 255, 0.85);
   border-radius: 50%;
-  background: var(--lagoon);
-  box-shadow: 0 4px 0 var(--ink);
+  background: linear-gradient(180deg, #9a4cc7 0, var(--acai-2) 100%);
+  box-shadow: 0 4px 0 #4a1a66, 0 8px 14px rgba(40, 20, 50, 0.3);
   cursor: pointer;
   touch-action: manipulation;
   transition: translate 0.08s ease, box-shadow 0.08s ease;
 }
 .screen-game .g-pause-btn::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; }
-.screen-game .g-pause-btn:active { translate: 0 3px; box-shadow: 0 1px 0 var(--ink); }
+.screen-game .g-pause-btn:active { translate: 0 3px; box-shadow: 0 1px 0 #4a1a66, 0 4px 8px rgba(40, 20, 50, 0.3); }
 .screen-game .g-pause-btn:focus-visible { outline: 4px solid var(--mango); outline-offset: 3px; }
 .screen-game .g-pill {
   height: 48px;
@@ -675,17 +690,17 @@
   align-items: center;
   gap: 6px;
   padding: 0 16px;
-  border: 3px solid var(--ink);
+  border: 2px solid rgba(255, 255, 255, 0.9);
   border-radius: 999px;
-  background: var(--paper);
-  box-shadow: 0 4px 0 var(--ink);
+  background: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 6px 16px rgba(40, 20, 50, 0.22), inset 0 -2px 0 rgba(43, 45, 51, 0.08);
   font-family: var(--font-display);
   font-size: 25px;
   line-height: 1;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.screen-game .g-level { background: var(--acai-2); color: var(--white); -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; }
+.screen-game .g-level { background: linear-gradient(180deg, #9a4cc7 0, var(--acai-2) 100%); color: var(--white); }
 .screen-game .g-hearts { gap: 2px; padding: 0 10px; }
 .screen-game .g-heart { display: block; width: 30px; height: 30px; }
 .screen-game .g-heart.is-breaking { animation: g-heart-break 0.6s ease-out; }
@@ -696,11 +711,11 @@
 .screen-game .g-goalbar {
   position: relative;
   width: 250px;
-  height: 18px;
+  height: 14px;
   margin: 0 14px 0 6px;
-  border: 3px solid var(--ink);
   border-radius: 999px;
-  background: #f1e2ca;
+  background: #ece5dc;
+  box-shadow: inset 0 1px 3px rgba(40, 24, 50, 0.3);
 }
 /* campaign: lift the bar (and its marks) so the goal amounts below fit inside the pill */
 .screen-game[data-mode="campaign"] .g-goalbar { translate: 0 -6px; }
@@ -749,11 +764,23 @@
 .screen-game .g-clock { width: 176px; justify-content: center; padding: 0 12px 0 7px; }
 .screen-game .g-clock.is-closed .g-clock-text { font-size: 19px; letter-spacing: 0; }
 .screen-game .g-clock-ico { display: block; width: 34px; height: 34px; }
-.screen-game .g-clock.is-urgent { background: var(--danger); color: var(--white); -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; animation: pulse 1s ease-in-out infinite; }
-.screen-game .g-clock.is-closed { background: var(--acai-2); color: var(--white); -webkit-text-stroke: 1px var(--ink); paint-order: stroke fill; font-size: 22px; }
+.screen-game .g-clock.is-urgent { background: var(--danger); color: var(--white); animation: pulse 1s ease-in-out infinite; }
+.screen-game .g-clock.is-closed { background: linear-gradient(180deg, #9a4cc7 0, var(--acai-2) 100%); color: var(--white); font-size: 22px; }
 
 /* ------------------------------------------------------------ effects */
 .screen-game .g-fx { position: absolute; inset: 0; z-index: 40; pointer-events: none; }
+/* cards and toasts in the café: light frosted panels instead of the menus' thick outline */
+.screen-game .panel {
+  background: rgba(255, 252, 248, 0.97);
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 30px rgba(40, 20, 50, 0.3), 0 0 0 1px rgba(43, 45, 51, 0.12);
+}
+.screen-game .g-toast {
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  border-radius: 14px;
+  box-shadow: 0 8px 20px rgba(40, 20, 50, 0.3);
+}
+.screen-game .g-toast.bad { background: linear-gradient(180deg, #ff6e6e 0, #e5404f 100%); }
 .screen-game .g-toast {
   translate: -50% -100%;
   width: max-content;

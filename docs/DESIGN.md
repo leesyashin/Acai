@@ -15,7 +15,7 @@ player decisions listed in §1.
 | # | Topic | Decision |
 |---|---|---|
 | 1 | Device | **Tablet, landscape** first (touch). Must still work with mouse on PC and (scaled) on phones. |
-| 2 | Style | **Bright cartoon**, round shapes, strong colours (Cooking Fever feel). |
+| 2 | Style | **Realistic, glossy Cooking Fever look in a modern café**: clear plastic cups that show their layers, ingredients heaped in steel pans, commercial blender, marble/quartz counters. Menus keep their chunky cartoon UI. |
 | 3 | Controls | **Drag & drop** (touch + mouse) for every action. No tap-to-place. |
 | 4 | Order rule | **Fixed layers**: Base (from blender) → Fruits & Crunch → Toppings & Sauces. A drop into the wrong layer is **rejected** (bounce back + hint). Order *within* a layer is free. |
 | 5 | Stations | **Blender** with wait time for the base; it **overflows / spoils** if left too long. Later a **smoothie machine**. |
@@ -29,6 +29,7 @@ player decisions listed in §1.
 | 13 | Language | **German / English**, switchable in menu, remembered. |
 | 14 | Sound | **SFX + music**, each mutable, remembered. |
 | 15 | Name | **Açaí Fever** |
+| 16 | Cups | A bowl is a **clear plastic cup**. An empty cup is **put down from the stack** on a free spot before anything goes into it; serving or trashing takes it off the counter. |
 
 ---
 
@@ -38,21 +39,25 @@ player decisions listed in §1.
    one bowl (base + 1–3 fruits/crunch + 0–3 toppings) and, from level 7, sometimes a smoothie.
 2. Player drags a **frozen base pack** (Açaí / Pitaya / Spirulina) into an **empty blender**.
    The blender blends for `blendTime` seconds, then is **ready** with `portions` portions.
-3. Player drags the **ready blender** onto an **empty bowl** → bowl gets the base (1 portion used).
-4. Player drags **fruit/crunch** bins onto the bowl (layer 2), then **toppings/sauces** (layer 3).
+3. Player drags an **empty cup from the stack** onto a **free bowl spot** (`placeCup`; a spot that already
+   has a cup → `cupThere`). Pouring or adding anything on a spot without a cup → rejected (`noCup`).
+   Natural moment: while the blender mixes.
+4. Player drags the **ready blender** onto an **empty cup** → the cup gets the base (1 portion used).
+5. Player drags **fruit/crunch** bins onto the bowl (layer 2), then **toppings/sauces** (layer 3).
    - Adding anything before the base → rejected (`needBase`).
    - Adding a fruit after a topping is on, or a topping before any fruit/crunch → rejected (`toppingsOnTop`) –
      every order has at least one fruit/crunch.
    - Same ingredient twice → rejected (`alreadyAdded`).
    - More than 6 items on top of the base → rejected (`bowlFull`).
-5. Player drags the **finished bowl** onto the **customer**. If it matches the order
-   exactly (same base, same set of layer‑2 items, same set of layer‑3 items) it is accepted,
-   otherwise rejected (`wrongOrder`) and the bowl flies back.
-6. Smoothies: drag a smoothie-capable **fruit bin onto an empty smoothie-machine slot** →
+6. Player drags the **finished bowl** onto the **customer**. If it matches the order
+   exactly (same base, same set of layer‑2 items, same set of layer‑3 items) it is accepted
+   (the cup leaves the counter, the spot is free again), otherwise rejected (`wrongOrder`) and the bowl flies back.
+7. Smoothies: drag a smoothie-capable **fruit bin onto an empty smoothie-machine slot** →
    it mixes for `smoothieTime` seconds → a **ready cup** → drag cup onto the customer.
-7. When all parts of a customer's order are delivered they **pay** (order value + tip based
+   (The machine brings its own cups – only bowls need a cup from the stack.)
+8. When all parts of a customer's order are delivered they **pay** (order value + tip based
    on remaining patience) and leave happily. Coins fly to the HUD.
-8. Wrong/unneeded bowls or cups can be dragged into the **trash**. A **spoiled blender** must be
+9. Wrong/unneeded bowls or cups can be dragged into the **trash** (a bowl goes in with its cup). A **spoiled blender** must be
    dragged to the trash to empty it (also allowed for a ready blender to discard it).
 
 ### Blender lifecycle
@@ -90,9 +95,11 @@ player decisions listed in §1.
 ### Tutorial & intros
 - Level 1 (`intro: 'basics'`) runs a step-by-step tutorial with an arrow + speech text. While the tutorial
   runs, `game.tutorialHold = true`: the first customer's patience does not drain and no further customers
-  spawn. Steps: (1) drag açaí pack into blender, (2) wait while it blends, (3) drag blender onto a bowl,
-  (4) drag the ordered ingredient(s) onto the bowl, (5) drag the bowl to the customer, (6) "Great! Watch the
-  patience of your customers" → hold released.
+  spawn. Steps: (1) drag açaí pack into blender, (2) put an empty cup from the stack on a free spot (shown while
+  the blender mixes, or once it is ready, whenever no cup is down), (3) wait while it blends, (4) drag blender onto
+  the cup, (5) drag the ordered ingredient(s) onto the bowl, (6) drag the bowl to the customer, (7) "Great! Watch
+  the patience of your customers" → hold released. The step is derived from the game state every frame (a trashed
+  bowl leads back to the cup step).
 - Other intros (`overflow`, `moreSeats`, `smoothie`, `fourSeats`, `endless`) are explained in the pre-level
   card and with a short non-blocking banner at level start.
 - A freshly bought ingredient shows a "NEU/NEW" badge on its bin for the next level.
@@ -134,7 +141,10 @@ js/rng.js             seeded RNG (mulberry32) + helpers
 js/orders.js          order generation + pricing (pure)
 js/engine.js          pure game simulation (no DOM): createGame, tick, actions, events
 js/drag.js            generic pointer-based drag & drop manager (touch + mouse), stage-scale aware
-js/art.js             all cartoon SVG art as strings (ingredients, packs, bowls, customers, blender, …)
+js/svg.js             shared SVG helpers + the shared gradients/clip paths (artDefsSVG, one hidden <svg> per page)
+js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, prep-rail pans, packs, smoothie cups
+js/art-kitchen.js     realistic kitchen art: blender, smoothie machine, trash, café back wall, decor
+js/art.js             people, HUD icons, logo, map; re-exports the food + kitchen art (screens import from here)
 js/audio.js           WebAudio synthesized SFX + music loops (no audio files)
 js/game-view.js       gameplay screen: DOM from engine state, drag wiring, HUD, pause, tutorial, FX
 js/screens.js         menu screens: title, map, shop, settings, pre-level modal, results
@@ -181,9 +191,10 @@ createGame({
 
 tick(game, dt)                                // advance simulation (dt seconds, clamp ≤ 0.1 inside)
 loadBlender(game, blenderIdx, baseId)         → { ok, reason? }
+placeCup(game, bowlIdx)                       → { ok, reason? }   // empty cup from the stack → free spot
 pourBlender(game, blenderIdx, bowlIdx)        → { ok, reason? }
 addIngredient(game, bowlIdx, ingId)           → { ok, reason? }
-trashBowl(game, bowlIdx)                      → { ok }
+trashBowl(game, bowlIdx)                      → { ok }            // the cup goes too: the spot is free
 cleanBlender(game, blenderIdx)                → { ok, reason? }   // ruined/ready/overflowing → empty
 loadSmoothie(game, slotIdx, fruitId)          → { ok, reason? }
 trashSmoothie(game, slotIdx)                  → { ok }
@@ -193,19 +204,21 @@ setPaused(game, bool)
 releaseTutorialHold(game)
 endRun(game) → boolean                        // endless only: ends the run (gameOver, reason 'quit')
 // Pure checks (no state change) – the reason the matching action would reject with right now, or null:
-loadBlenderError(game, blenderIdx, baseId), pourError(game, blenderIdx, bowlIdx),
+loadBlenderError(game, blenderIdx, baseId), placeCupError(game, bowlIdx), pourError(game, blenderIdx, bowlIdx),
 addIngredientError(game, bowlIdx, ingId), loadSmoothieError(game, slotIdx, fruitId),
 serveBowlError(game, bowlIdx, customerId), serveSmoothieError(game, slotIdx, customerId)
 drainEvents(game) → Event[]                   // returns and clears queued events
 bowlMatchesOrder(bowl, orderBowl) → boolean
 ```
 
-Reasons (i18n key `reason.<code>` in game-view): `needBase`, `toppingsOnTop`, `alreadyAdded`, `bowlFull`,
+Reasons (i18n key `reason.<code>` in game-view): `noCup`, `cupThere`, `needBase`, `toppingsOnTop`, `alreadyAdded`, `bowlFull`,
 `blenderBusy`, `blenderNotReady`, `blenderRuined`, `bowlHasBase`, `notOwned`, `wrongLayer`, `wrongOrder`,
 `noSmoothieWanted`, `noBowlWanted`, `alreadyDelivered`, `slotBusy`, `notReady`, `notSmoothieFruit`, `emptyBowl`,
 plus `noCustomer` (customer gone or leaving), `notPlaying` (paused / game over) and `invalid` (bad index,
 no smoothie machine). `loadBlender` checks `wrongLayer` → `notOwned` → `blenderRuined` (spoiled blender) → `blenderBusy`; `cleanBlender` returns
 `blenderBusy` while blending and `blenderNotReady` when empty (a blending blender cannot be thrown away).
+`pourError` checks the blender (`blenderRuined`, `blenderNotReady`) before the spot (`noCup`, `bowlHasBase`);
+`addIngredientError` checks `notOwned` → `wrongLayer` → `noCup` → `needBase` → ….
 
 State (read-only for the view):
 ```js
@@ -217,7 +230,7 @@ game = {
   tutorialHold: bool,
   seats: [ customer|null ],     // length = current seat count (max 4)
   blenders: [ { state, base, t, duration, portions, maxPortions } ],
-  bowls:    [ { base: id|null, mid: id[], top: id[], uid } ],     // length = kitchen.bowlSlots
+  bowls:    [ { cup: bool, base: id|null, mid: id[], top: id[], uid } ],  // length = kitchen.bowlSlots; cup false = free spot
   smoothie: null | { slots: [ { state: 'empty'|'mixing'|'ready', fruit, t, duration } ] },
   owned, ingLevels, kitchen, events: [],
   result: null|'won'|'lost', stars, endReason: null|'goal'|'hearts'|'quit', featured   // set at game over
@@ -231,7 +244,7 @@ customer = { id, seat, look, order: { bowl: {base, mid[], top[]}, smoothie: frui
 ```
 Events (`{type, …}`): `customerArrive{customerId, seat}`, `customerPaid{customerId, seat, amount, tip}`,
 `customerLost{customerId, seat}`, `partialDelivery{customerId}`, `blenderStart{idx}`, `blenderReady{idx}`,
-`blenderOverflow{idx}`, `blenderRuined{idx}`, `blenderEmpty{idx}`, `basePoured{bowlIdx, blenderIdx}`,
+`blenderOverflow{idx}`, `blenderRuined{idx}`, `blenderEmpty{idx}`, `cupPlaced{bowlIdx}`, `basePoured{bowlIdx, blenderIdx}`,
 `ingredientAdded{bowlIdx, id}`, `smoothieStart{idx}`, `smoothieReady{idx}`, `trash{what}`,
 `closingTime`, `stageUp{stage}` (endless), `gameOver{result: 'won'|'lost', stars, reason: 'hearts'|'goal'|'quit'|null}`.
 `trash` events always carry `idx` (`trash{what:'bowl'|'blender'|'smoothie', idx}`); `cleanBlender` emits
@@ -278,9 +291,15 @@ dnd.cancel(); dnd.destroy(); dnd.isDragging(); dnd.refresh()
 
 ### 4.4 Art (`js/art.js`) – contract (all return SVG markup strings)
 ```js
-ingredientIcon(id, size = 64)        // bin / order / shop icon for any of the 16 ingredients
-packIcon(baseId, size = 72)          // frozen pack for base bins (açaí / pitaya / spirulina)
-bowlSVG(bowl, size = 150)            // bowl {base, mid[], top[]}; empty bowl when base null; deterministic layout
+ingredientIcon(id, size = 64)        // order / chip / shop icon for any of the 16 ingredients (realistic)
+binSVG(id, width = 84)               // prep-rail container (100×80): steel pan heaped with the ingredient, squeeze bottle for sauces
+scoopSVG(id, size = 84)              // what a drag from the rail carries: a handful, a spoonful, a sprig, a bottle
+packIcon(baseId, size = 72)          // frosty frozen pack for base bins (açaí / pitaya / spirulina)
+bowlSVG(bowl, size = 150)            // clear cup {base, mid[], top[]}: purée, a band per fruit/crunch seen through the
+                                     // side, sauce runs on the inner wall, heaped toppings; empty cup when base null
+cupStackSVG(width = 90)              // stack of empty cups (120×200) – the drag source for a new cup
+cupSpotSVG(size = 150)               // free spot: drip mat with a dashed cup outline (same box as bowlSVG)
+artDefsSVG() / ART_DEFS_ID           // the hidden <svg> with the shared gradients + clip paths (initStage inserts it)
 cupSVG(fruitId|null, state, size=70) // smoothie cup: state 'empty'|'mixing'|'ready'
 customerSVG(look, mood, size = 160)  // mood: 'happy'|'neutral'|'impatient'|'angry'
 randomLook(rng)                       // → look object (skin, hair colour/style, shirt, accessory) – diverse
@@ -291,7 +310,12 @@ decorSVG(id, size)                    // 'plants' | 'jukebox' | 'seating' | 'neo
 shopSceneSVG(width, height)           // back wall / window / sign for the gameplay scene
 logoSVG(width)                        // "Açaí Fever" logo with bowl
 ```
-Colours of ingredients come from `INGREDIENTS[i].color` so icons, bowls and UI stay consistent.
+Look: shapes are filled with their colour and shaded with the shared overlay gradients (`url(#af-sph)`,
+`af-cyl`, `af-plastic`, `af-steel` …, light from the top left), thin outlines in a darker shade of the fill.
+Memoised pictures never contain their own ids (they reference the shared defs); a picture that needs a local
+gradient (café wall, logo, map) builds unique ids with `uid()`. Paint references name a fallback colour
+(`url(#af-steel) #cfd6dc`), so a page without the defs still shows plain fills. Guests are drawn with a thin warm
+outline (`withInk`), the HUD icons, logo and map keep the cartoon ink line of the menus.
 
 ### 4.5 Audio (`js/audio.js`) – contract
 ```js
@@ -303,7 +327,7 @@ audio.setSfx(bool); audio.setMusic(bool); audio.sfxOn(); audio.musicOn()
 audio.suspend(); audio.resume()  // for pause / tab hidden
 ```
 SFX names: `click, pickup, drop, reject, blenderStart, blenderReady, overflow, ruined, smoothieReady, pour,
-plop, coin, bell, angry, happy, trash, purchase, star, win, lose, closing, heart, tick`.
+plop, coin, bell, angry, happy, trash, purchase, star, win, lose, closing, heart, tick, cup` (`cup`: a cup set down).
 
 ### 4.6 Screens & router (`js/main.js`, `js/screens.js`, `js/game-view.js`)
 ```js
@@ -332,13 +356,14 @@ y   0– 64  HUD: [pause] [Level n / Endless stage] [hearts]   [money bar with �
 y  64–330  shop scene: back wall, window, sign, decor; customers stand behind the counter at seat centers
            seat x-centers: 2 → [420, 860]; 3 → [270, 640, 1010]; 4 → [200, 493, 787, 1080]
            order bubble above/next to each customer; patience ring/bar on the bubble
-y 300–350  counter top (front edge overlaps customers' bodies); level/closing/stage banners (non-blocking)
-           sit on the counter strip y≈291–356 so faces and bubbles stay visible
-y 350–800  work area
-  x  16–300  blenders (1–2) + base pack bins (owned bases only)
-  x 316–964  bowl slots (2–4) y≈370–550 with small content chips under each bowl;
-             ingredient shelf: row "Fruits & Crunch" y≈565–675, row "Toppings & Sauces" y≈685–790
-             (owned ingredients only, 84–88 px bins with icon + short name); each shelf board carries its
+y 300–350  white marble counter (front edge overlaps customers' bodies); level/closing/stage banners
+           (non-blocking) sit on the counter strip y≈291–356 so faces and bubbles stay visible
+y 350–800  work area: quartz worktop
+  x  16–300  blenders (1–2) + chest freezer with a glass lid holding the base packs (owned bases only)
+  x 316–964  cup stack (84 px, "Bowls") + bowl spots (2–4, 138 px each), centred together, y≈354–550, with small
+             content chips under each cup; a spot without a cup shows a drip mat with a dashed cup outline.
+             Stainless prep rail: row "Fruits & Crunch" y≈554–672, row "Toppings & Sauces" y≈676–794
+             (owned ingredients only, 86 px bins: pan or bottle + short name label); each rail carries its
              layer name ("2 · Fruits & Crunch", "3 · Toppings & Sauces") like the freezer's "1 · Base"
   x 980–1264 smoothie machine (when present, slots = kitchen.smoothieSlots) + trash can bottom-right
 ```
@@ -347,7 +372,11 @@ Interaction targets must be ≥ 64 stage px (tablet fingers). Valid drop targets
 ### 4.8 Visual language
 - Fonts: **Lilita One** (display: logo, headings, numbers) + **Nunito** 600/800/900 (UI text), fallbacks
   `"Trebuchet MS", system-ui, sans-serif`. Loaded from Google Fonts.
-- Single deliberate cartoon look (no dark-mode variant), but every colour is a CSS token on `:root`
+- Gameplay: a modern café in a realistic, glossy illustration style (warm plaster wall with fluted oak, pendant
+  lamps, menu boards, marble counter, quartz worktop, stainless rail and freezer). Bubbles, HUD pills, toasts and
+  cards in the café are light frosted panels with soft shadows. Menus keep the chunky cartoon UI (thick ink
+  outline buttons and panels) around the same realistic food art.
+- No dark-mode variant, but every colour is a CSS token on `:root` (game-only tokens on `.screen-game`)
   and `body` sets an explicit background.
 - Tokens (base.css): `--acai #3b1556` (deep purple, letterbox/menus), `--acai-2 #6c2a8f`, `--pitaya #ff3d8b`,
   `--mango #ffb627`, `--leaf #2fbf71`, `--lagoon #18c2c9`, `--cream #fff4df`, `--ink #2a1236`,

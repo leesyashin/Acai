@@ -74,6 +74,8 @@ import { INGREDIENTS, ingName, isSmoothieFruit } from '../js/data.js';
 import { createRng } from '../js/rng.js';
 import { registerStrings, t, setLang, getLang } from '../js/i18n.js';
 
+document.body.insertAdjacentHTML('afterbegin', art.artDefsSVG()); // shared gradients (js/svg.js)
+
 registerStrings({
   de: {
     'artprev.title': 'Açaí Fever – Grafik-Vorschau', 'artprev.lang': 'English',
@@ -84,6 +86,7 @@ registerStrings({
     'artprev.ok': 'Keine doppelten IDs ({n} SVGs)', 'artprev.dup': 'Doppelte IDs: {list}',
     'artprev.empty': 'leer', 'artprev.baseOnly': 'nur Basis', 'artprev.mock': 'Im Spiel (Attrappe, 1280 × 800)',
     'artprev.pours': 'Füllstand nach jedem Ausgießen (Portionen übrig)',
+    'artprev.bins': 'Kühlschiene: Wannen und Flaschen', 'artprev.stack': 'Bowl-Stapel und freier Platz',
   },
   en: {
     'artprev.title': 'Açaí Fever – art preview', 'artprev.lang': 'Deutsch',
@@ -94,6 +97,7 @@ registerStrings({
     'artprev.ok': 'No duplicate ids ({n} SVGs)', 'artprev.dup': 'Duplicate ids: {list}',
     'artprev.empty': 'empty', 'artprev.baseOnly': 'base only', 'artprev.mock': 'In game (mock-up, 1280 × 800)',
     'artprev.pours': 'Fill level after each pour (portions left)',
+    'artprev.bins': 'Prep rail: pans and bottles', 'artprev.stack': 'Bowl stack and free spot',
   },
 });
 
@@ -134,6 +138,11 @@ function render() {
 
   h += section('artprev.packs', ['acai', 'pitaya', 'spirulina'].map((id) =>
     el(`<div class="row">${art.packIcon(id, 72)}${art.packIcon(id, 48)}</div>${ingName(id, true)}`)).join(''));
+
+  h += section('artprev.bins', INGREDIENTS.filter((i) => i.layer !== 'base').map((i) =>
+    el(`<div class="row">${art.binSVG(i.id, 120)}${art.binSVG(i.id, 84)}</div>${ingName(i.id, true)}`)).join(''));
+
+  h += section('artprev.stack', el(`<div class="row">${art.cupStackSVG(84)}${art.cupSpotSVG(140)}${art.bowlSVG(null, 140)}</div>`));
 
   h += section('artprev.bowls', BOWLS.map((b) => el(`${art.bowlSVG(b, 150)}${bowlLabel(b)}`)).join(''));
   h += section('artprev.bowlsSmall', BOWLS.slice(0, 14).map((b) => el(`<div class="bubble">${art.bowlSVG(b, 64)}</div>`)).join(''));
@@ -209,8 +218,8 @@ function render() {
   slotBowls.forEach((b, i) => { m += `<div style="left:${330 + i * 160}px;top:380px">${art.bowlSVG(b, 150)}</div>`; });
   const mids = INGREDIENTS.filter((i) => i.layer === 'mid');
   const tops = INGREDIENTS.filter((i) => i.layer === 'top');
-  mids.forEach((ing, i) => { m += `<div class="bin" style="left:${330 + i * 92}px;top:568px">${art.ingredientIcon(ing.id, 56)}<span>${ingName(ing.id, true)}</span></div>`; });
-  tops.forEach((ing, i) => { m += `<div class="bin" style="left:${330 + i * 92}px;top:686px">${art.ingredientIcon(ing.id, 56)}<span>${ingName(ing.id, true)}</span></div>`; });
+  mids.forEach((ing, i) => { m += `<div class="bin" style="left:${330 + i * 92}px;top:568px">${art.binSVG(ing.id, 80)}<span>${ingName(ing.id, true)}</span></div>`; });
+  tops.forEach((ing, i) => { m += `<div class="bin" style="left:${330 + i * 92}px;top:686px">${art.binSVG(ing.id, 80)}<span>${ingName(ing.id, true)}</span></div>`; });
   const ms = 220;
   const cs = Math.round(ms * art.SMOOTHIE_CUP_SIZE);
   m += `<div style="left:1010px;top:360px;width:${ms}px;height:${ms}px">${art.smoothieMachineSVG(2, ms)}${art.SMOOTHIE_SLOT_X[2].map((fx, i) => `<div style="position:absolute;left:${fx * ms - cs / 2}px;top:${art.SMOOTHIE_SLOT_Y * ms - cs}px">${art.cupSVG(i ? 'kiwi' : 'mango', i ? 'mixing' : 'ready', cs)}</div>`).join('')}</div>`;

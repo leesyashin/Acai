@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
   createGame, tick, drainEvents, loadBlender, pourBlender, addIngredient, trashBowl, cleanBlender,
-  loadSmoothie, trashSmoothie, serveBowl, serveSmoothie, setPaused, releaseTutorialHold, endRun,
-  loadBlenderError, pourError, addIngredientError, loadSmoothieError, serveBowlError, serveSmoothieError,
+  loadSmoothie, trashSmoothie, serveBowl, serveSmoothie, setPaused, releaseTutorialHold, endRun, placeCup,
+  loadBlenderError, pourError, addIngredientError, loadSmoothieError, serveBowlError, serveSmoothieError, placeCupError,
   bowlMatchesOrder, moodFor, starsFor, MAX_DT, ARRIVE_TIME, LEAVE_TIME, SEAT_REUSE_DELAY,
 } from '../js/engine.js';
 import {
@@ -56,8 +56,14 @@ function readyBlender(game, idx = 0, base = 'acai') {
   assert.equal(game.blenders[idx].state, 'ready');
 }
 
+// Put cups down in these slots (a slot that already has one is skipped).
+function cups(game, ...idxs) {
+  for (const i of idxs) if (!game.bowls[i].cup) assert.equal(placeCup(game, i).ok, true);
+}
+
 function buildBowl(game, bowlIdx, { base = 'acai', mid = [], top = [] }) {
   if (game.blenders[0].state !== 'ready' && game.blenders[0].state !== 'overflowing') readyBlender(game, 0, base);
+  cups(game, bowlIdx);
   assert.equal(pourBlender(game, 0, bowlIdx).ok, true);
   for (const id of [...mid, ...top]) assert.equal(addIngredient(game, bowlIdx, id).ok, true);
 }
@@ -79,7 +85,7 @@ describe('createGame', () => {
     assert.ok(g.seats.every((s) => s === null));
     assert.equal(g.bowls.length, 4);
     assert.equal(new Set(g.bowls.map((b) => b.uid)).size, 4);
-    for (const b of g.bowls) assert.deepEqual({ ...b, uid: 0 }, { base: null, mid: [], top: [], uid: 0 });
+    for (const b of g.bowls) assert.deepEqual({ ...b, uid: 0 }, { cup: false, base: null, mid: [], top: [], uid: 0 });
     assert.equal(g.blenders.length, 2);
     assert.equal(g.blenders[0].state, 'empty');
     assert.equal(g.blenders[0].maxPortions, kitchen.portions);
@@ -226,6 +232,7 @@ describe('blender', () => {
   test('pour uses portions and empties the blender after the last one', () => {
     const g = newGame({ kitchen: getKitchenStats({ bowlSlots: 1, jug: 1 }) });
     readyBlender(g);
+    cups(g, 0, 1, 2);
     drainEvents(g);
     assert.equal(g.blenders[0].portions, 3);
     assert.deepEqual(pourBlender(g, 0, 0), { ok: true });
@@ -244,6 +251,7 @@ describe('blender', () => {
 
   test('pour rejects blenders that are empty, blending or ruined; overflowing still pours', () => {
     const g = newGame();
+    cups(g, 0, 1);
     assert.deepEqual(pourBlender(g, 0, 0), { ok: false, reason: 'blenderNotReady' });
     loadBlender(g, 0, 'acai');
     assert.deepEqual(pourBlender(g, 0, 0), { ok: false, reason: 'blenderNotReady' });
@@ -277,10 +285,31 @@ describe('blender', () => {
 // ------------------------------------------------------------------ bowls
 
 describe('bowl building', () => {
+  test('a cup goes down first: slots start empty, a second cup is rejected', () => {
+    const g = newGame();
+    assert.ok(g.bowls.every((b) => b.cup === false));
+    readyBlender(g);
+    drainEvents(g);
+    assert.deepEqual(pourBlender(g, 0, 0), { ok: false, reason: 'noCup' });
+    assert.deepEqual(addIngredient(g, 0, 'banana'), { ok: false, reason: 'noCup' });
+    assert.equal(g.blenders[0].portions, g.blenders[0].maxPortions, 'nothing was poured onto the counter');
+    assert.deepEqual(placeCup(g, 0), { ok: true });
+    assert.equal(g.bowls[0].cup, true);
+    assert.equal(g.bowls[1].cup, false);
+    assert.deepEqual(drainEvents(g), [{ type: 'cupPlaced', bowlIdx: 0 }]);
+    assert.deepEqual(placeCup(g, 0), { ok: false, reason: 'cupThere' });
+    assert.deepEqual(placeCup(g, 7), { ok: false, reason: 'invalid' });
+    assert.deepEqual(drainEvents(g), []);
+    assert.deepEqual(pourBlender(g, 0, 0), { ok: true });
+    assert.deepEqual(placeCup(g, 0), { ok: false, reason: 'cupThere' });
+  });
+
   test('layer rules: owned, wrong layer, base first, no duplicates', () => {
     const g = newGame({ owned: START_OWNED });
     assert.deepEqual(addIngredient(g, 0, 'kiwi'), { ok: false, reason: 'notOwned' });
     assert.deepEqual(addIngredient(g, 0, 'acai'), { ok: false, reason: 'wrongLayer' });
+    assert.deepEqual(addIngredient(g, 0, 'banana'), { ok: false, reason: 'noCup' });
+    cups(g, 0);
     assert.deepEqual(addIngredient(g, 0, 'banana'), { ok: false, reason: 'needBase' });
     assert.deepEqual(addIngredient(g, 0, 'honey'), { ok: false, reason: 'needBase' });
     readyBlender(g);
@@ -295,6 +324,7 @@ describe('bowl building', () => {
   test('toppings need at least one fruit/crunch first (every order has one)', () => {
     const g = newGame({ owned: START_OWNED });
     readyBlender(g);
+    cups(g, 0);
     pourBlender(g, 0, 0);
     drainEvents(g);
     assert.deepEqual(addIngredient(g, 0, 'honey'), { ok: false, reason: 'toppingsOnTop' });
@@ -302,7 +332,7 @@ describe('bowl building', () => {
     assert.deepEqual(g.bowls[0].top, []);
     assert.deepEqual(addIngredient(g, 0, 'granola'), { ok: true });
     assert.deepEqual(addIngredient(g, 0, 'honey'), { ok: true });
-    assert.deepEqual(g.bowls[0], { base: 'acai', mid: ['granola'], top: ['honey'], uid: g.bowls[0].uid });
+    assert.deepEqual(g.bowls[0], { cup: true, base: 'acai', mid: ['granola'], top: ['honey'], uid: g.bowls[0].uid });
   });
 
   test('fruits cannot go on top of toppings, but toppings can follow toppings', () => {
@@ -311,7 +341,7 @@ describe('bowl building', () => {
     assert.deepEqual(addIngredient(g, 0, 'granola'), { ok: false, reason: 'toppingsOnTop' });
     assert.deepEqual(addIngredient(g, 0, 'coconut'), { ok: true });
     assert.deepEqual(addIngredient(g, 0, 'honey'), { ok: false, reason: 'alreadyAdded' });
-    assert.deepEqual(g.bowls[0], { base: 'acai', mid: ['banana'], top: ['honey', 'coconut'], uid: g.bowls[0].uid });
+    assert.deepEqual(g.bowls[0], { cup: true, base: 'acai', mid: ['banana'], top: ['honey', 'coconut'], uid: g.bowls[0].uid });
   });
 
   test('at most MAX_BOWL_ITEMS items on top of the base', () => {
@@ -322,22 +352,29 @@ describe('bowl building', () => {
     assert.equal(g.bowls[0].mid.length + g.bowls[0].top.length, MAX_BOWL_ITEMS);
   });
 
-  test('trashBowl resets the bowl with a new uid', () => {
+  test('trashBowl throws the cup away with its contents and resets the slot with a new uid', () => {
     const g = newGame();
     buildBowl(g, 0, { mid: ['banana'] });
     const uid = g.bowls[0].uid;
     drainEvents(g);
     assert.deepEqual(trashBowl(g, 0), { ok: true });
+    assert.equal(g.bowls[0].cup, false);
     assert.deepEqual(g.bowls[0].base, null);
     assert.deepEqual(g.bowls[0].mid, []);
     assert.notEqual(g.bowls[0].uid, uid);
     assert.ok(!g.bowls.some((b, i) => i !== 0 && b.uid === g.bowls[0].uid));
     assert.deepEqual(drainEvents(g), [{ type: 'trash', what: 'bowl', idx: 0 }]);
-    // trashing an empty bowl is harmless
+    // trashing an empty slot is harmless
     const uid2 = g.bowls[0].uid;
     assert.deepEqual(trashBowl(g, 0), { ok: true });
     assert.equal(g.bowls[0].uid, uid2);
     assert.deepEqual(drainEvents(g), []);
+    // an empty cup goes into the trash too
+    cups(g, 0);
+    drainEvents(g);
+    assert.deepEqual(trashBowl(g, 0), { ok: true });
+    assert.equal(g.bowls[0].cup, false);
+    assert.deepEqual(drainEvents(g), [{ type: 'trash', what: 'bowl', idx: 0 }]);
   });
 
   test('bowlMatchesOrder ignores order within a layer but not the layer', () => {
@@ -473,6 +510,7 @@ describe('serving bowls', () => {
     assert.equal(g.served, 1);
     assert.notEqual(g.bowls[1].uid, uid);
     assert.equal(g.bowls[1].base, null);
+    assert.equal(g.bowls[1].cup, false, 'the served cup leaves the counter; the slot needs a new one');
     assert.deepEqual(drainEvents(g), [{ type: 'customerPaid', customerId: c.id, seat: c.seat, amount, tip }]);
   });
 
@@ -806,6 +844,9 @@ describe('action checks (*Error)', () => {
 
   test('blender: loadBlenderError / pourError mirror loadBlender / pourBlender', () => {
     const g = newGame({ owned: ['acai', 'banana', 'honey'] });
+    assert.equal(same(() => placeCupError(g, 5), () => placeCup(g, 5)), 'invalid');
+    assert.equal(same(() => placeCupError(g, 0), () => placeCup(g, 0)), null);
+    assert.equal(same(() => placeCupError(g, 0), () => placeCup(g, 0)), 'cupThere');
     assert.equal(same(() => loadBlenderError(g, 5, 'acai'), () => loadBlender(g, 5, 'acai')), 'invalid');
     assert.equal(same(() => loadBlenderError(g, 0, 'banana'), () => loadBlender(g, 0, 'banana')), 'wrongLayer');
     assert.equal(same(() => loadBlenderError(g, 0, 'pitaya'), () => loadBlender(g, 0, 'pitaya')), 'notOwned');
@@ -815,9 +856,12 @@ describe('action checks (*Error)', () => {
     run(g, g.kitchen.blendTime + 0.05);
     assert.equal(same(() => pourError(g, 0, 0), () => pourBlender(g, 0, 0)), null);
     assert.equal(same(() => pourError(g, 0, 0), () => pourBlender(g, 0, 0)), 'bowlHasBase');
+    g.blenders[0].state = 'ready';
+    assert.equal(same(() => pourError(g, 0, 1), () => pourBlender(g, 0, 1)), 'noCup');
     g.blenders[0].state = 'ruined';
     assert.equal(same(() => pourError(g, 0, 1), () => pourBlender(g, 0, 1)), 'blenderRuined');
     setPaused(g, true);
+    assert.equal(same(() => placeCupError(g, 1), () => placeCup(g, 1)), 'notPlaying');
     assert.equal(same(() => loadBlenderError(g, 0, 'acai'), () => loadBlender(g, 0, 'acai')), 'notPlaying');
     assert.equal(pourError(g, 0, 1), 'notPlaying');
   });
@@ -828,12 +872,15 @@ describe('action checks (*Error)', () => {
     assert.equal(chk(9, 'banana'), 'invalid');
     assert.equal(chk(0, 'mint'), 'notOwned');
     assert.equal(chk(0, 'acai'), 'wrongLayer');
+    assert.equal(chk(0, 'banana'), 'noCup');
+    g.bowls[0].cup = true;
     assert.equal(chk(0, 'banana'), 'needBase');
     g.bowls[0].base = 'acai';
     assert.equal(chk(0, 'banana'), null);
     assert.equal(chk(0, 'banana'), 'alreadyAdded');
     assert.equal(chk(0, 'honey'), null);
     assert.equal(chk(0, 'granola'), 'toppingsOnTop');
+    g.bowls[1].cup = true;
     g.bowls[1].base = 'acai';
     for (const id of ['banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi']) assert.equal(chk(1, id), null);
     assert.equal(chk(1, 'coconut'), 'bowlFull');
@@ -872,6 +919,7 @@ describe('determinism', () => {
     for (let i = 0; i < 1200; i++) {
       tick(g, 0.05);
       if (i % 40 === 0) loadBlender(g, 0, 'acai');
+      if (i % 50 === 0) placeCup(g, (i / 50) % 2);
       if (i % 50 === 0) pourBlender(g, 0, (i / 50) % 2);
       if (i % 120 === 0) trashBowl(g, 0);
       log.push(...drainEvents(g));

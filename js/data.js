@@ -84,29 +84,30 @@ export function qualityUpgradeCost(id, currentLevel = 0) {
 // overflow = blender can spoil; intro = mechanic explained before the level.
 // hearts = customers you may lose (default 3). With 4 seats the counter is full most of the time
 // and a customer waits about 4 orders long (3 before): those levels get 4 hearts and more patience
-// (58 s falling to 50 s) so a casual 2 s-per-drag player can still finish the campaign
-// (see tests/balance.test.mjs).
+// (61 s falling to 53 s) so a casual 2 s-per-drag player can still finish the campaign
+// (see tests/balance.test.mjs). Every bowl needs a cup put down first – one drag more than a bowl
+// used to take, which the patience, spawn gaps and goals make up for.
 export const LEVELS = [
-  { id: 1,  duration: 90,  seats: 2, spawnGap: [7, 10],    patience: 60, mid: [1, 1], top: [0, 1], smoothieChance: 0,    goals: [45, 65, 85],    overflow: false, intro: 'basics' },
-  { id: 2,  duration: 90,  seats: 2, spawnGap: [6.5, 9.5], patience: 56, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [55, 80, 100],   overflow: false, intro: null },
-  { id: 3,  duration: 100, seats: 2, spawnGap: [6, 9],     patience: 54, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [95, 125, 145],  overflow: true,  intro: 'overflow' },
-  { id: 4,  duration: 100, seats: 2, spawnGap: [6, 8.5],   patience: 52, mid: [1, 2], top: [1, 1], smoothieChance: 0,    goals: [105, 140, 165], overflow: true,  intro: null },
-  { id: 5,  duration: 110, seats: 3, spawnGap: [5.5, 8.5], patience: 52, mid: [1, 2], top: [0, 2], smoothieChance: 0,    goals: [125, 170, 195], overflow: true,  intro: 'moreSeats' },
-  { id: 6,  duration: 110, seats: 3, spawnGap: [5.5, 8],   patience: 50, mid: [1, 2], top: [1, 2], smoothieChance: 0,    goals: [135, 190, 225], overflow: true,  intro: null },
-  { id: 7,  duration: 120, seats: 3, spawnGap: [5.5, 8],   patience: 52, mid: [1, 2], top: [0, 2], smoothieChance: 0.35, goals: [165, 235, 285], overflow: true,  intro: 'smoothie' },
-  { id: 8,  duration: 120, seats: 3, spawnGap: [5, 7.5],   patience: 50, mid: [1, 2], top: [1, 2], smoothieChance: 0.35, goals: [170, 245, 310], overflow: true,  intro: null },
-  { id: 9,  duration: 120, seats: 3, spawnGap: [5, 7.5],   patience: 48, mid: [2, 2], top: [1, 2], smoothieChance: 0.4,  goals: [180, 255, 330], overflow: true,  intro: null },
-  { id: 10, duration: 130, seats: 3, spawnGap: [4.8, 7],   patience: 48, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [195, 270, 360], overflow: true,  intro: null },
-  { id: 11, duration: 130, seats: 3, spawnGap: [4.6, 7],   patience: 46, mid: [2, 3], top: [1, 2], smoothieChance: 0.4,  goals: [205, 280, 380], overflow: true,  intro: 'endless' },
-  { id: 12, duration: 130, seats: 4, spawnGap: [4.6, 7],   patience: 58, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [215, 285, 390], hearts: 4, overflow: true,  intro: 'fourSeats' },
-  { id: 13, duration: 140, seats: 4, spawnGap: [4.4, 6.6], patience: 57, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [220, 330, 450], hearts: 4, overflow: true,  intro: null },
-  { id: 14, duration: 140, seats: 4, spawnGap: [4.2, 6.4], patience: 56, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [225, 335, 460], hearts: 4, overflow: true,  intro: null },
-  { id: 15, duration: 140, seats: 4, spawnGap: [4, 6.2],   patience: 55, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [230, 340, 470], hearts: 4, overflow: true,  intro: null },
-  { id: 16, duration: 150, seats: 4, spawnGap: [4, 6],     patience: 54, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [240, 380, 520], hearts: 4, overflow: true,  intro: null },
-  { id: 17, duration: 150, seats: 4, spawnGap: [3.8, 5.8], patience: 53, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [245, 385, 530], hearts: 4, overflow: true,  intro: null },
-  { id: 18, duration: 150, seats: 4, spawnGap: [3.7, 5.6], patience: 52, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [250, 390, 540], hearts: 4, overflow: true,  intro: null },
-  { id: 19, duration: 160, seats: 4, spawnGap: [3.6, 5.4], patience: 51, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [255, 400, 555], hearts: 4, overflow: true,  intro: null },
-  { id: 20, duration: 160, seats: 4, spawnGap: [3.5, 5.2], patience: 50, mid: [2, 3], top: [2, 3], smoothieChance: 0.55, goals: [260, 410, 570], hearts: 4, overflow: true,  intro: null },
+  { id: 1,  duration: 90,  seats: 2, spawnGap: [7.4, 10.5], patience: 63, mid: [1, 1], top: [0, 1], smoothieChance: 0,    goals: [45, 65, 85],    overflow: false, intro: 'basics' },
+  { id: 2,  duration: 90,  seats: 2, spawnGap: [6.8, 10],   patience: 59, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [55, 80, 100],   overflow: false, intro: null },
+  { id: 3,  duration: 100, seats: 2, spawnGap: [6.3, 9.5],  patience: 57, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [85, 115, 130],  overflow: true,  intro: 'overflow' },
+  { id: 4,  duration: 100, seats: 2, spawnGap: [6.3, 8.9],  patience: 55, mid: [1, 2], top: [1, 1], smoothieChance: 0,    goals: [95, 125, 150],  overflow: true,  intro: null },
+  { id: 5,  duration: 110, seats: 3, spawnGap: [5.8, 8.9],  patience: 55, mid: [1, 2], top: [0, 2], smoothieChance: 0,    goals: [115, 155, 175], overflow: true,  intro: 'moreSeats' },
+  { id: 6,  duration: 110, seats: 3, spawnGap: [5.8, 8.4],  patience: 53, mid: [1, 2], top: [1, 2], smoothieChance: 0,    goals: [120, 170, 205], overflow: true,  intro: null },
+  { id: 7,  duration: 120, seats: 3, spawnGap: [5.8, 8.4],  patience: 55, mid: [1, 2], top: [0, 2], smoothieChance: 0.35, goals: [150, 210, 255], overflow: true,  intro: 'smoothie' },
+  { id: 8,  duration: 120, seats: 3, spawnGap: [5.3, 7.9],  patience: 53, mid: [1, 2], top: [1, 2], smoothieChance: 0.35, goals: [155, 220, 280], overflow: true,  intro: null },
+  { id: 9,  duration: 120, seats: 3, spawnGap: [5.3, 7.9],  patience: 51, mid: [2, 2], top: [1, 2], smoothieChance: 0.4,  goals: [160, 230, 295], overflow: true,  intro: null },
+  { id: 10, duration: 130, seats: 3, spawnGap: [5, 7.4],    patience: 51, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [175, 245, 325], overflow: true,  intro: null },
+  { id: 11, duration: 130, seats: 3, spawnGap: [4.8, 7.4],  patience: 49, mid: [2, 3], top: [1, 2], smoothieChance: 0.4,  goals: [185, 250, 340], overflow: true,  intro: 'endless' },
+  { id: 12, duration: 130, seats: 4, spawnGap: [4.8, 7.4],  patience: 61, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [195, 255, 350], hearts: 4, overflow: true,  intro: 'fourSeats' },
+  { id: 13, duration: 140, seats: 4, spawnGap: [4.6, 6.9],  patience: 60, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [200, 295, 405], hearts: 4, overflow: true,  intro: null },
+  { id: 14, duration: 140, seats: 4, spawnGap: [4.4, 6.7],  patience: 59, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [205, 300, 415], hearts: 4, overflow: true,  intro: null },
+  { id: 15, duration: 140, seats: 4, spawnGap: [4.2, 6.5],  patience: 58, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [210, 305, 425], hearts: 4, overflow: true,  intro: null },
+  { id: 16, duration: 150, seats: 4, spawnGap: [4.2, 6.3],  patience: 57, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [215, 340, 470], hearts: 4, overflow: true,  intro: null },
+  { id: 17, duration: 150, seats: 4, spawnGap: [4, 6.1],    patience: 56, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [220, 345, 475], hearts: 4, overflow: true,  intro: null },
+  { id: 18, duration: 150, seats: 4, spawnGap: [3.9, 5.9],  patience: 55, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [225, 350, 485], hearts: 4, overflow: true,  intro: null },
+  { id: 19, duration: 160, seats: 4, spawnGap: [3.8, 5.7],  patience: 54, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [230, 360, 500], hearts: 4, overflow: true,  intro: null },
+  { id: 20, duration: 160, seats: 4, spawnGap: [3.7, 5.5],  patience: 53, mid: [2, 3], top: [2, 3], smoothieChance: 0.55, goals: [235, 370, 515], hearts: 4, overflow: true,  intro: null },
 ];
 for (const l of LEVELS) if (l.hearts === undefined) l.hearts = 3;
 
@@ -118,8 +119,8 @@ export function endlessConfig(stage) {
   return {
     id: 'endless',
     seats: Math.min(4, 2 + Math.floor((s + 1) / 2)),
-    spawnGap: [Math.max(2.4, 6.5 - 0.35 * s), Math.max(3.6, 9 - 0.45 * s)],
-    patience: Math.max(18, 54 - 2 * s),
+    spawnGap: [Math.max(2.5, 6.8 - 0.35 * s), Math.max(3.8, 9.5 - 0.45 * s)],
+    patience: Math.max(20, 57 - 2 * s),
     mid: [Math.min(2, 1 + Math.floor(s / 3)), Math.min(3, 1 + Math.ceil(s / 2))],
     top: [Math.min(2, Math.floor(s / 2)), Math.min(3, 1 + Math.floor(s / 2))],
     smoothieChance: Math.min(0.5, 0.3 + 0.03 * s),

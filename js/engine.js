@@ -35,8 +35,9 @@ const ACTIVE = new Set(['arriving', 'waiting']);
 
 // ------------------------------------------------------------------ creation
 
+// A bowl slot starts without a cup: the player puts one down from the cup stack first.
 function emptyBowl(uid) {
-  return { base: null, mid: [], top: [], uid };
+  return { cup: false, base: null, mid: [], top: [], uid };
 }
 
 function emptyBlender(maxPortions) {
@@ -364,6 +365,7 @@ export function pourError(game, blenderIdx, bowlIdx) {
   if (!b || !bowl) return 'invalid';
   if (b.state === 'ruined') return 'blenderRuined';
   if (b.state !== 'ready' && b.state !== 'overflowing') return 'blenderNotReady';
+  if (!bowl.cup) return 'noCup';
   if (bowl.base) return 'bowlHasBase';
   return null;
 }
@@ -402,6 +404,23 @@ export function cleanBlender(game, blenderIdx) {
 
 // ------------------------------------------------------------------ bowl actions
 
+export function placeCupError(game, bowlIdx) {
+  if (!canAct(game)) return 'notPlaying';
+  const bowl = game.bowls[bowlIdx];
+  if (!bowl) return 'invalid';
+  if (bowl.cup) return 'cupThere';
+  return null;
+}
+
+// Empty cup from the stack → an empty bowl slot.
+export function placeCup(game, bowlIdx) {
+  const err = placeCupError(game, bowlIdx);
+  if (err) return fail(err);
+  game.bowls[bowlIdx].cup = true;
+  emit(game, 'cupPlaced', { bowlIdx });
+  return success();
+}
+
 export function addIngredientError(game, bowlIdx, ingId) {
   if (!canAct(game)) return 'notPlaying';
   const bowl = game.bowls[bowlIdx];
@@ -409,6 +428,7 @@ export function addIngredientError(game, bowlIdx, ingId) {
   const ing = ING[ingId];
   if (!ing || !game.owned.includes(ingId)) return 'notOwned';
   if (ing.layer === 'base') return 'wrongLayer';
+  if (!bowl.cup) return 'noCup';
   if (!bowl.base) return 'needBase';
   if (bowl.mid.includes(ingId) || bowl.top.includes(ingId)) return 'alreadyAdded';
   if (ing.layer === 'mid' && bowl.top.length) return 'toppingsOnTop';
@@ -428,11 +448,12 @@ export function addIngredient(game, bowlIdx, ingId) {
   return success();
 }
 
+// The cup goes into the trash with whatever is in it; the slot is free for a new cup.
 export function trashBowl(game, bowlIdx) {
   if (!canAct(game)) return fail('notPlaying');
   const bowl = game.bowls[bowlIdx];
   if (!bowl) return fail('invalid');
-  if (bowl.base || bowl.mid.length || bowl.top.length) {
+  if (bowl.cup || bowl.base || bowl.mid.length || bowl.top.length) {
     resetBowl(game, bowlIdx);
     emit(game, 'trash', { what: 'bowl', idx: bowlIdx });
   }

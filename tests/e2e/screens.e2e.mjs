@@ -598,7 +598,7 @@ async function harnessFlow(browser, base) {
   await check('results lostGoal: reason with goal, keep-coins note, no "Weiter"', async () => {
     await open('screen=results&variant=lostGoal');
     eq(await text(page, '#results-title'), 'Level 9 verloren', 'headline');
-    assert((await text(page, '.results-sub')).includes('180'), 'goal amount in reason');
+    assert((await text(page, '.results-sub')).includes('160'), 'goal amount in reason');
     assert((await text(page, '.results-notes')).includes('Münzen behältst du'), 'keep coins note');
     eq(await page.locator('[data-action="next"]').count(), 0, 'no next button');
     eq(await page.locator('.results-star.is-filled').count(), 0, 'no stars');
