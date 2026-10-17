@@ -15,7 +15,7 @@ player decisions listed in §1.
 | # | Topic | Decision |
 |---|---|---|
 | 1 | Device | **Tablet, landscape** first (touch). Must still work with mouse on PC and (scaled) on phones. |
-| 2 | Style | **Realistic, glossy Cooking Fever look in a modern café**: clear plastic cups that show their layers, ingredients heaped in steel pans, commercial blender, marble/quartz counters. Menus keep their chunky cartoon UI. |
+| 2 | Style | **Realistic, glossy Cooking Fever look in a modern café**: the player stands at the counter, seen in perspective like in Cooking Fever (worktop, rounded front edge, open shelves with stock below); clear plastic cups that show their layers, ingredients heaped in stoneware bowls, 3D appliances (blender, smoothie machine, freezer), a little cleaner and more modern than Cooking Fever. Menus keep their chunky cartoon UI. |
 | 3 | Controls | **Drag & drop** (touch + mouse) for every action. No tap-to-place. |
 | 4 | Order rule | **Fixed layers**: Base (from blender) → Fruits & Crunch → Toppings & Sauces. A drop into the wrong layer is **rejected** (bounce back + hint). Order *within* a layer is free. |
 | 5 | Stations | **Blender** with wait time for the base; it **overflows / spoils** if left too long. Later a **smoothie machine**. |
@@ -142,8 +142,8 @@ js/orders.js          order generation + pricing (pure)
 js/engine.js          pure game simulation (no DOM): createGame, tick, actions, events
 js/drag.js            generic pointer-based drag & drop manager (touch + mouse), stage-scale aware
 js/svg.js             shared SVG helpers + the shared gradients/clip paths (artDefsSVG, one hidden <svg> per page)
-js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, prep-rail pans, packs, smoothie cups
-js/art-kitchen.js     realistic kitchen art: blender, smoothie machine, trash, café back wall, decor
+js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, ingredient bowls, packs, smoothie cups
+js/art-kitchen.js     realistic kitchen art: work counter, freezer, trays, blender, smoothie machine, trash, café back wall, decor
 js/art.js             people, HUD icons, logo, map; re-exports the food + kitchen art (screens import from here)
 js/audio.js           WebAudio synthesized SFX + music loops (no audio files)
 js/game-view.js       gameplay screen: DOM from engine state, drag wiring, HUD, pause, tutorial, FX
@@ -283,7 +283,7 @@ dnd.cancel(); dnd.destroy(); dnd.isDragging(); dnd.refresh()
 - While the pointer itself (not the ghost) still rests on its source – it has not moved more than the 6 CSS px tap
   slop, or it is over the source rect expanded by 6 stage px – nothing is hit: no `drop-hover`, and a release there
   is a silent return (`ok:false`, `targetEl:null`, `pos:null`, not a tap). Holding a bin, a slow sloppy press, or
-  picking an item up and putting it back never drops it into the target next to it (bowls sit 4 px above the fruit
+  picking an item up and putting it back never drops it into the target next to it (bowls sit 2 px above the fruit
   bins).
 - Must prevent page scroll/zoom/text selection/long-press callout during drags (`touch-action:none`,
   `user-select:none`, `-webkit-touch-callout:none`, `preventDefault` on pointerdown for sources).
@@ -292,13 +292,15 @@ dnd.cancel(); dnd.destroy(); dnd.isDragging(); dnd.refresh()
 ### 4.4 Art (`js/art.js`) – contract (all return SVG markup strings)
 ```js
 ingredientIcon(id, size = 64)        // order / chip / shop icon for any of the 16 ingredients (realistic)
-binSVG(id, width = 84)               // prep-rail container (100×80): steel pan heaped with the ingredient, squeeze bottle for sauces
-scoopSVG(id, size = 84)              // what a drag from the rail carries: a handful, a spoonful, a sprig, a bottle
+binSVG(id, width = 84)               // ingredient bowl (100×72): white stoneware bowl seen from above at an angle, heaped with
+                                     // the ingredient; sauces fill the bowl and keep a dipper (honey) or a spoon in it
+scoopSVG(id, size = 84)              // what a drag from a bowl carries: a handful, a spoonful (seeds, nibs, sauce), a sprig,
+                                     // the honey dipper
 packIcon(baseId, size = 72)          // frosty frozen pack for base bins (açaí / pitaya / spirulina)
 bowlSVG(bowl, size = 150)            // clear cup {base, mid[], top[]}: purée, a band per fruit/crunch seen through the
                                      // side, sauce runs on the inner wall, heaped toppings; empty cup when base null
 cupStackSVG(width = 90)              // stack of empty cups (120×200) – the drag source for a new cup
-cupSpotSVG(size = 150)               // free spot: drip mat with a dashed cup outline (same box as bowlSVG)
+cupSpotSVG(size = 150)               // free spot: white coaster with a dashed cup outline (same box as bowlSVG)
 artDefsSVG() / ART_DEFS_ID           // the hidden <svg> with the shared gradients + clip paths (initStage inserts it)
 cupSVG(fruitId|null, state, size=70) // smoothie cup: state 'empty'|'mixing'|'ready'
 customerSVG(look, mood, size = 160)  // mood: 'happy'|'neutral'|'impatient'|'angry'
@@ -308,12 +310,20 @@ smoothieMachineSVG(slotCount, size)   // machine body without cups (cups drawn s
 trashSVG(size), coinSVG(size), heartSVG(filled, size), starSVG(filled, size)
 decorSVG(id, size)                    // 'plants' | 'jukebox' | 'seating' | 'neon'
 shopSceneSVG(width, height)           // back wall / window / sign for the gameplay scene
+counterSVG(width, height)             // the work counter under the pass (1280×450): terrazzo worktop in perspective, rounded
+                                      // front edge (COUNTER_EDGE_Y), open oak shelves with stock, the freezer's front panel
+freezerSVG('well'|'rim', w, h)        // chest freezer in the counter (284×186): frosty well with a glass lid slid back /
+                                      // the frame's front edge drawn over the packs
+traySVG(w, h)                         // oak tray an ingredient row stands on (drawn 1:1, front edge for the layer label)
 logoSVG(width)                        // "Açaí Fever" logo with bowl
 ```
 Look: shapes are filled with their colour and shaded with the shared overlay gradients (`url(#af-sph)`,
 `af-cyl`, `af-plastic`, `af-steel` …, light from the top left), thin outlines in a darker shade of the fill.
+Everything on the counter is seen from the player's side, from above at an angle (Cooking Fever's view): round
+things are ellipses, boxes show their top face and the side that faces the middle of the screen (blender: right
+side, smoothie machine: left side), and every object casts a soft shadow on the worktop.
 Memoised pictures never contain their own ids (they reference the shared defs); a picture that needs a local
-gradient (café wall, logo, map) builds unique ids with `uid()`. Paint references name a fallback colour
+gradient (café wall, work counter, logo, map) builds unique ids with `uid()`. Paint references name a fallback colour
 (`url(#af-steel) #cfd6dc`), so a page without the defs still shows plain fills. Guests are drawn with a thin warm
 outline (`withInk`), the HUD icons, logo and map keep the cartoon ink line of the menus.
 
@@ -353,19 +363,26 @@ ctx = { go, audio, t, screen /* current name */, rerender /* true on a language 
 ### 4.7 Gameplay screen layout (stage px, 1280 × 800)
 ```
 y   0– 64  HUD: [pause] [Level n / Endless stage] [hearts]   [money bar with ★ marks]   [clock]
-y  64–330  shop scene: back wall, window, sign, decor; customers stand behind the counter at seat centers
+y  64–330  shop scene: back wall, window, sign, decor; customers stand behind the pass at seat centers
            seat x-centers: 2 → [420, 860]; 3 → [270, 640, 1010]; 4 → [200, 493, 787, 1080]
            order bubble above/next to each customer; patience ring/bar on the bubble
-y 300–350  white marble counter (front edge overlaps customers' bodies); level/closing/stage banners
-           (non-blocking) sit on the counter strip y≈291–356 so faces and bubbles stay visible
-y 350–800  work area: quartz worktop
-  x  16–300  blenders (1–2) + chest freezer with a glass lid holding the base packs (owned bases only)
-  x 316–964  cup stack (84 px, "Bowls") + bowl spots (2–4, 138 px each), centred together, y≈354–550, with small
-             content chips under each cup; a spot without a cup shows a drip mat with a dashed cup outline.
-             Stainless prep rail: row "Fruits & Crunch" y≈554–672, row "Toppings & Sauces" y≈676–794
-             (owned ingredients only, 86 px bins: pan or bottle + short name label); each rail carries its
-             layer name ("2 · Fruits & Crunch", "3 · Toppings & Sauces") like the freezer's "1 · Base"
-  x 980–1264 smoothie machine (when present, slots = kitchen.smoothieSlots) + trash can bottom-right
+y 295–358  the pass: white marble top (y 295–334, overlaps customers' bodies) with a fluted oak front facing the
+           player; level/closing/stage banners (non-blocking) sit on it (y≈291–356) so faces and bubbles stay visible
+y 350–704  worktop in perspective (counterSVG): terrazzo, chips shrinking toward the back, the pass's shadow on the
+           far edge; everything on it is seen from above at an angle and casts a soft shadow
+  x  16–300  blenders (1–2, 126 px) at the back; in front of them the chest freezer built into the counter (opening
+             y≈518–704): the base packs (owned bases only) stand in the frosty well, a glass lid slid back over spare
+             packs, the frame's front edge covers their feet; its front panel below the edge says "1 · Base"
+  x 316–964  cup stack (76 px, "Bowls") + bowl spots (2–4, 126 px each), centred together, y≈354–515, with small
+             content chips under each cup; a spot without a cup shows a white coaster with a dashed cup outline.
+             Ingredient bowls (owned ingredients only, 86 px: bowl + short name label) on two oak trays:
+             "Fruits & Crunch" y≈516–608 behind "Toppings & Sauces" y≈610–702; each tray carries its layer name on
+             its front edge ("2 · Fruits & Crunch", "3 · Toppings & Sauces") like the freezer's "1 · Base"
+  x 980–1264 smoothie machine at the back (when present, slots = kitchen.smoothieSlots; a locked teaser before
+             level 7); a fruit basket and a jar of straws (decor) in front of it
+y 704–722  rounded front edge of the worktop
+y 722–800  cabinet: open oak shelves with the café's stock (cups, bowls, fruit crates, granola, jars, coconuts)
+           under an LED strip; the trash can stands on the floor in front of it, bottom right
 ```
 Interaction targets must be ≥ 64 stage px (tablet fingers). Valid drop targets glow while dragging.
 
@@ -373,7 +390,10 @@ Interaction targets must be ≥ 64 stage px (tablet fingers). Valid drop targets
 - Fonts: **Lilita One** (display: logo, headings, numbers) + **Nunito** 600/800/900 (UI text), fallbacks
   `"Trebuchet MS", system-ui, sans-serif`. Loaded from Google Fonts.
 - Gameplay: a modern café in a realistic, glossy illustration style (warm plaster wall with fluted oak, pendant
-  lamps, menu boards, marble counter, quartz worktop, stainless rail and freezer). Bubbles, HUD pills, toasts and
+  lamps, menu boards) seen like Cooking Fever from behind the counter: a marble pass with an oak front, a terrazzo
+  worktop in perspective with a rounded front edge and open shelves of stock below, ingredients heaped in white
+  stoneware bowls on oak trays, 3D appliances (black pro blender, white smoothie machine with an açaí-purple head,
+  stainless freezer and pedal bin) – clean and modern rather than cluttered. Bubbles, HUD pills, toasts and
   cards in the café are light frosted panels with soft shadows. Menus keep the chunky cartoon UI (thick ink
   outline buttons and panels) around the same realistic food art.
 - No dark-mode variant, but every colour is a CSS token on `:root` (game-only tokens on `.screen-game`)

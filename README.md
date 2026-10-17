@@ -21,7 +21,7 @@ und ein kurzer Hinweis erklärt, warum.
    Platz. Ohne Becher geht nichts hinein – am besten stellst du ihn hin, während der Mixer noch läuft.
 3. **Bowl füllen:** Zieh den fertigen Mixer auf die leere Bowl. Eine Mischung reicht für zwei Bowls
    (mit dem großen Mixkrug für drei).
-4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus der Kühlschiene auf die Bowl.
+4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus den Schalen auf der Theke auf die Bowl.
 5. **Servieren:** Zieh die fertige Bowl auf den Gast. Stimmt sie genau mit der Bestellung überein,
    wird bezahlt – plus Trinkgeld, je geduldiger der Gast noch war. Der Platz ist danach frei für den
    nächsten Becher.
@@ -108,8 +108,8 @@ js/orders.js          Bestellungen und Preise
 js/engine.js          Spiel-Simulation ohne DOM
 js/drag.js            Drag & Drop für Touch und Maus
 js/svg.js             gemeinsame SVG-Helfer + Farbverläufe (eine versteckte <svg> pro Seite)
-js/art-food.js        Becher mit Schichten, Zutaten, Wannen der Kühlschiene, Packungen, Smoothies
-js/art-kitchen.js     Mixer, Smoothie-Maschine, Mülleimer, Café-Rückwand, Deko
+js/art-food.js        Becher mit Schichten, Zutaten, Zutaten-Schalen, Packungen, Smoothies
+js/art-kitchen.js     Theke in Perspektive (Arbeitsplatte, Regal), Gefriertruhe, Tabletts, Mixer, Smoothie-Maschine, Mülleimer, Café-Rückwand, Deko
 js/art.js             Gäste, HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
 js/audio.js           Soundeffekte und Musik (WebAudio)
 js/game-view.js       Spielbildschirm
