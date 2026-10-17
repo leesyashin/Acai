@@ -1108,6 +1108,23 @@
 .upg-machine { position: relative; }
 .upg-machine > span { position: absolute; }
 .upg-machine svg { display: block; }
+/* 3D pictures of the appliances (js/art3d.js) stand in for the drawn svg art */
+img.art3d { display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+.upg-art-pair .art3d + .art3d { margin-left: -26px; }
+.upg-model {
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  translate: -50% 0;
+  padding: 3px 10px 2px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 2px 0 rgba(42, 18, 54, 0.3);
+}
 .upg-card .card-name { font-family: var(--font-display); font-weight: 400; font-size: 25px; line-height: 1.05; min-height: 52px; display: flex; align-items: center; }
 .upg-desc {
   margin: 0;

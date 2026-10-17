@@ -149,22 +149,35 @@ function drawBlender(state, o, prog, size) {
     s += circle(26, 40, 2.2, '#1d1d22') + ellipse(24.2, 37.4, 2.4, 1.4, WHITE, op(0.85)) + ellipse(28, 37.4, 2.4, 1.4, WHITE, op(0.85));
   }
   s += motorBase(state, o);
-  if (o.badge === false) {
-    // decorative use (shop cards): no status badge, so a ✓ never reads as "already bought"
-  } else if (state === 'blending') {
+  // decorative use (shop cards, badge:false): no status badge, so a ✓ never reads as "already bought"
+  if (o.badge !== false) s += statusBadge(state, prog);
+  return svgWrap(size, size, 150, 150, s);
+}
+
+// Status badge at the blender's top right (viewBox units of blenderSVG): progress ring, ✓, !, spoiled.
+function statusBadge(state, prog) {
+  if (state === 'blending') {
     const r = 8;
     const len = 2 * Math.PI * r;
     // data-ring: the game view updates this ring's dasharray in place instead of re-rendering the art
-    s += circle(127, 24, 13.5, '#000000', op(0.22)) + circle(127, 22, 13.5, WHITE) + circle(127, 22, r, 'none', stroke(4.5, '#e1e8ee')) +
+    return circle(127, 24, 13.5, '#000000', op(0.22)) + circle(127, 22, 13.5, WHITE) + circle(127, 22, r, 'none', stroke(4.5, '#e1e8ee')) +
       `<circle data-ring="${f(len)}" opacity="${prog > 0 ? 1 : 0}" cx="127" cy="22" r="${r}" fill="none" stroke="${LAGOON}" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="${f(len * prog)} ${f(len)}" transform="rotate(-90 127 22)"/>`;
-  } else if (state === 'ready') {
-    s += badge(127, 22, OK, line('M121 22.5L125.5 27L133.5 18', WHITE, 3.4));
-  } else if (state === 'overflowing') {
-    s += badge(127, 22, BAD, rect(125.2, 14, 3.6, 10.5, 1.8, WHITE) + circle(127, 28.5, 2.1, WHITE));
-  } else if (state === 'ruined') {
-    s += badge(127, 22, '#7d6e8a', rect(122, 18, 10, 10, 2, WHITE) + rect(120, 15, 14, 2.6, 1.3, WHITE) + line('M125.3 20.5V25.5M128.7 20.5V25.5', '#7d6e8a', 1.3));
   }
-  return svgWrap(size, size, 150, 150, s);
+  if (state === 'ready') return badge(127, 22, OK, line('M121 22.5L125.5 27L133.5 18', WHITE, 3.4));
+  if (state === 'overflowing') return badge(127, 22, BAD, rect(125.2, 14, 3.6, 10.5, 1.8, WHITE) + circle(127, 28.5, 2.1, WHITE));
+  if (state === 'ruined') {
+    return badge(127, 22, '#7d6e8a', rect(122, 18, 10, 10, 2, WHITE) + rect(120, 15, 14, 2.6, 1.3, WHITE) + line('M125.3 20.5V25.5M128.7 20.5V25.5', '#7d6e8a', 1.3));
+  }
+  return '';
+}
+
+// The badge alone (size px wide), laid over the 3D blender; empty markup for an empty blender.
+export function blenderBadgeSVG(state, size = 30) {
+  return memo(`xb|${state}|${size}`, () => {
+    const s = statusBadge(state, 0);
+    if (!s) return '';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="112 6.5 30 32" width="${f(size)}" height="${f((size * 32) / 30)}" aria-hidden="true" focusable="false" stroke-linejoin="round" stroke-linecap="round">${s}</svg>`;
+  });
 }
 
 // ======================================================================

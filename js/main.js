@@ -8,6 +8,7 @@ import { loadSave, getSave } from './save.js';
 import { audio } from './audio.js';
 import { screens } from './screens.js';
 import { gameScreen } from './game-view.js';
+import { warm3D } from './art3d.js';
 
 registerStrings({
   de: {
@@ -192,6 +193,9 @@ function start(data) {
   window.__acaiGo = go;
   window.__acaiScreen = () => current?.name ?? null;
   go('title');
+  // compile the 3D renderer while the title shows: the first 3D picture (level card, shop, game)
+  // must not stall a tap or an opening animation
+  requestAnimationFrame(() => setTimeout(warm3D, 0));
 }
 
 const hot = window.claude?.hot;
