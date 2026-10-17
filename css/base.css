@@ -37,10 +37,13 @@
 
 /* No page pinch/double-tap zoom or panning anywhere: the letterbox bands (#app), #rotate-hint and
    #stage are one fixed game surface, and a page zoomed from the bands could not be pinched back on
-   the stage. Nothing scrolls; a scrollable list added later needs touch-action: pan-y. */
+   the stage. Nothing scrolls; a scrollable list added later needs touch-action: pan-y (and an exception
+   in the wheel blocker of js/stage.js). overscroll-behavior on the root also stops the two-finger
+   swipe back/forward of Mac trackpads in Chrome and Firefox. */
 html, body {
   height: 100%;
   touch-action: none;
+  overscroll-behavior: none;
 }
 
 body {
@@ -54,7 +57,6 @@ body {
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
-  overscroll-behavior: none;
 }
 
 #app {

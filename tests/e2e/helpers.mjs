@@ -6,6 +6,7 @@
 //   await page.goto(srv.url);
 //   await dragBetween(page, '[data-bin="banana"]', '[data-bowl="0"]', { touch: true });
 //   const scale = await pinch(page, { x: 580, y: 20 }, { x: 600, y: 20 });   // isMobile + touch
+//   const zoom = await trackpadPinch(page, { x: 700, y: 400 });              // desktop (MacBook trackpad)
 //   assertNoConsoleErrors(errors);
 //   await close(); await srv.close();
 
@@ -185,6 +186,18 @@ export async function pinch(page, a, b, { spread = 160, steps = 20, stepDelay = 
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: fingers(i) });
   }
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await pause(settleMs);
+  return page.evaluate(() => window.visualViewport?.scale ?? 1);
+}
+
+/**
+ * Trackpad pinch-out (MacBook) at viewport point p. Launch a desktop context (no isMobile): Chromium
+ * delivers the gesture as ctrl+wheel events and zooms the page by scaleFactor unless they are cancelled.
+ * Returns visualViewport.scale after the gesture (1 = the page did not zoom).
+ */
+export async function trackpadPinch(page, p, { scaleFactor = 2, settleMs = 300 } = {}) {
+  const cdp = await cdpFor(page);
+  await cdp.send('Input.synthesizePinchGesture', { x: p.x, y: p.y, scaleFactor, gestureSourceType: 'mouse' });
   await pause(settleMs);
   return page.evaluate(() => window.visualViewport?.scale ?? 1);
 }
