@@ -36,6 +36,17 @@ const FOOD = {
 
 const ew = (s) => Math.max(0.7, s * 0.08); // outline width for a piece of size s
 
+// Chia seeds as short round-capped strokes, one path per colour (hundreds of seeds stay a few elements).
+const CHIA = ['#1f1f1f', '#7d7a74', '#d6cfc2', '#3d3b38', '#a59f95'];
+function chiaSeeds(points, rng, w = 1.7, len = 1.1) {
+  const by = CHIA.map(() => '');
+  points.forEach(([x, y], i) => {
+    const a = rng.next() * Math.PI;
+    by[i % CHIA.length] += `M${f(x)} ${f(y)}l${f(Math.cos(a) * len)} ${f(Math.sin(a) * len)}`;
+  });
+  return CHIA.map((c, i) => (by[i] ? line(by[i], c, w) : '')).join('');
+}
+
 function bananaSlice(x, y, s, rng, tilt = 0.62) {
   const ry = s * tilt;
   const th = s * 0.2;
@@ -117,13 +128,10 @@ function kiwiSlice(x, y, s, rng, tilt = 0.64) {
     rays += `M${f(x + Math.cos(a) * s * 0.3)} ${f(y + Math.sin(a) * ry * 0.3)}L${f(x + Math.cos(a) * s * 0.8)} ${f(y + Math.sin(a) * ry * 0.8)}`;
   }
   d += line(rays, '#c4e47e', Math.max(0.4, s * 0.06), op(0.8));
-  // seed ring
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2;
-    const sx = x + Math.cos(a) * s * 0.4;
-    const sy = y + Math.sin(a) * ry * 0.4;
-    d += ellipse(sx, sy, s * 0.075, s * 0.04, '#1b1a12', tf(`rotate(${f((a * 180) / Math.PI)} ${f(sx)} ${f(sy)})`));
-  }
+  // seed ring: round dots along an ellipse
+  const rr = s * 0.4;
+  const gap = (Math.PI * (rr + ry * 0.4)) / 12;
+  d += ellipse(x, y, rr, ry * 0.4, 'none', stroke(Math.max(0.8, s * 0.11), '#1b1a12') + ` stroke-dasharray="0.01 ${f(gap)}"`);
   d += ellipse(x, y, s * 0.26, ry * 0.26, FOOD.kiwiCore);
   d += litEllipse(x, y, s * 0.92, ry * 0.92, 'sph-soft');
   return d + ellipse(x - s * 0.4, y - ry * 0.42, s * 0.24, ry * 0.14, WHITE, op(0.6));
@@ -134,13 +142,13 @@ function granolaCluster(x, y, s, rng) {
   const tone = mix(FOOD.granola, FOOD.granolaDark, rng.next() * 0.3);
   let d = path(d0, tone, stroke(ew(s), edge(tone, 0.4)));
   // toasted oat flakes stuck together, dark crevices, sometimes a nut or a raisin
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 3; i++) {
     const ox = x + (rng.next() - 0.5) * s * 1.2;
     const oy = y + (rng.next() - 0.5) * s;
     const oat = mix(FOOD.oat, tone, 0.1 + rng.next() * 0.3);
-    d += ellipse(ox, oy, s * 0.26, s * 0.15, oat, stroke(Math.max(0.3, s * 0.04), edge(oat, 0.25)) + tf(`rotate(${f(rng.next() * 180)} ${f(ox)} ${f(oy)})`));
+    d += ellipse(ox, oy, s * 0.28, s * 0.16, oat, stroke(Math.max(0.3, s * 0.04), edge(oat, 0.25)) + tf(`rotate(${f(rng.next() * 180)} ${f(ox)} ${f(oy)})`));
   }
-  for (let i = 0; i < 3; i++) d += circle(x + (rng.next() - 0.5) * s * 1.2, y + (rng.next() - 0.5) * s, s * 0.09, FOOD.granolaDark, op(0.8));
+  d += circle(x + (rng.next() - 0.5) * s, y + (rng.next() - 0.5) * s * 0.8, s * 0.1, FOOD.granolaDark, op(0.8));
   const extra = rng.next();
   if (extra < 0.3) d += ellipse(x + s * 0.2, y + s * 0.15, s * 0.32, s * 0.22, '#ecc893', stroke(Math.max(0.4, s * 0.05), '#a8743a'));
   else if (extra < 0.45) d += ellipse(x - s * 0.25, y + s * 0.1, s * 0.2, s * 0.16, '#4a1f2a', stroke(Math.max(0.3, s * 0.04), '#2a0f16'));
@@ -200,7 +208,7 @@ function mintLeaf(x, y, len, wid, deg) {
     ellipse(L * 0.35, -Wd * 0.3, L * 0.18, Wd * 0.12, WHITE, op(0.35)));
 }
 
-export function mintSprig(x, y, k = 1) {
+function mintSprig(x, y, k = 1) {
   return mintLeaf(x, y, 22 * k, 9 * k, -150) + mintLeaf(x, y, 24 * k, 10 * k, -35) + mintLeaf(x + 1, y - 2, 18 * k, 8 * k, -95) +
     line(`M${f(x)} ${f(y)}l${f(-1 * k)} ${f(5 * k)}`, '#2c7a3a', Math.max(0.8, 1.6 * k));
 }
@@ -230,12 +238,13 @@ function pureeBody(yTop) {
   return `M${f(100 - hwT)} ${f(yTop)}L${f(100 - hwB)} ${f(yB)}A${f(hwB)} ${f(ryB)} 0 0 0 ${f(100 + hwB)} ${f(yB)}L${f(100 + hwT)} ${f(yTop)}A${f(hwT)} ${f(ryT)} 0 0 0 ${f(100 - hwT)} ${f(yTop)}Z`;
 }
 
+// Colours of the blended bases (cup and blender jug).
 const PUREE = {
   acai: { main: '#4d1a5e', light: '#7c3a92', dark: '#2c0c36', fleck: '#a06ab8' },
   pitaya: { main: '#e2266f', light: '#ff6aa6', dark: '#9c0f47', fleck: '#2a0f1c' },
   spirulina: { main: '#1f8fcf', light: '#68c6f2', dark: '#0d5a8a', fleck: '#d6f2ff' },
 };
-const pureeOf = (id) => PUREE[id] || PUREE.acai;
+export const pureeOf = (id) => PUREE[id] || PUREE.acai;
 
 function pureeInCup(base) {
   const p = pureeOf(base);
@@ -284,10 +293,10 @@ function onTop(u, v) {
 // size = piece size, cols × rows grid per sector (scaled down with more sectors)
 const PIECES = {
   banana: { size: 11.5, draw: bananaSlice, band: '#f6e3a4' },
-  granola: { size: 6.6, draw: granolaCluster, dense: 1.5, band: '#b9792f' },
+  granola: { size: 8, draw: granolaCluster, dense: 1.1, band: '#b9792f' },
   strawberry: { size: 11, draw: strawberryHalf, band: '#e8424f' },
-  blueberry: { size: 5.6, draw: blueberry, dense: 1.3, band: '#2f3670' },
-  mango: { size: 6.8, draw: mangoCube, dense: 1.15, band: '#ffa21a' },
+  blueberry: { size: 6.2, draw: blueberry, band: '#2f3670' },
+  mango: { size: 7.6, draw: mangoCube, band: '#ffa21a' },
   kiwi: { size: 11, draw: kiwiSlice, band: '#86c23a' },
 };
 
@@ -429,12 +438,12 @@ function sprinkleOnCup(id) {
       s += coconutFlake(p.x, p.y - 3, 3.6 + rng.next() * 1.6, rng);
     }
   } else if (id === 'chia') {
-    const cols = ['#2b2b2b', '#6e6e6e', '#d9d2c4', '#4a4a4a', '#a39d93'];
-    for (let i = 0; i < 70; i++) {
+    const pts = [];
+    for (let i = 0; i < 80; i++) {
       const p = onTop(rng.next() * 1.9 - 0.95, rng.next() * 1.9 - 0.95);
-      const a = rng.next() * 180;
-      s += ellipse(p.x, p.y - 2, 1.3, 0.85, cols[i % cols.length], tf(`rotate(${f(a)} ${f(p.x)} ${f(p.y - 2)})`));
+      pts.push([p.x, p.y - 2]);
     }
+    s += chiaSeeds(pts, rng, 1.8, 0.9);
   } else if (id === 'cacao') {
     for (let i = 0; i < 18; i++) {
       const p = onTop(rng.next() * 1.8 - 0.9, rng.next() * 1.8 - 0.9);
@@ -520,7 +529,8 @@ export function bowlSVG(bowl, size = 150) {
   return memo(`b|${b.base}|${(b.mid || []).join()}|${(b.top || []).join()}|${size}`, () => svgWrap(size, size, 200, 200, cupBody(b)));
 }
 
-export { cupBody as cupArt, RIM as CUP_RIM };
+// the cup drawing without its <svg> wrapper (logo, menu board)
+export { cupBody as cupArt };
 
 // ======================================================================
 // Ingredient icons (viewBox 100×100): bubbles, chips, shop cards, drag ghosts
@@ -716,13 +726,13 @@ const ICONS = {
     const heap = 'M16 59C22 36 78 36 84 59A34 8 0 0 1 16 59Z';
     s += path(heap, '#5a5752', stroke(1.1, '#2c2a27'));
     const rng = rngFor('chia-icon');
-    const cols = ['#1f1f1f', '#7d7a74', '#d6cfc2', '#3d3b38', '#a59f95'];
-    for (let i = 0; i < 70; i++) {
+    const pts = [];
+    for (let i = 0; i < 80; i++) {
       const x = 20 + rng.next() * 60;
       const topY = 58 - 19 * (1 - ((x - 50) / 32) ** 2);
-      const y = topY + 1.5 + rng.next() * Math.max(1, 58 - topY);
-      s += ellipse(x, y, 1.5, 1, cols[i % cols.length], tf(`rotate(${f(rng.next() * 180)} ${f(x)} ${f(y)})`));
+      pts.push([x, topY + 1.5 + rng.next() * Math.max(1, 58 - topY)]);
     }
+    s += chiaSeeds(pts, rng, 2, 1.1);
     s += path(heap, paint('sph-soft'));
     for (const [x, y] of [[10, 92], [90, 90], [84, 94], [16, 95]]) s += ellipse(x, y, 1.6, 1.1, '#3a3a3a');
     return s;
@@ -770,7 +780,7 @@ function unknownIcon() {
   return circle(50, 50, 32, '#d8cde0', stroke(1.5, '#8e7aa0'));
 }
 
-export function iconBody(id) {
+function iconBody(id) {
   return ING[id] && ICONS[id] ? ICONS[id]() : unknownIcon();
 }
 
@@ -788,9 +798,9 @@ registerDefs(`<clipPath id="af-clip-pan"><path d="${PAN_HOLE}"/></clipPath>`);
 
 const PAN_FILL = {
   banana: { bed: '#f3e1a0', piece: 8.6, draw: bananaSlice, rows: 4, cols: 5 },
-  granola: { bed: '#a96d2c', piece: 5.4, draw: granolaCluster, rows: 6, cols: 8 },
+  granola: { bed: '#a96d2c', piece: 6, draw: granolaCluster, rows: 5, cols: 7 },
   strawberry: { bed: '#c8172d', piece: 8.4, draw: strawberryHalf, rows: 4, cols: 5 },
-  blueberry: { bed: '#262b5c', piece: 4.6, draw: blueberry, rows: 7, cols: 9 },
+  blueberry: { bed: '#262b5c', piece: 5, draw: blueberry, rows: 6, cols: 8 },
   mango: { bed: '#f08d0a', piece: 5.4, draw: mangoCube, rows: 5, cols: 7 },
   kiwi: { bed: '#5e9a24', piece: 8.6, draw: kiwiSlice, rows: 4, cols: 5 },
   coconut: { bed: '#d9cdb6', piece: 5.6, draw: coconutFlake, rows: 6, cols: 7 },
@@ -841,12 +851,9 @@ function chiaPan() {
   const { x, y, w, h, lip } = PAN;
   const rng = rngFor('pan-chia');
   let s = path(rrect(x + lip + 1, y + lip + 1, w - lip * 2 - 2, h - lip * 2 - 2, 6), '#57534d');
-  const cols = ['#1f1f1f', '#7d7a74', '#d6cfc2', '#3d3b38', '#a59f95', '#2b2926'];
-  for (let i = 0; i < 260; i++) {
-    const sx = x + lip + 3 + rng.next() * (w - lip * 2 - 6);
-    const sy = y + lip + 3 + rng.next() * (h - lip * 2 - 6);
-    s += ellipse(sx, sy, 1.4, 0.9, cols[i % cols.length], tf(`rotate(${f(rng.next() * 180)} ${f(sx)} ${f(sy)})`));
-  }
+  const pts = [];
+  for (let i = 0; i < 300; i++) pts.push([x + lip + 3 + rng.next() * (w - lip * 2 - 6), y + lip + 3 + rng.next() * (h - lip * 2 - 6)]);
+  s += chiaSeeds(pts, rng, 1.8, 1);
   return s + path(rrect(x + lip + 1, y + lip + 1, w - lip * 2 - 2, h - lip * 2 - 2, 6), paint('sph-soft'));
 }
 
@@ -1044,4 +1051,74 @@ function drawSmoothieCup(fruitId, state, size) {
     s += garnish(fruitId, 27, top - 6);
   }
   return svgWrap(size, size, 100, 100, s);
+}
+
+// ======================================================================
+// What the player carries while dragging from the prep rail (viewBox 100×100): a handful of
+// pieces, a spoonful of seeds or nibs, a mint sprig, a tilted squeeze bottle for the sauces
+// ======================================================================
+const HANDFUL = {
+  banana: { n: 5, r: 22, size: 19 },
+  strawberry: { n: 5, r: 21, size: 18 },
+  blueberry: { n: 8, r: 20, size: 11 },
+  mango: { n: 6, r: 20, size: 12 },
+  kiwi: { n: 4, r: 21, size: 19 },
+  granola: { n: 8, r: 22, size: 12 },
+};
+
+function spoon(body) {
+  let s = softShadow(46, 82, 34, 6);
+  s += path('M64 64L92 86Q95 89 92 92Q89 95 86 92L58 70Z', paint('steel', '#cfd6dc'), stroke(1, '#5f6a75'));
+  s += ellipse(42, 58, 30, 18, paint('steel-v', '#cfd6dc'), stroke(1.2, '#5f6a75'));
+  s += ellipse(42, 56, 26, 14, paint('steel-in', '#a9b2bb'));
+  return s + body + line('M20 52Q30 44 44 43', WHITE, 1.6, op(0.6));
+}
+
+export function scoopSVG(id, size = 84) {
+  return memo(`scoop|${id}|${size}`, () => {
+    const rng = rngFor(`scoop-${id}`);
+    let s = '';
+    const hand = HANDFUL[id];
+    if (hand) {
+      s += softShadow(50, 84, 32, 6);
+      const spec = PIECES[id];
+      const pts = [];
+      for (let i = 0; i < hand.n; i++) {
+        const a = (i / hand.n) * Math.PI * 2 + rng.next() * 0.5;
+        const r = i === 0 ? 0 : hand.r * (0.7 + rng.next() * 0.4);
+        pts.push({ x: 50 + Math.cos(a) * r, y: 56 + Math.sin(a) * r * 0.62 - (i === 0 ? 10 : 0) });
+      }
+      pts.sort((p, q) => p.y - q.y);
+      for (const p of pts) s += spec.draw(p.x, p.y, hand.size * (0.9 + rng.next() * 0.2), rng, 0.72);
+    } else if (BOTTLES[id]) {
+      const b = BOTTLES[id];
+      // held upside down, ready to squeeze: a drop leaves the nozzle
+      s += softShadow(56, 96, 24, 3.5);
+      s += g('rotate(150 54 50)', squeezeBottle(54, 88, 30, 70, b.body, b.label, b.cap, b.mark(54, 64)));
+      s += path('M71 82C73.5 87 76 89.5 76 93A5 5 0 0 1 66 93C66 89.5 68.5 87 71 82Z', b.body, stroke(0.8, mix(b.body, '#000000', 0.4))) + circle(69.5, 92, 1.2, WHITE, op(0.8));
+    } else if (id === 'mint') {
+      s += softShadow(50, 86, 26, 5) + mintSprig(52, 72, 2.2);
+    } else if (id === 'chia') {
+      let seeds = path('M18 56C22 38 62 38 66 56Z', '#57534d');
+      const pts = [];
+      for (let i = 0; i < 80; i++) {
+        const x = 20 + rng.next() * 44;
+        const top = 56 - 15 * (1 - ((x - 42) / 24) ** 2);
+        pts.push([x, top + 1 + rng.next() * Math.max(1, 56 - top)]);
+      }
+      seeds += chiaSeeds(pts, rng, 1.8, 1);
+      s += spoon(seeds);
+    } else if (id === 'cacao') {
+      let nibs = '';
+      for (let i = 0; i < 16; i++) nibs += cacaoNib(22 + rng.next() * 40, 44 + rng.next() * 12, 3.2 + rng.next() * 1.4, rng);
+      s += spoon(nibs);
+    } else if (id === 'coconut') {
+      let flakes = '';
+      for (let i = 0; i < 12; i++) flakes += coconutFlake(22 + rng.next() * 40, 44 + rng.next() * 12, 5 + rng.next() * 2, rng);
+      s += spoon(flakes);
+    } else {
+      s += iconBody(id);
+    }
+    return svgWrap(size, size, 100, 100, s);
+  });
 }

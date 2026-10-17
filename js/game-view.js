@@ -11,7 +11,7 @@ import {
   loadBlenderError, pourError, addIngredientError, loadSmoothieError, serveBowlError, serveSmoothieError, placeCupError,
 } from './engine.js';
 import {
-  ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, cupStackSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
+  ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, scoopSVG, cupStackSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
   smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
   trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG,
 } from './art.js';
@@ -729,7 +729,7 @@ class GameView {
       const layer = node.dataset.layer;
       dnd.source(node, {
         payload: () => (this.canAct() ? { kind: 'ing', id, layer } : null),
-        ghost: () => ingredientIcon(id, 76),
+        ghost: () => scoopSVG(id, 84),
         onTap: () => this.hint(node, 'game.hint.bin'),
       });
     }

@@ -10,13 +10,13 @@ import { cupArt } from './art-food.js';
 import {
   INK, WHITE, PINK, LAGOON, MANGO, LEAF, CREAM, WOOD, WOOD_D,
   DANGER, SHADE_DIR, FONT, f, uid, hashStr, rngFor, mix, lighten,
-  darken, esc, ow, svgWrap, stroke, op, tf, circle, ellipse,
+  darken, esc, ow, svgWrap, stroke, op, circle, ellipse,
   path, rect, g, line, tube, shape, gloss, rrect, crescent,
   ball, leaf, bigLeaf, polyPath, starPoints, sparkle, puffs, frond, withInk, litCircle, paint,
 } from './svg.js';
 
 export {
-  ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, cupStackSVG, cupSpotSVG,
+  ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, scoopSVG, cupStackSVG, cupSpotSVG,
 } from './art-food.js';
 export {
   blenderSVG, smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE, trashSVG, shopSceneSVG, decorSVG,

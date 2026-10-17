@@ -80,7 +80,7 @@ const snap = (page) => page.evaluate(() => {
     status: g.status, money: g.money, served: g.served, lost: g.lost, hearts: g.hearts, time: g.time,
     tutorialHold: g.tutorialHold, closing: g.closing,
     seats: g.seats.map((c) => c && { id: c.id, state: c.state, order: c.order, delivered: { ...c.delivered } }),
-    bowls: g.bowls.map((b) => ({ base: b.base, mid: [...b.mid], top: [...b.top], uid: b.uid })),
+    bowls: g.bowls.map((b) => ({ cup: b.cup, base: b.base, mid: [...b.mid], top: [...b.top], uid: b.uid })),
     blenders: g.blenders.map((b) => ({ state: b.state, base: b.base, portions: b.portions })),
     slots: g.smoothie ? g.smoothie.slots.map((s) => ({ state: s.state, fruit: s.fruit })) : null,
   };
@@ -179,6 +179,20 @@ async function readyBlender(page, base, touch) {
   throw new Error(`could not get a ready ${base} blender`);
 }
 
+// Puts an empty cup from the stack on bowl spot i (if there is none yet).
+async function placeCup(page, i, touch = false) {
+  if ((await snap(page)).bowls[i].cup) return;
+  await drag(page, '[data-cup-stack]', `[data-bowl="${i}"]`, touch);
+  await until(page, (k) => window.__acaiGame.bowls[k].cup, i, 3000);
+}
+
+// Pours a ready blender into bowl spot i, putting a cup down first.
+async function pour(page, bi, i, touch = false) {
+  await placeCup(page, i, touch);
+  await drag(page, `[data-blender="${bi}"]`, `[data-bowl="${i}"]`, touch);
+  await until(page, (k) => !!window.__acaiGame.bowls[k].base, i, 3000);
+}
+
 // Builds the ordered bowl in an empty slot and drags it to the customer.
 async function serveCustomer(page, id, { touch = false } = {}) {
   let s = await snap(page);
@@ -190,6 +204,7 @@ async function serveCustomer(page, id, { touch = false } = {}) {
   s = await snap(page);
   const bowl = s.bowls.findIndex((b) => !b.base);
   assert(bowl >= 0, 'no empty bowl slot');
+  await placeCup(page, bowl, touch);
   await drag(page, `[data-blender="${bi}"]`, `[data-bowl="${bowl}"]`, touch);
   await until(page, ([i, base]) => window.__acaiGame.bowls[i].base === base, [bowl, order.bowl.base], 3000);
   for (const ing of [...order.bowl.mid, ...order.bowl.top]) {
@@ -202,6 +217,7 @@ async function serveCustomer(page, id, { touch = false } = {}) {
   const served = s.served;
   await drag(page, `[data-bowl="${bowl}"]`, custSel(id), touch);
   await until(page, (n) => window.__acaiGame.served > n, served, 4000);
+  assert(!(await snap(page)).bowls[bowl].cup, 'the served cup is still on the counter');
 }
 
 async function serveSmoothie(page, id, fruit, touch) {
@@ -239,14 +255,21 @@ async function tutorialAndServing(srv) {
       await page.screenshot({ path: path.join(OUT, 'tutorial-pack.png') });
     });
 
-    await check(`${tag} reject: ingredient on an empty bowl (needBase)`, async () => {
-      await expectReject(page, '[data-bin="banana"]', '[data-bowl="1"]', 'needBase');
+    await check(`${tag} reject: ingredient on a spot without a cup (noCup)`, async () => {
+      await expectReject(page, '[data-bin="banana"]', '[data-bowl="1"]', 'noCup');
     });
 
-    await check(`${tag} tutorial: pack → blender → wait → pour`, async () => {
+    await check(`${tag} tutorial: pack → blender → cup → wait → pour`, async () => {
       await drag(page, '[data-pack="acai"]', '[data-blender="0"]');
       await until(page, () => window.__acaiGame.blenders[0].state === 'blending', null, 3000);
+      await tutorialStep(page, 'cupWait');
+      assert(await page.locator('.g-tut-arrow').count() === 1, 'no arrow from the cup stack');
+      await page.screenshot({ path: path.join(OUT, 'tutorial-cup.png') });
+      await drag(page, '[data-cup-stack]', '[data-bowl="0"]');
+      await until(page, () => window.__acaiGame.bowls[0].cup, null, 3000);
       await tutorialStep(page, 'wait');
+      await expectReject(page, '[data-bin="banana"]', '[data-bowl="0"]', 'needBase');
+      await expectReject(page, '[data-cup-stack]', '[data-bowl="0"]', 'cupThere');
       await fastUntil(page, () => window.__acaiGame.blenders[0].state === 'ready');
       await tutorialStep(page, 'pour');
       await drag(page, '[data-blender="0"]', '[data-bowl="0"]');
@@ -255,12 +278,14 @@ async function tutorialAndServing(srv) {
       await page.screenshot({ path: path.join(OUT, 'tutorial-add.png') });
     });
 
-    await check(`${tag} tutorial recovers from a wrong ingredient (trash → pour again)`, async () => {
+    await check(`${tag} tutorial recovers from a wrong ingredient (trash → new cup → pour again)`, async () => {
       const wrong = ['banana', 'granola'].find((id) => !order.bowl.mid.includes(id));
       await drag(page, `[data-bin="${wrong}"]`, '[data-bowl="0"]');
       await tutorialStep(page, 'trash');
       await drag(page, '[data-bowl="0"]', '[data-trash]');
-      await until(page, () => !window.__acaiGame.bowls[0].base, null, 3000);
+      await until(page, () => !window.__acaiGame.bowls[0].base && !window.__acaiGame.bowls[0].cup, null, 3000);
+      await tutorialStep(page, 'cup');
+      await drag(page, '[data-cup-stack]', '[data-bowl="0"]');
       await tutorialStep(page, 'pour');
       await drag(page, '[data-blender="0"]', '[data-bowl="0"]');
       await tutorialStep(page, 'add');
@@ -361,9 +386,11 @@ async function layerRejects(srv) {
       const fruit = exact('banana') ? 'granola' : 'banana';
       const other = fruit === 'banana' ? 'granola' : 'banana';
       const bi = await readyBlender(page, 'acai', false);
-      await drag(page, `[data-blender="${bi}"]`, '[data-bowl="0"]');
+      await expectReject(page, `[data-blender="${bi}"]`, '[data-bowl="0"]', 'noCup');
+      await pour(page, bi, 0);
       await until(page, () => window.__acaiGame.bowls[0].base === 'acai', null, 3000);
       await expectReject(page, `[data-blender="${bi}"]`, '[data-bowl="0"]', 'bowlHasBase');
+      await expectReject(page, '[data-cup-stack]', '[data-bowl="0"]', 'cupThere');
       await expectReject(page, '[data-bin="honey"]', '[data-bowl="0"]', 'toppingsOnTop'); // no fruit/crunch yet
       await drag(page, `[data-bin="${fruit}"]`, '[data-bowl="0"]');
       await until(page, (f) => window.__acaiGame.bowls[0].mid.includes(f), fruit, 3000);
@@ -374,14 +401,16 @@ async function layerRejects(srv) {
       await page.screenshot({ path: path.join(OUT, 'reject-toast.png') });
       await expectReject(page, '[data-bowl="0"]', custSel(id), 'wrongOrder');
       await drag(page, '[data-bowl="0"]', '[data-trash]');
-      await until(page, () => !window.__acaiGame.bowls[0].base, null, 3000);
+      await until(page, () => !window.__acaiGame.bowls[0].base && !window.__acaiGame.bowls[0].cup, null, 3000);
+      await expectReject(page, '[data-bin="granola"]', '[data-bowl="0"]', 'noCup');
+      await placeCup(page, 0);
       await expectReject(page, '[data-bin="granola"]', '[data-bowl="0"]', 'needBase');
     });
     await check(`${tag} a correct but unfinished bowl says "something is missing" (bowlIncomplete)`, async () => {
       const id = await waitCustomer(page);
       const order = (await snap(page)).seats.find((c) => c && c.id === id).order;
       const bi = await readyBlender(page, order.bowl.base, false);
-      await drag(page, `[data-blender="${bi}"]`, '[data-bowl="0"]');
+      await pour(page, bi, 0);
       await until(page, (b) => window.__acaiGame.bowls[0].base === b, order.bowl.base, 3000);
       await expectReject(page, '[data-bowl="0"]', custSel(id), 'bowlIncomplete');
       await drag(page, '[data-bowl="0"]', '[data-trash]');
@@ -451,8 +480,7 @@ async function smoothieTouch(srv) {
     await check(`${tag} holding a fruit bin or putting it back never drops it into the bowl above`, async () => {
       const bi = await readyBlender(page, 'acai', true);
       const bowl = (await snap(page)).bowls.findIndex((b) => !b.base);
-      await drag(page, `[data-blender="${bi}"]`, `[data-bowl="${bowl}"]`, true);
-      await until(page, (i) => !!window.__acaiGame.bowls[i].base, bowl, 3000);
+      await pour(page, bi, bowl, true);
       const before = JSON.stringify((await snap(page)).bowls);
       const cdp = await page.context().newCDPSession(page);
       const touch = (type, p) => cdp.send('Input.dispatchTouchEvent', {
@@ -488,8 +516,7 @@ async function smoothieTouch(srv) {
       const bi = await readyBlender(page, 'acai', true);
       const s = await snap(page);
       const bowl = s.bowls.findIndex((b) => !b.base);
-      await drag(page, `[data-blender="${bi}"]`, `[data-bowl="${bowl}"]`, true);
-      await until(page, (i) => !!window.__acaiGame.bowls[i].base, bowl, 3000);
+      await pour(page, bi, bowl, true);
       for (const id of ['banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi']) {
         await drag(page, `[data-bin="${id}"]`, `[data-bowl="${bowl}"]`, true);
       }
@@ -515,10 +542,15 @@ async function glowRules(srv) {
         const lit = await glowWhileDragging(page, from);
         assert(lit === want, `${from}: glowing "${lit}", expected "${want}"`);
       };
-      await expect('[data-bin="banana"]', 'slot0 slot1'); // empty bowls need a base first
+      await expect('[data-bin="banana"]', 'slot0 slot1'); // free spots need a cup and a base first
       await expect('[data-bin="granola"]', ''); // no base anywhere, granola makes no smoothie
       await expect('[data-bin="honey"]', '');
       await expect('[data-pack="acai"]', 'blender0 blender1');
+      await expect('[data-cup-stack]', 'bowl0 bowl1 bowl2 bowl3');
+      await placeCup(page, 0);
+      await expect('[data-cup-stack]', 'bowl1 bowl2 bowl3'); // a spot with a cup stays dark
+      await expect('[data-bin="banana"]', 'slot0 slot1'); // the empty cup needs a base first
+      for (const i of [1, 2, 3]) await placeCup(page, i);
       await drag(page, '[data-pack="acai"]', '[data-blender="0"]');
       await until(page, () => window.__acaiGame.blenders[0].state === 'blending', null, 3000);
       await expect('[data-pack="pitaya"]', 'blender1'); // the busy blender stays dark

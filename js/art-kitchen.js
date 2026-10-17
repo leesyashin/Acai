@@ -5,10 +5,10 @@
 import { ING } from './data.js';
 import { t } from './i18n.js';
 import {
-  WHITE, f, rngFor, memo, mix, esc, uid, svgWrap, stroke, op, tf, circle, ellipse, path, rect, g, line,
+  WHITE, f, rngFor, memo, mix, lighten, esc, uid, svgWrap, stroke, op, tf, circle, ellipse, path, rect, g, line,
   rrect, paint, lit, litCircle, softShadow, edge,
 } from './svg.js';
-import { cupArt } from './art-food.js';
+import { cupArt, pureeOf } from './art-food.js';
 
 const FONT = `'Lilita One', 'Trebuchet MS', system-ui, sans-serif`;
 const OK = '#2fbf71';
@@ -23,12 +23,6 @@ const JUG_BOT = 102;
 const jugL = (y) => 36 + ((y - JUG_TOP) * 12) / (JUG_BOT - JUG_TOP);
 const jugR = (y) => 114 - ((y - JUG_TOP) * 12) / (JUG_BOT - JUG_TOP);
 const JUG = `M36 ${JUG_TOP}L48 ${JUG_BOT - 3}Q48.5 ${JUG_BOT} 52 ${JUG_BOT}H98Q101.5 ${JUG_BOT} 102 ${JUG_BOT - 3}L114 ${JUG_TOP}Z`;
-
-const PUREE = {
-  acai: { main: '#4d1a5e', light: '#8a4aa0', dark: '#2c0c36' },
-  pitaya: { main: '#e2266f', light: '#ff7ab0', dark: '#9c0f47' },
-  spirulina: { main: '#1f8fcf', light: '#78ccf4', dark: '#0d5a8a' },
-};
 
 // Contents from yTop down to the jug floor, inset from the plastic. data-fill names the level for tests.
 function jugFill(yTop, col, inset = 3) {
@@ -122,8 +116,7 @@ export function blenderSVG(opts = {}, size = 150) {
 }
 
 function drawBlender(state, o, prog, size) {
-  const base = ING[o.base]?.layer === 'base' ? o.base : 'acai';
-  const p = PUREE[base] || PUREE.acai;
+  const p = pureeOf(ING[o.base]?.layer === 'base' ? o.base : 'acai');
   let s = softShadow(76, 145, 52, 6);
   if (state === 'blending') s += line('M22 52Q16 64 22 76M14 58Q10 64 14 70M134 104Q140 96 138 86', '#5b4b66', 2.4, op(0.5));
   // handle (behind the jug's right edge)
@@ -304,8 +297,8 @@ function jar(x, y, w, h, fill, dots) {
   return s;
 }
 
-function miniCup(x, y, k, base, toppings) {
-  return g(`translate(${f(x - 100 * k)} ${f(y - 100 * k)}) scale(${k})`, cupArt({ base, mid: toppings, top: [] }));
+function miniCup(x, y, k, base) {
+  return g(`translate(${f(x - 100 * k)} ${f(y - 100 * k)}) scale(${k})`, cupArt({ base, mid: [], top: [] }));
 }
 
 export function shopSceneSVG(width = 1280, height = 330) {
@@ -364,10 +357,11 @@ export function shopSceneSVG(width = 1280, height = 330) {
   s += line('M96 60V78M260 60V78', '#1d1d22', 1.6) + board(70, 76, 216, 140);
   s += `<text x="178" y="104" text-anchor="middle" font-family="${FONT}" font-size="22" fill="#ffffff" letter-spacing="2">${esc(t('art.menu'))}</text>`;
   s += line('M100 112H256', '#ffffff', 1, op(0.3));
-  const items = [['acai', ['banana', 'granola'], '5'], ['pitaya', ['strawberry'], '7'], ['spirulina', ['mango'], '9']];
-  items.forEach(([base, mid, price], i) => {
+  // tiny cups on the board: just the purée (the toppings would not be visible at this size)
+  const items = [['acai', '5'], ['pitaya', '7'], ['spirulina', '9']];
+  items.forEach(([base, price], i) => {
     const y = 136 + i * 28;
-    s += miniCup(102, y + 4, 0.15, base, mid);
+    s += miniCup(102, y + 4, 0.15, base);
     s += line(`M122 ${y + 2}H226`, '#ffffff', 1.2, op(0.25) + ' stroke-dasharray="2 4"');
     s += circle(240, y, 7, '#ffcf3a', stroke(1, '#a8690a')) + `<text x="254" y="${y + 6}" font-family="${FONT}" font-size="17" fill="#ffffff">${price}</text>`;
   });
@@ -423,10 +417,6 @@ function monsteraLeaf(x, y, len, deg, col) {
     path(d, leafCol, stroke(0.9, '#1d5a2c')) + path(d, paint('sph-soft')) +
     line(slits, '#f4ece2', Math.max(1, L * 0.035)) +
     line(`M${f(L * 0.04)} 0Q${f(L * 0.5)} ${f(-W * 0.06)} ${f(L * 0.94)} ${f(-W * 0.05)}`, lighten(leafCol, 0.35), 1.1, op(0.85)));
-}
-
-function lighten(c, k) {
-  return mix(c, '#ffffff', k);
 }
 
 const DECOR = {
