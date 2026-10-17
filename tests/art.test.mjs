@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { blenderSVG } from '../js/art.js';
 
-// y of the top edge of the jug fill (jugFill path: "M<x> <y>H<x>L<x> 102H<x>Z")
+// y of the top edge of the jug contents (the fill path carries it as data-fill)
 function fillTop(svg) {
-  const m = svg.match(/d="M[\d.]+ ([\d.]+)H[\d.]+L[\d.]+ 102H[\d.]+Z"/);
+  const m = svg.match(/data-fill="([\d.]+)"/);
   assert.ok(m, 'no jug fill in blender svg');
   return Number(m[1]);
 }

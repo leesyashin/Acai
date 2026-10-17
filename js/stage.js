@@ -1,6 +1,8 @@
 // Fixed 1280×800 logical stage, scaled to fit the available area (letterboxed).
 // All screens render inside #stage and work in stage pixels.
 
+import { artDefsSVG, ART_DEFS_ID } from './art.js'; // via art.js: every art module has registered its defs
+
 export const STAGE_W = 1280;
 export const STAGE_H = 800;
 
@@ -14,6 +16,8 @@ export function initStage(app, wrap, stage) {
   appEl = app;
   wrapEl = wrap;
   stageEl = stage;
+  // the shared gradients every picture shades with (one hidden <svg>, see js/svg.js)
+  if (!document.getElementById(ART_DEFS_ID)) document.body.insertAdjacentHTML('afterbegin', artDefsSVG());
   fit();
   window.addEventListener('resize', fit);
   window.addEventListener('orientationchange', () => setTimeout(fit, 120));

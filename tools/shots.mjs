@@ -113,6 +113,7 @@ async function main() {
           await page.evaluate(async () => {
             window.__acaiSpeed = 1;
             const e = await import('/js/engine.js');
+            e.placeCup(window.__acaiGame, 1);
             e.pourBlender(window.__acaiGame, 0, 1);
           });
           await sleep(500);
@@ -188,6 +189,7 @@ async function main() {
             window.__acaiSpeed = 1;
             const e = await import('/js/engine.js');
             const g = window.__acaiGame;
+            for (let i = 0; i < g.bowls.length; i++) e.placeCup(g, i);
             e.pourBlender(g, 0, 0);
             e.addIngredient(g, 0, 'banana');
             e.addIngredient(g, 0, 'strawberry');

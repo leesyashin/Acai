@@ -17,7 +17,7 @@ import { createRng } from './rng.js';
 export const SFX_NAMES = [
   'click', 'pickup', 'drop', 'reject', 'blenderStart', 'blenderReady', 'overflow', 'ruined',
   'smoothieReady', 'pour', 'plop', 'coin', 'bell', 'angry', 'happy', 'trash', 'purchase',
-  'star', 'win', 'lose', 'closing', 'heart', 'tick',
+  'star', 'win', 'lose', 'closing', 'heart', 'tick', 'cup',
 ];
 export const MUSIC_TRACKS = ['menu', 'game'];
 export const LOOP_IDS = ['blender'];
@@ -296,6 +296,12 @@ const SFX = {
     });
     noise(v, { ft: 'bandpass', f: 900, f2: 300, slide: 0.38, q: 2.5, a: 0.04, hold: 0.18, peak: 0.25, decay: 0.15 });
     tone(v, { at: 0.38, f: 240, f2: 520, slide: 0.05, a: 0.004, peak: 0.35, decay: 0.09 });
+  },
+  // an empty plastic cup set down on the counter: a hollow tock with a short rattle
+  cup(v) {
+    noise(v, { ft: 'bandpass', f: 3200, q: 2.2, a: 0.001, peak: 0.32, decay: 0.025 });
+    tone(v, { type: 'triangle', f: 1180, f2: 760, slide: 0.03, a: 0.001, peak: 0.42, decay: 0.07 });
+    tone(v, { at: 0.045, type: 'triangle', f: 1500, f2: 1100, slide: 0.02, a: 0.001, peak: 0.16, decay: 0.04 });
   },
   plop(v) {
     noise(v, { ft: 'bandpass', f: 1800, q: 1.2, a: 0.001, peak: 0.25, decay: 0.03 });

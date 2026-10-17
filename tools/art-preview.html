@@ -70,6 +70,7 @@
 <main id="out"></main>
 <script type="module">
 import * as art from '../js/art.js';
+document.body.insertAdjacentHTML('afterbegin', art.artDefsSVG()); // shared gradients (js/svg.js)
 import { INGREDIENTS, ingName, isSmoothieFruit } from '../js/data.js';
 import { createRng } from '../js/rng.js';
 import { registerStrings, t, setLang, getLang } from '../js/i18n.js';

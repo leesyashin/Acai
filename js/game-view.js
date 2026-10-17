@@ -6,12 +6,12 @@ import { INGREDIENTS, LEVELS, SMOOTHIE_LEVEL, getLevel, ingName } from './data.j
 import { registerStrings, t, onLangChange, getLang, formatNumber } from './i18n.js';
 import {
   createGame, tick, drainEvents, setPaused, releaseTutorialHold, endRun, bowlMatchesOrder,
-  loadBlender, pourBlender, addIngredient, trashBowl, cleanBlender,
+  loadBlender, pourBlender, addIngredient, trashBowl, cleanBlender, placeCup,
   loadSmoothie, trashSmoothie, serveBowl, serveSmoothie,
-  loadBlenderError, pourError, addIngredientError, loadSmoothieError, serveBowlError, serveSmoothieError,
+  loadBlenderError, pourError, addIngredientError, loadSmoothieError, serveBowlError, serveSmoothieError, placeCupError,
 } from './engine.js';
 import {
-  ingredientIcon, packIcon, bowlSVG, cupSVG, customerSVG, lookFromSeed, blenderSVG,
+  ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, cupStackSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
   smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
   trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG,
 } from './art.js';
@@ -57,6 +57,8 @@ registerStrings({
     'game.served': 'Bedient',
     'game.order': 'Bestellung',
     'game.trash': 'Mülleimer',
+    'game.stack': 'Stapel mit leeren Bowls',
+    'game.stackName': 'Bowls',
     'game.freezer': 'Basis',
     'game.lockedSmoothie': 'Smoothies ab Level {n}',
     'game.banner.overflow': 'Achtung: Ein fertiger Mixer läuft über, wenn er zu lange steht! Verdorbene Mixer ziehst du in den Müll.',
@@ -71,6 +73,8 @@ registerStrings({
     'game.hint.bin': 'Zieh die Zutat auf eine Bowl!',
     'game.hint.bowl': 'Zieh die Bowl zu einem Gast!',
     'game.hint.bowlEmpty': 'Zieh einen fertigen Mixer auf die Bowl!',
+    'game.hint.noCup': 'Zieh eine leere Bowl vom Stapel hierher!',
+    'game.hint.stack': 'Zieh eine leere Bowl auf einen freien Platz!',
     'game.hint.blender': 'Zieh den Mixer auf eine leere Bowl!',
     'game.hint.blenderEmpty': 'Zieh eine Basis-Packung in den Mixer!',
     'game.hint.blenderRuined': 'Verdorben! Zieh den Mixer in den Müll.',
@@ -82,7 +86,9 @@ registerStrings({
     'game.tut.pack': 'Zieh die {base}-Packung in den Mixer!',
     'game.tut.wait': 'Der Mixer mixt … einen Moment!',
     'game.tut.waitWrong': 'Das ist die falsche Basis. Warte, bis der Mixer fertig ist.',
-    'game.tut.pour': 'Fertig! Zieh den Mixer auf eine Bowl.',
+    'game.tut.cup': 'Stell eine leere Bowl hin: Zieh sie vom Stapel auf den freien Platz!',
+    'game.tut.cupWait': 'Der Mixer mixt noch – stell schon mal eine leere Bowl hin!',
+    'game.tut.pour': 'Fertig! Zieh den Mixer auf die leere Bowl.',
     'game.tut.add': 'Zieh jetzt {ing} auf die Bowl – schau in die Sprechblase!',
     'game.tut.addTop': 'Toppings kommen zum Schluss: Zieh {ing} auf die Bowl!',
     'game.tut.trash': 'Ups, das passt nicht zur Bestellung. Wirf die Bowl in den Müll.',
@@ -95,6 +101,8 @@ registerStrings({
     'game.aria.money': '{n} Münzen',
     'game.aria.time': 'Zeit',
     'reason.needBase': 'Erst die Basis aus dem Mixer!',
+    'reason.noCup': 'Stell erst eine leere Bowl hin – vom Stapel!',
+    'reason.cupThere': 'Hier steht schon eine Bowl!',
     'reason.toppingsOnTop': 'Erst Früchte & Crunch, dann Toppings & Soßen!',
     'reason.alreadyAdded': 'Ist schon drin!',
     'reason.bowlFull': 'Die Bowl ist voll!',
@@ -152,6 +160,8 @@ registerStrings({
     'game.served': 'Served',
     'game.order': 'Order',
     'game.trash': 'Trash can',
+    'game.stack': 'Stack of empty bowls',
+    'game.stackName': 'Bowls',
     'game.freezer': 'Base',
     'game.lockedSmoothie': 'Smoothies from level {n}',
     'game.banner.overflow': 'Careful: a ready blender overflows if it waits too long! Drag spoiled blenders to the trash.',
@@ -166,6 +176,8 @@ registerStrings({
     'game.hint.bin': 'Drag the ingredient onto a bowl!',
     'game.hint.bowl': 'Drag the bowl to a customer!',
     'game.hint.bowlEmpty': 'Drag a ready blender onto the bowl!',
+    'game.hint.noCup': 'Drag an empty bowl from the stack here!',
+    'game.hint.stack': 'Drag an empty bowl to a free spot!',
     'game.hint.blender': 'Drag the blender onto an empty bowl!',
     'game.hint.blenderEmpty': 'Drag a base pack into the blender!',
     'game.hint.blenderRuined': 'Spoiled! Drag the blender to the trash.',
@@ -177,7 +189,9 @@ registerStrings({
     'game.tut.pack': 'Drag the {base} pack into the blender!',
     'game.tut.wait': 'The blender is mixing … one moment!',
     'game.tut.waitWrong': 'That’s the wrong base. Wait until the blender is done.',
-    'game.tut.pour': 'Done! Drag the blender onto a bowl.',
+    'game.tut.cup': 'Put an empty bowl down: drag it from the stack to the free spot!',
+    'game.tut.cupWait': 'The blender is still mixing – put an empty bowl down meanwhile!',
+    'game.tut.pour': 'Done! Drag the blender onto the empty bowl.',
     'game.tut.add': 'Now drag the {ing} onto the bowl – check the speech bubble!',
     'game.tut.addTop': 'Toppings go on last: drag the {ing} onto the bowl!',
     'game.tut.trash': 'Oops, that doesn’t match the order. Drop the bowl in the trash.',
@@ -190,6 +204,8 @@ registerStrings({
     'game.aria.money': '{n} coins',
     'game.aria.time': 'Time',
     'reason.needBase': 'Base from the blender first!',
+    'reason.noCup': 'Put an empty bowl down first – from the stack!',
+    'reason.cupThere': 'There’s already a bowl here!',
     'reason.toppingsOnTop': 'First Fruits & Crunch, then Toppings & Sauces!',
     'reason.alreadyAdded': 'Already in there!',
     'reason.bowlFull': 'The bowl is full!',
@@ -221,12 +237,14 @@ const WORK_Y = 350; // work area top; station coordinates below are relative to 
 const SEAT_X = [null, [640], [420, 860], [270, 640, 1010], [200, 493, 787, 1080]];
 const BLENDER_X = [null, [88], [14, 154]];
 const BLENDER_SIZE = 140;
-const BOWL_SLOT_W = 162;
+// The cup stack stands at the left end of the bowl row; stack + spots are centred in the row.
+const BOWL_SLOT_W = 138;
 const BOWL_SIZE = 140;
 const BOWLS_X0 = 316;
 const BOWLS_W = 648;
-const BIN_W = 86;
-const BIN_GAP = 6;
+const STACK_W = 84;
+const STACK_GAP = 8;
+const BIN_ART = 84;
 const MACHINE_SIZE = 236;
 const DECOR_IDS = ['plants', 'jukebox', 'seating', 'neon'];
 const DECOR_SIZE = { plants: 118, jukebox: 118, seating: 124, neon: 104 };
@@ -243,8 +261,8 @@ const HIT_PAD = 18; // stage px around a station, as in drag.js
 
 const ACTIVE = new Set(['arriving', 'waiting']);
 const POURABLE = new Set(['ready', 'overflowing', 'ruined']);
-const TUT_DOTS = ['pack', 'wait', 'pour', 'add', 'serve', 'done'];
-const TUT_DOT_OF = { welcome: -1, pack: 0, clean: 0, wait: 1, waitWrong: 1, pour: 2, add: 3, trash: 3, serve: 4, done: 5 };
+const TUT_DOTS = ['pack', 'cup', 'wait', 'pour', 'add', 'serve', 'done'];
+const TUT_DOT_OF = { welcome: -1, pack: 0, clean: 0, cup: 1, cupWait: 1, wait: 2, waitWrong: 2, pour: 3, add: 4, trash: 4, serve: 5, done: 6 };
 
 const CHECK_SVG = '<svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#2fbf71" stroke="#2a1236" stroke-width="3"/><path d="M11.5 20.5l6 6 11-12" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const POINT_SVG = '<svg viewBox="0 0 46 58" width="46" height="58" aria-hidden="true"><path d="M14 4H32V30H43L23 54L3 30H14Z" fill="#ffb627" stroke="#2a1236" stroke-width="4" stroke-linejoin="round"/><path d="M19 9V32" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.6"/></svg>';
@@ -427,7 +445,7 @@ class GameView {
       const timer = el('div', 'g-timer');
       const fill = el('i');
       timer.append(fill);
-      node.append(el('div', 'g-plate'), art, timer);
+      node.append(art, timer);
       work.append(node);
       return { el: node, art, timer, fill, state: null, ring: null, ringP: -1 };
     });
@@ -448,17 +466,22 @@ class GameView {
     freezer.append(lid, packs, el('div', 'g-freezer-front'), this.freezerLabel);
     work.append(freezer);
 
-    // bowl slots
+    // cup stack + bowl spots: a cup goes down from the stack before anything goes into it
     const n = g.bowls.length;
-    const x0 = BOWLS_X0 + (BOWLS_W - n * BOWL_SLOT_W) / 2;
+    const x0 = BOWLS_X0 + (BOWLS_W - (STACK_W + STACK_GAP + n * BOWL_SLOT_W)) / 2;
+    this.stackEl = el('div', 'g-stack', { 'data-cup-stack': '', role: 'img' });
+    this.stackEl.style.left = `${Math.round(x0)}px`;
+    this.stackEl.innerHTML = `<div class="g-art">${cupStackSVG(STACK_W)}</div><span class="g-name"></span>`;
+    work.append(this.stackEl);
+    const sx0 = x0 + STACK_W + STACK_GAP;
     this.bowlViews = g.bowls.map((b, i) => {
-      const node = el('div', 'g-bowl', { 'data-bowl': i, 'data-state': 'empty' });
-      node.style.left = `${x0 + i * BOWL_SLOT_W + (BOWL_SLOT_W - 156) / 2}px`;
+      const node = el('div', 'g-bowl', { 'data-bowl': i, 'data-state': 'nocup' });
+      node.style.left = `${Math.round(sx0 + i * BOWL_SLOT_W)}px`;
       const art = el('div', 'g-art');
       const chips = el('div', 'g-chips');
       const match = el('span', 'g-match');
       match.innerHTML = CHECK_SVG;
-      node.append(el('div', 'g-mat'), art, match, chips);
+      node.append(art, match, chips);
       work.append(node);
       return { el: node, art, chips, match, isMatch: false };
     });
@@ -473,7 +496,7 @@ class GameView {
       for (const ing of INGREDIENTS) {
         if (ing.layer !== layer || !g.owned.includes(ing.id)) continue;
         const node = el('div', 'g-bin', { 'data-bin': ing.id, 'data-layer': layer });
-        node.innerHTML = `<span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span><div class="g-art">${ingredientIcon(ing.id, 56)}</div><span class="g-name"></span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`;
+        node.innerHTML = `<span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span><div class="g-art">${binSVG(ing.id, BIN_ART)}</div><span class="g-name"></span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`;
         row.append(node);
         this.binEls[ing.id] = node;
       }
@@ -618,6 +641,8 @@ class GameView {
     for (const [layer, node] of Object.entries(this.shelfLabels)) setText(node, `${LAYER_NUM[layer]} · ${t(`layer.${layer}`)}`);
     if (this.lockLabel) setText(this.lockLabel, t('game.lockedSmoothie', { n: SMOOTHIE_LEVEL }));
     this.trashEl.setAttribute('aria-label', t('game.trash'));
+    this.stackEl.setAttribute('aria-label', t('game.stack'));
+    setText(this.stackEl.querySelector('.g-name'), t('game.stackName'));
     this.pauseBtn.setAttribute('aria-label', t('game.aria.pause'));
     this.clockEl.setAttribute('aria-label', t('game.aria.time'));
     for (const v of this.custViews.values()) v.bubble.setAttribute('aria-label', this.bubbleLabel(v.c));
@@ -733,6 +758,20 @@ class GameView {
       });
     });
 
+    dnd.source(this.stackEl, {
+      payload: () => (this.canAct() ? { kind: 'newcup' } : null),
+      ghost: () => bowlSVG(null, 132),
+      onTap: () => this.hint(this.stackEl, 'game.hint.stack'),
+    });
+
+    const bowlCheck = (p, i) => {
+      if (p.kind === 'newcup') return placeCupError(g, i);
+      return p.kind === 'blender' ? pourError(g, p.idx, i) : addIngredientError(g, i, p.id);
+    };
+    const bowlDrop = (p, i) => {
+      if (p.kind === 'newcup') return placeCup(g, i);
+      return p.kind === 'blender' ? pourBlender(g, p.idx, i) : addIngredient(g, i, p.id);
+    };
     this.bowlViews.forEach((v, i) => {
       dnd.source(v.el, {
         payload: () => (this.canAct() && g.bowls[i].base ? { kind: 'bowl', idx: i } : null),
@@ -740,12 +779,13 @@ class GameView {
         onTap: () => this.hint(v.el, 'game.hint.bowl'),
       });
       dnd.target(v.el, {
-        accepts: (p) => p.kind === 'blender' || p.kind === 'ing',
-        valid: (p) => !(p.kind === 'blender' ? pourError(g, p.idx, i) : addIngredientError(g, i, p.id)),
-        drop: (p) => act(() => (p.kind === 'blender' ? pourBlender(g, p.idx, i) : addIngredient(g, i, p.id))),
+        accepts: (p) => p.kind === 'blender' || p.kind === 'ing' || p.kind === 'newcup',
+        valid: (p) => !bowlCheck(p, i),
+        drop: (p) => act(() => bowlDrop(p, i)),
       });
       this.listen(v.el, 'pointerdown', () => {
-        if (!g.bowls[i].base) this.hint(v.el, 'game.hint.bowlEmpty');
+        if (!g.bowls[i].cup) this.hint(v.el, 'game.hint.noCup');
+        else if (!g.bowls[i].base) this.hint(v.el, 'game.hint.bowlEmpty');
       });
     });
 
@@ -834,7 +874,7 @@ class GameView {
     if (!p) return null;
     const ruined = p.kind === 'blender' && g.blenders[p.idx]?.state === 'ruined';
     const hint = {
-      pack: 'game.hint.pack', ing: 'game.hint.bin', bowl: 'game.hint.bowl', cup: 'game.hint.cup',
+      pack: 'game.hint.pack', ing: 'game.hint.bin', bowl: 'game.hint.bowl', cup: 'game.hint.cup', newcup: 'game.hint.stack',
       blender: ruined ? 'game.hint.blenderRuined' : 'game.hint.blender',
     }[p.kind];
     // station type → hint, only for the stations that never take this kind of item
@@ -844,6 +884,7 @@ class GameView {
       blender: { blender: hint, slot: hint, cust: hint },
       bowl: { blender: hint, bowl: hint, slot: hint },
       cup: { blender: hint, bowl: hint, slot: hint },
+      newcup: { blender: hint, slot: hint, trash: hint, cust: hint },
     }[p.kind];
     if (!wrong) return null;
     const source = { blender: this.blenderViews, bowl: this.bowlViews, cup: this.slotViews }[p.kind]?.[p.idx]?.el;
@@ -1091,6 +1132,9 @@ class GameView {
         restartAnim(this.trashEl.querySelector('.g-art'), 'is-wobble');
         break;
       }
+      case 'cupPlaced':
+        a.sfx('cup');
+        break;
       case 'basePoured':
         a.sfx('pour');
         break;
@@ -1302,10 +1346,10 @@ class GameView {
     const waiting = g.seats.filter((c) => c && ACTIVE.has(c.state) && !c.delivered.bowl);
     g.bowls.forEach((b, i) => {
       const v = this.bowlViews[i];
-      const sig = `${b.uid}|${b.base}|${b.mid.join()}|${b.top.join()}`;
-      if (patch(v.art, sig, () => bowlSVG(b, BOWL_SIZE))) {
+      const sig = `${b.uid}|${b.cup}|${b.base}|${b.mid.join()}|${b.top.join()}`;
+      if (patch(v.art, sig, () => (b.cup ? bowlSVG(b, BOWL_SIZE) : cupSpotSVG(BOWL_SIZE)))) {
         v.chips.innerHTML = this.chipsMarkup(b);
-        v.el.dataset.state = !b.base ? 'empty' : b.mid.length || b.top.length ? 'filled' : 'base';
+        v.el.dataset.state = !b.cup ? 'nocup' : !b.base ? 'empty' : b.mid.length || b.top.length ? 'filled' : 'base';
       }
       const match = !!b.base && waiting.some((c) => bowlMatchesOrder(b, c.order.bowl));
       if (match !== v.isMatch) {
@@ -1584,9 +1628,15 @@ class GameView {
     const bad = bowls.findIndex((b) => b.base || b.mid.length || b.top.length);
     if (bad >= 0) return { key: 'trash', from: this.bowlViews[bad].el, to: this.trashEl, sub: bad };
     const blenders = g.blenders;
+    // an empty cup to pour into (put down while the blender still mixes)
+    const cup = bowls.findIndex((b) => b.cup);
+    const spot = Math.max(0, bowls.findIndex((b) => !b.cup));
     const ready = blenders.findIndex((b) => (b.state === 'ready' || b.state === 'overflowing') && b.base === order.base);
-    if (ready >= 0) return { key: 'pour', from: this.blenderViews[ready].el, to: this.bowlViews[0].el, sub: ready };
     const mixing = blenders.findIndex((b) => b.state === 'blending' && b.base === order.base);
+    if (cup < 0 && (ready >= 0 || mixing >= 0)) {
+      return { key: ready >= 0 ? 'cup' : 'cupWait', from: this.stackEl, to: this.bowlViews[spot].el, sub: spot };
+    }
+    if (ready >= 0) return { key: 'pour', from: this.blenderViews[ready].el, to: this.bowlViews[cup].el, sub: `${ready}${cup}` };
     if (mixing >= 0) return { key: 'wait', at: this.blenderViews[mixing].el, sub: mixing };
     const wrong = blenders.findIndex((b) => POURABLE.has(b.state));
     if (wrong >= 0) return { key: 'clean', from: this.blenderViews[wrong].el, to: this.trashEl, sub: wrong };
@@ -1617,6 +1667,8 @@ class GameView {
       pack: () => t('game.tut.pack', { base: nm(step.base) }),
       wait: () => t('game.tut.wait'),
       waitWrong: () => t('game.tut.waitWrong'),
+      cup: () => t('game.tut.cup'),
+      cupWait: () => t('game.tut.cupWait'),
       pour: () => t('game.tut.pour'),
       add: () => t(step.top ? 'game.tut.addTop' : 'game.tut.add', { ing: nm(step.ing) }),
       trash: () => t('game.tut.trash'),

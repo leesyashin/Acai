@@ -51,7 +51,7 @@ registerStrings({
     'map.toShop': 'Zum Shop',
     'map.new': 'Neu',
     'intro.basics.title': 'So geht’s',
-    'intro.basics.text': 'Zieh die Açaí-Packung in den Mixer. Ist die Basis fertig, zieh den Mixer auf eine Bowl, leg die bestellten Zutaten darauf und bring die Bowl zum Gast.',
+    'intro.basics.text': 'Zieh die Açaí-Packung in den Mixer und stell eine leere Bowl vom Stapel hin. Ist die Basis fertig, zieh den Mixer auf die Bowl, leg die bestellten Zutaten darauf und bring die Bowl zum Gast.',
     'intro.overflow.title': 'Achtung, Mixer!',
     'intro.overflow.text': 'Ab jetzt wartet ein fertiger Mixer nicht ewig: Bleibt er zu lange stehen, läuft er über und die Basis verdirbt. Verdorbenes kommt in den Müll.',
     'intro.moreSeats.title': 'Mehr Gäste',
@@ -175,7 +175,7 @@ registerStrings({
     'map.toShop': 'To the shop',
     'map.new': 'New',
     'intro.basics.title': 'How to play',
-    'intro.basics.text': 'Drag the açaí pack into the blender. When the base is ready, drag the blender onto a bowl, add the ordered ingredients and hand the bowl to the customer.',
+    'intro.basics.text': 'Drag the açaí pack into the blender and put an empty bowl down from the stack. When the base is ready, drag the blender onto the bowl, add the ordered ingredients and hand the bowl to the customer.',
     'intro.overflow.title': 'Watch the blender!',
     'intro.overflow.text': 'From now on a ready blender won’t wait forever: leave it too long and it overflows and the base spoils. Spoiled stuff goes in the trash.',
     'intro.moreSeats.title': 'More customers',
@@ -751,7 +751,7 @@ const map = {
 function introArt(key) {
   switch (key) {
     case 'basics':
-      return `<div class="intro-art intro-art-steps">${packIcon('acai', 58)}<i></i>${blenderSVG({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 70)}<i></i>${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 76)}</div>`;
+      return `<div class="intro-art intro-art-steps">${packIcon('acai', 54)}<i></i>${blenderSVG({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 64)}<i></i>${bowlSVG(null, 60)}<i></i>${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 70)}</div>`;
     case 'overflow':
       return `<div class="intro-art">${blenderSVG({ state: 'overflowing', base: 'acai', portions: 2, maxPortions: 2 }, 110)}</div>`;
     case 'smoothie':
