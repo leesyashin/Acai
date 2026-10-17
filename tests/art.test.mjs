@@ -43,12 +43,14 @@ test('every shared gradient or clip path a picture uses is defined in artDefsSVG
     art.cupStackSVG(84), art.cupSpotSVG(140), art.cupSVG('mango', 'ready', 70), art.cupSVG('kiwi', 'mixing', 70),
     ...['empty', 'blending', 'ready', 'overflowing', 'ruined'].map((state) => art.blenderSVG({ state, base: 'pitaya', portions: 1, maxPortions: 2 }, 140)),
     art.smoothieMachineSVG(2, 236), art.trashSVG(96), art.shopSceneSVG(1280, 330), art.customerSVG(7, 'happy', 160),
+    art.counterSVG(1280, 450), art.freezerSVG('well', 284, 186), art.freezerSVG('rim', 284, 186), art.traySVG(400, 74),
+    ...ALL_IDS.filter((id) => INGREDIENTS.find((i) => i.id === id).layer !== 'base').map((id) => art.scoopSVG(id, 84)),
     ...['plants', 'jukebox', 'seating', 'neon'].map((id) => art.decorSVG(id, 118)),
   ];
   const used = new Set(pictures.flatMap(refs));
   assert.ok(used.size > 10, 'the art uses the shared paints');
   // ids made per picture (uid) live in the picture's own <defs>
-  const local = (id) => /^af-(wall|glow|sky|sea|win|torso|logoA|logoB)-/.test(id);
+  const local = (id) => /^af-(wall|glow|sky|sea|win|torso|logoA|logoB|ctr)-/.test(id);
   for (const id of used) if (!local(id)) assert.ok(defined.has(id), `url(#${id}) is not in artDefsSVG()`);
   assert.equal(new Set([...defs.matchAll(/id="([^"]+)"/g)].map((m) => m[1])).size, [...defs.matchAll(/id="/g)].length, 'duplicate ids in the defs');
 });
