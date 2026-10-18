@@ -13,7 +13,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { startServer, collectConsoleErrors, e2eOutDir, STAGE_W } from './helpers.mjs';
+import { startServer, reuseServer, collectConsoleErrors, e2eOutDir, STAGE_W } from './helpers.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PORT = Number(process.env.SCREENS_E2E_PORT || process.env.E2E_PORT) || 8090;
@@ -75,11 +75,7 @@ async function serve() {
     return await startServer({ port: PORT });
   } catch (err) {
     if (err.code !== 'EADDRINUSE') throw err;
-    const url = `http://127.0.0.1:${PORT}/`;
-    const res = await fetch(`${url}index.html`).catch(() => null);
-    if (!res?.ok) throw err;
-    console.log(`(reusing server already listening on :${PORT})`);
-    return { url, close: async () => {} };
+    return { url: `${await reuseServer(PORT)}/`, close: async () => {} };
   }
 }
 
@@ -325,12 +321,12 @@ async function mainFlow(browser, base) {
     await assertNoOverflow(page, 'shop ingredients');
   });
 
-  await check('shop: kitchen tab – upgrade levels, locked smoothie slots', async () => {
+  await check('shop: kitchen tab – upgrade levels, locked matcha slots', async () => {
     await setCoins(page, 1000);
     await page.click('[data-tab="kitchen"]');
     eq(await page.getAttribute('[data-tab="kitchen"]', 'aria-selected'), 'true', 'tab selected');
-    eq(await page.getAttribute('[data-upgrade="smoothieSlots"]', 'data-state'), 'locked', 'smoothie slots locked');
-    await clickDisabled(page, '[data-upgrade="smoothieSlots"] [data-buy]');
+    eq(await page.getAttribute('[data-upgrade="matchaSlots"]', 'data-state'), 'locked', 'matcha slots locked');
+    await clickDisabled(page, '[data-upgrade="matchaSlots"] [data-buy]');
     assert((await toastText(page)).includes('Level 7'), 'locked toast');
     await page.click('[data-upgrade="bowlSlots"] [data-buy]');
     eq(await page.locator('[data-upgrade="bowlSlots"] .upg-pips i.on').count(), 1, 'one pip');

@@ -14,12 +14,12 @@ export const INGREDIENTS = [
   { id: 'pitaya',     layer: 'base', price: 7, cost: 180, upgradeCosts: [140, 330],  color: '#ff3d8b', color2: '#ff86b8', style: 'base' },
   { id: 'spirulina',  layer: 'base', price: 9, cost: 320, upgradeCosts: [180, 400],  color: '#2a9fd8', color2: '#7fd3f5', style: 'base' },
   // Fruits & crunch
-  { id: 'banana',     layer: 'mid', price: 2, cost: 0,   upgradeCosts: [60, 170],   color: '#ffe066', color2: '#f2c230', style: 'slices', smoothie: true },
+  { id: 'banana',     layer: 'mid', price: 2, cost: 0,   upgradeCosts: [60, 170],   color: '#ffe066', color2: '#f2c230', style: 'slices', matcha: true },
   { id: 'granola',    layer: 'mid', price: 2, cost: 0,   upgradeCosts: [60, 170],   color: '#d9973f', color2: '#a8692a', style: 'pile' },
-  { id: 'strawberry', layer: 'mid', price: 3, cost: 70,  upgradeCosts: [80, 220],   color: '#ff3b47', color2: '#3fae4a', style: 'halves', smoothie: true },
-  { id: 'blueberry',  layer: 'mid', price: 3, cost: 100, upgradeCosts: [100, 250],  color: '#4656c9', color2: '#2c3687', style: 'berries', smoothie: true },
-  { id: 'mango',      layer: 'mid', price: 4, cost: 130, upgradeCosts: [110, 280],  color: '#ffad1f', color2: '#ff8a00', style: 'cubes', smoothie: true },
-  { id: 'kiwi',       layer: 'mid', price: 5, cost: 200, upgradeCosts: [140, 320],  color: '#8cc63f', color2: '#5a3d1c', style: 'slices', smoothie: true },
+  { id: 'strawberry', layer: 'mid', price: 3, cost: 70,  upgradeCosts: [80, 220],   color: '#ff3b47', color2: '#3fae4a', style: 'halves', matcha: true },
+  { id: 'blueberry',  layer: 'mid', price: 3, cost: 100, upgradeCosts: [100, 250],  color: '#4656c9', color2: '#2c3687', style: 'berries', matcha: true },
+  { id: 'mango',      layer: 'mid', price: 4, cost: 130, upgradeCosts: [110, 280],  color: '#ffad1f', color2: '#ff8a00', style: 'cubes', matcha: true },
+  { id: 'kiwi',       layer: 'mid', price: 5, cost: 200, upgradeCosts: [140, 320],  color: '#8cc63f', color2: '#5a3d1c', style: 'slices', matcha: true },
   // Toppings & sauces
   { id: 'honey',      layer: 'top', price: 1, cost: 0,   upgradeCosts: [50, 140],   color: '#ffb81c', color2: '#e08a00', style: 'drizzle' },
   { id: 'coconut',    layer: 'top', price: 2, cost: 50,  upgradeCosts: [55, 150],   color: '#fffaf0', color2: '#e8dcc4', style: 'flakes' },
@@ -32,18 +32,18 @@ export const INGREDIENTS = [
 
 export const START_OWNED = ['acai', 'banana', 'granola', 'honey'];
 export const QUALITY_MULT = [1, 1.3, 1.6];
-export const SMOOTHIE_PRICE = 6;
-export const SMOOTHIE_LEVEL = 7;          // smoothie machine appears from this campaign level on
+export const MATCHA_PRICE = 6;
+export const MATCHA_LEVEL = 7;            // matcha machine appears from this campaign level on
 export const ENDLESS_UNLOCK_LEVEL = 10;   // win this level to unlock endless mode
 export const ENDLESS_STAGE_SECONDS = 30;
 export const MAX_BOWL_ITEMS = 6;          // items on top of the base
 export const TIP_RATE = 0.3;
 export const PARTIAL_DELIVERY_BONUS = 0.15;
-export const SMOOTHIE_PATIENCE_BONUS = 8;
+export const MATCHA_PATIENCE_BONUS = 8;
 
 export const ING = Object.fromEntries(INGREDIENTS.map((i) => [i.id, i]));
 export const ingredientsByLayer = (layer) => INGREDIENTS.filter((i) => i.layer === layer);
-export const isSmoothieFruit = (id) => !!ING[id]?.smoothie;
+export const isMatchaFruit = (id) => !!ING[id]?.matcha;
 
 // Display name of an ingredient in the current language (short = for small bin labels).
 export function ingName(id, short = false) {
@@ -66,8 +66,8 @@ export function ingredientValue(id, ingLevels = {}) {
   return toHalfUp(ing.price * qualityMult(id, ingLevels));
 }
 
-export function smoothieValue(fruitId, ingLevels = {}) {
-  return toHalfUp(SMOOTHIE_PRICE * qualityMult(fruitId, ingLevels));
+export function matchaValue(fruitId, ingLevels = {}) {
+  return toHalfUp(MATCHA_PRICE * qualityMult(fruitId, ingLevels));
 }
 
 // Cost of the next quality upgrade, or null when maxed.
@@ -88,26 +88,26 @@ export function qualityUpgradeCost(id, currentLevel = 0) {
 // (see tests/balance.test.mjs). Every bowl needs a cup put down first – one drag more than a bowl
 // used to take, which the patience, spawn gaps and goals make up for.
 export const LEVELS = [
-  { id: 1,  duration: 90,  seats: 2, spawnGap: [7.4, 10.5], patience: 63, mid: [1, 1], top: [0, 1], smoothieChance: 0,    goals: [45, 65, 85],    overflow: false, intro: 'basics' },
-  { id: 2,  duration: 90,  seats: 2, spawnGap: [6.8, 10],   patience: 59, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [55, 80, 100],   overflow: false, intro: null },
-  { id: 3,  duration: 100, seats: 2, spawnGap: [6.3, 9.5],  patience: 57, mid: [1, 2], top: [0, 1], smoothieChance: 0,    goals: [85, 115, 130],  overflow: true,  intro: 'overflow' },
-  { id: 4,  duration: 100, seats: 2, spawnGap: [6.3, 8.9],  patience: 55, mid: [1, 2], top: [1, 1], smoothieChance: 0,    goals: [95, 125, 150],  overflow: true,  intro: null },
-  { id: 5,  duration: 110, seats: 3, spawnGap: [5.8, 8.9],  patience: 55, mid: [1, 2], top: [0, 2], smoothieChance: 0,    goals: [115, 155, 175], overflow: true,  intro: 'moreSeats' },
-  { id: 6,  duration: 110, seats: 3, spawnGap: [5.8, 8.4],  patience: 53, mid: [1, 2], top: [1, 2], smoothieChance: 0,    goals: [120, 170, 205], overflow: true,  intro: null },
-  { id: 7,  duration: 120, seats: 3, spawnGap: [5.8, 8.4],  patience: 55, mid: [1, 2], top: [0, 2], smoothieChance: 0.35, goals: [150, 210, 255], overflow: true,  intro: 'smoothie' },
-  { id: 8,  duration: 120, seats: 3, spawnGap: [5.3, 7.9],  patience: 53, mid: [1, 2], top: [1, 2], smoothieChance: 0.35, goals: [155, 220, 280], overflow: true,  intro: null },
-  { id: 9,  duration: 120, seats: 3, spawnGap: [5.3, 7.9],  patience: 51, mid: [2, 2], top: [1, 2], smoothieChance: 0.4,  goals: [160, 230, 295], overflow: true,  intro: null },
-  { id: 10, duration: 130, seats: 3, spawnGap: [5, 7.4],    patience: 51, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [175, 245, 325], overflow: true,  intro: null },
-  { id: 11, duration: 130, seats: 3, spawnGap: [4.8, 7.4],  patience: 49, mid: [2, 3], top: [1, 2], smoothieChance: 0.4,  goals: [185, 250, 340], overflow: true,  intro: 'endless' },
-  { id: 12, duration: 130, seats: 4, spawnGap: [4.8, 7.4],  patience: 61, mid: [1, 3], top: [1, 2], smoothieChance: 0.4,  goals: [195, 255, 350], hearts: 4, overflow: true,  intro: 'fourSeats' },
-  { id: 13, duration: 140, seats: 4, spawnGap: [4.6, 6.9],  patience: 60, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [200, 295, 405], hearts: 4, overflow: true,  intro: null },
-  { id: 14, duration: 140, seats: 4, spawnGap: [4.4, 6.7],  patience: 59, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [205, 300, 415], hearts: 4, overflow: true,  intro: null },
-  { id: 15, duration: 140, seats: 4, spawnGap: [4.2, 6.5],  patience: 58, mid: [2, 3], top: [1, 3], smoothieChance: 0.45, goals: [210, 305, 425], hearts: 4, overflow: true,  intro: null },
-  { id: 16, duration: 150, seats: 4, spawnGap: [4.2, 6.3],  patience: 57, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [215, 340, 470], hearts: 4, overflow: true,  intro: null },
-  { id: 17, duration: 150, seats: 4, spawnGap: [4, 6.1],    patience: 56, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [220, 345, 475], hearts: 4, overflow: true,  intro: null },
-  { id: 18, duration: 150, seats: 4, spawnGap: [3.9, 5.9],  patience: 55, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [225, 350, 485], hearts: 4, overflow: true,  intro: null },
-  { id: 19, duration: 160, seats: 4, spawnGap: [3.8, 5.7],  patience: 54, mid: [2, 3], top: [2, 3], smoothieChance: 0.5,  goals: [230, 360, 500], hearts: 4, overflow: true,  intro: null },
-  { id: 20, duration: 160, seats: 4, spawnGap: [3.7, 5.5],  patience: 53, mid: [2, 3], top: [2, 3], smoothieChance: 0.55, goals: [235, 370, 515], hearts: 4, overflow: true,  intro: null },
+  { id: 1,  duration: 90,  seats: 2, spawnGap: [7.4, 10.5], patience: 63, mid: [1, 1], top: [0, 1], matchaChance: 0,    goals: [45, 65, 85],    overflow: false, intro: 'basics' },
+  { id: 2,  duration: 90,  seats: 2, spawnGap: [6.8, 10],   patience: 59, mid: [1, 2], top: [0, 1], matchaChance: 0,    goals: [55, 80, 100],   overflow: false, intro: null },
+  { id: 3,  duration: 100, seats: 2, spawnGap: [6.3, 9.5],  patience: 57, mid: [1, 2], top: [0, 1], matchaChance: 0,    goals: [85, 115, 130],  overflow: true,  intro: 'overflow' },
+  { id: 4,  duration: 100, seats: 2, spawnGap: [6.3, 8.9],  patience: 55, mid: [1, 2], top: [1, 1], matchaChance: 0,    goals: [95, 125, 150],  overflow: true,  intro: null },
+  { id: 5,  duration: 110, seats: 3, spawnGap: [5.8, 8.9],  patience: 55, mid: [1, 2], top: [0, 2], matchaChance: 0,    goals: [115, 155, 175], overflow: true,  intro: 'moreSeats' },
+  { id: 6,  duration: 110, seats: 3, spawnGap: [5.8, 8.4],  patience: 53, mid: [1, 2], top: [1, 2], matchaChance: 0,    goals: [120, 170, 205], overflow: true,  intro: null },
+  { id: 7,  duration: 120, seats: 3, spawnGap: [5.8, 8.4],  patience: 55, mid: [1, 2], top: [0, 2], matchaChance: 0.35, goals: [150, 210, 255], overflow: true,  intro: 'matcha' },
+  { id: 8,  duration: 120, seats: 3, spawnGap: [5.3, 7.9],  patience: 53, mid: [1, 2], top: [1, 2], matchaChance: 0.35, goals: [155, 220, 280], overflow: true,  intro: null },
+  { id: 9,  duration: 120, seats: 3, spawnGap: [5.3, 7.9],  patience: 51, mid: [2, 2], top: [1, 2], matchaChance: 0.4,  goals: [160, 230, 295], overflow: true,  intro: null },
+  { id: 10, duration: 130, seats: 3, spawnGap: [5, 7.4],    patience: 51, mid: [1, 3], top: [1, 2], matchaChance: 0.4,  goals: [175, 245, 325], overflow: true,  intro: null },
+  { id: 11, duration: 130, seats: 3, spawnGap: [4.8, 7.4],  patience: 49, mid: [2, 3], top: [1, 2], matchaChance: 0.4,  goals: [185, 250, 340], overflow: true,  intro: 'endless' },
+  { id: 12, duration: 130, seats: 4, spawnGap: [4.8, 7.4],  patience: 61, mid: [1, 3], top: [1, 2], matchaChance: 0.4,  goals: [195, 255, 350], hearts: 4, overflow: true,  intro: 'fourSeats' },
+  { id: 13, duration: 140, seats: 4, spawnGap: [4.6, 6.9],  patience: 60, mid: [2, 3], top: [1, 3], matchaChance: 0.45, goals: [200, 295, 405], hearts: 4, overflow: true,  intro: null },
+  { id: 14, duration: 140, seats: 4, spawnGap: [4.4, 6.7],  patience: 59, mid: [2, 3], top: [1, 3], matchaChance: 0.45, goals: [205, 300, 415], hearts: 4, overflow: true,  intro: null },
+  { id: 15, duration: 140, seats: 4, spawnGap: [4.2, 6.5],  patience: 58, mid: [2, 3], top: [1, 3], matchaChance: 0.45, goals: [210, 305, 425], hearts: 4, overflow: true,  intro: null },
+  { id: 16, duration: 150, seats: 4, spawnGap: [4.2, 6.3],  patience: 57, mid: [2, 3], top: [2, 3], matchaChance: 0.5,  goals: [215, 340, 470], hearts: 4, overflow: true,  intro: null },
+  { id: 17, duration: 150, seats: 4, spawnGap: [4, 6.1],    patience: 56, mid: [2, 3], top: [2, 3], matchaChance: 0.5,  goals: [220, 345, 475], hearts: 4, overflow: true,  intro: null },
+  { id: 18, duration: 150, seats: 4, spawnGap: [3.9, 5.9],  patience: 55, mid: [2, 3], top: [2, 3], matchaChance: 0.5,  goals: [225, 350, 485], hearts: 4, overflow: true,  intro: null },
+  { id: 19, duration: 160, seats: 4, spawnGap: [3.8, 5.7],  patience: 54, mid: [2, 3], top: [2, 3], matchaChance: 0.5,  goals: [230, 360, 500], hearts: 4, overflow: true,  intro: null },
+  { id: 20, duration: 160, seats: 4, spawnGap: [3.7, 5.5],  patience: 53, mid: [2, 3], top: [2, 3], matchaChance: 0.55, goals: [235, 370, 515], hearts: 4, overflow: true,  intro: null },
 ];
 for (const l of LEVELS) if (l.hearts === undefined) l.hearts = 3;
 
@@ -123,7 +123,7 @@ export function endlessConfig(stage) {
     patience: Math.max(20, 57 - 2 * s),
     mid: [Math.min(2, 1 + Math.floor(s / 3)), Math.min(3, 1 + Math.ceil(s / 2))],
     top: [Math.min(2, Math.floor(s / 2)), Math.min(3, 1 + Math.floor(s / 2))],
-    smoothieChance: Math.min(0.5, 0.3 + 0.03 * s),
+    matchaChance: Math.min(0.5, 0.3 + 0.03 * s),
     overflow: true,
     hearts: 3,
   };
@@ -138,8 +138,8 @@ export const KITCHEN_BASE = {
   portions: 2,        // bowls per blender batch
   blenders: 1,
   bowlSlots: 2,
-  smoothieSlots: 1,
-  smoothieTime: 5,
+  matchaSlots: 1,
+  matchaTime: 5,
   patienceMult: 1,
 };
 
@@ -150,7 +150,7 @@ export const UPGRADES = [
   { id: 'jug',           cat: 'kitchen', levels: [{ cost: 220, portions: 3, readyHold: 13.5 }] },
   { id: 'blender2',      cat: 'kitchen', levels: [{ cost: 400, blenders: 2 }] },
   { id: 'bowlSlots',     cat: 'kitchen', levels: [{ cost: 150, bowlSlots: 3 }, { cost: 300, bowlSlots: 4 }] },
-  { id: 'smoothieSlots', cat: 'kitchen', requiresLevel: SMOOTHIE_LEVEL, levels: [{ cost: 230, smoothieSlots: 2 }] },
+  { id: 'matchaSlots',   cat: 'kitchen', requiresLevel: MATCHA_LEVEL, levels: [{ cost: 230, matchaSlots: 2 }] },
   { id: 'plants',        cat: 'decor',   levels: [{ cost: 120, patience: 0.08 }] },
   { id: 'jukebox',       cat: 'decor',   levels: [{ cost: 250, patience: 0.10 }] },
   { id: 'seating',       cat: 'decor',   levels: [{ cost: 350, patience: 0.12 }] },
@@ -192,14 +192,14 @@ registerStrings({
     'ing.peanut': 'Erdnussbutter', 'ing.chocolate': 'Schoko-Soße', 'ing.mint': 'Minze', 'ing.cacao': 'Kakao-Nibs',
     'ingshort.spirulina': 'Spirulina', 'ingshort.blueberry': 'Blaubeere', 'ingshort.coconut': 'Kokos',
     'ingshort.chia': 'Chia', 'ingshort.peanut': 'Erdnuss', 'ingshort.chocolate': 'Schoko', 'ingshort.cacao': 'Kakao',
-    'smoothie.banana': 'Bananen-Smoothie', 'smoothie.strawberry': 'Erdbeer-Smoothie',
-    'smoothie.blueberry': 'Blaubeer-Smoothie', 'smoothie.mango': 'Mango-Smoothie', 'smoothie.kiwi': 'Kiwi-Smoothie',
+    'matcha.banana': 'Bananen-Matcha', 'matcha.strawberry': 'Erdbeer-Matcha',
+    'matcha.blueberry': 'Blaubeer-Matcha', 'matcha.mango': 'Mango-Matcha', 'matcha.kiwi': 'Kiwi-Matcha',
     'layer.base': 'Basis', 'layer.mid': 'Früchte & Crunch', 'layer.top': 'Toppings & Soßen',
     'upg.blenderSpeed': 'Turbo-Mixer', 'upgdesc.blenderSpeed': 'Ein stärkeres Modell: Der Mixer ist schneller fertig.',
     'upg.jug': 'Großer Mixkrug', 'upgdesc.jug': '3 Bowls pro Mischung – und bleibt länger frisch.',
     'upg.blender2': 'Zweiter Mixer', 'upgdesc.blender2': 'Zwei Basen gleichzeitig mixen.',
     'upg.bowlSlots': 'Mehr Bowl-Plätze', 'upgdesc.bowlSlots': 'Mehr Bowls gleichzeitig vorbereiten.',
-    'upg.smoothieSlots': 'Doppel-Smoothie', 'upgdesc.smoothieSlots': 'Zwei Tanks: zwei Smoothies gleichzeitig.',
+    'upg.matchaSlots': 'Doppel-Matcha', 'upgdesc.matchaSlots': 'Zwei Brühplätze: zwei Matcha gleichzeitig.',
     'upg.plants': 'Tropische Pflanzen', 'upgdesc.plants': 'Gäste warten 8 % länger.',
     'upg.jukebox': 'Jukebox', 'upgdesc.jukebox': 'Gute Musik: Gäste warten 10 % länger.',
     'upg.seating': 'Gemütliche Sitzecke', 'upgdesc.seating': 'Gäste warten 12 % länger.',
@@ -213,14 +213,14 @@ registerStrings({
     'ing.peanut': 'Peanut butter', 'ing.chocolate': 'Chocolate sauce', 'ing.mint': 'Mint', 'ing.cacao': 'Cacao nibs',
     'ingshort.spirulina': 'Spirulina', 'ingshort.blueberry': 'Blueberry', 'ingshort.coconut': 'Coconut',
     'ingshort.chia': 'Chia', 'ingshort.peanut': 'Peanut', 'ingshort.chocolate': 'Choco', 'ingshort.cacao': 'Cacao',
-    'smoothie.banana': 'Banana smoothie', 'smoothie.strawberry': 'Strawberry smoothie',
-    'smoothie.blueberry': 'Blueberry smoothie', 'smoothie.mango': 'Mango smoothie', 'smoothie.kiwi': 'Kiwi smoothie',
+    'matcha.banana': 'Banana matcha', 'matcha.strawberry': 'Strawberry matcha',
+    'matcha.blueberry': 'Blueberry matcha', 'matcha.mango': 'Mango matcha', 'matcha.kiwi': 'Kiwi matcha',
     'layer.base': 'Base', 'layer.mid': 'Fruits & Crunch', 'layer.top': 'Toppings & Sauces',
     'upg.blenderSpeed': 'Turbo blender', 'upgdesc.blenderSpeed': 'A stronger model: the blender finishes faster.',
     'upg.jug': 'Big blender jug', 'upgdesc.jug': '3 bowls per batch – and stays fresh longer.',
     'upg.blender2': 'Second blender', 'upgdesc.blender2': 'Blend two bases at the same time.',
     'upg.bowlSlots': 'More bowl spots', 'upgdesc.bowlSlots': 'Prepare more bowls at once.',
-    'upg.smoothieSlots': 'Double smoothie', 'upgdesc.smoothieSlots': 'Two tanks: two smoothies at once.',
+    'upg.matchaSlots': 'Double matcha', 'upgdesc.matchaSlots': 'Two brewing spots: two matchas at once.',
     'upg.plants': 'Tropical plants', 'upgdesc.plants': 'Customers wait 8% longer.',
     'upg.jukebox': 'Jukebox', 'upgdesc.jukebox': 'Good music: customers wait 10% longer.',
     'upg.seating': 'Cozy seating', 'upgdesc.seating': 'Customers wait 12% longer.',

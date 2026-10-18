@@ -30,8 +30,10 @@
 <main id="out"></main>
 <script type="module">
 import { getRenderer } from '../js/gl3d.js';
-import { blenderScene, machineScene, trashScene, freezerScene, VIEWS, BLENDER_MODELS, MACHINE_SLOT_X, pourFill } from '../js/kitchen3d.js';
-import { packIcon, cupSVG, artDefsSVG, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE } from '../js/art.js';
+import { blenderScene, matchaScene, trashScene, freezerScene, VIEWS, BLENDER_MODELS, MACHINE_SLOT_X, pourFill } from '../js/kitchen3d.js';
+import { pantryScene, pantryHasFront, PANTRY_IDS } from '../js/pantry3d.js';
+import { ingName } from '../js/data.js';
+import { packIcon, matchaGlassSVG, binFillSVG, artDefsSVG, MATCHA_SLOT_Y, MATCHA_CUP_SIZE } from '../js/art.js';
 
 document.body.insertAdjacentHTML('afterbegin', artDefsSVG());
 const q = new URLSearchParams(location.search);
@@ -127,18 +129,19 @@ if (!r) {
     }
   }
 
-  const mrow = section('Smoothie-Maschine (Tank füllt sich, Schnecke rührt, Hahn füllt den Becher)');
+  const mrow = section('Matcha-Maschine (Frucht aufs Glas: Püree, Mühle mahlt, Tank dampft, Düse gießt Milch und Matcha)');
   for (const n of [1, 2]) {
     const fruits = ['strawberry', 'mango'];
     const slotsAt = (t) => MACHINE_SLOT_X[n].map((_, i) => {
       const p = cyc(t + i * 2.3, 6);
       return p < 0.85 ? { state: 'mixing', fruit: fruits[i], progress: p / 0.85 } : { state: 'ready', fruit: fruits[i], progress: 1 };
     });
-    const cups = {
+    // the glasses stand on the drip tray like in the game (DOM art over the canvas)
+    const glasses = (slotsOf) => ({
       above(box, frame, t) {
         const size = frame.w;
-        const cup = Math.round(size * SMOOTHIE_CUP_SIZE);
-        slotsAt(t).forEach((s, i) => {
+        const cup = Math.round(size * MATCHA_CUP_SIZE);
+        slotsOf(t).forEach((s, i) => {
           let el = box.querySelector(`[data-cup="${i}"]`);
           if (!el) {
             el = document.createElement('div');
@@ -146,19 +149,23 @@ if (!r) {
             el.style.position = 'absolute';
             box.append(el);
           }
-          el.style.left = `${Math.round(VIEWS.machine.ax * zoom + MACHINE_SLOT_X[n][i] * zoom - cup / 2)}px`;
-          el.style.top = `${Math.round(SMOOTHIE_SLOT_Y * size - cup)}px`;
+          el.style.left = `${Math.round(frame.ax + MACHINE_SLOT_X[n][i] * frame.zoom - cup / 2)}px`;
+          el.style.top = `${Math.round(MATCHA_SLOT_Y * size - cup)}px`;
           const fill = s.state === 'mixing' ? Math.round(pourFill(s.progress) * 12) / 12 : null;
           const key = `${s.state}|${fill}`;
           if (el.dataset.key !== key) {
             el.dataset.key = key;
-            el.innerHTML = cupSVG(s.fruit, s.state, cup, { fill, stream: false });
+            el.innerHTML = matchaGlassSVG(s.fruit, s.state, cup, { fill, stream: false });
           }
         });
       },
-    };
-    figure(mrow, `Smoothie ${n === 1 ? 'Ein-Tank' : 'Zwei-Tank'} · mixt`, 'machine', [(t, f) => machineScene({ slots: slotsAt(t) }, t, f)], cups);
-    figure(mrow, `Smoothie ${n === 1 ? 'Ein-Tank' : 'Zwei-Tank'} · leer`, 'machine', [(t, f) => machineScene({ slots: MACHINE_SLOT_X[n].map(() => ({ state: 'empty' })) }, t, f)]);
+    });
+    const name = n === 1 ? 'Matcha ein Platz' : 'Matcha zwei Plätze';
+    figure(mrow, `${name} · brüht`, 'machine', [(t, f) => matchaScene({ slots: slotsAt(t) }, t, f)], glasses(slotsAt));
+    const empty = () => MACHINE_SLOT_X[n].map(() => ({ state: 'empty' }));
+    figure(mrow, `${name} · leer`, 'machine', [(t, f) => matchaScene({ slots: empty() }, t, f)], glasses(empty));
+    const ready = () => MACHINE_SLOT_X[n].map((_, i) => ({ state: 'ready', fruit: fruits[i] }));
+    figure(mrow, `${name} · fertig`, 'machine', [(t, f) => matchaScene({ slots: ready() }, t, f)], glasses(ready));
   }
 
   const brow = section('Treteimer und Gefriertruhe');
@@ -184,6 +191,20 @@ if (!r) {
     (t, f) => freezerScene({ layer: 'front', door: taking(t) }, t, f),
   ], packs);
   figure(brow, 'Truhe · leer', 'freezer', [(t, f) => freezerScene({ layer: 'back' }, t, f), (t, f) => freezerScene({ layer: 'front' }, t, f)]);
+  // the ingredient containers on the risers: the 3D container, what lies in it (SVG), its front rim
+  const prow = section('Zutaten-Behälter (3D, Inhalt als SVG darüber, vorderer Rand darüber)');
+  for (const id of PANTRY_IDS) {
+    const fill = {
+      between(box, frame) {
+        const d = document.createElement('div');
+        d.innerHTML = binFillSVG(id, frame.w);
+        box.append(d);
+      },
+    };
+    const layers = [(t, f) => pantryScene({ id, layer: 'back' }, t, f)];
+    if (pantryHasFront(id)) layers.push((t, f) => pantryScene({ id, layer: 'front' }, t, f));
+    figure(prow, `Behälter ${ingName(id, true)}`, 'pantry', layers, fill);
+  }
   renderAt(T0);
   if (q.get('anim') === '1') {
     const start = performance.now();

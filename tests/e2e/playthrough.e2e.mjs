@@ -95,7 +95,7 @@ const snap = (page) => page.evaluate(() => {
     }),
     bowls: g.bowls.map((b) => ({ cup: b.cup, base: b.base, mid: [...b.mid], top: [...b.top], uid: b.uid })),
     blenders: g.blenders.map((b) => ({ state: b.state, base: b.base, portions: b.portions, maxPortions: b.maxPortions })),
-    slots: g.smoothie ? g.smoothie.slots.map((s) => ({ state: s.state, fruit: s.fruit })) : [],
+    slots: g.matcha ? g.matcha.slots.map((s) => ({ state: s.state, fruit: s.fruit })) : [],
   };
 });
 
@@ -109,26 +109,26 @@ function onTrack(b, o) {
 const nextMissing = (b, o) => o.mid.find((x) => !b.mid.includes(x)) || o.top.find((x) => !b.top.includes(x)) || null;
 const POURABLE = ['ready', 'overflowing'];
 
-// One decision per call, like a player: serve > smoothies > build bowls > pour > blend > put cups down.
+// One decision per call, like a player: serve > matcha > build bowls > pour > blend > put cups down.
 function plan(s) {
   const waiting = s.seats.filter((c) => c && c.state === 'waiting').sort((a, b) => a.patience - b.patience);
 
-  // smoothies
+  // matcha
   const usedSlots = new Set();
   for (const c of waiting) {
-    const fruit = c.order.smoothie;
-    if (!fruit || c.delivered.smoothie) continue;
+    const fruit = c.order.matcha;
+    if (!fruit || c.delivered.matcha) continue;
     const ready = s.slots.findIndex((x, i) => !usedSlots.has(i) && x.state === 'ready' && x.fruit === fruit);
-    if (ready >= 0) return { kind: 'serveCup', slot: ready, cust: c.id };
+    if (ready >= 0) return { kind: 'serveGlass', slot: ready, cust: c.id };
     const mixing = s.slots.findIndex((x, i) => !usedSlots.has(i) && x.state === 'mixing' && x.fruit === fruit);
     if (mixing >= 0) {
       usedSlots.add(mixing);
       continue;
     }
     const empty = s.slots.findIndex((x) => x.state === 'empty');
-    if (empty >= 0) return { kind: 'loadCup', slot: empty, fruit };
-    const unwanted = s.slots.findIndex((x) => x.state === 'ready' && !waiting.some((w) => w.order.smoothie === x.fruit && !w.delivered.smoothie));
-    if (unwanted >= 0) return { kind: 'trashCup', slot: unwanted };
+    if (empty >= 0) return { kind: 'loadGlass', slot: empty, fruit };
+    const unwanted = s.slots.findIndex((x) => x.state === 'ready' && !waiting.some((w) => w.order.matcha === x.fruit && !w.delivered.matcha));
+    if (unwanted >= 0) return { kind: 'trashGlass', slot: unwanted };
   }
 
   // bowls: serve a finished one, otherwise assign on-track bowls to customers
@@ -200,14 +200,14 @@ function dragFor(a, s) {
       return { from: `[data-pack="${a.base}"]`, to: `[data-blender="${a.blender}"]`, ok: [(x) => window.__acaiGame.blenders[x.i].state !== 'empty', { i: a.blender }] };
     case 'cleanBlender':
       return { from: `[data-blender="${a.blender}"]`, to: '[data-trash]', ok: [(x) => window.__acaiGame.blenders[x.i].state === 'empty', { i: a.blender }] };
-    case 'loadCup':
-      return { from: `[data-bin="${a.fruit}"]`, to: `[data-smoothie-slot="${a.slot}"]`, ok: [(x) => window.__acaiGame.smoothie.slots[x.i].state !== 'empty', { i: a.slot }] };
-    case 'serveCup':
-    case 'trashCup':
+    case 'loadGlass':
+      return { from: `[data-bin="${a.fruit}"]`, to: `[data-matcha-slot="${a.slot}"]`, ok: [(x) => window.__acaiGame.matcha.slots[x.i].state !== 'empty', { i: a.slot }] };
+    case 'serveGlass':
+    case 'trashGlass':
       return {
-        from: `[data-smoothie-slot="${a.slot}"]`,
-        to: a.kind === 'serveCup' ? cust(a.cust) : '[data-trash]',
-        ok: [(x) => window.__acaiGame.smoothie.slots[x.i].state === 'empty', { i: a.slot }],
+        from: `[data-matcha-slot="${a.slot}"]`,
+        to: a.kind === 'serveGlass' ? cust(a.cust) : '[data-trash]',
+        ok: [(x) => window.__acaiGame.matcha.slots[x.i].state === 'empty', { i: a.slot }],
       };
     default:
       throw new Error(`unknown action ${a.kind}`);
@@ -417,7 +417,7 @@ async function endlessAndLanguage(srv) {
       await page.waitForFunction(() => window.__acaiGame?.mode === 'endless', null, { timeout: 5000 });
       const label = await page.textContent('.g-level');
       assert(label.includes(await tr(page, 'game.endless')), `HUD label "${label}"`);
-      assert(await page.$('[data-smoothie-slot="0"]'), 'endless has no smoothie machine');
+      assert(await page.$('[data-matcha-slot="0"]'), 'endless has no matcha machine');
       const bot = await playBot(page, { done: (s) => s.served >= 2, timeout: 90000 });
       const s = await snap(page);
       console.log(`        endless: served ${s.served}, money ${s.money}, ${bot.actions} drags, ${bot.rejects.length} rejected`);

@@ -2,7 +2,7 @@
 // All shop / progress mutations go through the helpers below.
 
 import {
-  START_OWNED, ING, UPG, LEVELS, ENDLESS_UNLOCK_LEVEL, SMOOTHIE_LEVEL,
+  START_OWNED, ING, UPG, LEVELS, ENDLESS_UNLOCK_LEVEL, MATCHA_LEVEL,
   getKitchenStats, qualityUpgradeCost, nextUpgradeCost,
 } from './data.js';
 import { detectLang, LANGS } from './i18n.js';
@@ -35,6 +35,9 @@ const int = (v, max) => Math.max(0, Math.min(max, Math.floor(Number(v)) || 0));
 // A finite amount ≥ 0 (coins, best score, stats), otherwise 0.
 const amount = (v) => (Number.isFinite(v) ? Math.max(0, v) : 0);
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
+// Upgrade ids an older version stored under another name: old id → id now (the smoothie machine
+// became the matcha machine, its second slot is the same purchase).
+const LEGACY_UPGRADES = { smoothieSlots: 'matchaSlots' };
 
 // Stored data → a valid save. Every field is checked, because a save that was edited by hand,
 // written by an older version or damaged must never break the shop, the map or a level.
@@ -70,7 +73,11 @@ function merge(raw) {
     const n = int(ingLevels[id], ING[id].upgradeCosts.length);
     if (n) out.ingLevels[id] = n;
   }
-  const upgrades = obj(raw.upgrades);
+  const upgrades = { ...obj(raw.upgrades) };
+  // ids renamed since: an old save's purchase carries over (the old id itself is not kept)
+  for (const [old, id] of Object.entries(LEGACY_UPGRADES)) {
+    if (upgrades[id] === undefined && upgrades[old] !== undefined) upgrades[id] = upgrades[old];
+  }
   out.upgrades = {};
   for (const id of Object.keys(UPG)) {
     const n = int(upgrades[id], UPG[id].levels.length);
@@ -180,7 +187,7 @@ export function maxUnlockedLevel() {
   for (const l of LEVELS) if (isLevelUnlocked(l.id)) max = l.id;
   return max;
 }
-export const hasSmoothieMachine = () => maxUnlockedLevel() >= SMOOTHIE_LEVEL;
+export const hasMatchaMachine = () => maxUnlockedLevel() >= MATCHA_LEVEL;
 export const upgradeLevel = (id) => getSave().upgrades[id] || 0;
 export const ingLevel = (id) => getSave().ingLevels[id] || 0;
 

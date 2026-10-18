@@ -4,11 +4,11 @@ import assert from 'node:assert/strict';
 import { generateOrder, bowlValue, orderValue } from '../js/orders.js';
 import { createRng } from '../js/rng.js';
 import {
-  INGREDIENTS, ING, LEVELS, START_OWNED, endlessConfig, isSmoothieFruit, ingredientValue, smoothieValue,
+  INGREDIENTS, ING, LEVELS, START_OWNED, endlessConfig, isMatchaFruit, ingredientValue, matchaValue,
 } from '../js/data.js';
 
 const ALL = INGREDIENTS.map((i) => i.id);
-const cfg = (over = {}) => ({ mid: [1, 3], top: [0, 3], smoothieChance: 0, ...over });
+const cfg = (over = {}) => ({ mid: [1, 3], top: [0, 3], matchaChance: 0, ...over });
 
 function sample(n, opts, seed = 1) {
   const rng = createRng(seed);
@@ -31,7 +31,7 @@ describe('generateOrder', () => {
       }
       assert.equal(new Set(o.bowl.mid).size, o.bowl.mid.length);
       assert.equal(new Set(o.bowl.top).size, o.bowl.top.length);
-      assert.equal(o.smoothie, null);
+      assert.equal(o.matcha, null);
     }
   });
 
@@ -62,7 +62,7 @@ describe('generateOrder', () => {
   test('works with every level and endless config', () => {
     const configs = [...LEVELS, endlessConfig(0), endlessConfig(5), endlessConfig(40)];
     for (const config of configs) {
-      for (const o of sample(30, { owned: ALL, config, smoothies: true })) {
+      for (const o of sample(30, { owned: ALL, config, matcha: true })) {
         assert.ok(o.bowl.mid.length >= Math.max(1, config.mid[0]) && o.bowl.mid.length <= config.mid[1]);
         assert.ok(o.bowl.top.length >= config.top[0] && o.bowl.top.length <= config.top[1]);
         assert.ok(o.bowl.mid.length + o.bowl.top.length <= 6);
@@ -70,19 +70,19 @@ describe('generateOrder', () => {
     }
   });
 
-  test('smoothies only when the machine exists, the dice say so and a fruit is owned', () => {
+  test('a matcha only when the machine exists, the dice say so and a fruit is owned', () => {
     const owned = [...START_OWNED, 'strawberry'];
-    assert.ok(sample(100, { owned, config: cfg({ smoothieChance: 1 }) }).every((o) => o.smoothie === null));
-    assert.ok(sample(100, { owned, config: cfg({ smoothieChance: 0 }), smoothies: true }).every((o) => o.smoothie === null));
-    const withDrinks = sample(300, { owned, config: cfg({ smoothieChance: 1 }), smoothies: true });
-    assert.ok(withDrinks.every((o) => ['banana', 'strawberry'].includes(o.smoothie)));
-    assert.ok(withDrinks.some((o) => o.smoothie === 'strawberry') && withDrinks.some((o) => o.smoothie === 'banana'));
-    const noFruit = sample(100, { owned: ['acai', 'granola', 'honey'], config: cfg({ smoothieChance: 1 }), smoothies: true });
-    assert.ok(noFruit.every((o) => o.smoothie === null));
-    const half = sample(2000, { owned, config: cfg({ smoothieChance: 0.4 }), smoothies: true });
-    const share = half.filter((o) => o.smoothie).length / half.length;
-    assert.ok(share > 0.35 && share < 0.45, `smoothie share ${share}`);
-    for (const o of half) if (o.smoothie) assert.ok(isSmoothieFruit(o.smoothie));
+    assert.ok(sample(100, { owned, config: cfg({ matchaChance: 1 }) }).every((o) => o.matcha === null));
+    assert.ok(sample(100, { owned, config: cfg({ matchaChance: 0 }), matcha: true }).every((o) => o.matcha === null));
+    const withDrinks = sample(300, { owned, config: cfg({ matchaChance: 1 }), matcha: true });
+    assert.ok(withDrinks.every((o) => ['banana', 'strawberry'].includes(o.matcha)));
+    assert.ok(withDrinks.some((o) => o.matcha === 'strawberry') && withDrinks.some((o) => o.matcha === 'banana'));
+    const noFruit = sample(100, { owned: ['acai', 'granola', 'honey'], config: cfg({ matchaChance: 1 }), matcha: true });
+    assert.ok(noFruit.every((o) => o.matcha === null));
+    const half = sample(2000, { owned, config: cfg({ matchaChance: 0.4 }), matcha: true });
+    const share = half.filter((o) => o.matcha).length / half.length;
+    assert.ok(share > 0.35 && share < 0.45, `matcha share ${share}`);
+    for (const o of half) if (o.matcha) assert.ok(isMatchaFruit(o.matcha));
   });
 
   test('featured (newly bought) ingredients appear about twice as often', () => {
@@ -101,7 +101,7 @@ describe('generateOrder', () => {
   });
 
   test('deterministic for the same seed', () => {
-    const opts = { owned: ALL, config: cfg({ smoothieChance: 0.5 }), smoothies: true };
+    const opts = { owned: ALL, config: cfg({ matchaChance: 0.5 }), matcha: true };
     assert.deepEqual(sample(50, opts, 99), sample(50, opts, 99));
     assert.notDeepEqual(sample(50, opts, 99), sample(50, opts, 100));
   });
@@ -120,10 +120,10 @@ describe('pricing', () => {
     assert.equal(bowlValue({ base: null, mid: [], top: [] }), 0);
   });
 
-  test('orderValue adds the smoothie', () => {
-    const order = { bowl: { base: 'acai', mid: ['banana'], top: [] }, smoothie: 'mango' };
-    assert.equal(orderValue(order), ING.acai.price + ING.banana.price + smoothieValue('mango'));
-    assert.equal(orderValue({ ...order, smoothie: null }), ING.acai.price + ING.banana.price);
-    assert.equal(orderValue(order, { mango: 1 }), ING.acai.price + ING.banana.price + smoothieValue('mango', { mango: 1 }));
+  test('orderValue adds the matcha', () => {
+    const order = { bowl: { base: 'acai', mid: ['banana'], top: [] }, matcha: 'mango' };
+    assert.equal(orderValue(order), ING.acai.price + ING.banana.price + matchaValue('mango'));
+    assert.equal(orderValue({ ...order, matcha: null }), ING.acai.price + ING.banana.price);
+    assert.equal(orderValue(order, { mango: 1 }), ING.acai.price + ING.banana.price + matchaValue('mango', { mango: 1 }));
   });
 });

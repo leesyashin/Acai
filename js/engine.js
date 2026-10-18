@@ -3,7 +3,7 @@
 
 import {
   ING, LEVELS, START_OWNED, MAX_BOWL_ITEMS, TIP_RATE, PARTIAL_DELIVERY_BONUS,
-  SMOOTHIE_PATIENCE_BONUS, ENDLESS_STAGE_SECONDS, isSmoothieFruit, endlessConfig, getKitchenStats, getLevel,
+  MATCHA_PATIENCE_BONUS, ENDLESS_STAGE_SECONDS, isMatchaFruit, endlessConfig, getKitchenStats, getLevel,
 } from './data.js';
 import { createRng } from './rng.js';
 import { generateOrder, orderValue } from './orders.js';
@@ -71,7 +71,7 @@ export function createGame(opts = {}) {
     seats: Array(config.seats).fill(null),
     blenders: Array.from({ length: kitchen.blenders }, () => emptyBlender(kitchen.portions)),
     bowls: [],
-    smoothie: opts.smoothies ? { slots: Array.from({ length: kitchen.smoothieSlots }, emptySlot) } : null,
+    matcha: opts.matcha ? { slots: Array.from({ length: kitchen.matchaSlots }, emptySlot) } : null,
     owned: (opts.owned || START_OWNED).slice(),
     ingLevels: { ...(opts.ingLevels || {}) },
     kitchen,
@@ -124,7 +124,7 @@ export function tick(game, dt) {
   if (clockRuns) game.time += step;
 
   updateBlenders(game, step);
-  updateSmoothies(game, step);
+  updateMatcha(game, step);
   updateCustomers(game, step);
   if (game.status !== 'playing') return;
   if (game.mode === 'endless') updateStage(game);
@@ -169,14 +169,14 @@ function updateBlenders(game, dt) {
   });
 }
 
-function updateSmoothies(game, dt) {
-  if (!game.smoothie) return;
-  game.smoothie.slots.forEach((s, idx) => {
+function updateMatcha(game, dt) {
+  if (!game.matcha) return;
+  game.matcha.slots.forEach((s, idx) => {
     if (s.state !== 'mixing') return;
     s.t += dt;
     if (s.t >= s.duration) {
       setTimer(s, 'ready', 0);
-      emit(game, 'smoothieReady', { idx });
+      emit(game, 'matchaReady', { idx });
     }
     updateProgress(s);
   });
@@ -257,17 +257,17 @@ function spawnCustomer(game, seat) {
   const order = generateOrder(sim.rng, {
     owned: game.owned,
     config: game.config,
-    smoothies: !!game.smoothie,
+    matcha: !!game.matcha,
     featured: game.featured,
   });
   const maxPatience = game.config.patience * game.kitchen.patienceMult
-    + (order.smoothie ? SMOOTHIE_PATIENCE_BONUS : 0);
+    + (order.matcha ? MATCHA_PATIENCE_BONUS : 0);
   const customer = {
     id: sim.nextCustomerId++,
     seat,
     look: { seed: sim.rng.int(1, 1e9) },
     order,
-    delivered: { bowl: false, smoothie: false },
+    delivered: { bowl: false, matcha: false },
     patience: maxPatience,
     maxPatience,
     state: 'arriving',
@@ -318,7 +318,7 @@ export function findCustomer(game, customerId) {
 }
 
 export function isOrderComplete(c) {
-  return c.delivered.bowl && (!c.order.smoothie || c.delivered.smoothie);
+  return c.delivered.bowl && (!c.order.matcha || c.delivered.matcha);
 }
 
 function canAct(game) {
@@ -460,35 +460,35 @@ export function trashBowl(game, bowlIdx) {
   return success();
 }
 
-// ------------------------------------------------------------------ smoothie actions
+// ------------------------------------------------------------------ matcha actions
 
-export function loadSmoothieError(game, slotIdx, fruitId) {
+export function loadMatchaError(game, slotIdx, fruitId) {
   if (!canAct(game)) return 'notPlaying';
-  const slot = game.smoothie?.slots[slotIdx];
+  const slot = game.matcha?.slots[slotIdx];
   if (!slot) return 'invalid';
-  if (!isSmoothieFruit(fruitId)) return 'notSmoothieFruit';
+  if (!isMatchaFruit(fruitId)) return 'notMatchaFruit';
   if (!game.owned.includes(fruitId)) return 'notOwned';
   if (slot.state !== 'empty') return 'slotBusy';
   return null;
 }
 
-export function loadSmoothie(game, slotIdx, fruitId) {
-  const err = loadSmoothieError(game, slotIdx, fruitId);
+export function loadMatcha(game, slotIdx, fruitId) {
+  const err = loadMatchaError(game, slotIdx, fruitId);
   if (err) return fail(err);
-  const slot = game.smoothie.slots[slotIdx];
-  setTimer(slot, 'mixing', game.kitchen.smoothieTime);
+  const slot = game.matcha.slots[slotIdx];
+  setTimer(slot, 'mixing', game.kitchen.matchaTime);
   slot.fruit = fruitId;
-  emit(game, 'smoothieStart', { idx: slotIdx });
+  emit(game, 'matchaStart', { idx: slotIdx });
   return success();
 }
 
-export function trashSmoothie(game, slotIdx) {
+export function trashMatcha(game, slotIdx) {
   if (!canAct(game)) return fail('notPlaying');
-  const slot = game.smoothie?.slots[slotIdx];
+  const slot = game.matcha?.slots[slotIdx];
   if (!slot) return fail('invalid');
   if (slot.state !== 'empty') {
-    game.smoothie.slots[slotIdx] = emptySlot();
-    emit(game, 'trash', { what: 'smoothie', idx: slotIdx });
+    game.matcha.slots[slotIdx] = emptySlot();
+    emit(game, 'trash', { what: 'matcha', idx: slotIdx });
   }
   return success();
 }
@@ -523,25 +523,25 @@ export function serveBowl(game, bowlIdx, customerId) {
   return success();
 }
 
-export function serveSmoothieError(game, slotIdx, customerId) {
+export function serveMatchaError(game, slotIdx, customerId) {
   if (!canAct(game)) return 'notPlaying';
-  const slot = game.smoothie?.slots[slotIdx];
+  const slot = game.matcha?.slots[slotIdx];
   if (!slot) return 'invalid';
   const c = servableCustomer(game, customerId);
   if (!c) return 'noCustomer';
   if (slot.state !== 'ready') return 'notReady';
-  if (!c.order.smoothie) return 'noSmoothieWanted';
-  if (c.delivered.smoothie) return 'alreadyDelivered';
-  if (slot.fruit !== c.order.smoothie) return 'wrongOrder';
+  if (!c.order.matcha) return 'noMatchaWanted';
+  if (c.delivered.matcha) return 'alreadyDelivered';
+  if (slot.fruit !== c.order.matcha) return 'wrongOrder';
   return null;
 }
 
-export function serveSmoothie(game, slotIdx, customerId) {
-  const err = serveSmoothieError(game, slotIdx, customerId);
+export function serveMatcha(game, slotIdx, customerId) {
+  const err = serveMatchaError(game, slotIdx, customerId);
   if (err) return fail(err);
   const c = findCustomer(game, customerId);
-  c.delivered.smoothie = true;
-  game.smoothie.slots[slotIdx] = emptySlot();
+  c.delivered.matcha = true;
+  game.matcha.slots[slotIdx] = emptySlot();
   delivered(game, c);
   return success();
 }

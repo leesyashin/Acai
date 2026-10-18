@@ -5,8 +5,8 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  LAYERS, INGREDIENTS, START_OWNED, QUALITY_MULT, SMOOTHIE_LEVEL, ENDLESS_UNLOCK_LEVEL, MAX_BOWL_ITEMS,
-  ING, ingredientsByLayer, isSmoothieFruit, ingredientValue, smoothieValue, qualityUpgradeCost,
+  LAYERS, INGREDIENTS, START_OWNED, QUALITY_MULT, MATCHA_LEVEL, ENDLESS_UNLOCK_LEVEL, MAX_BOWL_ITEMS,
+  ING, ingredientsByLayer, isMatchaFruit, ingredientValue, matchaValue, qualityUpgradeCost,
   LEVELS, getLevel, endlessConfig, KITCHEN_BASE, UPGRADES, UPG, getKitchenStats, nextUpgradeCost,
 } from '../js/data.js';
 import { hasString, LANGS } from '../js/i18n.js';
@@ -59,13 +59,13 @@ describe('ingredients', () => {
     }
   });
 
-  test('smoothie fruits are the mid-layer fruits from the design', () => {
-    const fruits = INGREDIENTS.filter((i) => i.smoothie).map((i) => i.id).sort();
+  test('matcha fruits are the mid-layer fruits from the design', () => {
+    const fruits = INGREDIENTS.filter((i) => i.matcha).map((i) => i.id).sort();
     assert.deepEqual(fruits, ['banana', 'blueberry', 'kiwi', 'mango', 'strawberry']);
     for (const id of fruits) assert.equal(ING[id].layer, 'mid');
-    assert.equal(isSmoothieFruit('banana'), true);
-    assert.equal(isSmoothieFruit('granola'), false);
-    assert.equal(isSmoothieFruit('nope'), false);
+    assert.equal(isMatchaFruit('banana'), true);
+    assert.equal(isMatchaFruit('granola'), false);
+    assert.equal(isMatchaFruit('nope'), false);
   });
 
   test('quality multipliers start at 1 and increase', () => {
@@ -73,7 +73,7 @@ describe('ingredients', () => {
     for (let i = 1; i < QUALITY_MULT.length; i++) assert.ok(QUALITY_MULT[i] > QUALITY_MULT[i - 1]);
   });
 
-  test('ingredientValue / smoothieValue apply quality and round up to 0.5', () => {
+  test('ingredientValue / matchaValue apply quality and round up to 0.5', () => {
     for (const ing of INGREDIENTS) {
       const values = QUALITY_MULT.map((_, lv) => ingredientValue(ing.id, { [ing.id]: lv }));
       assert.equal(values[0], Math.round(ing.price * 2) / 2);
@@ -89,9 +89,9 @@ describe('ingredients', () => {
     assert.equal(ingredientValue('nope'), 0);
     assert.deepEqual(QUALITY_MULT.map((_, lv) => ingredientValue('honey', { honey: lv })), [1, 1.5, 2]);
     assert.equal(ingredientValue('acai', { acai: 1 }), 6.5, 'exact products are not rounded up by float noise');
-    const sv = QUALITY_MULT.map((_, lv) => smoothieValue('banana', { banana: lv }));
+    const sv = QUALITY_MULT.map((_, lv) => matchaValue('banana', { banana: lv }));
     assert.ok(sv[0] > 0);
-    for (let i = 1; i < sv.length; i++) assert.ok(sv[i] > sv[i - 1], `smoothie quality ${i} adds nothing`);
+    for (let i = 1; i < sv.length; i++) assert.ok(sv[i] > sv[i - 1], `matcha quality ${i} adds nothing`);
     for (const v of sv) assert.equal(v * 2, Math.round(v * 2));
   });
 
@@ -131,11 +131,11 @@ describe('levels', () => {
     assert.ok(LEVELS.some((l) => l.seats === 3), 'some level has 3 seats');
   });
 
-  test('smoothies only from SMOOTHIE_LEVEL on', () => {
-    assert.equal(SMOOTHIE_LEVEL, 7);
+  test('matcha only from MATCHA_LEVEL on', () => {
+    assert.equal(MATCHA_LEVEL, 7);
     for (const l of LEVELS) {
-      if (l.id < SMOOTHIE_LEVEL) assert.equal(l.smoothieChance, 0, `level ${l.id}`);
-      else assert.ok(l.smoothieChance > 0 && l.smoothieChance <= 1, `level ${l.id}`);
+      if (l.id < MATCHA_LEVEL) assert.equal(l.matchaChance, 0, `level ${l.id}`);
+      else assert.ok(l.matchaChance > 0 && l.matchaChance <= 1, `level ${l.id}`);
     }
   });
 
@@ -169,7 +169,7 @@ describe('endlessConfig', () => {
       assert.ok(isRange(c.mid) && c.mid[0] >= 1 && c.mid[1] <= ingredientsByLayer('mid').length, `${at}: mid`);
       assert.ok(isRange(c.top) && c.top[0] >= 0 && c.top[1] <= ingredientsByLayer('top').length, `${at}: top`);
       assert.ok(c.mid[1] + c.top[1] <= MAX_BOWL_ITEMS, `${at}: order larger than a bowl`);
-      assert.ok(c.smoothieChance >= 0 && c.smoothieChance <= 1, `${at}: smoothieChance`);
+      assert.ok(c.matchaChance >= 0 && c.matchaChance <= 1, `${at}: matchaChance`);
       assert.ok(c.hearts >= 1, `${at}: hearts`);
     }
   });
@@ -183,7 +183,7 @@ describe('endlessConfig', () => {
       assert.ok(b.patience <= a.patience, `${at}: patience`);
       assert.ok(b.mid[0] >= a.mid[0] && b.mid[1] >= a.mid[1], `${at}: mid`);
       assert.ok(b.top[0] >= a.top[0] && b.top[1] >= a.top[1], `${at}: top`);
-      assert.ok(b.smoothieChance >= a.smoothieChance, `${at}: smoothieChance`);
+      assert.ok(b.matchaChance >= a.matchaChance, `${at}: matchaChance`);
     }
     const first = stages[0];
     const last = stages.at(-1);
@@ -201,7 +201,7 @@ describe('upgrades & kitchen stats', () => {
   test('upgrade table is well formed', () => {
     const ids = UPGRADES.map((u) => u.id);
     assert.equal(new Set(ids).size, ids.length, 'duplicate upgrade id');
-    for (const id of ['blenderSpeed', 'jug', 'blender2', 'bowlSlots', 'smoothieSlots', 'plants', 'jukebox', 'seating', 'neon']) {
+    for (const id of ['blenderSpeed', 'jug', 'blender2', 'bowlSlots', 'matchaSlots', 'plants', 'jukebox', 'seating', 'neon']) {
       assert.ok(UPG[id], `missing upgrade ${id}`);
     }
     for (const u of UPGRADES) {
@@ -216,7 +216,7 @@ describe('upgrades & kitchen stats', () => {
       }
       if (u.cat === 'decor') assert.ok(u.levels.every((lv) => lv.patience > 0), `${u.id}: decor adds patience`);
     }
-    assert.equal(UPG.smoothieSlots.requiresLevel, SMOOTHIE_LEVEL);
+    assert.equal(UPG.matchaSlots.requiresLevel, MATCHA_LEVEL);
   });
 
   test('no upgrades → base stats (and a fresh copy)', () => {
@@ -241,7 +241,7 @@ describe('upgrades & kitchen stats', () => {
     assert.equal(getKitchenStats({ jug: 1 }).readyHold, 13.5, 'the big jug stays fresh longer');
     assert.ok(getKitchenStats({ jug: 1 }).readyHold > KITCHEN_BASE.readyHold);
     assert.equal(getKitchenStats({ blender2: 1 }).blenders, 2);
-    assert.equal(getKitchenStats({ smoothieSlots: 1 }).smoothieSlots, 2);
+    assert.equal(getKitchenStats({ matchaSlots: 1 }).matchaSlots, 2);
     assert.deepEqual(getKitchenStats({ unknownThing: 3 }), KITCHEN_BASE);
   });
 
@@ -268,7 +268,7 @@ describe('strings', () => {
     ...INGREDIENTS.map((i) => `ing.${i.id}`),
     ...UPGRADES.flatMap((u) => [`upg.${u.id}`, `upgdesc.${u.id}`]),
     ...LAYERS.map((l) => `layer.${l}`),
-    ...INGREDIENTS.filter((i) => i.smoothie).map((i) => `smoothie.${i.id}`),
+    ...INGREDIENTS.filter((i) => i.matcha).map((i) => `matcha.${i.id}`),
   ];
 
   test('every ingredient, upgrade and layer has German and English text', () => {
