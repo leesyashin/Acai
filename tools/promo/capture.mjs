@@ -222,8 +222,12 @@ export async function captureGameplay({
     const clip = { fps, dsf, width: 1280, height: 800, level, seed, lang, frames: 0, pointer: [], actions: [], sounds: [] };
     let pointer = { x: 640, y: 560, down: 0 };
     const total = Math.round(seconds * fps);
+    // whole milliseconds that add up to exactly n / fps (the fake clock rounds a fractional step up)
+    let ticked = 0;
     const frame = async () => {
-      await page.clock.runFor(1000 / fps);
+      const target = Math.round(((clip.frames + 1) * 1000) / fps);
+      await page.clock.runFor(target - ticked);
+      ticked = target;
       await page.evaluate(syncAnimations);
       const jpg = await page.screenshot({ type: 'jpeg', quality, clip: { x: PAD_X, y: PAD_Y, width: 1280, height: 800 } });
       clip.frames++;

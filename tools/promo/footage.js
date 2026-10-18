@@ -91,7 +91,7 @@ export class FootageView {
 
 // A smooth path (game px per frame) that follows the player's finger. Smoothed forwards and backwards,
 // so the camera starts to move a moment before the finger does – like an operator who knows the game.
-export function followPath(clip, { k = 0.06 } = {}) {
+export function followPath(clip, { k = 0.12 } = {}) {
   const n = clip.frames;
   const smooth = (v) => {
     for (let pass = 0; pass < 2; pass++) {

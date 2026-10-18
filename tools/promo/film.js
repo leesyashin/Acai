@@ -19,7 +19,7 @@ import { VIEWS, MACHINE_SLOT_X, pourFill, fitFrame } from '../../js/kitchen3d.js
 import { createRng } from '../../js/rng.js';
 import { clamp, lerp, prog, ease, spring, jiggle, decay, bump, wob, arc } from './motion.js';
 import { Sprite, Title, Burst, Ring, View3D, div, touchMarkup, setTouch, progressRingMarkup, setProgressRing } from './kit.js';
-import { FootageView, followPath, camOn, placeSounds } from './footage.js';
+import { FootageView, followPath, camOn, fitCam, placeSounds } from './footage.js';
 
 export const BPM = 124;
 export const BEAT = 60 / BPM;
@@ -122,16 +122,28 @@ const COPY = {
 // Where in the recorded gameplay (tools/promo/footage/main, seconds) the calm cuts look: picked
 // from the moves capture.mjs logged (level 10, seed 4). Captions: [beat, until, text, number, colour].
 const SEG = {
-  open: 20,
-  mix: 4,
-  top: 10,
-  serve: 14,
-  rush: 30,
-  pov: 3,
-  play: 8,
-  playCaptions: [],
-  playKeys: [[0, 2.4, null, 400]],
-  wide: 40,
+  // mix: the café at work · the açaí pack into the blender · pour and four toppings · serve twice · the rush
+  open: 37.0,
+  mix: 2.15,
+  top: 16.0,
+  serve: 20.1,
+  rush: 24.0,
+  // gameplay: the opening (pack into the blender) · 15 s straight from the pour on · the wide shot
+  pov: 2.35,
+  play: 6.9,
+  playCaptions: [
+    [0.5, 2.6, 'capMix', '1', 'pink'],
+    [2.6, 4.6, 'capSmoothie', '', 'leaf'],
+    [4.6, 7.8, 'capTop', '2', 'lagoon'],
+    [7.8, 10, 'capServe', '3', 'mango'],
+    [10, 12.6, 'capMix', '1', 'pink'],
+    [13.2, 17.4, 'capRush', '', ''],
+    [19.4, 27.2, 'capTop', '2', 'lagoon'],
+    [27.6, 31.6, 'capServe', '3', 'mango'],
+  ],
+  // the follow camera close up; while the blender works, a look at the waiting guests
+  playKeys: [[0, 2.4, null, 400], [12.6, 2.4, null, 400], [14.2, 1.0, 640, 400], [17.2, 1.0, 640, 400], [18.8, 2.4, null, 400]],
+  wide: 36.4,
 };
 
 // scenes: [name, beats, options] in order; music: one entry per bar (see score.js); energy scales
@@ -156,10 +168,10 @@ export const CUTS = {
     scenes: [
       ['cafeGame', 8, { seg: [SEG.open], titles: [[0, 'openA', 'white', 128, 4], [4, 'openB', 'mango', 128]], keys: [[0, 0.78125, 640, 400], [8, 0.95, 640, 430]], enter: null }],
       ['logo', 4, { enter: ['softIn', 0.3], leave: ['softOut', 0.25] }],
-      ['stepGame', 8, { num: '1', word: 'mix', sub: 'mixSub', color: 'pink', seg: [SEG.mix], zoom: 1.45 }],
-      ['stepGame', 8, { num: '2', word: 'top', sub: 'topSub', color: 'lagoon', seg: [SEG.top], zoom: 1.45 }],
+      ['stepGame', 8, { num: '1', word: 'mix', sub: 'mixSub', color: 'pink', seg: [SEG.mix], rate: 1.25, keys: [[0, 1.45, 300, 450]] }],
+      ['stepGame', 8, { num: '2', word: 'top', sub: 'topSub', color: 'lagoon', seg: [SEG.top], rate: 1.08, zoom: 1.45 }],
       ['stepGame', 8, { num: '3', word: 'serve', sub: 'serveSub', color: 'mango', size: 140, seg: [SEG.serve], zoom: 1.3 }],
-      ['cafeGame', 8, { seg: [SEG.rush], titles: [[0, 'rush', 'white', 112]], sub: 'rushSub', subAt: 1, h: 760, keys: [[0, 0.78125, 640, 400], [3.5, 0.78125, 640, 400], [5.5, 1.45, null, 230]] }],
+      ['cafeGame', 8, { seg: [SEG.rush], titles: [[0, 'rush', 'white', 112]], sub: 'rushSub', subAt: 1, h: 760, keys: [[0, 0.78125, 640, 400], [3.5, 0.78125, 640, 400], [5.5, 1.15, 640, 270]] }],
       ['ingredients', 4, { enter: ['softIn', 0.3], leave: ['softOut', 0.25] }],
       ['upgrades', 4, { enter: ['softIn', 0.3], leave: ['softOut', 0.25] }],
       ['end', 8, { enter: ['softIn', 0.35] }],
@@ -183,7 +195,7 @@ export const CUTS = {
       ['end', 8, { enter: ['softIn', 0.35] }],
     ],
     music: [
-      { style: 'intro', g: 0 }, { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 }, { style: 'groove', g: 3 },
+      { style: 'intro', g: 15 }, { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 }, { style: 'groove', g: 3 },
       { style: 'groove', g: 4 }, { style: 'groove', g: 5 }, { style: 'groove', g: 6 }, { style: 'groove', g: 7, fill: true },
       { style: 'groove', g: 8, harmony: true }, { style: 'groove', g: 10, harmony: true }, { style: 'groove', g: 11, harmony: true, fill: true },
       { style: 'groove', chords: ['Dm7', 'G7'], mel: 15, harmony: true, fill: true }, { style: 'end' },
@@ -1324,7 +1336,7 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
         }
         chips.forEach((c) => {
           const p = popIn(lt - b(c.at), { f: 2.4, d: 8 });
-          c.sp.set({ x: c.x, y: c.y + p.dy, s: p.s * 1.15, r: c.r, o: p.o });
+          c.sp.set({ x: c.x, y: c.y + p.dy, s: p.s * 1.45, r: c.r, o: p.o });
         });
         return wait;
       },

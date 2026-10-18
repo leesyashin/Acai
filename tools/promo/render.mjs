@@ -5,6 +5,7 @@
 //     --version hype    the cut: hype (fast motion design), mix (calmer, steps in real gameplay) or
 //                       gameplay (mostly real gameplay); mix and gameplay record footage first if
 //                       tools/promo/footage/main is missing (see capture.mjs, --recapture to redo)
+//     --footage main    which recording in tools/promo/footage to use
 //     --lang de|en      language of the texts (default de)
 //     --fps 30          frames per second of the video (default 30)
 //     --blur 3          sub-frames blended into each frame = motion blur (1 = off, default 3)
@@ -35,6 +36,7 @@ const flag = (name) => args.includes(`--${name}`);
 const OUT = path.resolve(args[0] && !args[0].startsWith('--') ? args[0] : 'acai-fever-promo.mp4');
 const LANG = opt('lang', 'de');
 const VERSION = opt('version', 'hype');
+const FOOTAGE = opt('footage', 'main'); // folder in tools/promo/footage
 const FPS = Number(opt('fps', 30));
 const BLUR = Math.max(1, Math.round(Number(opt('blur', 3))));
 const SHUTTER = 0.5; // the sub-frames cover half the frame interval (a 180° shutter)
@@ -127,7 +129,7 @@ async function openFilm(url, shot) {
   const b = await launchBrowser({ viewport: { width: 1080, height: 1920 }, fonts: 'real', locale: LANG === 'en' ? 'en-US' : 'de-DE' });
   const errors = collectConsoleErrors(b.page);
   if (shot) await b.context.addInitScript((s) => { window.__promoShot = s; }, shot);
-  await b.page.goto(`${url}tools/promo/promo.html?render&lang=${LANG}&version=${VERSION}`);
+  await b.page.goto(`${url}tools/promo/promo.html?render&lang=${LANG}&version=${VERSION}&footage=${FOOTAGE}`);
   await b.page.waitForFunction(() => window.__promoReady || window.__promoError, null, { timeout: 60000 });
   const bootErr = await b.page.evaluate(() => window.__promoError || null);
   if (bootErr) throw new Error(`promo page: ${bootErr}`);
@@ -186,9 +188,9 @@ async function main() {
   try {
     const shot = opt('shot', '') ? `data:image/png;base64,${readFileSync(opt('shot')).toString('base64')}` : await gameShot(srv.url, LANG);
     console.log(`game screenshot ready (${Math.round(shot.length / 1024)} KB)`);
-    if (VERSION !== 'hype' && (flag('recapture') || !existsSync(path.join(FOOTAGE_DIR, 'main', 'clip.json')))) {
+    if (VERSION !== 'hype' && (flag('recapture') || !existsSync(path.join(FOOTAGE_DIR, FOOTAGE, 'clip.json')))) {
       console.log('recording gameplay (tools/promo/capture.mjs) …');
-      const clip = await captureGameplay({ url: srv.url, out: path.join(FOOTAGE_DIR, 'main'), lang: LANG, seconds: 50 });
+      const clip = await captureGameplay({ url: srv.url, out: path.join(FOOTAGE_DIR, FOOTAGE), lang: LANG, seconds: 48 });
       console.log(`gameplay: ${clip.frames} frames, ${clip.actions.length} moves`);
     }
 
