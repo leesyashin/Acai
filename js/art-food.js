@@ -1,13 +1,16 @@
-// Food art for Açaí Fever: the clear plastic cup with its layers, toppings, ingredient icons,
-// the ingredient bowls on the counter, frozen packs and smoothie cups. Realistic, glossy look:
+// Food art for Açaí Fever: the clear plastic cup with its layers, toppings, ingredient icons, what
+// lies in the ingredient containers (and the containers drawn without WebGL), frozen packs and
+// the glasses of fruit matcha. Realistic, glossy look:
 // shapes are filled with their colour and shaded with the shared gradients from svg.js
 // (light from the top left), thin outlines in a darker shade of the fill. Pure module.
 
 import { ING } from './data.js';
 import {
   WHITE, f, rngFor, memo, mix, lighten, svgWrap, stroke, op, tf, circle, ellipse, path, rect, g, line,
-  rrect, smoothClosed, smoothOpen, polyPath, paint, lit, litEllipse, litCircle, softShadow, edge, registerDefs,
+  rrect, smoothClosed, smoothOpen, polyPath, paint, lit, litEllipse, litCircle, softShadow, edge,
 } from './svg.js';
+import { section } from './geo3d.js';
+import { PANTRY_VIEW, PANTRY_ELEV, PANTRY_GEO, pantryPoint, pantryTop, pantryKind } from './pantry3d.js';
 
 // ======================================================================
 // Pieces – one function per kind, drawn around (x, y) with size s (viewBox units)
@@ -177,6 +180,17 @@ function coconutFlake(x, y, s, rng) {
     path(`M${f(-s * 0.7)} ${f(s * 0.05)}Q${f(-s * 0.1)} ${f(-s * 0.35)} ${f(s * 0.7)} ${f(-s * 0.15)}`, 'none', stroke(Math.max(0.3, s * 0.08), WHITE) + op(0.9)));
 }
 
+// Coconut chip heaped in the shell: a thin curled white shard, some with a sliver of brown skin.
+function coconutChip(x, y, s, rng) {
+  const rot = f(rng.next() * 360);
+  const h = s * (0.42 + rng.next() * 0.2);
+  const d = `M${f(-s)} ${f(h * 0.1)}C${f(-s * 0.5)} ${f(-h * 1.1)} ${f(s * 0.45)} ${f(-h * 1.2)} ${f(s)} ${f(-h * 0.15)}C${f(s * 0.55)} ${f(h * 0.55)} ${f(-s * 0.4)} ${f(h * 0.75)} ${f(-s)} ${f(h * 0.1)}Z`;
+  const skin = rng.next() < 0.4 ? line(`M${f(-s * 0.8)} ${f(h * 0.35)}Q${f(-s * 0.1)} ${f(h * 0.85)} ${f(s * 0.75)} ${f(h * 0.2)}`, '#9a7650', Math.max(0.4, s * 0.12), op(0.8)) : '';
+  return g(`translate(${f(x)} ${f(y)}) rotate(${rot})`,
+    path(d, FOOD.coconut, stroke(Math.max(0.3, s * 0.07), '#cbbd9f')) + path(d, paint('sph-soft')) + skin +
+    line(`M${f(-s * 0.6)} ${f(-h * 0.3)}Q0 ${f(-h * 0.85)} ${f(s * 0.6)} ${f(-h * 0.4)}`, WHITE, Math.max(0.3, s * 0.1), op(0.9)));
+}
+
 function cacaoNib(x, y, s, rng) {
   const rot = f(rng.next() * 360);
   const pts = [[-s, -s * 0.2], [-s * 0.15, -s * 0.9], [s * 0.9, -s * 0.35], [s * 0.6, s * 0.75], [-s * 0.55, s * 0.65]];
@@ -333,7 +347,8 @@ function midOnCup(mid) {
   return s;
 }
 
-// Sauce: a zigzag drizzle over the top and runs down the inside of the wall.
+// Sauce colours: a zigzag drizzle over the top and runs down the inside of the wall; also the honey
+// dipper and the spoonfuls a drag carries.
 const SAUCE = {
   honey: { col: '#f2a81d', hi: '#ffe08a', dark: '#b86f05', alpha: 0.92 },
   peanut: { col: '#c5853f', hi: '#e8b87a', dark: '#8a5320', alpha: 1 },
@@ -790,113 +805,6 @@ export function ingredientIcon(id, size = 64) {
   return memo(`i|${id}|${size}`, () => svgWrap(size, size, 100, 100, iconBody(id)));
 }
 
-// ======================================================================
-// Ingredient bowls on the counter (viewBox 100×72): white stoneware with a brown rim, seen from
-// above at an angle like everything on the counter, heaped with the ingredient; the sauces fill
-// their bowl and keep a dipper or a spoon in it
-// ======================================================================
-const BWL = { cx: 50, cy: 30, rx: 46, ry: 15, foot: 61, frx: 22, fry: 4.6 };
-const BWL_L = BWL.cx - BWL.rx;
-const BWL_R = BWL.cx + BWL.rx;
-const BOWL_WALL = `M${BWL_L} ${BWL.cy}C${BWL_L} ${BWL.cy + 18} ${BWL.cx - BWL.frx - 13} ${BWL.foot} ${BWL.cx - BWL.frx} ${BWL.foot}` +
-  `A${BWL.frx} ${BWL.fry} 0 0 0 ${BWL.cx + BWL.frx} ${BWL.foot}C${BWL.cx + BWL.frx + 13} ${BWL.foot} ${BWL_R} ${BWL.cy + 18} ${BWL_R} ${BWL.cy}` +
-  `A${BWL.rx} ${BWL.ry} 0 0 1 ${BWL_L} ${BWL.cy}Z`;
-const RIM_BACK = `M${BWL_L} ${BWL.cy}A${BWL.rx} ${BWL.ry} 0 0 1 ${BWL_R} ${BWL.cy}`;
-const RIM_FRONT = `M${BWL_L} ${BWL.cy}A${BWL.rx} ${BWL.ry} 0 0 0 ${BWL_R} ${BWL.cy}`;
-const BOWL_RIM = '#86614a';
-registerDefs(`<clipPath id="af-clip-bowl"><path d="${BOWL_WALL}"/></clipPath>`);
-
-// A point of the heap: (u, v) across / back → front inside the rim, raised into a dome of height H.
-function heapAt(u, v, H) {
-  const h = H * Math.max(0, 1 - u * u - v * v) ** 0.6;
-  return { x: BWL.cx + u * (BWL.rx - 5), y: BWL.cy + v * (BWL.ry - 2.5) - h };
-}
-
-// The heap as seen from the front: its highest point for every u, closed along the front rim.
-function heapOutline(H) {
-  const pts = [[BWL_L + 1.5, BWL.cy + 0.5]];
-  for (let i = 1; i < 12; i++) {
-    const u = -1 + (2 * i) / 12;
-    let y = Infinity;
-    for (let k = 0; k <= 20; k++) {
-      const v = -1 + k / 10;
-      if (u * u + v * v <= 1) y = Math.min(y, heapAt(u, v, H).y);
-    }
-    pts.push([BWL.cx + u * (BWL.rx - 4), y - 1]);
-  }
-  pts.push([BWL_R - 1.5, BWL.cy + 0.5]);
-  return `${smoothOpen(pts)}A${BWL.rx - 1.5} ${BWL.ry - 1} 0 0 1 ${BWL_L + 1.5} ${BWL.cy + 0.5}Z`;
-}
-
-const BOWL_FOOD = {
-  banana: { bed: '#efd98f', piece: 8.6, draw: bananaSlice, cols: 6, rows: 4, H: 11 },
-  granola: { bed: '#a96d2c', piece: 5.8, draw: granolaCluster, cols: 9, rows: 5, H: 12 },
-  strawberry: { bed: '#c8172d', piece: 8, draw: strawberryHalf, cols: 6, rows: 4, H: 11 },
-  blueberry: { bed: '#262b5c', piece: 4.7, draw: blueberry, cols: 11, rows: 6, H: 12 },
-  mango: { bed: '#f08d0a', piece: 5.3, draw: mangoCube, cols: 9, rows: 5, H: 11 },
-  kiwi: { bed: '#5e9a24', piece: 8.6, draw: kiwiSlice, cols: 6, rows: 4, H: 10 },
-  coconut: { bed: '#e4d9c3', piece: 5.4, draw: coconutFlake, cols: 9, rows: 6, H: 11 },
-  cacao: { bed: '#3a1d10', piece: 3.3, draw: cacaoNib, cols: 14, rows: 8, H: 10 },
-};
-
-function heapGrid(cols, rows, H, rng) {
-  const pts = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      let u = -1 + (2 * (c + 0.5 + (r % 2 ? 0.22 : -0.22))) / cols + (rng.next() - 0.5) * 0.08;
-      let v = -1 + (2 * (r + 0.5)) / rows + (rng.next() - 0.5) * 0.12;
-      const d = u * u + v * v;
-      if (d > 0.92) {
-        const k = Math.sqrt(0.92 / d);
-        u *= k;
-        v *= k;
-      }
-      pts.push(heapAt(u, v, H));
-    }
-  }
-  return pts.sort((a, b) => a.y - b.y);
-}
-
-function foodHeap(id) {
-  const spec = BOWL_FOOD[id];
-  const rng = rngFor(`bowl-${id}`);
-  const outline = heapOutline(spec.H);
-  let s = path(outline, spec.bed) + path(outline, paint('sph-soft'));
-  for (const p of heapGrid(spec.cols, spec.rows, spec.H, rng)) s += spec.draw(p.x, p.y, spec.piece * (0.88 + rng.next() * 0.24), rng);
-  return s;
-}
-
-function chiaHeap() {
-  const rng = rngFor('bowl-chia');
-  const outline = heapOutline(10);
-  let s = path(outline, '#55514b');
-  const pts = [];
-  for (let i = 0; i < 340; i++) {
-    const a = rng.next() * Math.PI * 2;
-    const r = Math.sqrt(rng.next()) * 0.97;
-    const p = heapAt(Math.cos(a) * r, Math.sin(a) * r, 10);
-    pts.push([p.x, p.y + 0.6]);
-  }
-  return s + chiaSeeds(pts, rng, 1.7, 0.95) + path(outline, paint('sph-soft'));
-}
-
-function mintHeap() {
-  const rng = rngFor('bowl-mint');
-  let s = path(heapOutline(9), '#2a6a34');
-  for (const p of heapGrid(6, 3, 9, rng)) {
-    const a = rng.next() * 360;
-    s += mintLeaf(p.x - 5, p.y + 1, 13.5, 5.8, a) + mintLeaf(p.x + 1, p.y, 12, 5.2, a + 140 + rng.next() * 60);
-  }
-  return s;
-}
-
-const SAUCE_BOWL = {
-  honey: { col: '#f2a21a', hi: '#ffe38f', dark: '#b8740c' },
-  peanut: { col: '#c98b47', hi: '#eec58f', dark: '#8a5320' },
-  chocolate: { col: '#4a2312', hi: '#a5705a', dark: '#24100a' },
-};
-const SAUCE_TOP = { cx: 50, cy: 31.5, rx: 41.5, ry: 12.4 };
-
 // Wooden honey dipper (grooved head at hx, hy; handle up to the right), honey running off the head.
 function honeyDipper(hx, hy, deg, col, hi, dark, coat = true) {
   let s = path(`M${hx + 4} ${hy - 1.8}L${hx + 42} ${hy - 2.6}Q${hx + 45} ${hy} ${hx + 42} ${hy + 2.6}L${hx + 4} ${hy + 1.8}Z`, '#d9a25e', stroke(1, '#8f5f2a'));
@@ -911,71 +819,608 @@ function honeyDipper(hx, hy, deg, col, hi, dark, coat = true) {
   return g(`rotate(${f(deg)} ${f(hx)} ${f(hy)})`, s);
 }
 
-function sauceInBowl(id) {
-  const c = SAUCE_BOWL[id];
-  const { cx, cy, rx, ry } = SAUCE_TOP;
-  let s = ellipse(cx, cy - 1.4, rx + 1.4, ry + 0.8, c.dark, op(0.3)); // stain on the wall above the surface
-  s += ellipse(cx, cy, rx, ry, c.col) + ellipse(cx, cy, rx, ry, paint('sph-soft'));
-  if (id === 'peanut') {
-    // spread with the spoon: soft ridges and a few peanut halves
-    for (const [dy, k, col, w, o] of [[-6, 0.62, c.hi, 2, 0.75], [-1, 0.8, c.dark, 1.3, 0.4], [4, 0.66, c.hi, 1.8, 0.6], [8, 0.42, c.dark, 1.2, 0.35]]) {
-      s += line(`M${f(cx - rx * k)} ${f(cy + dy + 2)}Q${cx} ${f(cy + dy - 5)} ${f(cx + rx * k)} ${f(cy + dy + 1)}`, col, w, op(o));
-    }
-    s += peanutPod(cx - 20, cy - 2, 4.2, -18) + peanutPod(cx + 2, cy + 5, 4, 24);
-  } else {
-    s += line(`M${cx - 24} ${cy + 2}C${cx - 20} ${cy - 6} ${cx + 6} ${cy - 8} ${cx + 15} ${cy - 2}C${cx + 21} ${cy + 3} ${cx + 3} ${cy + 7} ${cx - 3} ${cy + 3}`, c.hi, 1.7, op(id === 'honey' ? 0.75 : 0.5));
-    if (id === 'honey') {
-      for (const [x, y, r] of [[cx - 8, cy + 4, 1.3], [cx + 20, cy + 3, 1], [cx - 26, cy - 1, 0.9]]) s += circle(x, y, r, '#fff1c2', op(0.75));
+// ======================================================================
+// Ingredient containers on the risers (viewBox 96×112 = PANTRY_VIEW of js/pantry3d.js, seen from
+// above at PANTRY_ELEV like the 3D models): brushed stainless trays of fruit, a clip-top jar of
+// granola, honey, chia and peanut butter in glass, a squeeze bottle of chocolate sauce, half a
+// coconut of flakes, a walnut bowl of cacao nibs, mint on a board. With WebGL the containers are 3D
+// pictures and binFillSVG() draws only what lies in or on them; binSVG() draws all of it (no WebGL).
+// Both place every piece with pantryPoint(), so it lies where the 3D container is.
+// ======================================================================
+const PV = PANTRY_VIEW;
+const pt = (x, y, z) => pantryPoint([x, y, z]);
+const SIN_P = Math.sin(PANTRY_ELEV);
+const TAU = Math.PI * 2;
+const ryOf = (r) => r * SIN_P; // a horizontal circle of radius r is an ellipse r × ryOf(r)
+
+// Screen points of a horizontal ring of radius r at height y around (x, z); its plan is the 3D
+// lathe's cross-section (sq, depth). a0 → a1: 0 is the right end, π/2 the front.
+function ringPts(r, y, { x = 0, z = 0, sq = 0, depth = 1, a0 = 0, a1 = TAU, n = 56 } = {}) {
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const a = a0 + ((a1 - a0) * i) / n;
+    const [X, Z] = section(a, sq, depth);
+    out.push(pt(x + X * r, y, z + Z * r));
+  }
+  return out;
+}
+const openPath = (pts) => `M${pts.map(([x, y]) => `${f(x)} ${f(y)}`).join('L')}`;
+
+// Evenly spread points over a dome of radius R and height H above (x, y, z) (sunflower spiral),
+// back to front, so nearer pieces are drawn over farther ones.
+function dome(n, R, H, x, y, z, rng, edge = 0.94) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const rr = Math.sqrt((i + 0.5) / n) * edge;
+    const a = i * 2.39996 + (rng.next() - 0.5) * 0.4;
+    const u = Math.cos(a) * rr;
+    const v = Math.sin(a) * rr;
+    const p = pt(x + u * R, y + H * Math.max(0, 1 - u * u - v * v) ** 0.7, z + v * R);
+    out.push({ x: p[0], y: p[1], k: rr });
+  }
+  return out.sort((a, b) => a.y - b.y);
+}
+// A piece's small contact shadow, offset away from the light (top left).
+const dropShadow = (x, y, rx, ry, o = 0.2) => ellipse(x + rx * 0.18, y + ry * 0.9, rx, ry, '#1d0f08', op(o));
+
+// ---------------------------------------------------------------- what lies in or on a container
+// Fruit fills its tray almost to the rim: a bed in the fruit's colour, the pieces neatly in rows
+// (staggered like a deli counter), each with a little shadow.
+const TRAY_FILL = {
+  banana: { bed: '#e6cf86', draw: bananaSlice, s: 8.4, cols: 6, rows: 5 },
+  strawberry: { bed: '#b0172c', draw: strawberryHalf, s: 7.8, cols: 6, rows: 5 },
+  blueberry: { bed: '#1d2049', draw: blueberry, s: 4.4, cols: 10, rows: 7, top: 16 },
+  mango: { bed: '#df7f08', draw: mangoCube, s: 4.7, cols: 8, rows: 6 },
+  kiwi: { bed: '#557f20', draw: kiwiSlice, s: 8.4, cols: 6, rows: 5 },
+};
+const BED_Y = 17;
+
+function trayFill(id) {
+  const spec = TRAY_FILL[id];
+  const T = pantryTop(id);
+  const rng = rngFor(`tray-${id}`);
+  const k = (BED_Y - T.floor) / (T.rim - T.floor);
+  const hx = T.fx + (T.hx - T.fx) * k; // inside of the tray at the bed's height
+  const hz = T.fz + (T.hz - T.fz) * k;
+  const bed = polyPath(ringPts(hx - 0.4, BED_Y, { z: T.cz, sq: T.sq, depth: T.depth }));
+  let s = path(bed, spec.bed) + path(bed, paint('sph-soft'), op(0.7));
+  const pieces = [];
+  const { s: size, cols, rows } = spec;
+  const mx = size * 0.95;
+  const dx = (2 * (hx - mx)) / (cols - 1);
+  for (let r = 0; r < rows; r++) {
+    const z = -hz + size * 0.75 + ((2 * hz - size * 1.3) * r) / (rows - 1);
+    const off = r % 2 ? 0.5 : 0;
+    for (let i = 0; i < cols - (off ? 1 : 0); i++) {
+      const x = -hx + mx + (i + off) * dx + (rng.next() - 0.5) * dx * 0.22;
+      pieces.push({ x, y: BED_Y + 0.6 + rng.next() * 0.8, z: z + (rng.next() - 0.5) * 2, s: size * (0.92 + rng.next() * 0.16) });
     }
   }
-  s += ellipse(cx - 17, cy - 5.5, 13, 2.4, WHITE, op(id === 'chocolate' ? 0.32 : 0.5) + tf(`rotate(-6 ${cx - 17} ${cy - 5.5})`));
-  if (id === 'honey') {
-    s += honeyDipper(cx + 4, cy + 1, -32, c.col, c.hi, c.dark);
-  } else {
-    // steel spoon: its bowl sunk in the sauce, the handle leaning on the back rim
-    const h = 'M57 30L91 10Q95 8.4 96.4 11Q97.4 13.6 93.4 15.2L59.4 33.4Z';
-    s += ellipse(57.4, 31.2, 5.6, 2.2, c.dark, op(0.5));
-    s += path(h, paint('steel', '#cfd6dc'), stroke(0.9, '#5f6a75')) + line('M60 30.4L92 11.6', WHITE, 1, op(0.8));
-    s += ellipse(57.4, 31.6, 4.2, 1.6, c.col) + ellipse(56, 31, 1.6, 0.6, c.hi, op(0.8));
+  // a second layer heaped in the middle (berries)
+  for (let i = 0; i < (spec.top || 0); i++) {
+    const a = rng.next() * TAU;
+    const rr = Math.sqrt(rng.next()) * 0.62;
+    pieces.push({ x: Math.cos(a) * rr * hx, y: BED_Y + size * 0.95, z: Math.sin(a) * rr * hz, s: size * (0.92 + rng.next() * 0.16) });
+  }
+  // every piece's footprint (about its size) stays inside the pan's rounded corners: the plan of the 3D
+  // pan is |x / hx|^n + |z / hz|^n = 1 (see section()), a piece outside it is moved in toward the middle
+  const n = 2 + 8 * T.sq;
+  const inside = (p) => {
+    const q = (Math.abs(p.x) / (hx - p.s)) ** n + (Math.abs(p.z) / (hz - p.s)) ** n;
+    return q > 1 ? { ...p, x: p.x * q ** (-1 / n), z: p.z * q ** (-1 / n) } : p;
+  };
+  const placed = pieces.map(inside).map((p) => ({ ...p, at: pt(p.x, p.y, T.cz + p.z) })).sort((a, b) => a.at[1] - b.at[1]);
+  for (const p of placed) {
+    const [x, y] = p.at;
+    s += dropShadow(x, y, p.s * 0.92, p.s * 0.34, 0.22) + spec.draw(x, y, p.s, rng, 0.62);
   }
   return s;
 }
 
-function bowlShell(inner) {
-  let s = softShadow(53, 63.5, 45, 7.5) + ellipse(BWL.cx, BWL.foot + 0.8, BWL.frx + 2, BWL.fry, '#000000', op(0.18));
-  // inside: the far wall above the food, then the back half of the rim
-  s += ellipse(BWL.cx, BWL.cy, BWL.rx, BWL.ry, '#f3f0ea') + ellipse(BWL.cx, BWL.cy + 4, BWL.rx - 8, BWL.ry - 5, '#5a4a3c', op(0.08));
-  s += path(RIM_BACK, 'none', stroke(2.4, BOWL_RIM));
-  s += inner;
-  // outer wall: white glaze lit from the top left, speckles, an unglazed foot ring
-  let wall = path(BOWL_WALL, '#fdfcf9') + path(BOWL_WALL, paint('cyl-soft'), op(0.8)) + path(BOWL_WALL, paint('down-dark'), op(0.22));
-  const rng = rngFor('bowl-speckles');
-  let dots = '';
-  for (let i = 0; i < 34; i++) dots += `M${f(8 + rng.next() * 84)} ${f(BWL.cy + 2 + rng.next() * 30)}h0.01`;
-  wall += line(dots, '#8c8378', 1, op(0.45));
-  const foot = `M${BWL.cx - BWL.frx} ${BWL.foot - 2.4}A${BWL.frx} ${BWL.fry} 0 0 0 ${BWL.cx + BWL.frx} ${BWL.foot - 2.4}V${BWL.foot + 2}H${BWL.cx - BWL.frx}Z`;
-  wall += path(foot, '#d9c3a3') + path(foot, paint('cyl-soft'));
-  wall += line(`M${BWL_L + 6} ${BWL.cy + 8}C${BWL_L + 8} ${BWL.cy + 17} ${BWL_L + 14} ${BWL.cy + 25} ${BWL_L + 25} ${BWL.foot - 3}`, WHITE, 2.6, op(0.75));
-  s += `<g clip-path="url(#af-clip-bowl)">${wall}</g>`;
-  s += path(BOWL_WALL, 'none', stroke(0.9, '#a2988c'));
-  // front half of the rim over the food, with the glaze catching the light
-  s += path(RIM_FRONT, 'none', stroke(2.6, BOWL_RIM));
-  s += path(`M${BWL_L + 2} ${BWL.cy - 0.6}A${BWL.rx - 2} ${BWL.ry - 1.2} 0 0 0 ${BWL_R - 2} ${BWL.cy - 0.6}`, 'none', stroke(0.9, '#fff6ea') + op(0.55));
-  s += path(`M${BWL_L + 6} ${BWL.cy - 6}A${BWL.rx - 3} ${BWL.ry - 1.5} 0 0 1 ${BWL.cx - 10} ${BWL.cy - BWL.ry + 1.2}`, 'none', stroke(1, '#fff6ea') + op(0.55));
+// Granola heaped up in the jar's mouth: a mound in the colour of the granola under the glass, toasted
+// clusters on it (big enough that their oat flakes read, flattened by the view like the fruit pieces)
+// and loose oat flakes, some over the rim.
+const GRANOLA_BODY = '#a9692b'; // the 3D granola's colour (js/pantry3d.js MAT.granola)
+function jarHeap(id) {
+  const T = pantryTop(id);
+  const rng = rngFor(`heap-${id}`);
+  const R = T.r - 1.4;
+  const c = pt(T.x, T.y - 0.6, T.z);
+  const flat = (x, y, body) => g(`translate(${f(x)} ${f(y)}) scale(1 0.8) translate(${f(-x)} ${f(-y)})`, body);
+  let s = ellipse(c[0], c[1], R + 0.6, ryOf(R + 0.6), GRANOLA_BODY) + ellipse(c[0], c[1], R + 0.6, ryOf(R + 0.6), paint('sph-soft'), op(0.6));
+  for (const p of dome(13, R - 2.5, 5, T.x, T.y - 0.4, T.z, rng, 0.9)) {
+    const size = 4.6 + rng.next() * 1.2;
+    s += dropShadow(p.x, p.y, size * 0.9, size * 0.32, 0.2) + flat(p.x, p.y, granolaCluster(p.x, p.y, size, rng));
+  }
+  for (const p of dome(10, R + 1.5, 4, T.x, T.y, T.z, rng, 1)) {
+    const a = rng.next() * 180;
+    s += ellipse(p.x, p.y, 1.9, 0.95, '#e2c084', stroke(0.3, '#a8773f') + tf(`rotate(${f(a)} ${f(p.x)} ${f(p.y)})`));
+  }
   return s;
 }
 
-export function binSVG(id, w = 84) {
-  const h = Math.round((w * 72) / 100);
-  return memo(`bin|${id}|${w}`, () => {
-    let inner;
-    if (SAUCE_BOWL[id]) inner = sauceInBowl(id);
-    else if (id === 'chia') inner = chiaHeap();
-    else if (id === 'mint') inner = mintHeap();
-    else if (BOWL_FOOD[id]) inner = foodHeap(id);
-    else inner = g('translate(30 2) scale(0.4)', iconBody(id));
-    return svgWrap(w, h, 100, 72, bowlShell(inner));
+// Shredded coconut (a fluffy white mound of fine curls) or cacao nibs heaped in a round container.
+const BOWL_HEAP = {
+  coconut: { bed: '#f1ebdf', H: 8, shreds: 210 },
+  cacao: { bed: '#3b1d10', draw: cacaoNib, n: 120, s: 2.4, H: 7, ds: 0.6 },
+};
+function bowlHeap(id) {
+  const T = pantryTop(id);
+  const spec = BOWL_HEAP[id];
+  const rng = rngFor(`heap-${id}`);
+  const R = T.r - 1;
+  const c = pt(T.x, T.y - 1, T.z);
+  // the heap's body: an ellipse at the rim and a dome above it, shaded like the pieces
+  const top = pt(T.x, T.y + spec.H, T.z);
+  const body = `M${f(c[0] - R)} ${f(c[1])}C${f(c[0] - R)} ${f(top[1] - 1)} ${f(c[0] - R * 0.5)} ${f(top[1] - ryOf(R) * 0.6)} ${f(c[0])} ${f(top[1] - ryOf(R) * 0.6)}` +
+    `C${f(c[0] + R * 0.5)} ${f(top[1] - ryOf(R) * 0.6)} ${f(c[0] + R)} ${f(top[1] - 1)} ${f(c[0] + R)} ${f(c[1])}A${f(R)} ${f(ryOf(R))} 0 0 1 ${f(c[0] - R)} ${f(c[1])}Z`;
+  let s = path(body, spec.bed) + path(body, paint('sph-soft'), op(0.9));
+  if (spec.shreds) {
+    // fine curls all over the mound: shadowed ones first, then the lit ones
+    const shade = [];
+    const lit = [];
+    for (const p of dome(spec.shreds, R, spec.H, T.x, T.y - 0.5, T.z, rng)) {
+      const a = rng.next() * Math.PI;
+      const l = 1.4 + rng.next() * 1.6;
+      const d = `M${f(p.x - Math.cos(a) * l)} ${f(p.y - Math.sin(a) * l * 0.6)}q${f(Math.cos(a + 1) * l)} ${f(Math.sin(a + 1) * l * 0.6)} ${f(Math.cos(a) * l * 2)} ${f(Math.sin(a) * l * 1.2)}`;
+      (rng.next() < 0.35 ? shade : lit).push(d);
+    }
+    s += line(shade.join(''), '#b9ad97', 0.9, op(0.8)) + line(lit.join(''), WHITE, 1, op(0.95));
+    return s;
+  }
+  for (const p of dome(spec.n, R, spec.H, T.x, T.y - 0.5, T.z, rng)) {
+    const size = spec.s * (0.85 + rng.next() * 0.3);
+    s += dropShadow(p.x, p.y, size * spec.ds, size * 0.3 * spec.ds, 0.16) + spec.draw(p.x, p.y, size, rng);
+  }
+  return s;
+}
+
+// A fresh mint leaf lying on the board (from its stalk at x, y along +x, turned by deg): ovate with a
+// pointed tip and a toothed edge, its own shade of green, the deep-set veins darker than the leaf
+// and a soft sheen on its upper half.
+const MINT_TONES = ['#45a655', '#51b461', '#3e9c4d', '#5bbc69'];
+function boardLeaf(x, y, len, wid, deg, rng) {
+  const top = [];
+  const bot = [];
+  const n = 12;
+  for (let i = 1; i < n; i++) {
+    const k = i / n;
+    const w = wid * Math.sin(Math.PI * k ** 0.78) ** 0.8 * (i % 2 ? 1 : 0.9);
+    top.push([len * k, -w]);
+    bot.push([len * k, w]);
+  }
+  const d = `M0 0${top.map(([a, b]) => `L${f(a)} ${f(b)}`).join('')}L${f(len)} 0${bot.reverse().map(([a, b]) => `L${f(a)} ${f(b)}`).join('')}Z`;
+  let veins = `M${f(len * 0.03)} 0L${f(len * 0.9)} 0`;
+  for (const k of [0.22, 0.4, 0.57, 0.73]) {
+    const w = wid * 0.62 * Math.sin(Math.PI * (k + 0.1)) ** 0.7;
+    veins += `M${f(len * k)} 0Q${f(len * (k + 0.06))} ${f(-w * 0.5)} ${f(len * (k + 0.15))} ${f(-w)}M${f(len * k)} 0Q${f(len * (k + 0.06))} ${f(w * 0.5)} ${f(len * (k + 0.15))} ${f(w)}`;
+  }
+  const col = MINT_TONES[Math.floor(rng.next() * MINT_TONES.length)];
+  const sw = Math.max(0.3, wid * 0.06);
+  return g(`translate(${f(x)} ${f(y)}) rotate(${f(deg)})`,
+    path(d, col, stroke(sw, '#24723a')) + path(d, paint('sph-soft')) + line(veins, '#23703a', sw, op(0.7)) +
+    ellipse(len * 0.42, -wid * 0.42, len * 0.24, wid * 0.16, WHITE, op(0.3)));
+}
+
+// A sprig of mint lying on its side (drawn along +x from its cut end at x, y, then turned by deg): a
+// stem that thins toward the tip with a pair of leaves at each node, the pairs turned 90° to each
+// other (one lies flat, spread to both sides; in the next one a leaf stands up over the stem, its
+// partner lies under it); big leaves low on the stem, small ones up to a tuft at the tip.
+function mintStem(x, y, len, deg, rng) {
+  let under = '';
+  let over = '';
+  [0.22, 0.47, 0.68, 0.84].forEach((t, i) => {
+    const l = len * 0.44 * (1 - t * 0.68) * (0.9 + rng.next() * 0.2);
+    const w = l * 0.54;
+    const at = len * t;
+    if (i % 2 === 0) {
+      const a = 62 - i * 7 + (rng.next() - 0.5) * 14;
+      under += boardLeaf(at, 0, l, w, -a, rng) + boardLeaf(at, 0, l * 0.94, w * 0.96, a + (rng.next() - 0.5) * 12, rng);
+    } else {
+      under += boardLeaf(at, 0.4, l * 0.55, w * 0.85, 104 + (rng.next() - 0.5) * 16, rng);
+      over += boardLeaf(at, -0.4, l * 0.66, w * 1.05, -100 + (rng.next() - 0.5) * 18, rng);
+    }
   });
+  over += boardLeaf(len * 0.95, 0, len * 0.12, len * 0.065, -26, rng) + boardLeaf(len * 0.95, 0, len * 0.11, len * 0.06, 28, rng) +
+    boardLeaf(len * 0.96, 0, len * 0.1, len * 0.05, 0, rng);
+  const sw = Math.max(0.6, len * 0.022);
+  const stem = `M0 ${f(-sw)}Q${f(len * 0.5)} ${f(-sw * 0.9 - len * 0.015)} ${f(len)} ${f(-sw * 0.3)}L${f(len)} ${f(sw * 0.3)}Q${f(len * 0.5)} ${f(sw * 0.9 - len * 0.015)} 0 ${f(sw)}Z`;
+  return g(`translate(${f(x)} ${f(y)}) rotate(${f(deg)})`, under + path(stem, '#2f7d3b', stroke(0.4, '#1d5a28')) + ellipse(0, 0, sw * 0.7, sw, '#9ccf8a') + over);
+}
+
+// Fresh mint lying on the board: three sprigs and a few loose leaves, seen from above like the board;
+// its back left corner stays free for the layer badge.
+function boardMint(id) {
+  const T = pantryTop(id);
+  const rng = rngFor('board-mint');
+  const flat = (px, py, body) => g(`translate(${f(px)} ${f(py)}) scale(1 ${f(SIN_P + 0.22)}) translate(${f(-px)} ${f(-py)})`, body);
+  let s = '';
+  for (const [x, z, deg, len] of [[-31, -20, -4, 62], [-8, -4, 10, 44], [-32, 9, -12, 56]]) {
+    const [px, py] = pt(T.x + x, T.y + 1, T.z + z);
+    const r = (deg * Math.PI) / 180;
+    const sx = px + Math.cos(r) * len * 0.5 + 1;
+    const sy = py + Math.sin(r) * len * 0.42 + 2.5;
+    s += ellipse(sx, sy, len * 0.5, 4.5, '#1d0f08', op(0.13) + tf(`rotate(${f(deg * 0.84)} ${f(sx)} ${f(sy)})`));
+    s += flat(px, py, mintStem(px, py, len, deg, rng));
+  }
+  for (const [x, z, deg, l] of [[22, -18, 32, 13], [30, 4, -150, 12], [8, 16, 168, 10]]) {
+    const [px, py] = pt(T.x + x, T.y + 1, T.z + z);
+    s += ellipse(px + 1, py + 2, l * 0.45, 2.4, '#1d0f08', op(0.12)) + flat(px, py, boardLeaf(px - l / 2, py, l, l * 0.5, deg, rng));
+  }
+  return s;
+}
+
+function fillOf(id) {
+  if (TRAY_FILL[id]) return trayFill(id);
+  if (id === 'granola') return jarHeap(id);
+  if (BOWL_HEAP[id]) return bowlHeap(id);
+  if (id === 'mint') return boardMint(id);
+  return '';
+}
+
+// ---------------------------------------------------------------- the drawn containers (no WebGL)
+const STEEL = { face: '#c3c9cf', top: '#e4e8eb', inside: '#959fa8', floor: '#b5bcc3', line: '#6f7a85' };
+
+// Stainless tray: outer wall, flange, inside; the front part (outer wall and the flange's front
+// half) is drawn again over the fruit.
+function trayDrawn(front) {
+  const G = PANTRY_GEO.tray;
+  const o = { z: G.cz, sq: G.sq, depth: G.depth };
+  const fl = G.hx + G.lip + 0.2;
+  const fy = G.h + 1.2;
+  const inner = G.hx - 0.9;
+  const iy = G.h + 0.9;
+  const half = (r, y) => ringPts(r, y, { ...o, a0: 0, a1: Math.PI, n: 40 });
+  const wall = polyPath([...half(G.bottom, 0.5), ...half(fl, fy).reverse()]);
+  let s = '';
+  if (!front) {
+    const c = pt(0, 0, G.cz);
+    s += softShadow(c[0] + 2, c[1] + 2, G.bottom + 7, ryOf(G.bottom * G.depth) + 6);
+  }
+  s += path(wall, STEEL.face, stroke(0.6, STEEL.line)) + path(wall, paint('steel', STEEL.face), op(0.8)) + path(wall, paint('down-dark'), op(0.3));
+  if (front) {
+    const band = polyPath([...half(fl, fy), ...half(inner, iy).reverse()]);
+    s += path(band, STEEL.top, stroke(0.5, STEEL.line)) + path(band, paint('steel', STEEL.top), op(0.55));
+    s += line(openPath(ringPts(fl - 0.4, fy + 0.3, { ...o, a0: 0.25 * Math.PI, a1: 0.8 * Math.PI, n: 24 })), WHITE, 0.9, op(0.85));
+    return s;
+  }
+  const flange = `${polyPath(ringPts(fl, fy, o))}${polyPath(ringPts(inner, iy, o))}`;
+  s += path(flange, STEEL.top, stroke(0.5, STEEL.line) + ' fill-rule="evenodd"') + path(flange, paint('steel-v', STEEL.top), op(0.5) + ' fill-rule="evenodd"');
+  const opening = polyPath(ringPts(inner, iy, o));
+  s += path(opening, STEEL.inside) + path(opening, paint('steel-in', STEEL.inside), op(0.7));
+  const floor = polyPath(ringPts(G.bottom - 2.4, 1.1, o));
+  s += path(floor, STEEL.floor) + path(floor, paint('steel', STEEL.floor), op(0.4));
+  // the flange catches the key light on its back left
+  s += line(openPath(ringPts(fl - 0.4, fy + 0.3, { ...o, a0: 1.05 * Math.PI, a1: 1.55 * Math.PI, n: 20 })), WHITE, 1.1, op(0.9));
+  return s;
+}
+
+// Glass jar body (straight wall, shoulder, neck) around (x, z), as one outline.
+function jarOutline({ x, z, r, h, mouth, neck }) {
+  const n = mouth + 1.5;
+  const B = pt(x, 0, z);
+  const S = pt(x, h - 6, z);
+  const N = pt(x, h, z);
+  const T = pt(x, h + neck, z);
+  return `M${f(B[0] - r)} ${f(S[1])}V${f(B[1])}A${f(r)} ${f(ryOf(r))} 0 0 0 ${f(B[0] + r)} ${f(B[1])}V${f(S[1])}` +
+    `C${f(B[0] + r)} ${f(N[1] + 2.5)} ${f(B[0] + n)} ${f(N[1] + 1.5)} ${f(B[0] + n)} ${f(N[1])}V${f(T[1])}` +
+    `A${f(n)} ${f(ryOf(n))} 0 0 0 ${f(B[0] - n)} ${f(T[1])}V${f(N[1])}C${f(B[0] - n)} ${f(N[1] + 1.5)} ${f(B[0] - r)} ${f(N[1] + 2.5)} ${f(B[0] - r)} ${f(S[1])}Z`;
+}
+// Inner radius of a jar at height y (straight wall, then the shoulder up to the mouth).
+const jarInner = ({ r, h, mouth }, y) => (y <= h - 6 ? r - 1.6 : Math.max(mouth - 0.3, r - 1.6 - ((y - (h - 6)) / 6) * (r - 1.6 - mouth)));
+// What fills a jar (or glass) up to `level`: its front seen through the glass (with `inside` drawn on
+// it, under its shading) and its top surface.
+function jarContent(G, level, col, top, inside = '') {
+  const { x, z, r } = G;
+  const ri = (y) => jarInner(G, y);
+  const B = pt(x, 1.6, z);
+  const L = pt(x, level, z);
+  const rl = ri(level);
+  const d = `M${f(L[0] - rl)} ${f(L[1])}L${f(B[0] - r + 1.6)} ${f(B[1])}A${f(r - 1.6)} ${f(ryOf(r - 1.6))} 0 0 0 ${f(B[0] + r - 1.6)} ${f(B[1])}` +
+    `L${f(L[0] + rl)} ${f(L[1])}A${f(rl)} ${f(ryOf(rl))} 0 0 0 ${f(L[0] - rl)} ${f(L[1])}Z`;
+  return path(d, col) + inside + path(d, paint('cyl'), op(0.75)) + ellipse(L[0], L[1], rl, ryOf(rl), top) + ellipse(L[0], L[1], rl, ryOf(rl), paint('sph-soft'), op(0.6));
+}
+function glassOver(G) {
+  const d = jarOutline(G);
+  const n = G.mouth + 1.5;
+  const T = pt(G.x, G.h + G.neck, G.z);
+  const B = pt(G.x, 0, G.z);
+  let s = path(d, paint('glass', 'none')) + path(d, 'none', stroke(0.7, '#8fb1bd') + op(0.75));
+  s += ellipse(T[0], T[1], n, ryOf(n), 'none', stroke(1.3, '#f4fbfd') + op(0.95)) + ellipse(T[0], T[1], n - 1.2, ryOf(n - 1.2), 'none', stroke(0.6, '#8fb1bd') + op(0.7));
+  s += path(`M${f(B[0] - G.r + 2)} ${f(B[1] - 1)}A${f(G.r - 2)} ${f(ryOf(G.r - 2))} 0 0 0 ${f(B[0] + G.r - 2)} ${f(B[1] - 1)}`, 'none', stroke(1.6, '#e8f6f9') + op(0.8));
+  s += line(`M${f(B[0] - G.r + 3.4)} ${f(B[1] - ryOf(G.r) - 2)}V${f(T[1] + 8)}`, WHITE, 1.8, op(0.7));
+  s += line(`M${f(B[0] + G.r - 2.6)} ${f(B[1] - ryOf(G.r) - 3)}V${f(T[1] + 10)}`, WHITE, 0.8, op(0.55));
+  return s;
+}
+
+// A ring of radius rr on the clip-top jar's open lid, ly above its underside (the lid swung back by
+// lidOpen about its hinge, like the 3D lid), as screen points.
+function lidRing(G, rr, ly, n = 40) {
+  const { hinge } = G.lid;
+  const d = -hinge[2]; // the lid's centre lies this far in front of the hinge when closed
+  const c = Math.cos(G.lidOpen);
+  const sn = Math.sin(G.lidOpen);
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const a = (i / n) * TAU;
+    const lz = Math.sin(a) * rr + d;
+    out.push(pt(G.x + Math.cos(a) * rr, hinge[1] + c * ly + sn * lz, G.z + hinge[2] - sn * ly + c * lz));
+  }
+  return out;
+}
+
+function clipJarDrawn() {
+  const G = PANTRY_GEO.clipJar;
+  const top = G.h + G.neck;
+  const c = pt(G.x, 0, G.z);
+  const T = pt(G.x, top, G.z);
+  const n = G.mouth + 1.5;
+  let s = softShadow(c[0] + 1.5, c[1] + 1.5, G.r + 4, ryOf(G.r) + 3.5);
+  // the glass lid swung back behind the mouth, its orange seal toward the player
+  const lid = polyPath(lidRing(G, G.lid.r, 1));
+  s += path(lid, '#eef8fa', op(0.6) + stroke(0.7, '#8fb1bd')) + path(lid, paint('glass', 'none'));
+  s += path(polyPath(lidRing(G, G.mouth + 1.2, -0.7)), 'none', stroke(2.1, '#e9652b'));
+  // the granola packed behind the glass: toasted clusters in a few tones close together (the dark gaps
+  // between them are the filling's own colour) and light oat flakes, narrower toward the sides
+  const rng = rngFor('jar-granola');
+  const tones = ['#c98a3f', '#b5772f', '#d9a45a', '#a0642a'];
+  const blobs = tones.map(() => '');
+  let flakes = '';
+  const blob = (x, y, rx, ry, deg) => { // an ellipse turned by deg as a subpath
+    const dx = Math.cos((deg * Math.PI) / 180) * rx;
+    const dy = Math.sin((deg * Math.PI) / 180) * rx;
+    const arc = `${f(rx)} ${f(ry)} ${f(deg)} 1 0`;
+    return `M${f(x - dx)} ${f(y - dy)}A${arc} ${f(x + dx)} ${f(y + dy)}A${arc} ${f(x - dx)} ${f(y - dy)}Z`;
+  };
+  for (let i = 0; i < 360; i++) {
+    const a = rng.next() * Math.PI;
+    const y = 2 + rng.next() * (top - 3.5);
+    const r = jarInner(G, y) - 0.4;
+    const [px, py] = pt(G.x + Math.cos(a) * r, y, G.z + Math.sin(a) * r);
+    const k = 0.45 + 0.55 * Math.sin(a); // foreshortened toward the sides
+    if (i % 5 === 4) flakes += blob(px, py, 1.3 * k, 0.65, rng.next() * 180);
+    else blobs[i % tones.length] += blob(px, py, (1.6 + rng.next() * 1.1) * k, 1.2 + rng.next() * 0.6, rng.next() * 180);
+  }
+  const packed = blobs.map((d, i) => path(d, tones[i])).join('') + path(flakes, '#ecd39c');
+  s += jarContent(G, top - 0.8, '#8a5020', '#8a501d', packed);
+  s += glassOver(G);
+  // the bail: a wire ring around the neck and the lever lying back to the lid's hinge
+  const yN = top - 1.6;
+  const rn = G.mouth + 2.2;
+  const { hinge } = G.lid;
+  const lever = [[-rn, yN, 0], [-rn - 0.5, yN + 2.4, -G.mouth * 0.72], [-7, hinge[1] + 1.2, hinge[2] - 0.6], [7, hinge[1] + 1.2, hinge[2] - 0.6], [rn + 0.5, yN + 2.4, -G.mouth * 0.72], [rn, yN, 0]]
+    .map(([x, y, z]) => pt(G.x + x, y, G.z + z));
+  const N = pt(G.x, yN, G.z);
+  s += line(openPath(lever), '#6f7a85', 1.9) + line(openPath(lever), '#e6eaee', 1);
+  s += ellipse(N[0], N[1], rn, ryOf(rn), 'none', stroke(1.9, '#6f7a85')) + ellipse(N[0], N[1], rn, ryOf(rn), 'none', stroke(1, '#e6eaee'));
+  return s + ellipse(T[0] - n * 0.45, T[1] + ryOf(n) * 0.6, 2.2, 1, WHITE, op(0.8));
+}
+
+// A paper label over the front of a jar (radius r, from y0 to y1, ±1.05 rad around the front).
+function jarLabelDrawn(G, y0, y1, kind) {
+  const o = { x: G.x, z: G.z, a0: Math.PI / 2 - 1.05, a1: Math.PI / 2 + 1.05, n: 16 };
+  const band = polyPath([...ringPts(G.r + 0.2, y0, o), ...ringPts(G.r + 0.2, y1, o).reverse()]);
+  const [cx, cy] = pt(G.x, (y0 + y1) / 2, G.z + G.r);
+  let s;
+  if (kind === 'honey') {
+    s = path(band, '#f0dcae');
+    let hex = '';
+    for (let row = 0; row < 3; row++) {
+      for (let col = -2; col <= (row % 2 ? 1 : 2); col++) {
+        const hx = cx + col * 6.2 + (row % 2 ? 3.1 : 0);
+        const hy = cy - 5.4 + row * 5.4;
+        hex += `M${f(hx + 3.2)} ${f(hy)}${[1, 2, 3, 4, 5].map((k) => `L${f(hx + Math.cos((k * Math.PI) / 3) * 3.2)} ${f(hy + Math.sin((k * Math.PI) / 3) * 3.2)}`).join('')}Z`;
+      }
+    }
+    s += line(hex, '#c47d0e', 0.9);
+  } else {
+    s = path(band, '#c8322b') + ellipse(cx, cy, 9.5, 6.4, '#f4e6cc') + peanutPod(cx, cy, 5.6, 0);
+  }
+  return s + path(band, paint('cyl'), op(0.6));
+}
+
+function honeyDrawn() {
+  const G = PANTRY_GEO.honey;
+  const c = pt(G.x, 0, G.z);
+  const L = G.lid;
+  const lc = pt(L.x, 0, L.z);
+  const lt = pt(L.x, 4.8, L.z);
+  // the gold lid lies beside the jar
+  let s = softShadow(lc[0] + 1.5, lc[1] + 1, L.r + 3, ryOf(L.r) + 2.5) + softShadow(c[0] + 1.5, c[1] + 1.5, G.r + 4, ryOf(G.r) + 3.5);
+  const skirt = `M${f(lc[0] - L.r)} ${f(lt[1])}V${f(lc[1])}A${f(L.r)} ${f(ryOf(L.r))} 0 0 0 ${f(lc[0] + L.r)} ${f(lc[1])}V${f(lt[1])}Z`;
+  s += path(skirt, '#b98b2f', stroke(0.6, '#7a5a1a')) + path(skirt, paint('cyl'), op(0.8));
+  s += ellipse(lt[0], lt[1], L.r, ryOf(L.r), '#e2bd62', stroke(0.6, '#8f6a22')) + ellipse(lt[0], lt[1], L.r, ryOf(L.r), paint('sph'), op(0.8));
+  s += jarContent(G, G.level, '#e08a0c', '#f7b33c');
+  s += ellipse(c[0] - 4, pt(G.x, G.level, G.z)[1] + 1, 3.5, 1.2, '#fff1c2', op(0.6));
+  // the dipper leans out of the honey, up to the right
+  const d = pt(G.x + 3, G.level + 1, G.z);
+  s += g(`translate(${f(d[0])} ${f(d[1])}) scale(0.74) translate(${f(-d[0])} ${f(-d[1])})`, honeyDipper(d[0], d[1], -54, SAUCE.honey.col, SAUCE.honey.hi, SAUCE.honey.dark));
+  s += glassOver(G) + jarLabelDrawn(G, 12, 32, 'honey');
+  return s;
+}
+
+function peanutDrawn() {
+  const G = PANTRY_GEO.peanut;
+  const c = pt(G.x, 0, G.z);
+  const L = G.lid;
+  const lc = pt(L.x, 0, L.z);
+  const lt = pt(L.x, L.h, L.z);
+  let s = softShadow(c[0] + 1.5, c[1] + 1.5, G.r + 4, ryOf(G.r) + 3.5) + softShadow(lc[0] + 1.5, lc[1] + 1, L.r + 3, ryOf(L.r) + 2.5);
+  // the red lid lies beside the jar, top up: its knurled skirt and glossy top
+  const skirt = `M${f(lc[0] - L.r)} ${f(lt[1])}V${f(lc[1])}A${f(L.r)} ${f(ryOf(L.r))} 0 0 0 ${f(lc[0] + L.r)} ${f(lc[1])}V${f(lt[1])}Z`;
+  let ribs = '';
+  for (let k = 1; k < 18; k++) {
+    const x = lc[0] - Math.cos((k / 18) * Math.PI) * L.r;
+    const y = lc[1] + Math.sin((k / 18) * Math.PI) * ryOf(L.r);
+    ribs += `M${f(x)} ${f(y - 0.6)}V${f(y - (lc[1] - lt[1]) + 0.6)}`;
+  }
+  s += path(skirt, '#b8352c', stroke(0.6, '#6e1611')) + line(ribs, '#7d1a14', 0.7, op(0.7)) + path(skirt, paint('cyl'), op(0.75));
+  s += ellipse(lt[0], lt[1], L.r, ryOf(L.r), '#c23a30', stroke(0.6, '#6e1611')) + ellipse(lt[0], lt[1], L.r, ryOf(L.r), paint('sph'), op(0.7));
+  s += line(openPath(ringPts(L.r - 0.8, L.h, { x: L.x, z: L.z, a0: 1.05 * Math.PI, a1: 1.5 * Math.PI, n: 12 })), WHITE, 0.9, op(0.75));
+  s += jarContent(G, G.level, '#c4853f', '#d9a462');
+  const t = pt(G.x, G.level + 0.8, G.z);
+  s += line(`M${f(t[0] - 8)} ${f(t[1] + 1)}Q${f(t[0])} ${f(t[1] - 3)} ${f(t[0] + 8)} ${f(t[1])}M${f(t[0] - 5)} ${f(t[1] + 3)}Q${f(t[0] + 1)} ${f(t[1] + 1)} ${f(t[0] + 6)} ${f(t[1] + 3)}`, '#eec58f', 1, op(0.8));
+  // the spoon: its bowl in the peanut butter, the handle over the rim to the back right
+  s += ellipse(t[0] + 1, t[1] + 0.5, 4.2, 2.2, paint('steel', '#cfd6dc'), stroke(0.6, '#5f6a75'));
+  s += line(`M${f(t[0] + 4)} ${f(t[1] - 1)}L${f(t[0] + 16)} ${f(t[1] - 18)}`, '#5f6a75', 2.4) + line(`M${f(t[0] + 4)} ${f(t[1] - 1)}L${f(t[0] + 16)} ${f(t[1] - 18)}`, '#dfe5ea', 1.4);
+  s += glassOver(G) + jarLabelDrawn(G, 13, 33, 'peanut');
+  return s;
+}
+
+function chiaDrawn() {
+  const G = PANTRY_GEO.chia;
+  const B = pt(G.x, 0, G.z);
+  const T = pt(G.x, G.h, G.z);
+  const L = pt(G.x, G.level, G.z);
+  const rl = G.rb + ((G.level - 2) / G.h) * (G.rt - G.rb) - 1.4;
+  const outline = `M${f(T[0] - G.rt)} ${f(T[1])}L${f(B[0] - G.rb)} ${f(B[1])}A${f(G.rb)} ${f(ryOf(G.rb))} 0 0 0 ${f(B[0] + G.rb)} ${f(B[1])}L${f(T[0] + G.rt)} ${f(T[1])}A${f(G.rt)} ${f(ryOf(G.rt))} 0 0 0 ${f(T[0] - G.rt)} ${f(T[1])}Z`;
+  let s = softShadow(B[0] + 1.5, B[1] + 1.5, G.rb + 4, ryOf(G.rb) + 3.5);
+  const seeds = `M${f(L[0] - rl)} ${f(L[1])}L${f(B[0] - G.rb + 1.4)} ${f(B[1] - 1.5)}A${f(G.rb - 1.4)} ${f(ryOf(G.rb - 1.4))} 0 0 0 ${f(B[0] + G.rb - 1.4)} ${f(B[1] - 1.5)}L${f(L[0] + rl)} ${f(L[1])}A${f(rl)} ${f(ryOf(rl))} 0 0 0 ${f(L[0] - rl)} ${f(L[1])}Z`;
+  s += path(seeds, '#46423d');
+  // seeds on the front of the filling and on its top
+  const rng = rngFor('weck-chia');
+  const pts = [];
+  for (let i = 0; i < 110; i++) {
+    const y = 2.4 + rng.next() * (G.level - 2.8);
+    const a = 0.06 * Math.PI + rng.next() * 0.88 * Math.PI;
+    const r = G.rb - 1.6 + ((y - 2) / G.h) * (G.rt - G.rb);
+    pts.push(pt(G.x + Math.cos(a) * r, y, G.z + Math.sin(a) * r));
+  }
+  for (let i = 0; i < 70; i++) {
+    const a = rng.next() * TAU;
+    const k = Math.sqrt(rng.next()) * 0.95;
+    pts.push(pt(G.x + Math.cos(a) * k * rl, G.level, G.z + Math.sin(a) * k * rl));
+  }
+  s += chiaSeeds(pts, rng, 1.2, 0.7);
+  s += path(seeds, paint('cyl'), op(0.6));
+  // the round measuring spoon on the seeds, its handle over the rim toward the front right (like the
+  // 3D spoon: turned by sp.turn about y, scaled by sp.k)
+  const sp = G.spoon;
+  const along = [Math.cos(sp.turn), -Math.sin(sp.turn)]; // the handle's direction in x, z
+  const at = (u, v) => pt(G.x + sp.x + along[0] * u * sp.k, G.level + 0.5 + v * sp.k, G.z + sp.z + along[1] * u * sp.k);
+  const S = at(0, 1.4);
+  const R = 4.9 * sp.k;
+  const handle = openPath([[4.4, 2.4], [9, 4.8], [14, 7.2], [19.5, 8.2]].map(([u, v]) => at(u, v)));
+  s += ellipse(S[0], S[1], R, ryOf(R), paint('steel', '#e3e8ec'), stroke(0.6, '#5f6a75')) + ellipse(S[0], S[1] + 0.3, R - 1.6, ryOf(R - 1.6), '#3e3a35');
+  s += line(handle, '#5f6a75', 2.6) + line(handle, '#eef2f5', 1.5);
+  s += path(outline, paint('glass', 'none')) + path(outline, 'none', stroke(0.7, '#8fb1bd') + op(0.75));
+  s += ellipse(T[0], T[1], G.rt, ryOf(G.rt), 'none', stroke(1.4, '#f4fbfd') + op(0.95));
+  s += line(`M${f(B[0] - G.rb + 2.5)} ${f(B[1] - ryOf(G.rb) - 1)}L${f(T[0] - G.rt + 3)} ${f(T[1] + 4)}`, WHITE, 1.6, op(0.7));
+  return s;
+}
+
+function bottleDrawn() {
+  const G = PANTRY_GEO.bottle;
+  const B = pt(G.x, 0, G.z);
+  const S = pt(G.x, G.h - 6, G.z);
+  const N = pt(G.x, G.h + 1, G.z);
+  const r = G.r;
+  const body = `M${f(B[0] - r)} ${f(S[1])}V${f(B[1])}A${f(r)} ${f(ryOf(r))} 0 0 0 ${f(B[0] + r)} ${f(B[1])}V${f(S[1])}C${f(B[0] + r)} ${f(N[1] + 3)} ${f(B[0] + 8.4)} ${f(N[1] + 1)} ${f(B[0] + 8.4)} ${f(N[1])}H${f(B[0] - 8.4)}C${f(B[0] - 8.4)} ${f(N[1] + 1)} ${f(B[0] - r)} ${f(N[1] + 3)} ${f(B[0] - r)} ${f(S[1])}Z`;
+  let s = softShadow(B[0] + 1.5, B[1] + 1.5, r + 4, ryOf(r) + 3.5);
+  s += path(body, '#3d1e10', stroke(0.7, '#1f0d05')) + path(body, paint('cyl'), op(0.9));
+  // label with chocolate running down from its top edge
+  const l0 = pt(G.x, G.label[0], G.z)[1] + ryOf(r);
+  const l1 = pt(G.x, G.label[1], G.z)[1] + ryOf(r);
+  let drips = `M${f(B[0] - r)} ${f(l1)}`;
+  for (let i = 0; i < 6; i++) {
+    const x = B[0] - r + (i + 0.5) * ((2 * r) / 6);
+    drips += `L${f(x - 1.6)} ${f(l1)}Q${f(x)} ${f(l1 + 3 + (i % 3) * 1.6)} ${f(x + 1.6)} ${f(l1)}`;
+  }
+  s += path(`M${f(B[0] - r)} ${f(l1)}V${f(l0)}A${f(r)} ${f(ryOf(r) * 0.4)} 0 0 0 ${f(B[0] + r)} ${f(l0)}V${f(l1)}Z`, '#f3e7d3');
+  s += path(`${drips}H${f(B[0] + r)}V${f(l1 - 1.4)}H${f(B[0] - r)}Z`, '#4a2312');
+  s += ellipse(B[0], (l0 + l1) / 2 + 2, 4.6, 3, '#7a3f1d', tf(`rotate(-20 ${f(B[0])} ${f((l0 + l1) / 2 + 2)})`));
+  s += path(`M${f(B[0] - r)} ${f(l1)}V${f(l0)}A${f(r)} ${f(ryOf(r) * 0.4)} 0 0 0 ${f(B[0] + r)} ${f(l0)}V${f(l1)}Z`, paint('cyl'), op(0.7));
+  // the cap and its nozzle
+  const C0 = pt(G.x, G.h + 0.6, G.z);
+  const C1 = pt(G.x, G.h + 7.6, G.z);
+  const tip = pt(G.x, G.h + 18.4, G.z);
+  const cap = `M${f(C0[0] - 8.9)} ${f(C0[1])}V${f(C1[1])}L${f(C1[0] - 5.6)} ${f(C1[1] - 1)}L${f(tip[0] - 1.4)} ${f(tip[1] + 1.4)}Q${f(tip[0])} ${f(tip[1] - 0.6)} ${f(tip[0] + 1.4)} ${f(tip[1] + 1.4)}L${f(C1[0] + 5.6)} ${f(C1[1] - 1)}L${f(C1[0] + 8.9)} ${f(C1[1])}V${f(C0[1])}A${f(8.9)} ${f(ryOf(8.9))} 0 0 1 ${f(C0[0] - 8.9)} ${f(C0[1])}Z`;
+  s += path(cap, '#2a130a', stroke(0.6, '#120703')) + path(cap, paint('cyl'), op(0.85));
+  s += line(`M${f(B[0] - r + 3)} ${f(B[1] - 4)}V${f(S[1] - 2)}`, WHITE, 1.6, op(0.45));
+  return s;
+}
+
+// Half a coconut or the walnut bowl: the outer shell, the rim and the inside; the front part (the
+// shell's front and the front half of the rim) is drawn again over the flakes or nibs.
+function roundDrawn(id, front) {
+  const coco = id === 'coconut';
+  const T = pantryTop(id);
+  const G = coco ? PANTRY_GEO.coconut : PANTRY_GEO.bowl;
+  const R = G.r;
+  const C = pt(0, T.y, T.z);
+  const bottom = pt(0, coco ? -G.sink : 0, T.z + (coco ? R * 0.42 : R * 0.55))[1];
+  const col = coco ? { shell: '#6e4527', line: '#3b2213', rim: '#fbf7ee', inside: '#efe5d0' } : { shell: '#8d5c37', line: '#4b2b16', rim: '#a36d43', inside: '#7a4b2a' };
+  const shell = `M${f(C[0] - R)} ${f(C[1])}C${f(C[0] - R)} ${f(bottom - 2)} ${f(C[0] - R * 0.5)} ${f(bottom)} ${f(C[0])} ${f(bottom)}C${f(C[0] + R * 0.5)} ${f(bottom)} ${f(C[0] + R)} ${f(bottom - 2)} ${f(C[0] + R)} ${f(C[1])}A${f(R)} ${f(ryOf(R))} 0 0 1 ${f(C[0] - R)} ${f(C[1])}Z`;
+  let s = '';
+  if (!front) s += softShadow(C[0] + 2, bottom - 1, R * 0.8, 5);
+  s += path(shell, col.shell, stroke(0.7, col.line));
+  const rng = rngFor(`shell-${id}`);
+  let grain = '';
+  for (let i = 0; i < (coco ? 30 : 12); i++) {
+    const x = C[0] - R * 0.85 + rng.next() * R * 1.7;
+    const y = C[1] + 2 + rng.next() * (bottom - C[1] - 4);
+    grain += coco ? `M${f(x)} ${f(y)}l${f(2 + rng.next() * 3)} ${f(rng.next() * 2 - 1)}` : `M${f(x)} ${f(y)}q${f(6 + rng.next() * 6)} ${f(rng.next() * 2 - 1)} ${f(14 + rng.next() * 8)} ${f(rng.next() * 1.4 - 0.7)}`;
+  }
+  s += line(grain, coco ? '#a77748' : '#5e3a20', coco ? 0.8 : 0.7, op(0.6)) + path(shell, paint('sph-soft'), op(0.9));
+  const ri = coco ? G.flesh : R - 3.2;
+  if (front) {
+    const band = `M${f(C[0] - R)} ${f(C[1])}A${f(R)} ${f(ryOf(R))} 0 0 0 ${f(C[0] + R)} ${f(C[1])}L${f(C[0] + ri)} ${f(C[1])}A${f(ri)} ${f(ryOf(ri))} 0 0 1 ${f(C[0] - ri)} ${f(C[1])}Z`;
+    s += path(band, col.rim, stroke(0.5, col.line)) + path(band, paint('down'), op(0.4));
+    return s;
+  }
+  s += ellipse(C[0], C[1], R, ryOf(R), col.rim, stroke(0.6, col.line));
+  s += ellipse(C[0], C[1] + 0.3, ri, ryOf(ri), col.inside) + ellipse(C[0], C[1] + 0.3, ri, ryOf(ri), paint('up-dark'), op(0.5));
+  return s;
+}
+
+function boardDrawn() {
+  const G = PANTRY_GEO.board;
+  const a = pt(-G.hx, G.h, -2 * G.hz);
+  const b = pt(G.hx, G.h, 0);
+  const e = pt(0, 0, 0)[1];
+  let s = softShadow((a[0] + b[0]) / 2 + 2, e - 2, G.hx + 4, 7);
+  s += path(rrect(a[0], b[1] - 2, b[0] - a[0], e - b[1] + 2, 2.4), '#9b6837');
+  s += path(rrect(a[0], a[1], b[0] - a[0], b[1] - a[1], 3), '#cf9f66', stroke(0.6, '#8a5a2b'));
+  const rng = rngFor('board-grain');
+  let grain = '';
+  for (let i = 0; i < 9; i++) {
+    const y = a[1] + 3 + rng.next() * (b[1] - a[1] - 6);
+    const x = a[0] + 4 + rng.next() * 30;
+    grain += `M${f(x)} ${f(y)}q${f(18 + rng.next() * 10)} ${f(rng.next() * 2 - 1)} ${f(40 + rng.next() * 14)} ${f(rng.next() * 1.6 - 0.8)}`;
+  }
+  s += line(grain, '#a8743f', 0.8, op(0.55)) + path(rrect(a[0], a[1], b[0] - a[0], b[1] - a[1], 3), paint('down'), op(0.5));
+  return s;
+}
+
+function containerDrawn(id, front) {
+  switch (pantryKind(id)) {
+    case 'tray': return trayDrawn(front);
+    case 'coconut': case 'bowl': return roundDrawn(id, front);
+    case 'clipJar': return front ? '' : clipJarDrawn();
+    case 'honey': return front ? '' : honeyDrawn();
+    case 'peanut': return front ? '' : peanutDrawn();
+    case 'chia': return front ? '' : chiaDrawn();
+    case 'bottle': return front ? '' : bottleDrawn();
+    case 'board': return front ? '' : boardDrawn();
+    default: return '';
+  }
+}
+
+// The ingredient's container with what is in it, drawn (no WebGL): w × w·112/96 px.
+export function binSVG(id, w = 84) {
+  const h = Math.round((w * PV.h) / PV.w);
+  return memo(`bin|${id}|${w}`, () => {
+    const body = pantryKind(id) ? containerDrawn(id, false) + fillOf(id) + containerDrawn(id, true) : g('translate(26 30) scale(0.44)', iconBody(id));
+    return svgWrap(w, h, PV.w, PV.h, body);
+  });
+}
+
+// What lies in or on the ingredient's container, drawn over its 3D picture (same box as binSVG); ''
+// when all of it is 3D (honey, chia, peanut butter, chocolate).
+export function binFillSVG(id, w = 84) {
+  if (!pantryTop(id)) return '';
+  const h = Math.round((w * PV.h) / PV.w);
+  return memo(`binfill|${id}|${w}`, () => svgWrap(w, h, PV.w, PV.h, fillOf(id)));
 }
 
 // ======================================================================
@@ -1018,21 +1463,22 @@ function drawPack(id, size) {
 }
 
 // ======================================================================
-// Cup stack (viewBox 120×200) and the free spot on the counter (viewBox 200×200)
+// Cup stack (viewBox 120×185) and the free spot on the counter (viewBox 200×200). The stacked cups
+// are the cups of bowlSVG at 44/64 of its scale, so cupStackSVG(w) stacks the cups of bowlSVG(1.146 w).
 // ======================================================================
 export function cupStackSVG(w = 90) {
-  const h = Math.round((w * 200) / 120);
+  const h = Math.round((w * 185) / 120);
   return memo(`stack|${w}`, () => {
     const cx = 60;
     const rim = { rx: 44, ry: 13 };
-    const bot = { y: 186, rx: 30, ry: 9.5 };
+    const bot = { y: 171, rx: 29, ry: 9.6 };
     const n = 7;
     const step = 9;
     const topY = 80 - (n - 1) * step; // rim of the top cup
     const lowRimY = 80;
     const wallX = (y) => rim.rx + ((y - lowRimY) / (bot.y - lowRimY)) * (bot.rx - rim.rx);
     const body = `M${cx - rim.rx} ${topY}V${lowRimY}L${f(cx - bot.rx)} ${bot.y}A${bot.rx} ${bot.ry} 0 0 0 ${f(cx + bot.rx)} ${bot.y}L${cx + rim.rx} ${lowRimY}V${topY}A${rim.rx} ${rim.ry} 0 0 0 ${cx - rim.rx} ${topY}Z`;
-    let s = softShadow(62, 190, 46, 9);
+    let s = softShadow(62, 175, 46, 9);
     s += path(body, paint('plastic-in', '#eaf6fa'));
     s += ellipse(cx, bot.y - 2, bot.rx - 2, bot.ry - 2, '#dcecf1', op(0.8));
     // the top cup's opening
@@ -1052,7 +1498,7 @@ export function cupStackSVG(w = 90) {
     s += path(body, 'none', stroke(1, '#8fb0bd') + op(0.6));
     s += path(`M${f(cx - bot.rx)} ${bot.y}A${bot.rx} ${bot.ry} 0 0 0 ${f(cx + bot.rx)} ${bot.y}`, 'none', stroke(2.6, '#ffffff') + op(0.7));
     void wallX;
-    return svgWrap(w, h, 120, 200, s);
+    return svgWrap(w, h, 120, 185, s);
   });
 }
 
@@ -1073,11 +1519,32 @@ export function cupSpotSVG(size = 150) {
 }
 
 // ======================================================================
-// Smoothie cup (viewBox 100×100); the cup's bottom sits at y = 96
+// Matcha glass (viewBox 100×100): a tall clear tumbler with a thick base, its bottom at y = 95.
+// A fruit matcha is an iced matcha latte in three layers: the fruit's purée at the bottom, milk,
+// then the matcha with a little foam on top, ice cubes, a paper straw and the fruit on the rim.
 // ======================================================================
-const SMOOTHIE_COLORS = { banana: '#f8e27a', strawberry: '#f45d78', blueberry: '#7b5cc9', mango: '#ffb53b', kiwi: '#9dcc4a' };
-const smoothieColor = (id) => SMOOTHIE_COLORS[id] || '#f58fb4';
-export const smoothieColorOf = smoothieColor;
+// (the kiwi's a vivid green with big black seeds, clearly apart from the olive matcha over it, even at
+// the order bubble's 64 px, BUBBLE_GLASS in js/game-view.js)
+const MATCHA_FRUIT_COLORS = { banana: '#f3d35c', strawberry: '#e5384f', blueberry: '#5d3f9e', mango: '#ffa623', kiwi: '#4fbf3f' };
+const fruitColor = (id) => MATCHA_FRUIT_COLORS[id] || MATCHA_FRUIT_COLORS.strawberry;
+// the seeds in a kiwi or strawberry purée (the others: lighter fibres): colour, size
+const PUREE_SEEDS = { kiwi: ['#16130b', 1.5], strawberry: ['#ffe08a', 1] };
+export const matchaFruitColorOf = fruitColor;
+const GL = { top: 21, rx: 24, ry: 4.6, bot: 91.4, brx: 20.6, bry: 3.6, floor: 85.5 };
+const glassX = (y) => GL.rx + ((y - GL.top) * (GL.brx - GL.rx)) / (GL.bot - GL.top); // half width at y
+const GLASS_BODY = `M${50 - GL.rx} ${GL.top}L${f(50 - GL.brx)} ${GL.bot}A${GL.brx} ${GL.bry} 0 0 0 ${f(50 + GL.brx)} ${GL.bot}L${50 + GL.rx} ${GL.top}A${GL.rx} ${GL.ry} 0 0 0 ${50 - GL.rx} ${GL.top}Z`;
+// the liquid levels of a full glass: purée up to PUREE_Y, milk up to MILK_Y, matcha up to FULL_Y
+const PUREE_Y = 71;
+const MILK_Y = 53;
+const FULL_Y = 28;
+// The milk and the matcha poured over it (the 3D machine's stream takes the same colours) and the
+// share of the pour that is milk: the glass fills with milk first, the matcha settles on top.
+export const MATCHA_COLORS = { milk: '#f4efe3', matcha: '#7f9f37', light: '#a9c45a', foam: '#e3ebc0' };
+export const MATCHA_MILK = (PUREE_Y - MILK_Y) / (PUREE_Y - FULL_Y);
+// The paper straw of a ready glass, from inside the drink (x0, y0) up to its tip (x1, y1), w wide with
+// round ends: short enough that it stays clear of the machine's collar and nozzle head above the
+// glass (tests/kitchen3d.test.mjs checks it).
+export const MATCHA_STRAW = { x0: 56.6, y0: FULL_Y + 1.5, x1: 67, y1: 9, w: 6 };
 
 function garnish(id, x, y) {
   const rng = rngFor(`garnish-${id}`);
@@ -1089,59 +1556,126 @@ function garnish(id, x, y) {
   return '';
 }
 
-// opts.fill (mixing): how full the cup is (0–1) while the 3D machine pours into it; opts.stream
-// false leaves out the cup's own stream (the machine draws it).
-export function cupSVG(fruitId = null, state = 'ready', size = 70, opts = null) {
-  const level = opts && Number.isFinite(opts.fill) ? Math.round(Math.max(0, Math.min(1, opts.fill)) * 12) / 12 : null;
-  const stream = !(opts && opts.stream === false);
-  return memo(`c|${fruitId}|${state}|${size}|${level}|${stream}`, () => drawSmoothieCup(fruitId, state, size, level, stream));
+// A band of liquid inside the glass from y0 (top) down to y1, its top surface an ellipse.
+function liquidBand(y0, y1, inset = 2.2) {
+  const l0 = 50 - glassX(y0) + inset;
+  const r0 = 50 + glassX(y0) - inset;
+  const l1 = 50 - glassX(y1) + inset;
+  const r1 = 50 + glassX(y1) - inset;
+  const ry = GL.ry * (glassX(y0) / GL.rx) * 0.82;
+  return `M${f(l0)} ${f(y0)}L${f(l1)} ${f(y1)}A${f((r1 - l1) / 2)} ${f(ry)} 0 0 0 ${f(r1)} ${f(y1)}L${f(r0)} ${f(y0)}A${f((r0 - l0) / 2)} ${f(ry)} 0 0 1 ${f(l0)} ${f(y0)}Z`;
+}
+const surfaceRy = (y) => GL.ry * (glassX(y) / GL.rx) * 0.82;
+
+// One ice cube in the glass (seen through the side): a rounded, slightly turned square.
+function iceCube(x, y, s, rot) {
+  const d = rrect(-s, -s, s * 2, s * 2, s * 0.38);
+  let b = path(d, '#ffffff', op(0.24) + stroke(0.7, '#ffffff'));
+  b += path(rrect(-s * 0.7, -s * 0.72, s * 1.1, s * 0.5, s * 0.2), '#ffffff', op(0.42));
+  b += line(`M${f(s * 0.55)} ${f(-s * 0.4)}L${f(s * 0.62)} ${f(s * 0.55)}`, '#b9d3dc', 0.8, op(0.6));
+  return g(`translate(${f(x)} ${f(y)}) rotate(${rot})`, b);
 }
 
-function drawSmoothieCup(fruitId, state, size, level = null, stream = true) {
-  const col = smoothieColor(fruitId);
-  const top = 36;
-  const bot = 95;
-  const xl = (y) => 22 + ((y - top) * 9) / (bot - top);
-  const xr = (y) => 78 - ((y - top) * 9) / (bot - top);
-  const body = `M22 ${top}L31 ${bot - 2}Q31.5 ${bot} 34 ${bot}H66Q68.5 ${bot} 69 ${bot - 2}L78 ${top}Z`;
-  let s = softShadow(51, 96, 30, 4.5);
-  s += path(body, paint('plastic-in', '#eaf6fa'));
-  if (state !== 'empty' && !(state === 'mixing' && level !== null && level < 0.04)) {
-    const lvl = state === 'mixing' ? (level === null ? 70 : f(bot - 4 - (bot - 4 - (top + 5)) * level)) : top + 3;
-    const fill = `M${f(xl(lvl) + 2)} ${lvl}L${f(xl(bot - 2) + 2)} ${bot - 2.5}H${f(xr(bot - 2) - 2)}L${f(xr(lvl) - 2)} ${lvl}Z`;
-    s += path(fill, col) + path(fill, paint('cyl'));
-    s += ellipse(50, lvl, (xr(lvl) - xl(lvl)) / 2 - 2, 3.4, lighten(col, 0.25));
-    if (state === 'mixing') {
-      if (stream) s += path(`M47 0H53L52.5 ${lvl}H47.5Z`, col) + path(`M47 0H53L52.5 ${lvl}H47.5Z`, paint('cyl'));
-      s += ellipse(50, lvl, 6, 1.8, lighten(col, 0.4));
-      for (const [x, y] of [[40, 80], [58, 86], [46, 90]]) s += circle(x, y, 1.4, WHITE, op(0.7));
-    } else {
-      let seeds = '';
-      const rng = rngFor(`smoothie-${fruitId}`);
-      for (let i = 0; i < 12; i++) seeds += circle(30 + rng.next() * 40, top + 10 + rng.next() * 46, 0.6 + rng.next() * 0.6, lighten(col, 0.4), op(0.6));
-      s += seeds;
+// opts.fill (mixing): how much of the milk and matcha is in (0–1; the purée is in from the start);
+// while it runs in, the glass draws the stream from above unless opts.stream is false (the 3D
+// machine pours its own); opts.from: the y (of the 100 viewBox) the stream starts at – the drawn
+// machine's nozzle tip (MATCHA_POUR_FROM), else the top of the box.
+export function matchaGlassSVG(fruitId = null, state = 'ready', size = 70, opts = null) {
+  const st = state === 'mixing' || state === 'ready' ? state : 'empty';
+  const fill = st === 'ready' ? 1 : st === 'mixing' ? Math.round(Math.max(0, Math.min(1, Number(opts?.fill) || 0)) * 12) / 12 : 0;
+  const stream = st === 'mixing' && fill > 0 && !(opts && opts.stream === false);
+  const from = stream ? Math.round(Math.max(0, Math.min(GL.top, Number(opts?.from) || 0)) * 10) / 10 : 0;
+  return memo(`mg|${fruitId}|${st}|${size}|${fill}|${stream}|${from}`, () => drawMatchaGlass(fruitId, st, size, fill, stream, from));
+}
+
+function drawMatchaGlass(fruitId, state, size, fill, stream, from) {
+  const fruit = ING[fruitId]?.matcha ? fruitId : 'strawberry';
+  const C = MATCHA_COLORS;
+  let s = softShadow(51, 95.5, 27, 4.2);
+  // the far wall and the inside of the glass
+  s += path(GLASS_BODY, paint('plastic-in', '#eaf6fa'), op(0.9));
+  const full = state !== 'empty';
+  const top = full ? PUREE_Y - (PUREE_Y - FULL_Y) * fill : GL.floor;
+  if (full) {
+    // purée at the bottom (a few seeds or fibres of the fruit), milk, then matcha with its foam
+    const pc = fruitColor(fruit);
+    s += path(liquidBand(PUREE_Y, GL.floor), pc) + path(liquidBand(PUREE_Y, GL.floor), paint('cyl'));
+    const rng = rngFor(`puree-${fruit}`);
+    const [dot, k] = PUREE_SEEDS[fruit] || [lighten(pc, 0.4), 1];
+    for (let i = 0; i < 9; i++) {
+      const y = PUREE_Y + 3 + rng.next() * (GL.floor - PUREE_Y - 5);
+      s += ellipse(50 + (rng.next() - 0.5) * 2 * (glassX(y) - 6), y, 0.9 * k, 0.6 * k, dot, op(0.75));
+    }
+    if (fill > 0) {
+      const milkTop = Math.max(top, MILK_Y);
+      s += path(liquidBand(milkTop, PUREE_Y + 1.5), C.milk) + path(liquidBand(milkTop, PUREE_Y + 1.5), paint('cyl-soft'), op(0.45));
+      // the purée bleeds a little into the milk
+      s += path(liquidBand(PUREE_Y - 2.5, PUREE_Y + 1.5), mix(pc, C.milk, 0.55), op(0.75));
+      if (top < MILK_Y) {
+        s += path(liquidBand(top, MILK_Y + 1), C.matcha) + path(liquidBand(top, MILK_Y + 1), paint('cyl'));
+        // a cloudy edge where the matcha meets the milk
+        s += path(liquidBand(MILK_Y - 1, MILK_Y + 3.5), mix(C.matcha, C.milk, 0.55), op(0.85));
+        s += path(liquidBand(MILK_Y + 2, MILK_Y + 5.5), mix(C.matcha, C.milk, 0.8), op(0.6));
+      }
+      // ice cubes in the upper part of the liquid
+      const ice = [[42, 7, 5.6, -14], [57, 12, 5.2, 18], [47, 19, 4.8, 8]];
+      for (const [x, dy, r, rot] of ice) if (top + dy + r < PUREE_Y) s += iceCube(x, top + dy, r, rot);
+      // the surface: foam on the matcha, milk while only milk is in
+      const sc = top < MILK_Y ? C.foam : mix(C.milk, '#ffffff', 0.4);
+      s += ellipse(50, top, glassX(top) - 2.2, surfaceRy(top), sc) + ellipse(48, top - 0.4, glassX(top) - 8, surfaceRy(top) * 0.55, '#ffffff', op(0.35));
+      if (top < MILK_Y) for (const [x, dx] of [[38, 0], [60, 1], [52, -1]]) s += circle(x + dx, top + 0.4, 0.9, '#ffffff', op(0.6));
     }
   }
-  s += path(body, paint('plastic', '#ffffff'));
-  s += line(`M26 ${top + 6}L33 ${bot - 6}`, WHITE, 3.4, op(0.55)) + line(`M74 ${top + 6}L68 ${bot - 6}`, WHITE, 1.4, op(0.5));
-  s += path(body, 'none', stroke(0.8, '#8fb0bd') + op(0.6));
-  s += ellipse(50, top, 28, 5, 'none', stroke(2.2, '#ffffff') + op(0.95));
-  if (state === 'ready') {
-    // dome lid with a straw, fruit on the rim
-    const dome = `M21 ${top}C21 ${top - 22} 79 ${top - 22} 79 ${top}Z`;
-    s += path(dome, lighten(col, 0.2), op(0.85)) + path(dome, paint('plastic', '#ffffff'));
-    s += path(`M21 ${top}C21 ${top - 22} 79 ${top - 22} 79 ${top}`, 'none', stroke(1, '#8fb0bd') + op(0.7));
-    s += line(`M31 ${top - 6}Q38 ${top - 15} 50 ${top - 16}`, WHITE, 2.2, op(0.8));
-    s += line(`M58 ${top - 10}L70 2`, '#c2185b', 5.6) + line(`M58 ${top - 10}L70 2`, '#ff6fa8', 4) + line(`M59.5 ${top - 12}L70.5 1`, '#ffffff', 1.2, op(0.6));
-    s += ellipse(50, top, 29, 5.4, 'none', stroke(1.6, '#ffffff') + op(0.95));
-    s += garnish(fruitId, 27, top - 6);
+  if (stream) {
+    // the stream from the machine above (the drawn machine; the 3D machine pours its own)
+    const col = fill < MATCHA_MILK ? C.milk : C.light;
+    const yEnd = full ? top : GL.floor;
+    const jet = `M47.6 ${f(from)}H52.4L51.8 ${f(yEnd)}H48.2Z`;
+    s += path(jet, col) + path(jet, paint('cyl'));
+    s += ellipse(50, yEnd, 5.5, 1.6, lighten(col, 0.4));
   }
+  // the straw and the fruit on the rim of a ready glass (the straw stands in the drink, behind the front wall)
+  if (state === 'ready') {
+    const S = MATCHA_STRAW;
+    const at = (t) => [S.x0 + (S.x1 - S.x0) * t, S.y0 + (S.y1 - S.y0) * t];
+    const straw = `M${S.x0} ${f(S.y0)}L${S.x1} ${S.y1}`;
+    s += line(straw, '#7a8f3c', S.w) + line(straw, '#f6f1e4', S.w - 1.2);
+    // printed stripes of a paper straw
+    for (const t of [0.2, 0.5, 0.8]) {
+      const [x, y] = at(t);
+      s += line(`M${f(x - 2.2)} ${f(y + 1.6)}L${f(x + 2.2)} ${f(y - 0.8)}`, '#86a83f', 1.6);
+    }
+    const [hx0, hy0] = at(0.05);
+    const [hx1, hy1] = at(0.93);
+    s += line(`M${f(hx0 + 0.4)} ${f(hy0)}L${f(hx1 - 0.2)} ${f(hy1)}`, '#ffffff', 1.1, op(0.75));
+  }
+  // the near wall: clear glass, condensation, highlights, the thick base
+  s += path(GLASS_BODY, paint('glass', '#ffffff'), op(0.55));
+  if (full) {
+    const rng = rngFor(`drops-matcha-${fruit}`);
+    for (let i = 0; i < 10; i++) {
+      const y = Math.max(top + 3, GL.top + 6) + rng.next() * (GL.floor - Math.max(top + 3, GL.top + 6));
+      const x = 50 + (rng.next() < 0.5 ? -1 : 1) * (glassX(y) - 2.5 - rng.next() * 9);
+      const r = 0.6 + rng.next() * 0.8;
+      s += circle(x, y, r, WHITE, op(0.6)) + circle(x + r * 0.3, y + r * 0.35, r * 0.5, '#000000', op(0.12));
+    }
+  }
+  s += path(`M${f(50 - GL.brx + 0.6)} ${GL.floor}A${GL.brx - 0.6} ${f(GL.bry)} 0 0 0 ${f(50 + GL.brx - 0.6)} ${GL.floor}L${f(50 + GL.brx)} ${GL.bot}A${GL.brx} ${GL.bry} 0 0 1 ${f(50 - GL.brx)} ${GL.bot}Z`, '#dceef4', op(0.65));
+  s += ellipse(50, GL.floor, GL.brx - 0.8, GL.bry * 0.9, 'none', stroke(0.9, '#ffffff') + op(0.8));
+  s += line(`M${50 - GL.rx + 4} ${GL.top + 6}L${f(50 - GL.brx + 3.4)} ${GL.bot - 6}`, WHITE, 3, op(0.6));
+  s += line(`M${50 - GL.rx + 9} ${GL.top + 9}L${f(50 - GL.brx + 7.5)} ${GL.bot - 26}`, WHITE, 1.1, op(0.45));
+  s += line(`M${50 + GL.rx - 3.5} ${GL.top + 7}L${f(50 + GL.brx - 3)} ${GL.bot - 7}`, WHITE, 1.6, op(0.55));
+  s += path(GLASS_BODY, 'none', stroke(1.1, '#6f909c') + op(0.65));
+  s += ellipse(50, GL.top, GL.rx, GL.ry, 'none', stroke(2, '#ffffff') + op(0.95));
+  s += path(`M${50 - GL.rx} ${GL.top + 0.9}A${GL.rx} ${GL.ry} 0 0 0 ${50 + GL.rx} ${GL.top + 0.9}`, 'none', stroke(0.7, '#7f9fab') + op(0.7));
+  if (state === 'ready') s += garnish(fruit, 30, GL.top - 2);
   return svgWrap(size, size, 100, 100, s);
 }
 
 // ======================================================================
-// What the player carries while dragging from a bowl (viewBox 100×100): a handful of pieces, a
-// spoonful of seeds, nibs or sauce, a mint sprig, the honey dipper dripping honey
+// What the player carries while dragging from a container (viewBox 100×100): a handful of pieces or
+// coconut chips, a spoonful of nibs or peanut butter, the measuring spoon of chia seeds, a mint
+// sprig, the honey dipper dripping honey, the chocolate's whole squeeze bottle tipped to pour
 // ======================================================================
 const HANDFUL = {
   banana: { n: 5, r: 22, size: 19 },
@@ -1150,6 +1684,7 @@ const HANDFUL = {
   mango: { n: 6, r: 20, size: 12 },
   kiwi: { n: 4, r: 21, size: 19 },
   granola: { n: 8, r: 22, size: 12 },
+  coconut: { n: 11, r: 21, size: 14, draw: coconutChip },
 };
 
 function spoon(body) {
@@ -1160,6 +1695,25 @@ function spoon(body) {
   return s + body + line('M20 52Q30 44 44 43', WHITE, 1.6, op(0.6));
 }
 
+// The chia glass's round measuring spoon (a deep steel cup on a flat handle).
+function measuringSpoon(body) {
+  let s = softShadow(44, 84, 30, 6);
+  s += path('M62 60L93 74Q96 76 94.5 79Q93 82 90 80.6L59 67Z', paint('steel', '#cfd6dc'), stroke(1, '#5f6a75')) + line('M64 62L91 74.6', WHITE, 1.2, op(0.7));
+  const cup = 'M18 54Q19 80 42 80Q65 80 66 54Z';
+  s += path(cup, paint('steel-v', '#cfd6dc'), stroke(1.2, '#5f6a75')) + path(cup, paint('cyl'), op(0.5));
+  s += ellipse(42, 54, 24, 10, '#7d8792', stroke(1.2, '#5f6a75')) + ellipse(42, 54, 22, 8.6, paint('steel-in', '#a9b2bb'));
+  return s + body + line('M22 62Q24 74 34 77', WHITE, 2, op(0.6));
+}
+
+// The chocolate's squeeze bottle tipped over to pour, a thread of sauce from its nozzle.
+function pouringBottle() {
+  const c = SAUCE.chocolate;
+  let s = softShadow(40, 92, 24, 4.5);
+  s += path('M24 66C25 76 22 82 23 88A4.4 4.4 0 0 0 31.6 88C32 82 29 76 30 66Z', c.col, stroke(0.9, c.dark)) + circle(25.4, 88, 1.2, WHITE, op(0.6));
+  const bottle = squeezeBottle(50, 92, 30, 74, '#3d1e10', '#f3e7d3', '#2a130a', ellipse(50, 66, 6, 4, '#7a3f1d'));
+  return s + g('rotate(-148 50 50) translate(0 -8)', bottle);
+}
+
 export function scoopSVG(id, size = 84) {
   return memo(`scoop|${id}|${size}`, () => {
     const rng = rngFor(`scoop-${id}`);
@@ -1167,7 +1721,7 @@ export function scoopSVG(id, size = 84) {
     const hand = HANDFUL[id];
     if (hand) {
       s += softShadow(50, 84, 32, 6);
-      const spec = PIECES[id];
+      const spec = PIECES[id] || {};
       const pts = [];
       for (let i = 0; i < hand.n; i++) {
         const a = (i / hand.n) * Math.PI * 2 + rng.next() * 0.5;
@@ -1175,15 +1729,18 @@ export function scoopSVG(id, size = 84) {
         pts.push({ x: 50 + Math.cos(a) * r, y: 56 + Math.sin(a) * r * 0.62 - (i === 0 ? 10 : 0) });
       }
       pts.sort((p, q) => p.y - q.y);
-      for (const p of pts) s += spec.draw(p.x, p.y, hand.size * (0.9 + rng.next() * 0.2), rng, 0.72);
+      const draw = hand.draw || spec.draw;
+      for (const p of pts) s += draw(p.x, p.y, hand.size * (0.9 + rng.next() * 0.2), rng, 0.72);
     } else if (id === 'honey') {
-      const c = SAUCE_BOWL.honey;
+      const c = SAUCE.honey;
       // the dipper lifted out of the bowl, honey running off its head
       s += softShadow(34, 94, 20, 3.5);
       s += path('M22 76C23 82 21 86 22 89A4.6 4.6 0 0 0 31 89C31 85 27 82 28 76Z', c.col, stroke(0.9, c.dark)) + circle(24.6, 89.4, 1.3, WHITE, op(0.8));
       s += g('translate(28 66) scale(1.85) translate(-28 -66)', honeyDipper(28, 66, -38, c.col, c.hi, c.dark));
-    } else if (SAUCE_BOWL[id]) {
-      const c = SAUCE_BOWL[id];
+    } else if (id === 'chocolate') {
+      s += pouringBottle();
+    } else if (SAUCE[id]) {
+      const c = SAUCE[id];
       const heap = 'M18 56C20 40 34 33 46 35C58 36 67 44 66 56Q42 62 18 56Z';
       let body = path(heap, c.col, stroke(1, c.dark)) + path(heap, paint('sph-soft'));
       body += line('M24 50Q40 40 58 46M28 55Q44 47 62 52', c.hi, 1.6, op(id === 'peanut' ? 0.7 : 0.45));
@@ -1202,15 +1759,11 @@ export function scoopSVG(id, size = 84) {
         pts.push([x, top + 1 + rng.next() * Math.max(1, 56 - top)]);
       }
       seeds += chiaSeeds(pts, rng, 1.8, 1);
-      s += spoon(seeds);
+      s += measuringSpoon(seeds);
     } else if (id === 'cacao') {
       let nibs = '';
       for (let i = 0; i < 16; i++) nibs += cacaoNib(22 + rng.next() * 40, 44 + rng.next() * 12, 3.2 + rng.next() * 1.4, rng);
       s += spoon(nibs);
-    } else if (id === 'coconut') {
-      let flakes = '';
-      for (let i = 0; i < 12; i++) flakes += coconutFlake(22 + rng.next() * 40, 44 + rng.next() * 12, 5 + rng.next() * 2, rng);
-      s += spoon(flakes);
     } else {
       s += iconBody(id);
     }

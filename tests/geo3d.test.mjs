@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {
   identity, multiply, compose, translation, scaling, rotationX, rotationY, rotationZ, rotationAbout, normalMatrix,
   transformPoint, viewProjection, screenOf, lathe, roundedBox, tube, sphere, cylinder, plane, polarSurface,
-  updateSurface, merge, bounds, section, spline, material, linear, MODE,
+  updateSurface, merge, bounds, section, sectionArc, flute, spline, material, linear, MODE,
 } from '../js/geo3d.js';
 
 const close = (a, b, eps = 1e-4) => Math.abs(a - b) <= eps;
@@ -123,6 +123,57 @@ test('lathe: closed, outward normals, creases, rounded-square sections', () => {
   for (let i = 0; i < inner.pos.length; i += 3) assert.ok(inner.nor[i] * inner.pos[i] + inner.nor[i + 2] * inner.pos[i + 2] < 0, 'inside normals point in');
   const [sx, sz] = section(Math.PI / 4, 1);
   assert.ok(sx > Math.SQRT1_2 && sz > Math.SQRT1_2, 'a rounded square bulges into the corners');
+});
+
+test('section outline: share of the way round, both ways', () => {
+  const circle = sectionArc(0, 1);
+  for (const a of [0, 0.7, 2, 4.4]) assert.ok(close(circle.toU(a), a / (Math.PI * 2), 1e-3), `a circle is even: ${a}`);
+  const sq = sectionArc(0.8, 0.9);
+  assert.equal(sq.toU(0), 0);
+  assert.ok(close(sq.toU(Math.PI * 2), 1, 1e-9) && close(sq.toU(Math.PI * 2 + 1), 1 + sq.toU(1), 1e-9), 'whole turns count on');
+  let last = -1;
+  for (let a = 0; a <= Math.PI * 2; a += 0.05) {
+    const u = sq.toU(a);
+    assert.ok(u > last, 'grows with the angle');
+    last = u;
+    assert.ok(close(sq.toA(u), a, 2e-3), `toA undoes toU at ${a}`);
+  }
+  // a rounded square's flat side takes a bigger share of the way round than of the angle
+  assert.ok(sq.toU(Math.PI / 2 + 0.1) - sq.toU(Math.PI / 2 - 0.1) > 0.2 / (Math.PI * 2) * 2, 'flat sides are long');
+});
+
+test('fluted lathe: even panels round a rounded square, sharp edges, inside the outline; warp', () => {
+  assert.ok(close(flute(0, 0.1), 0.9) && close(flute(0.5, 0.1), 1) && close(flute(3, 0.1), 0.9), 'bulging panels, grooves between');
+  assert.ok(close(flute(0, -0.1), 1) && close(flute(0.5, -0.1), 0.9), 'hollow panels, ridges between');
+  assert.equal(flute(0.3, 0), 1);
+  const opt = { segs: 48, sq: 0.8, depth: 0.9, flutes: 12, flute: 0.05 };
+  const jar = lathe([[0, 0], [10, 0, 1], [12, 20, 1], [0, 20]], opt);
+  assertWinding(jar, 'fluted lathe');
+  assertUnitNormals(jar, 'fluted lathe');
+  const plain = lathe([[0, 0], [10, 0, 1], [12, 20, 1], [0, 20]], { segs: 48, sq: 0.8, depth: 0.9 });
+  const pb = bounds(plain);
+  const fb = bounds(jar);
+  for (let k = 0; k < 3; k++) assert.ok(fb.max[k] <= pb.max[k] + 1e-6 && fb.min[k] >= pb.min[k] - 1e-6, 'the panels stay inside the plain outline');
+  // the bottom edge (a crease: two rings of the same points, the first one taken): points spaced
+  // evenly along the outline, not crowded into the corners
+  const edgeRings = [];
+  for (let i = 0; i < jar.pos.length; i += 3) if (close(jar.pos[i + 1], 0) && Math.hypot(jar.pos[i], jar.pos[i + 2]) > 1) edgeRings.push([jar.pos[i], jar.pos[i + 2], [jar.nor[i], jar.nor[i + 1], jar.nor[i + 2]]]);
+  const ring = edgeRings.slice(0, edgeRings.length / 2);
+  const steps = [];
+  let sharp = 0;
+  for (let i = 1; i < ring.length; i++) {
+    const d = Math.hypot(ring[i][0] - ring[i - 1][0], ring[i][1] - ring[i - 1][1]);
+    if (d > 1e-6) steps.push(d);
+    else if (ring[i][2][0] * ring[i - 1][2][0] + ring[i][2][2] * ring[i - 1][2][2] < 0.999) sharp++;
+  }
+  assert.ok(Math.max(...steps) / Math.min(...steps) < 1.6, `even columns: ${Math.min(...steps).toFixed(2)}…${Math.max(...steps).toFixed(2)}`);
+  assert.ok(sharp >= 11, `a sharp edge between the panels (${sharp})`);
+  // warp: a spout on the left reaches out near the top only
+  const spout = lathe([[0, 0], [10, 0, 1], [10, 20, 1], [0, 20]], { segs: 40, warp: (a, y) => 1 + 0.3 * Math.exp(-(((a - Math.PI) / 0.4) ** 2)) * (y / 20) });
+  assertWinding(spout, 'warped lathe');
+  assertUnitNormals(spout, 'warped lathe');
+  const sb = bounds(spout);
+  assert.ok(close(sb.min[0], -13, 0.01) && close(sb.max[0], 10, 0.01), `spout on the left: ${sb.min[0]}`);
 });
 
 test('rounded box, tube, sphere, cylinder and plane are well formed', () => {

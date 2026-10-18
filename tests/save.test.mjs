@@ -31,7 +31,7 @@ const save = await import('../js/save.js');
 const data = await import('../js/data.js');
 const { detectLang, LANGS } = await import('../js/i18n.js');
 const { orderValue } = await import('../js/orders.js');
-const { INGREDIENTS, START_OWNED, UPGRADES, UPG, LEVELS, SMOOTHIE_LEVEL, ENDLESS_UNLOCK_LEVEL } = data;
+const { INGREDIENTS, START_OWNED, UPGRADES, UPG, LEVELS, MATCHA_LEVEL, ENDLESS_UNLOCK_LEVEL } = data;
 
 const stored = () => JSON.parse(storage.getItem(KEY));
 const buyable = INGREDIENTS.find((i) => i.cost > 0);
@@ -155,6 +155,21 @@ describe('defaults & loading', () => {
     assert.equal(fresh({ endlessBest: '99' }).endlessBest, 0);
   });
 
+  test('an old save keeps its second machine slot: smoothieSlots becomes matchaSlots', () => {
+    let d = fresh({ coins: 40, upgrades: { smoothieSlots: 1, bowlSlots: 1 } });
+    assert.deepEqual(d.upgrades, { bowlSlots: 1, matchaSlots: 1 }, 'the old id is not kept');
+    assert.equal(save.upgradeLevel('matchaSlots'), 1);
+    assert.equal(save.kitchenStats().matchaSlots, 2, 'the two-slot machine in the game');
+    save.addCoins(1);
+    assert.deepEqual(stored().upgrades, { bowlSlots: 1, matchaSlots: 1 }, 'the next write stores the new id');
+    // a save that already has the new id keeps it; a damaged old value is repaired like any other
+    assert.deepEqual(fresh({ upgrades: { smoothieSlots: 1, matchaSlots: 0 } }).upgrades, {});
+    assert.deepEqual(fresh({ upgrades: { smoothieSlots: '7' } }).upgrades, { matchaSlots: UPG.matchaSlots.levels.length });
+    d = fresh({ upgrades: { smoothieSlots: -1 } });
+    assert.deepEqual(d.upgrades, {});
+    assert.equal(save.kitchenStats().matchaSlots, 1);
+  });
+
   test('actions on a repaired save add numbers, never strings', () => {
     fresh({ coins: 1000, ingLevels: { acai: '1' }, upgrades: { bowlSlots: '1' }, stats: { served: 'x' } });
     assert.deepEqual(save.upgradeIngredient('acai'), { ok: true });
@@ -168,7 +183,7 @@ describe('defaults & loading', () => {
 
   test('a negative quality level or a NaN amount cannot wipe the wallet', () => {
     fresh({ coins: 500, ingLevels: { honey: -2 } });
-    const order = { bowl: { base: 'acai', mid: ['banana'], top: ['honey'] }, smoothie: null };
+    const order = { bowl: { base: 'acai', mid: ['banana'], top: ['honey'] }, matcha: null };
     assert.ok(Number.isFinite(orderValue(order, save.getSave().ingLevels)), 'quality level -2 made order values NaN');
     save.recordLevelResult(1, { won: true, stars: 1, money: 20, served: 1 });
     assert.equal(save.getSave().coins, 520);
@@ -283,17 +298,17 @@ describe('shop actions', () => {
   });
 
   test('buyUpgrade: locked until the required level is reached', () => {
-    const u = UPG.smoothieSlots;
-    assert.equal(u.requiresLevel, SMOOTHIE_LEVEL);
+    const u = UPG.matchaSlots;
+    assert.equal(u.requiresLevel, MATCHA_LEVEL);
     setCoins(10000);
     assert.equal(save.upgradeLocked(u.id), true);
     assert.deepEqual(save.buyUpgrade(u.id), { ok: false, reason: 'locked' });
     assert.equal(save.getSave().coins, 10000);
 
-    winLevels(SMOOTHIE_LEVEL - 2);
-    assert.equal(save.upgradeLocked(u.id), true, 'level before smoothie level is not enough');
-    winLevels(SMOOTHIE_LEVEL - 1);
-    assert.equal(save.maxUnlockedLevel(), SMOOTHIE_LEVEL);
+    winLevels(MATCHA_LEVEL - 2);
+    assert.equal(save.upgradeLocked(u.id), true, 'level before the matcha level is not enough');
+    winLevels(MATCHA_LEVEL - 1);
+    assert.equal(save.maxUnlockedLevel(), MATCHA_LEVEL);
     assert.equal(save.upgradeLocked(u.id), false);
     assert.deepEqual(save.buyUpgrade(u.id), { ok: true });
   });
@@ -354,10 +369,10 @@ describe('progress', () => {
     assert.equal(save.maxUnlockedLevel(), LEVELS.length);
   });
 
-  test('smoothie machine appears once the smoothie level is unlocked', () => {
-    assert.equal(save.hasSmoothieMachine(), false);
-    winLevels(SMOOTHIE_LEVEL - 1);
-    assert.equal(save.hasSmoothieMachine(), true);
+  test('matcha machine appears once the matcha level is unlocked', () => {
+    assert.equal(save.hasMatchaMachine(), false);
+    winLevels(MATCHA_LEVEL - 1);
+    assert.equal(save.hasMatchaMachine(), true);
   });
 
   test('recordEndless keeps the best score and banks coins', () => {

@@ -2,9 +2,9 @@
 
 Ein Zeitmanagement-Spiel im Stil von *Cooking Fever* für den Browser: Du arbeitest in einem modernen
 Açaí-Café. Deine Gäste bestellen Bowls – serviert in durchsichtigen Plastikbechern, in denen man die
-Schichten sieht – und später Smoothies; du stellst sie per **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
+Schichten sieht – und später Frucht-Matcha; du stellst sie per **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
 Maus am PC, auf dem **MacBook im Browser** (Maus oder Trackpad) und (verkleinert) auf dem Handy. Deutsch und Englisch, Soundeffekte und Musik
-werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien. Die Küchengeräte (Mixer, Smoothie-Maschine,
+werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien. Die Küchengeräte (Mixer, Matcha-Maschine,
 Mülleimer, Gefriertruhe) sind echte 3D-Modelle, die per WebGL im Browser gerendert und animiert werden; jedes
 Upgrade bringt ein neues Modell.
 
@@ -27,7 +27,7 @@ und ein kurzer Hinweis erklärt, warum.
    Platz. Ohne Becher geht nichts hinein – am besten stellst du ihn hin, während der Mixer noch läuft.
 3. **Bowl füllen:** Zieh den fertigen Mixer auf die leere Bowl. Eine Mischung reicht für zwei Bowls
    (mit dem großen Mixkrug für drei).
-4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus den Schalen auf der Theke auf die Bowl.
+4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus ihren Behältern auf der Arbeitsplatte auf die Bowl.
 5. **Servieren:** Zieh die fertige Bowl auf den Gast. Stimmt sie genau mit der Bestellung überein,
    wird bezahlt – plus Trinkgeld, je geduldiger der Gast noch war. Der Platz ist danach frei für den
    nächsten Becher.
@@ -39,11 +39,18 @@ werden abgelehnt.
 
 **Mixer läuft über:** Ab Level 3 wartet ein fertiger Mixer nicht ewig. Lässt du ihn zu lange stehen,
 fängt er an überzulaufen (rot, wackelt) – dann schnell ausgießen! Danach ist die Basis verdorben und
-der Mixer muss in den **Mülleimer** gezogen werden. Falsche Bowls (samt Becher) und Smoothies kommen ebenfalls in den Müll.
+der Mixer muss in den **Mülleimer** gezogen werden. Falsche Bowls (samt Becher) und Matcha kommen ebenfalls in den Müll.
 
-**Smoothies:** Ab Level 7 bestellen manche Gäste zusätzlich einen Smoothie. Zieh eine passende Frucht
-(Banane, Erdbeere, Blaubeere, Mango, Kiwi) in die Smoothie-Maschine, warte kurz und zieh den fertigen
-Becher auf den Gast.
+**Frucht-Matcha:** Ab Level 7 bestellen manche Gäste zusätzlich einen Eis-Matcha-Latte auf Fruchtpüree – einen
+Bananen-, Erdbeer-, Blaubeer-, Mango- oder Kiwi-Matcha. Zieh die passende Frucht auf das leere Glas in der
+Matcha-Maschine: Das Püree liegt unten im Glas, die Teemühle mahlt, der Wassertank dampft, dann gießt die Düse Milch und
+Matcha darüber. Ist der Matcha fertig, zieh das Glas auf den Gast.
+
+**Bestellblase:** Über jedem Gast steht, was er möchte. Links die Bowl: der Becher mit der Basis (1), daneben die
+Reihe Früchte & Crunch (2) und darunter Toppings & Soßen (3) – große Symbole auf Kreisen in der Farbe ihrer Schicht, wie
+die Zahlen an den Behältern. Rechts, hinter einem Trennstrich, der Matcha mit seiner Frucht. Unten zeigt ein dicker
+Balken die Geduld (grün → gelb → orange → rot). Was du schon übergeben hast, wird grün hinterlegt und groß abgehakt. Die
+Chips unter jedem Becher zeigen in derselben Sprache, was schon drin ist.
 
 **Herzen:** Jeder Gast hat eine Geduldsanzeige. Läuft sie ab, geht er ohne zu bezahlen und du verlierst
 ein **Herz**. Bei 0 Herzen ist das Level verloren. Ab Level 12 (vier Plätze) hast du vier statt drei Herzen.
@@ -54,17 +61,42 @@ neuen Gäste mehr – wer schon wartet, wird noch bedient. Verdiente Münzen beh
 
 **Laden:** Mit deinen Münzen kaufst du im Shop neue Zutaten (am Anfang hast du nur Açaí, Banane, Granola
 und Honig – insgesamt gibt es 16), bessere Qualität (mehr Münzen pro Zutat), Küchen-Upgrades
-(schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Doppel-Smoothie) und Deko,
+(schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Doppel-Matcha) und Deko,
 die Gäste geduldiger macht.
 
-**Küchengeräte in 3D:** Jede Stufe des Turbo-Mixers ist ein neues Modell – vom weißen *Classic* mit Drehknopf über den
-*Turbo* aus gebürstetem Edelstahl und den açaí-lila *Pro* mit LED-Ring bis zum schwarzen *Pro Max* mit Countdown-Display
-und Lichtleiste. Der große Mixkrug ist sichtbar höher und breiter, die Smoothie-Maschine wächst vom kompakten Ein-Tank-
-zum Edelstahl-Zwei-Tank-Gerät. Beim Mixen dreht sich ein Strudel im Krug und gefrorene Stücke zerfallen, beim Überlaufen
-quillt Schaum unter dem Deckel hervor, in der Smoothie-Maschine wirbelt die Förderschnecke das Slush, dann öffnet der
-Zapfhahn und der Becher füllt sich. Der Mülleimer öffnet den Deckel, wenn du etwas Wegwerfbares darüber hältst, und aus der
-Gefriertruhe in der Theke (Glasschiebedeckel, Vorratspackungen auf der Stufe hinten) quillt Kaltluft, wenn du eine Packung
+**Küchengeräte in 3D:** Mixer und Matcha-Maschine stehen hinten auf der Arbeitsplatte vor der Theke und sind etwa
+doppelt so hoch wie ein Becher. Der Mixer ist einem echten Standmixer nachempfunden: gerippter Glaskrug mit Skala, klarem
+Griff rechts und Ausgießer links, schwarzer Deckel mit Messbecher, darunter ein hoher Motorsockel mit schwarzem Glasband,
+das vorn in ein V mit Display ausläuft, und großem Start/Stopp-Drehknopf. Jede Stufe des Turbo-Mixers ist ein neues Modell
+in dieser Form – vom weißen *Classic* mit einfachem Drehknopf und Lämpchen über den *Turbo* aus gebürstetem Edelstahl mit
+Countdown-Display und Chromring und den açaí-lila *Pro* mit LED-Ring bis zum graphitschwarzen *Pro Max* mit großem Display,
+Chromzierleiste und Lichtleiste. Der große Mixkrug ist sichtbar höher und breiter. Die Matcha-Maschine ist einer echten
+Tee-Latte-Maschine nachempfunden: olivgrünes Gehäuse mit schwarzer Front, links ein rauchglasfarbener Wassertank über einem
+olivgrünen Ring mit Knopf und der Düse, unten die Abtropfschale mit Gitter, rechts in einer Nische die gläserne Teemühle
+mit grünem Matchapulver; mit dem Upgrade „Doppel-Matcha“ wird sie zur breiteren Zwei-Platz-Maschine mit Temperaturanzeige.
+Beim Mixen dreht sich ein Strudel im Krug und gefrorene Stücke zerfallen, beim Überlaufen quillt Schaum unter dem Deckel
+hervor; in der Matcha-Maschine dreht sich das Mahlwerk und wirbelt grünen Staub auf, im Tank steigen Bläschen und Dampf,
+dann gießt die Düse Milch und Matcha ins Glas. Der Mülleimer öffnet den Deckel, wenn du etwas Wegwerfbares darüber hältst, und aus der
+Gefriertruhe in der Arbeitsplatte (Glasschiebedeckel, Vorratspackungen auf der Stufe hinten) quillt Kaltluft, wenn du eine Packung
 herausnimmst. Ohne WebGL zeigt das Spiel die gezeichneten Geräte.
+
+**Zutaten in echten Behältern:** Die Zutaten stehen auf Eichen-Podesten in ihren eigenen Behältern: Obst in gebürsteten
+Edelstahl-Schalen (ordentlich in Reihen), Granola im großen Bügelglas mit zurückgeklapptem Deckel, Honig mit Honiglöffel
+(der Deckel liegt daneben), Chia im Weckglas mit Messlöffel, Erdnussbutter mit Löffel und rotem Deckel daneben,
+Schokosoße in der Quetschflasche, Kokosraspeln in der halben Kokosnuss, Kakao-Nibs in einer Nussholz-Schale und
+frische Minze auf einem Brettchen – in glaubwürdigen Größen neben den Bechern. Behälter, Glas, Stahl und Holz sind
+3D-Bilder, die nur einmal gezeichnet werden; was obenauf liegt (Obst, Granola, Raspeln, Nibs, Minze), ist SVG. Ohne
+WebGL sind auch die Behälter gezeichnet. Gezogen wird, was du in der Hand hättest: eine Handvoll Obst, der Honiglöffel,
+der Messlöffel Chia – und die Schokosoße als ganze Flasche.
+
+**Gäste und Café:** Die Gäste haben natürliche Proportionen – über der Theke sieht man Kopf, Hals, breite Schultern und
+Oberarme. Die Haut hat weiches Licht von links oben, die Haare Strähnen und Glanz, die Kleidung Kragen, Nähte, Knöpfe und
+Falten (T-Shirt, Hemd, Polo, Hoodie mit Kordeln, offene Strickjacke über einem Shirt). Die Laune erkennt man auf einen
+Blick: fröhlich (lachende Augen, breites Lächeln, rote Wangen), entspannt, ungeduldig (schwere Lider, Blick zur Seite,
+gerunzelte Stirn, Schweißtropfen) und wütend (rotes Gesicht, V-Brauen, Zähne, Dampfwolken). Die Rückwand des Cafés hat mehr Tiefe – ein
+Fenster mit tiefer Laibung und hellem Tageslicht, eine Kreidetafel, ein Wandregal, Pendelleuchten mit warmem Schein,
+weiche Schatten – und bleibt bewusst ruhig, damit Gäste und Bestellblasen davor gut lesbar sind. Bei 4 Gästen fehlen
+Tafel und Regal, die die äußeren Bestellblasen sonst bis auf schmale Streifen verdecken würden.
 
 **Endlos-Modus:** Nach Level 10 wird der Endlos-Modus freigeschaltet: kein Zeitlimit, alle 30 Sekunden
 wird es schwerer (mehr Plätze, mehr Gäste, größere Bestellungen). Gespielt wird, bis alle Herzen weg sind
@@ -105,9 +137,9 @@ Ohne Server spielen: `npm run build` ausführen und danach **`dist/acai-fever.ht
 | Befehl | Was passiert |
 |---|---|
 | `npm start` | Statischer Server (`tools/serve.mjs`) auf Port 8080, ohne Caching. Anderer Port: `node tools/serve.mjs 3000` |
-| `npm test` | Unit-Tests mit `node --test` (Engine, Bestellungen, Daten, Speicherstand, Übersetzungen, Audio, Grafik, 3D-Geometrie und -Modelle, Balancing); `node --test tests/` geht auch |
-| `npm run build` | Bündelt alles mit esbuild zu `dist/acai-fever.html` (eigenständig, läuft per `file://`) und `dist/artifact.html` (gleicher Inhalt ohne `<html>/<head>/<body>`-Hülle, zum Veröffentlichen als Claude-Artifact) |
-| `npm run e2e` | Führt alle Playwright-Skripte `tests/e2e/*.e2e.mjs` nacheinander aus (Chromium, headless, Server auf Port 8090 bzw. `E2E_PORT`). Filter: `npm run e2e -- playthrough` |
+| `npm test` | Unit-Tests mit `node --test` (Engine, Bestellungen, Daten, Speicherstand, Übersetzungen, Audio, Grafik, 3D-Geometrie, -Modelle und Zutaten-Behälter, Balancing); `node --test tests/` geht auch |
+| `npm run build` | Bündelt alles mit esbuild zu `dist/acai-fever.html` (eigenständig, läuft per `file://`) und `dist/artifact.html` (gleicher Inhalt ohne `<html>/<head>/<body>`-Hülle, zum Veröffentlichen als Claude-Artifact). `dist/` liegt im Repository – nach jeder Änderung am Spiel neu bauen, GitHub Pages kopiert es ohne Build |
+| `npm run e2e` | Führt alle Playwright-Skripte `tests/e2e/*.e2e.mjs` nacheinander aus (Chromium, headless, Server auf Port 8090 bzw. `E2E_PORT`; ist der Port belegt, nutzen sie den Server dort nur, wenn er diesen Stand ausliefert). Filter: `npm run e2e -- playthrough` |
 
 `tools/build.mjs` versteht außerdem `--entry <datei>`, `--outdir <ordner>` und `--root <ordner>`.
 E2E-Skripte legen Screenshots in `$E2E_OUT_DIR` ab (Standard: Temp-Ordner), nie im Repository.
@@ -117,9 +149,19 @@ Zwei-Finger-Pinch im Rand um die Bühne die Seite nicht zoomt, spielt in einem M
 der Maus und prüft dort, dass Trackpad-Pinch, ⌘/Ctrl + Scrollen und Zwei-Finger-Wischen weder zoomen noch zurückblättern,
 und dass zwei offene Tabs sich den Spielstand
 nicht gegenseitig überschreiben. `appliances.e2e.mjs` prüft die 3D-Geräte (Modelle je Upgrade, Animationen, Deckel,
-Kaltluft der Truhe, Zapfhahn, Shop-Bilder) und die gezeichneten Geräte ohne WebGL. `build.e2e.mjs` baut das
+Kaltluft der Truhe, Teemühle und Düse der Matcha-Maschine, Shop-Bilder), dass das Spiel flüssig bleibt, wenn beide Mixer
+und beide Matcha-Gläser zugleich animiert sind (auch mit Software-WebGL), dass die Bilder der Zutaten-Behälter bei einer
+neuen Pixeldichte wieder scharf gezeichnet werden, und die gezeichneten Geräte ohne WebGL. `layout.e2e.mjs` prüft das
+Spielfeld: Jede Station liegt ganz auf der Bühne, ist mindestens 64 px groß und überdeckt keine andere, kein Behälter
+verdeckt einen Namen oder ein Namensschild, kein *NEU*-Schild verdeckt Qualitätssterne oder Ebenen-Nummer – auch in
+der vollsten Küche mit 4 Gästen, 2 Mixern, 4 Bechern, allen 16 Zutaten und 2 Matcha-Plätzen (mit und ohne WebGL, bei
+1280×800 und 1024×768) und in kleinen Küchen; ein Druck auf die Chips eines Bechers hebt genau diesen Becher (auch bei
+einem falsch belegten Becher mit 6 Zutaten bleiben sie in höchstens zwei Reihen unter ihm). Außerdem setzt es 4, 3 und 2
+Gäste mit den längsten Bestellungen (3 + 3 + Matcha): Ihre Blasen bleiben unter dem HUD auf der Bühne, halten Abstand,
+enden über den Haaren, zeigen auf ihren Gast, haben Symbole ≥ 38 px und lassen das Neon-Schild frei; eine Bowl oder ein
+Glas auf einer Blase wird diesem Gast serviert. `build.e2e.mjs` baut das
 Spiel und startet es per `file://`. Alle 3D-Geräte in allen Zuständen zeigt `tools/appliances-3d.html`
-(`npm start`, dann `http://localhost:8080/tools/appliances-3d.html?anim=1`). Für eine Sichtprüfung erzeugt `node tools/shots.mjs <ordner>` Screenshots
+(`npm start`, dann `http://localhost:8080/tools/appliances-3d.html?anim=1`), dort auch alle Zutaten-Behälter. Für eine Sichtprüfung erzeugt `node tools/shots.mjs <ordner>` Screenshots
 aller Bildschirme in mehreren Größen.
 
 ## Werbevideo für TikTok
@@ -177,14 +219,16 @@ js/orders.js          Bestellungen und Preise
 js/engine.js          Spiel-Simulation ohne DOM
 js/drag.js            Drag & Drop für Touch und Maus
 js/svg.js             gemeinsame SVG-Helfer + Farbverläufe (eine versteckte <svg> pro Seite)
-js/art-food.js        Becher mit Schichten, Zutaten, Zutaten-Schalen, Packungen, Smoothies
-js/art-kitchen.js     Theke in Perspektive (Arbeitsplatte, Regal), Gefriertruhe, Tabletts, Café-Rückwand, Deko;
-                      Mixer, Smoothie-Maschine, Mülleimer als Ersatz ohne WebGL
-js/art.js             Gäste, HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
+js/art-food.js        Becher mit Schichten, Zutaten, Inhalt der Zutaten-Behälter (und die Behälter ohne WebGL), Packungen, Matcha-Gläser
+js/art-kitchen.js     Theke und Arbeitsplatte in Perspektive, Regal, Gefriertruhe, Podeste, Café-Rückwand, Deko;
+                      Mixer, Matcha-Maschine, Mülleimer als Ersatz ohne WebGL
+js/art-guests.js      die Gäste: Aussehen und Büsten in vier Launen
+js/art.js             HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
 js/geo3d.js           3D-Mathematik, Geometrie (Drehkörper, abgerundete Boxen, Rohre, Flüssigkeitsoberflächen), Materialien
 js/kitchen3d.js       3D-Modelle der Küchengeräte mit allen Ausbaustufen und Animationen
+js/pantry3d.js        3D-Modelle der Zutaten-Behälter (Edelstahl-Schalen, Gläser, Quetschflasche, Kokosnuss, Holz)
 js/gl3d.js            WebGL-Renderer (Studiolicht, Edelstahl, Glas, Muster) – ohne Bibliothek
-js/art3d.js           3D-Ansichten der Stationen im Spiel und 3D-Bilder für Shop und Menüs
+js/art3d.js           3D-Ansichten der Stationen im Spiel, einmal gezeichnete Bilder der Zutaten-Behälter und 3D-Bilder für Shop und Menüs
 js/audio.js           Soundeffekte und Musik (WebAudio)
 js/game-view.js       Spielbildschirm
 js/screens.js         Menüs: Titel, Karte, Shop, Einstellungen, Ergebnis
@@ -206,18 +250,43 @@ docs/DESIGN.md        Spieldesign, Regeln, Modul-Verträge, Layout
 ## English
 
 **Açaí Fever** is a Cooking-Fever-style time-management game for the browser. You run an açaí bar:
-customers order bowls (and smoothies from level 7), and you build them by **drag & drop** before their
+customers order bowls (and a fruit matcha from level 7), and you build them by **drag & drop** before their
 patience runs out. Made for landscape tablets, also playable with a mouse, on a MacBook in the browser (Safari, Chrome, Firefox, Edge – mouse or
-trackpad, nothing to install; trackpad pinches and two-finger swipes never zoom or navigate away) and on phones. German and English UI. Play online:
+trackpad, nothing to install; trackpad pinches and two-finger swipes never zoom or navigate away) and on phones. German and English UI; sound
+effects and music are synthesized – there are no image or audio files. Play online:
 <https://leesyashin.github.io/Acai/> (every push to `main` deploys there).
 The kitchen appliances are real-time 3D models (WebGL, no library) with animations – a vortex in the blender jug,
-churning slush and a pouring tap in the smoothie machine, a pedal bin lid and cold air from the chest freezer – and every kitchen upgrade
-brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-tank → two-tank smoothie machine).
+a grinding tea mill, a steaming tank and a pouring nozzle in the matcha machine, a pedal bin lid and cold air from the chest
+freezer – and every kitchen upgrade brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-slot →
+two-slot matcha machine). Without WebGL the game shows the drawn (SVG) appliances. The blender
+is modelled on a real stand blender: a fluted glass jug with a scale, a clear handle and a pouring spout, a black lid with a
+measuring cap, and a tall motor base with a black glass band that dips into a V display and a big start/stop dial – white
+with a plain knob (Classic), brushed stainless with a countdown display (Turbo), açaí purple with an LED ring (Pro) or
+graphite with a big display, chrome trim and a light bar (Pro Max). The matcha machine follows a household tea-latte
+machine: an olive shell with a black front, a smoked water tank over an olive collar and the nozzle, a drip tray with a
+grate and a glass tea mill with green matcha powder in an alcove. Blenders and
+machine stand at the back of the worktop in front of the pass, about twice as tall as a cup. The ingredients stand in real
+containers on oak risers: fruit in brushed stainless pans, granola in a clip-top jar, honey with its dipper, chia in a
+Weck glass with a measuring spoon, peanut butter with a spoon, chocolate sauce in a squeeze bottle, shredded coconut in
+its shell, cacao nibs in a walnut bowl and mint on a board (3D pictures drawn once; drawn in SVG without WebGL).
+A drag carries what you would hold: a handful of fruit, the honey dipper, the chia measuring spoon – and the chocolate
+sauce as its whole squeeze bottle.
+The guests have natural proportions (head, neck, broad shoulders and upper arms above the pass; soft light on the skin, hair
+with strands and shine, clothes with collars, seams, buttons and folds) and show their mood at a glance – happy, relaxed,
+impatient (heavy lids, a sideways look, a frown, a sweat drop) or angry (red face, gritted teeth, steam). The café's back wall has
+depth (a window with a deep reveal and bright daylight, a chalkboard, a shelf, pendant lamps with warm halos, soft
+shadows) and stays calm, so the guests and their order bubbles stand out. With 4 guests it leaves out the chalkboard and
+the shelf, which the outer order bubbles would hide all but for thin slivers.
 
 **How to play:** drag a frozen pack into the blender, put an empty bowl (a clear cup) from the stack on a
 free spot, drag the ready blender onto it, add *Fruits & Crunch*, then *Toppings & Sauces* (fixed layer order –
 wrong drops bounce back), and drag the finished bowl onto the customer. From level 3 a ready blender **overflows** if you leave it too long and has to
-go into the trash. Smoothies: drag a fruit into the smoothie machine, then the cup onto the customer.
+go into the trash. Fruit matcha (an iced matcha latte on banana, strawberry, blueberry, mango or kiwi purée): drag the
+fruit onto the glass in the matcha machine, wait until it is brewed, then drag the glass onto the customer.
+The order bubble over each guest shows the bowl on the left – the cup with its base (1), then a row of fruits & crunch
+(2) and one of toppings & sauces (3), big icons on circles in their layer's colour – and, behind a divider, the matcha with
+its fruit; a thick bar along the bottom shows the guest's patience (green → yellow → orange → red), and whatever you have
+handed over turns green with a big tick. The chips under each cup show what is in it in the same way.
 A customer who runs out of patience leaves and costs you a **heart** – 0 hearts loses the level.
 20 campaign levels with 1–3 **stars** (money goals); coins are kept even when you lose and buy new ingredients
 (4 at start, 16 total), quality, kitchen upgrades and decor in the **shop**. **Endless mode** unlocks after
@@ -231,10 +300,19 @@ npm install        # dev tools only (esbuild, Playwright)
 npm start          # http://localhost:8080 (no-cache static server)
 npm test           # unit tests (node --test)
 npm run build      # dist/acai-fever.html (single file, works via file://) + dist/artifact.html
-npm run e2e        # Playwright scripts in tests/e2e/*.e2e.mjs, one after another (server on :8090)
+npm run e2e        # Playwright scripts in tests/e2e/*.e2e.mjs, one after another (server on :8090 or E2E_PORT;
+                   # a server already on that port is reused only when it serves this tree)
 node tools/shots.mjs <dir>   # review screenshots of every screen
 node tools/promo/render.mjs promo.mp4 --lang en   # the 25 s TikTok promo video (1080×1920, needs ffmpeg)
 node tools/promo/render.mjs promo.mp4 --version gameplay   # calmer cuts with real recorded gameplay: mix | gameplay
 ```
+
+Unit tests cover the engine, orders, data, save, i18n, audio, art, the 3D geometry, appliance models and ingredient
+containers, and a balance simulation; the e2e scripts cover drag & drop, gameplay, the screens, a full playthrough, the
+3D appliances (the game keeps its frame rate with both blenders and both matcha glasses animating, also with software
+WebGL) and the ingredient containers' pictures (redrawn sharp at a new pixel ratio; with the SVG fallback), the gameplay
+layout (`layout.e2e.mjs`: every station on the stage, ≥ 64 px, no overlaps, labels uncovered, a press on a cup's chips
+lifts that cup, the order bubbles of 2–4 guests with the longest orders) and the single-file build. `dist/` is
+committed: rebuild it after every change to the game (GitHub Pages copies it without building).
 
 Or build once and open `dist/acai-fever.html` directly. The full spec lives in [`docs/DESIGN.md`](docs/DESIGN.md).

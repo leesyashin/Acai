@@ -5,6 +5,8 @@
 //                   ghost wrapper .drag-ghost (+ .is-returning / .is-dropping while flying),
 //                   inner .drag-ghost-body (scale + shadow)
 // Attributes:       [data-dnd-source] / [data-dnd-target] on registered elements.
+// A target's hit rect is its element's box (plus the boxes of its optional hitEls), expanded by HIT_PAD; an accepted
+// ghost shrinks into the centre of that box, or of its optional land element.
 
 const HIT_PAD = 18; // stage px added around every target rect
 // Touch: the ghost centre floats TOUCH_LIFT_CSS css px (~9 mm on a tablet) above the finger, clamped to
@@ -109,8 +111,9 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
   }
 
   // The pointer (not the lifted ghost) still rests on its source: it has not left the tap slop yet,
-  // or it is back over the source rect. Holding an item or putting it back must never drop it into a
-  // target next to the source (in the game a bowl sits 2 px above the fruit bins, within the lift).
+  // or it is back over the source rect (its box, reaching cfg.reach stage px higher where its hit area does).
+  // Holding an item or putting it back must never drop it into a target next to the source (in the game a
+  // cup's box ends 2 px above the fruit bins' raised hit area, within the lift).
   function onSource(d) {
     if (d.moved <= TAP_SLOP) return true;
     const s = d.src;
@@ -118,12 +121,33 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     return f.x >= s.x1 - SOURCE_PAD && f.x <= s.x2 + SOURCE_PAD && f.y >= s.y1 - SOURCE_PAD && f.y <= s.y2 + SOURCE_PAD;
   }
 
+  // A target's hit rect: its element's box, joined by the boxes of its hitEls (e.g. a guest's order bubble,
+  // wider than the guest).
+  function targetRect(reg) {
+    let r = rectOf(reg.el);
+    for (const h of reg.cfg.hitEls || []) {
+      if (!h.isConnected) continue;
+      const b = rectOf(h);
+      if (!(b.w > 0 || b.h > 0)) continue;
+      if (!(r.w > 0 || r.h > 0)) {
+        r = b;
+        continue;
+      }
+      const x1 = Math.min(r.x1, b.x1);
+      const y1 = Math.min(r.y1, b.y1);
+      const x2 = Math.max(r.x2, b.x2);
+      const y2 = Math.max(r.y2, b.y2);
+      r = { x1, y1, x2, y2, w: x2 - x1, h: y2 - y1, cx: (x1 + x2) / 2, cy: (y1 + y2) / 2 };
+    }
+    return r;
+  }
+
   function refreshRects(d) {
     d.rectsAt = now();
     d.rects.clear();
     for (const reg of d.oks) {
       if (!reg.el.isConnected) continue;
-      const r = rectOf(reg.el);
+      const r = targetRect(reg);
       if (r.w > 0 || r.h > 0) d.rects.set(reg, r);
     }
   }
@@ -159,6 +183,17 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
       reg.el.classList.add('drop-hover');
       reg.el.classList.toggle('drop-bad', !isValid(reg, d.payload));
     }
+  }
+
+  // Where an accepted ghost shrinks into: the centre of the target's land element (e.g. the guest itself, when its
+  // hit rect also spans its order bubble), else of its hit rect r.
+  function landOf(reg, r) {
+    const l = reg.cfg.land;
+    if (l?.isConnected) {
+      const b = rectOf(l);
+      if (b.w > 0 || b.h > 0) return { x: b.cx, y: b.cy };
+    }
+    return { x: r.cx, y: r.cy };
   }
 
   // Where a returning ghost flies to: the source's current centre, or its last known one.
@@ -299,7 +334,8 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     };
     track(d, e);
     const r = rectOf(reg.el); // before .drag-source restyles it
-    d.src = r;
+    const reach = Math.max(0, Number(reg.cfg.reach) || 0); // a hit area raised above the box (e.g. by a ::before)
+    d.src = reach ? { ...r, y1: r.y1 - reach, h: r.h + reach, cy: r.cy - reach / 2 } : r;
     d.home = { x: r.cx, y: r.cy };
     drag = d;
     try {
@@ -363,7 +399,7 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
       return;
     }
     const target = hitTest(d);
-    const dest = target ? d.rects.get(target) : null;
+    const dest = target ? landOf(target, d.rects.get(target)) : null;
     const home = homeOf(d);
     endDrag(d);
     let result;
@@ -371,7 +407,7 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
       const res = call(target.cfg.drop, d.payload);
       const ok = res === true || res?.ok === true;
       result = makeResult(d, { ok, reason: res?.reason ?? null, targetEl: target.el });
-      fly(d, ok ? { x: dest.cx, y: dest.cy } : home, ok ? 'drop' : 'return');
+      fly(d, ok ? dest : home, ok ? 'drop' : 'return');
     } else {
       // pos is null while the pointer still rests on the source: a hold or put-back is a plain return,
       // the view must not explain it as a drop on a wrong station.

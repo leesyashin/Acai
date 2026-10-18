@@ -1,4 +1,4 @@
-// Shared SVG drawing helpers for the art modules (js/art.js, js/art-food.js, js/art-kitchen.js).
+// Shared SVG drawing helpers for the art modules (js/art.js, js/art-food.js, js/art-kitchen.js, js/art-guests.js).
 // Pure module (no DOM access): every helper returns markup strings.
 
 import { createRng } from './rng.js';
@@ -14,7 +14,6 @@ export const CREAM = '#fff4df';
 export const WOOD = '#c97d43';
 export const WOOD_D = '#8e4f22';
 export const PURPLE = '#6c2a8f';
-export const DANGER = '#ff4d4d';
 export const SHADE_DIR = Math.PI / 4; // light from top-left → shade bottom-right
 export const FONT = `'Lilita One', 'Trebuchet MS', system-ui, sans-serif`;
 
@@ -33,16 +32,24 @@ export function hashStr(s) {
 }
 export const rngFor = (key) => createRng(hashStr(String(key)));
 
-// Small cache for id-free, language-independent art that is redrawn often.
-const memoCache = new Map();
-export function memo(key, draw) {
-  let v = memoCache.get(key);
+// Small caches for id-free, language-independent art that is redrawn often. A hit moves the picture to the
+// end, so the one used longest ago goes first when the cache is full.
+function cached(cache, limit, key, draw) {
+  let v = cache.get(key);
   if (v === undefined) {
     v = draw();
-    if (memoCache.size >= 400) memoCache.delete(memoCache.keys().next().value);
-    memoCache.set(key, v);
-  }
+    if (cache.size >= limit) cache.delete(cache.keys().next().value);
+  } else cache.delete(key);
+  cache.set(key, v);
   return v;
+}
+const memoCache = new Map();
+export const memo = (key, draw) => cached(memoCache, 400, key, draw);
+// A cache of its own (for big pictures with many variants, e.g. the guests: they do not push the small,
+// often-used pictures out of the shared one).
+export function memoTable(limit) {
+  const cache = new Map();
+  return (key, draw) => cached(cache, limit, key, draw);
 }
 
 export function rgb(hex) {
@@ -255,6 +262,10 @@ const PAINTS = [
   radial('shadow', [0.5, 0.5, 0.5], [[0, B, 0.42], [0.55, B, 0.2], [1, B, 0]]),
   radial('glow', [0.5, 0.5, 0.5], [[0, W, 0.9], [0.5, W, 0.35], [1, W, 0]]),
   radial('warm-glow', [0.5, 0.5, 0.5], [[0, '#ffe2a8', 0.75], [0.45, '#ffcf7a', 0.25], [1, '#ffcf7a', 0]]),
+  // skin: light from the top left, the edges turning a warm, reddish brown (any skin tone); soft blush / angry flush
+  radial('skin', [0.38, 0.3, 0.8, 0.32, 0.22], [[0, W, 0.24], [0.26, W, 0.05], [0.52, '#5c1f0c', 0], [0.84, '#5c1f0c', 0.14], [1, '#3d1206', 0.36]]),
+  radial('blush', [0.5, 0.5, 0.5], [[0, '#ff5d7c', 0.62], [0.55, '#ff6d86', 0.24], [1, '#ff6d86', 0]]),
+  radial('flush', [0.5, 0.5, 0.5], [[0, '#ff2f1f', 0.5], [0.6, '#ff3a2a', 0.18], [1, '#ff3a2a', 0]]),
   // clear PET: almost invisible in the middle, bright at the edges (Fresnel)
   linear('plastic', [0, 0, 1, 0], [[0, W, 0.7], [0.07, W, 0.24], [0.2, W, 0.08], [0.5, W, 0.02], [0.78, W, 0.06], [0.93, W, 0.3], [1, W, 0.72]]),
   linear('plastic-in', [0, 0, 1, 0], [[0, '#cfe6ee', 0.5], [0.3, '#eaf6fa', 0.22], [0.7, '#eaf6fa', 0.22], [1, '#cfe6ee', 0.55]]),

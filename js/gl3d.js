@@ -63,6 +63,7 @@ uniform vec4 uP;
 uniform float uMode;
 uniform float uTime;
 uniform float uGlass;
+uniform float uAo;
 uniform sampler2D uTex;
 
 const float PI = 3.14159265;
@@ -83,6 +84,39 @@ float noise(vec2 p) {
   vec2 f = fract(p);
   vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+vec3 hash3(vec3 p) {
+  p = fract(p * vec3(0.1031, 0.103, 0.0973));
+  p += dot(p, p.yxz + 33.33);
+  return fract((p.xxy + p.yxx) * p.zyx);
+}
+// Packed pieces (seeds, clusters): the distance to the nearest (x) and second nearest (y) of random
+// points around p, each point's piece reaching by stretch longer along an axis of its own, and the
+// nearest piece's random value (z). In 3D, so no side of a curved surface shows them stretched; only
+// the 2 × 2 × 2 cells nearest to p are searched (the points keep to the middle of their cells).
+vec3 cells(vec3 p, float stretch) {
+  vec3 i = floor(p - 0.5);
+  vec3 f = p - i;
+  vec3 d = vec3(8.0, 8.0, 0.0);
+  for (int x = 0; x <= 1; x++) {
+    for (int y = 0; y <= 1; y++) {
+      for (int z = 0; z <= 1; z++) {
+        vec3 g = vec3(float(x), float(y), float(z));
+        vec3 h = hash3(i + g);
+        vec3 r = g + 0.15 + h * 0.7 - f;
+        vec3 a = normalize(h.yzx - 0.5 + 0.001);
+        float q = dot(r, r) - stretch * dot(r, a) * dot(r, a);
+        if (q < d.x) {
+          d.y = d.x;
+          d.x = q;
+          d.z = h.z;
+        } else if (q < d.y) {
+          d.y = q;
+        }
+      }
+    }
+  }
+  return vec3(sqrt(max(d.xy, 0.0)), d.z);
 }
 bool isMode(float m) { return abs(uMode - m) < 0.5; }
 
@@ -165,32 +199,28 @@ void main() {
     return;
   }
   if (isMode(${MODE.BRUSHED}.0)) {
-    float u = uP.y > 0.5 ? (vObj.x + vObj.z) : vObj.y;
-    float w = uP.y > 0.5 ? vObj.y : ang * 6.0;
+    float u = uP.y > 1.5 ? vObj.z : uP.y > 0.5 ? (vObj.x + vObj.z) : vObj.y;
+    float w = uP.y > 1.5 ? vObj.x : uP.y > 0.5 ? vObj.y : ang * 6.0;
     float l = noise(vec2(u * uP.x, w * 0.05)) * 0.6 + noise(vec2(u * uP.x * 3.7, w * 0.11)) * 0.4;
-    base *= 0.9 + 0.16 * l;
-    rough = clamp(rough + (l - 0.5) * 0.12, 0.05, 1.0);
-  } else if (isMode(${MODE.PUREE}.0) || isMode(${MODE.SLUSH}.0)) {
+    base *= 0.9 + 0.16 * l + (l - 0.5) * uP.z * 2.0;
+    rough = clamp(rough + (l - 0.5) * (0.12 + uP.z), 0.05, 1.0);
+  } else if (isMode(${MODE.PUREE}.0)) {
     float t = uTime * uP.z;
     float s = sin(ang * uP.x + (vObj.y + rad) * uP.y - t + 1.7 * sin(ang * 2.0 + vObj.y * 0.12 - t * 0.5));
     float g = noise(vec2(ang * 5.0 - t * 0.8, vObj.y * 0.3 + rad * 0.2));
     base = mix(base, uColor2, smoothstep(0.3, 1.1, s * 0.55 + g * 0.65) * uP.w);
     base *= 0.94 + 0.12 * noise(vec2(ang * 22.0 - t, vObj.y * 1.4 + rad));
-    if (isMode(${MODE.SLUSH}.0)) {
-      float c = noise(vec2(ang * 40.0 - t * 1.3, vObj.y * 2.6 + rad * 1.3));
-      base = mix(base, vec3(1.0), smoothstep(0.78, 0.95, c) * 0.55);
-      rough = 0.42 - 0.25 * smoothstep(0.8, 0.95, c);
-    }
   } else if (isMode(${MODE.GLASS}.0)) {
     if (uP.x > 0.5) {
-      float side = abs(ang - uP.w);
-      float k = (vObj.y - uP.y) / uP.z;
+      // a thin spine with fine ticks to its right (d: along the wall from the spine), a long one at
+      // each of the p.x marks and a short one halfway between them
+      float d = (uP.w - ang) * rad;
+      float k = (vObj.y - uP.y) / uP.z * 2.0;
       float i = floor(k + 0.5);
-      float lineY = abs(k - i) * uP.z;
-      float markLen = mod(i, 2.0) < 0.5 ? 0.26 : 0.15;
-      if (i >= 0.0 && i < uP.x && side < markLen) print = 1.0 - smoothstep(0.35, 0.75, lineY);
-      float sideBar = abs(side - 0.02);
-      if (vObj.y > uP.y - 1.0 && vObj.y < uP.y + uP.z * (uP.x - 1.0) + 1.0 && sideBar < 0.012) print = max(print, 0.9);
+      float lineY = abs(k - i) * uP.z * 0.5;
+      float markLen = mod(i, 2.0) < 0.5 ? 4.4 : 2.4;
+      if (i >= 0.0 && i <= 2.0 * (uP.x - 1.0) && d > 0.0 && d < markLen) print = 1.0 - smoothstep(0.2, 0.5, lineY);
+      if (vObj.y > uP.y - 0.3 && vObj.y < uP.y + uP.z * (uP.x - 1.0) + 0.3) print = max(print, 0.8 * (1.0 - smoothstep(0.12, 0.42, abs(d))));
     }
   } else if (isMode(${MODE.FROST}.0)) {
     float f = noise(vObj.xy * 0.45 + vObj.z * 0.2) * 0.6 + noise(vObj.xy * 1.9) * 0.4;
@@ -204,9 +234,11 @@ void main() {
     base += vec3(0.6) * step(0.93, noise(vObj.xy * 3.1 + vObj.z)) * frost;
     rough = mix(rough, 0.75, frost);
   } else if (isMode(${MODE.TEX}.0)) {
+    // textures are stored premultiplied (their mipmaps average print and clear parts correctly)
     vec4 tx = texture2D(uTex, vUv);
-    vec3 tc = pow(tx.rgb, vec3(2.2));
-    base = mix(base, tc, tx.a);
+    vec3 tc = tx.a > 0.0 ? pow(min(tx.rgb / tx.a, vec3(1.0)), vec3(2.2)) : vec3(0.0);
+    // a decal (p.y) is only its print: the print's colour, its coverage in the alpha
+    base = uP.y > 0.5 ? tc : mix(base, tc, tx.a);
     emit += tc * tx.a * uP.x;
     if (uP.y > 0.5) alpha *= tx.a;
   } else if (isMode(${MODE.STREAM}.0)) {
@@ -231,6 +263,31 @@ void main() {
     float m = noise(vObj.xz * uP.x + vObj.y * 0.1) * 0.7 + noise(vObj.xz * uP.x * 3.0) * 0.3;
     base = mix(base, uColor2, smoothstep(0.6, 0.68, m) * uP.y);
     rough = 0.6;
+  } else if (isMode(${MODE.WOOD}.0)) {
+    // growth rings around the object's x axis, bent by noise, plus fine fibres along x
+    float rr = length(vObj.yz) * uP.x + noise(vObj.xz * vec2(0.05, 0.2) + vObj.y * 0.1) * uP.y;
+    float ring = abs(fract(rr) - 0.5) * 2.0;
+    float fib = noise(vec2(vObj.x * 0.12, (vObj.y + vObj.z) * 2.3)) * 0.6 + noise(vec2(vObj.x * 0.4, (vObj.z - vObj.y) * 5.0)) * 0.4;
+    base = mix(base, uColor2, clamp(smoothstep(0.55, 1.0, ring) * 0.75 + (fib - 0.45) * uP.z, 0.0, 1.0));
+    rough = clamp(rough + (fib - 0.5) * 0.2, 0.05, 1.0);
+  } else if (isMode(${MODE.GRAIN}.0) && uP.w > 0.5) {
+    // packed clusters (p.w 1) or long seeds (2): a piece is dark (colour2, share p.z), light (share p.y)
+    // or a shade of colour, rounded off toward its edge, with dark gaps between the pieces
+    vec3 c = cells(vObj * uP.x, uP.w > 1.5 ? 0.7 : 0.0);
+    float k = fract(c.z * 7.13);
+    vec3 tone = c.z < uP.z ? mix(uColor2, uColor, k * 0.4) : uColor * (0.82 + 0.3 * k);
+    if (c.z > 1.0 - uP.y && c.x < 0.5) tone = mix(uColor, vec3(0.86, 0.78, 0.6), 0.7);
+    float gap = 1.0 - smoothstep(0.02, 0.32, c.y - c.x);
+    base = mix(tone * (0.5 + 0.5 * clamp(1.0 - c.x * 1.1, 0.0, 1.0)), uColor2 * 0.5, gap * 0.85);
+    rough = mix(rough, 1.0, gap);
+  } else if (isMode(${MODE.GRAIN}.0)) {
+    // fibres (a coconut's shell): two octaves of noise pick the dark bits (colour2) and the light ones
+    vec2 q = vec2(vObj.x + vObj.z * 0.71, vObj.y - vObj.z * 0.53) * uP.x;
+    float n = noise(q) * 0.65 + noise(q * 2.7 + 7.1) * 0.35;
+    float m = noise(q * 1.9 + 3.3);
+    base = mix(base, uColor2, smoothstep(0.5 - uP.z * 0.25, 0.62, n) * uP.z);
+    base = mix(base, vec3(0.92, 0.86, 0.72), smoothstep(0.78 - uP.y * 0.2, 0.86, m) * uP.y);
+    rough = clamp(rough + (n - 0.5) * 0.3, 0.05, 1.0);
   } else if (isMode(${MODE.LEDRING}.0)) {
     float k = (ang + PI) / (2.0 * PI) * uP.x;
     float i = floor(k);
@@ -255,9 +312,12 @@ void main() {
     float absorb = clamp(alpha * (1.0 + 2.6 * pow(1.0 - nv, 2.0)), 0.0, 0.85);
     vec3 c = display(refl) * aR + (1.0 - aR) * absorb * display(base * diffLight * 0.42);
     float al = aR + (1.0 - aR) * absorb;
+    // thin clear glass over bright contents (jars): p.w of the reflection adds light instead of covering
+    if (isMode(${MODE.PLAIN}.0)) al = mix(al, (1.0 - aR) * absorb, uP.w);
     if (isMode(${MODE.GLASS}.0) && uP.x > 0.5) {
-      c = mix(c, display(vec3(0.82, 0.86, 0.9) * diffLight * 0.55) * 0.88, print);
-      al = mix(al, 0.88, print);
+      // the scale's light ink covers about half of what is behind it (the purée shows through)
+      c = mix(c, display(vec3(0.84, 0.88, 0.92) * diffLight * 0.55) * 0.9, print * 0.5);
+      al = mix(al, 0.9, print * 0.5);
     } else if (isMode(${MODE.FROST}.0)) {
       c = mix(c, display(vec3(0.86, 0.92, 0.98) * diffLight * 0.62) * 0.82, frost * 0.85);
       al = mix(al, 0.82, frost * 0.85);
@@ -270,7 +330,7 @@ void main() {
 
   vec3 F0 = mix(vec3(0.04), base, metal);
   vec3 Fr = F0 + (max(vec3(1.0 - rough), F0) - F0) * pow(1.0 - nv, 5.0);
-  float ao = mix(0.68, 1.0, smoothstep(0.0, 16.0, vPos.y));
+  float ao = mix(0.68, 1.0, smoothstep(0.0, uAo, vPos.y));
   vec3 spec = env(r, rough) * Fr * (1.0 - 0.4 * rough) + lights(n, v, F0, a);
   vec3 diff = base * (1.0 - metal) * diffLight * (1.0 - 0.6 * maxc(Fr));
   vec3 col = (diff + spec) * ao;
@@ -328,7 +388,7 @@ class Renderer {
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS) && !gl.isContextLost()) throw new Error(`program: ${gl.getProgramInfoLog(prog)}`);
     this.prog = prog;
     this.u = {};
-    for (const name of ['uModel', 'uViewProj', 'uNorMat', 'uView', 'uColor', 'uColor2', 'uEmit', 'uMat', 'uP', 'uMode', 'uTime', 'uGlass', 'uTex']) {
+    for (const name of ['uModel', 'uViewProj', 'uNorMat', 'uView', 'uColor', 'uColor2', 'uEmit', 'uMat', 'uP', 'uMode', 'uTime', 'uGlass', 'uAo', 'uTex']) {
       this.u[name] = gl.getUniformLocation(prog, name);
     }
     this.uint = !!gl.getExtension('OES_element_index_uint');
@@ -371,7 +431,9 @@ class Renderer {
     return b;
   }
 
-  // Texture from a spec { key, w, h, draw(ctx, w, h) } drawn on a 2D canvas once per key.
+  // Texture from a spec { key, w, h, draw(ctx, w, h) } drawn on a 2D canvas once per key. A
+  // power-of-two texture gets mipmaps (WebGL 1 allows them only there), so a big print shrunk to a few
+  // px stays smooth instead of breaking up; it is stored premultiplied so they keep the print's colour.
   texture(spec) {
     const gl = this.gl;
     let t = this.textures.get(spec.key);
@@ -383,10 +445,17 @@ class Renderer {
       t = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, t);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      const pot = (n) => n > 0 && (n & (n - 1)) === 0;
+      if (pot(spec.w) && pot(spec.h)) {
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      } else {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      }
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -400,7 +469,7 @@ class Renderer {
     return t;
   }
 
-  // Draws a scene { frame, elev, persp?, time, items } into the bottom-left w×h pixels of the canvas.
+  // Draws a scene { frame, elev, persp?, time, ao?, items } into the bottom-left w×h pixels of the canvas.
   render(scene, w, h) {
     if (this.lost) return false;
     const gl = this.gl;
@@ -417,6 +486,7 @@ class Renderer {
     const view = viewDir(scene.elev);
     gl.uniform3fv(u.uView, view);
     gl.uniform1f(u.uTime, scene.time || 0);
+    gl.uniform1f(u.uAo, scene.ao || 16);
     gl.uniform1i(u.uTex, 0);
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LEQUAL);
@@ -449,7 +519,7 @@ class Renderer {
           this.draw(it);
           gl.cullFace(gl.BACK);
           this.draw(it);
-        } else if ((pass === 'opaque' || pass === 'decal') && !it.mat.double) {
+        } else if ((pass === 'opaque' || pass === 'decal' || it.mat.front) && !it.mat.double) {
           gl.enable(gl.CULL_FACE);
           gl.cullFace(gl.BACK);
           this.draw(it);

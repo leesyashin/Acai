@@ -6,10 +6,10 @@
 
 import {
   createGame, tick, drainEvents, loadBlender, pourBlender, addIngredient, trashBowl,
-  cleanBlender, loadSmoothie, trashSmoothie, serveBowl, serveSmoothie, bowlMatchesOrder, placeCup,
+  cleanBlender, loadMatcha, trashMatcha, serveBowl, serveMatcha, bowlMatchesOrder, placeCup,
 } from '../../js/engine.js';
 import {
-  getKitchenStats, getLevel, SMOOTHIE_LEVEL, START_OWNED, ING, UPG, LEVELS, INGREDIENTS, UPGRADES,
+  getKitchenStats, getLevel, MATCHA_LEVEL, START_OWNED, ING, UPG, LEVELS, INGREDIENTS, UPGRADES,
 } from '../../js/data.js';
 
 const STEP = 0.05;
@@ -28,7 +28,7 @@ function activeCustomers(game) {
 }
 
 const needsBowl = (c) => !c.delivered.bowl;
-const needsSmoothie = (c) => !!c.order.smoothie && !c.delivered.smoothie;
+const needsMatcha = (c) => !!c.order.matcha && !c.delivered.matcha;
 
 // Can this (partial) bowl still become the ordered bowl?
 export function bowlCompatible(bowl, order) {
@@ -108,9 +108,9 @@ function serveAction(game, mem, customers) {
     if (needsBowl(c) && idx !== undefined && bowlMatchesOrder(game.bowls[idx], c.order.bowl)) {
       return act(() => serveBowl(game, idx, c.id));
     }
-    if (needsSmoothie(c) && game.smoothie) {
-      const slot = game.smoothie.slots.findIndex((s) => s.state === 'ready' && s.fruit === c.order.smoothie);
-      if (slot >= 0) return act(() => serveSmoothie(game, slot, c.id));
+    if (needsMatcha(c) && game.matcha) {
+      const slot = game.matcha.slots.findIndex((s) => s.state === 'ready' && s.fruit === c.order.matcha);
+      if (slot >= 0) return act(() => serveMatcha(game, slot, c.id));
     }
   }
   return null;
@@ -131,22 +131,22 @@ function blenderAction(game, mem, customers) {
   return null;
 }
 
-function smoothieAction(game, customers) {
-  if (!game.smoothie) return null;
-  const slots = game.smoothie.slots;
+function matchaAction(game, customers) {
+  if (!game.matcha) return null;
+  const slots = game.matcha.slots;
   const pending = slots.filter((s) => s.state !== 'empty').map((s) => s.fruit);
   for (const c of customers) {
-    if (!needsSmoothie(c)) continue;
-    const covered = pending.indexOf(c.order.smoothie);
+    if (!needsMatcha(c)) continue;
+    const covered = pending.indexOf(c.order.matcha);
     if (covered >= 0) {
       pending.splice(covered, 1);
       continue;
     }
     const empty = slots.findIndex((s) => s.state === 'empty');
-    if (empty >= 0) return act(() => loadSmoothie(game, empty, c.order.smoothie));
+    if (empty >= 0) return act(() => loadMatcha(game, empty, c.order.matcha));
     const unwanted = slots.findIndex((s) => s.state === 'ready'
-      && !customers.some((o) => needsSmoothie(o) && o.order.smoothie === s.fruit));
-    if (unwanted >= 0) return act(() => trashSmoothie(game, unwanted));
+      && !customers.some((o) => needsMatcha(o) && o.order.matcha === s.fruit));
+    if (unwanted >= 0) return act(() => trashMatcha(game, unwanted));
   }
   return null;
 }
@@ -221,7 +221,7 @@ export function chooseAction(game, mem) {
   return serveAction(game, mem, customers)
     || rescueAction(game, mem, true)
     || blenderAction(game, mem, customers)
-    || smoothieAction(game, customers)
+    || matchaAction(game, customers)
     || pourAction(game, mem, customers)
     || bowlWorkAction(game, mem, customers)
     || rescueAction(game, mem, false)
@@ -231,7 +231,7 @@ export function chooseAction(game, mem) {
 
 export function playLevel({
   level, endless = false, owned = START_OWNED, ingLevels = {}, upgrades = {},
-  seed = 1, actionTime = 1.3, maxTime = 900, smoothies, featured = [],
+  seed = 1, actionTime = 1.3, maxTime = 900, matcha, featured = [],
 } = {}) {
   const lvl = typeof level === 'number' ? getLevel(level) : level;
   const game = createGame({
@@ -240,7 +240,7 @@ export function playLevel({
     owned,
     ingLevels,
     kitchen: getKitchenStats(upgrades),
-    smoothies: smoothies ?? (endless || (lvl && lvl.id >= SMOOTHIE_LEVEL)),
+    matcha: matcha ?? (endless || (lvl && lvl.id >= MATCHA_LEVEL)),
     seed,
     featured,
   });
@@ -280,7 +280,7 @@ export const SCHEDULE = [
   { from: 3, ingredients: ['strawberry', 'coconut'], upgrades: { blenderSpeed: 1 }, quality: [] },
   { from: 5, ingredients: ['chia', 'blueberry'], upgrades: { bowlSlots: 1 }, quality: [] },
   { from: 7, ingredients: ['pitaya', 'mango'], upgrades: { plants: 1 }, quality: [] },
-  { from: 10, ingredients: ['peanut'], upgrades: { blenderSpeed: 2, jug: 1, smoothieSlots: 1 }, quality: [] },
+  { from: 10, ingredients: ['peanut'], upgrades: { blenderSpeed: 2, jug: 1, matchaSlots: 1 }, quality: [] },
   { from: 13, ingredients: ['kiwi', 'chocolate'], upgrades: { blender2: 1, bowlSlots: 2, jukebox: 1 }, quality: [] },
   {
     from: 16, ingredients: ['spirulina', 'mint', 'cacao'], upgrades: { blenderSpeed: 3, seating: 1 },

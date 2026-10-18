@@ -1,12 +1,12 @@
 // E2E checks of the 3D kitchen appliances (js/art3d.js + js/kitchen3d.js through js/game-view.js
 // and js/screens.js): WebGL canvases at every station, one model per upgrade level, animations that
-// follow the game (blending, bin lid, cold air from the freezer, smoothie tap) and the drawn SVG art when the
-// browser has no WebGL.
+// follow the game (blending, bin lid, cold air from the freezer, the matcha machine's nozzle), the ingredient containers' still
+// pictures drawn again for a new pixel ratio, and the drawn SVG art when the browser has no WebGL.
 // Run: node tests/e2e/appliances.e2e.mjs   (serves the repo on :8090, exits non-zero on failure)
 
 import path from 'node:path';
 import {
-  startServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, e2eOutDir,
+  startServer, reuseServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, e2eOutDir,
 } from './helpers.mjs';
 
 const PORT = Number(process.env.E2E_PORT) || 8090;
@@ -36,7 +36,7 @@ async function serve() {
     return { url: srv.url.replace(/\/$/, ''), close: () => srv.close() };
   } catch (err) {
     if (err.code !== 'EADDRINUSE') throw err;
-    return { url: `http://127.0.0.1:${PORT}`, close: async () => {} };
+    return { url: await reuseServer(PORT), close: async () => {} };
   }
 }
 
@@ -144,17 +144,31 @@ async function main() {
         await page.screenshot({ path: path.join(OUT, 'ready.png') });
       });
 
-      await check('dragging the blender carries a 3D snapshot', async () => {
+      await check('dragging the blender carries a 3D snapshot, copied without reading the canvas back', async () => {
+        // a pixel readback of the live canvas would stall the GPU on every pickup
+        await page.evaluate(() => {
+          const read = CanvasRenderingContext2D.prototype.getImageData;
+          window.__readbacks = 0;
+          CanvasRenderingContext2D.prototype.getImageData = function getImageData(...args) {
+            window.__readbacks++;
+            return read.apply(this, args);
+          };
+          window.__restoreReadbacks = () => { CanvasRenderingContext2D.prototype.getImageData = read; };
+        });
         const box = await page.locator('[data-blender="0"]').boundingBox();
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await page.mouse.down();
         await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2 - 30, { steps: 5 });
         await sleep(150);
-        const ghost = await page.locator('.drag-ghost canvas').count();
+        const ghost = await page.locator('.drag-ghost canvas').evaluate((c) => ({ w: c.getBoundingClientRect().width, h: c.getBoundingClientRect().height })).catch(() => null);
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 });
         await page.mouse.up();
         await sleep(400);
-        assert(ghost === 1, 'the drag ghost is not the 3D picture');
+        const readbacks = await page.evaluate(() => { window.__restoreReadbacks(); return window.__readbacks; });
+        assert(ghost, 'the drag ghost is not the 3D picture');
+        // cropped to the blender (the canvas is 164 × 292 with headroom), carried at about its size
+        assert(ghost.w > 100 && ghost.w < 200 && ghost.h > 180 && ghost.h < 290, `ghost ${ghost.w}×${ghost.h}`);
+        assert(readbacks === 0, `${readbacks} getImageData call(s) while picking up the blender`);
       });
 
       await check('the bin opens while a bowl is carried over it and falls shut after the drop', async () => {
@@ -190,22 +204,88 @@ async function main() {
         await sleep(700);
         const open = await canvasInfo(page, '.g-freezer canvas.g-3d-front');
         await page.screenshot({ path: path.join(OUT, 'freezer-open.png') });
-        await page.mouse.up(); // over the counter: the pack flies back
+        // put back where it was taken (let go up there, it would land in the empty second blender, whose
+        // animation would then share the drawing budget with the machine in the next check)
+        await page.mouse.move(pack.x + pack.width / 2, pack.y + pack.height / 2, { steps: 8 });
+        await page.mouse.up();
+        assert(await page.evaluate(() => window.__acaiGame.blenders.every((b) => b.state !== 'blending')), 'the pack went into a blender');
         await sleep(1600);
         const after = await canvasInfo(page, '.g-freezer canvas.g-3d-front');
         assert(open.hash !== closed.hash, 'no cold air while the pack is taken');
         assert(after.hash === closed.hash, 'the cold air does not settle again');
       });
 
-      await check('smoothie machine: churn first, then the tap fills the cup', async () => {
-        await engine(page, 'return e.loadSmoothie(g, 0, "mango").ok;');
-        const cupHasMango = () => page.evaluate(() => document.querySelector('[data-smoothie-slot="0"] .g-art svg')?.innerHTML.includes('#ffb53b'));
+      await check('matcha machine: the purée first, the mill grinds, then the nozzle fills the glass', async () => {
+        await engine(page, 'return e.loadMatcha(g, 0, "mango").ok;');
+        // the glass's layers (js/art-food.js): mango purée, then the matcha over the milk
+        const glassHas = (col) => page.evaluate((c) => !!document.querySelector('[data-matcha-slot="0"] .g-art svg')?.innerHTML.includes(c), col);
+        const machine = () => canvasInfo(page, '.g-machine canvas.g-3d');
         await sleep(300);
-        assert(!(await cupHasMango()), 'the cup fills before the tap opens');
-        await fastUntil(page, () => window.__acaiGame.smoothie.slots[0].progress > 0.8, null, 2);
+        assert(await glassHas('#ffa623'), 'no mango purée in the glass at the start');
+        assert(!(await glassHas('#7f9f37')), 'the glass fills before the nozzle pours');
+        const a = await machine();
+        await sleep(400);
+        assert((await machine()).hash !== a.hash, 'the machine stands still while it brews');
+        await fastUntil(page, () => window.__acaiGame.matcha.slots[0].progress > 0.8, null, 2);
         await sleep(200);
-        assert(await cupHasMango(), 'the cup does not fill while the tap pours');
+        assert(await glassHas('#7f9f37'), 'the glass does not fill while the nozzle pours');
         await page.screenshot({ path: path.join(OUT, 'pour.png') });
+      });
+
+      await check('with both blenders and both glasses animating the game keeps its frame rate, every appliance moves', async () => {
+        // headless Chromium draws WebGL in software, slowly (100–200 ms a picture): the animation frames
+        // of all views share one budget (js/art3d.js), otherwise the three would draw back to back and
+        // leave the game a few frames a second
+        const fps = (ms) => page.evaluate((span) => new Promise((res) => {
+          let n = 0;
+          const t0 = performance.now();
+          const f = (ts) => {
+            n++;
+            if (ts - t0 < span) requestAnimationFrame(f);
+            else res(n / ((ts - t0) / 1000));
+          };
+          requestAnimationFrame(f);
+        }), ms);
+        await fastUntil(page, () => window.__acaiGame.matcha.slots[0].state === 'ready');
+        await engine(page, 'e.trashMatcha(g, 0); e.trashMatcha(g, 1); e.cleanBlender(g, 0); e.cleanBlender(g, 1);');
+        await sleep(600);
+        const idle = await fps(2000);
+        await page.evaluate(() => { window.__acaiSpeed = 0.05; }); // the states hold while the frames are counted
+        try {
+          const loaded = await engine(page, `return [e.loadBlender(g, 0, 'acai'), e.loadBlender(g, 1, 'pitaya'),
+            e.loadMatcha(g, 0, 'mango'), e.loadMatcha(g, 1, 'kiwi')].every((r) => r.ok);`);
+          assert(loaded, 'could not start both blenders and both glasses');
+          await sleep(800);
+          const sels = ['[data-blender="0"] canvas', '[data-blender="1"] canvas', '.g-machine canvas.g-3d'];
+          const before = await Promise.all(sels.map((s) => canvasInfo(page, s)));
+          const busy = await fps(3000);
+          const after = await Promise.all(sels.map((s) => canvasInfo(page, s)));
+          const still = sels.filter((s, i) => before[i].hash === after[i].hash);
+          await page.screenshot({ path: path.join(OUT, 'all-busy.png') });
+          assert(busy >= Math.max(12, idle * 0.4), `${busy.toFixed(1)} fps with everything animating (idle ${idle.toFixed(1)} fps)`);
+          assert(!still.length, `not redrawn in 3 s: ${still.join(', ')}`);
+        } finally {
+          await page.evaluate(() => { window.__acaiSpeed = 1; });
+        }
+        await fastUntil(page, () => window.__acaiGame.blenders.every((b) => b.state !== 'blending')
+          && window.__acaiGame.matcha.slots.every((s) => s.state !== 'mixing'));
+        await engine(page, 'e.trashMatcha(g, 0); e.trashMatcha(g, 1); e.cleanBlender(g, 0); e.cleanBlender(g, 1);');
+      });
+
+      await check('a bigger window (a new pixel ratio) draws the ingredient containers again, sharp', async () => {
+        // every container picture is 96 css px × the pixel ratio (device px per stage px) wide
+        const sharp = () => {
+          const k = Math.max(1, Math.min(3, window.devicePixelRatio * (document.getElementById('stage').getBoundingClientRect().width / 1280)));
+          const cs = [...document.querySelectorAll('.g-bin .g-art canvas')];
+          return cs.length >= 13 && cs.every((c) => c.width === Math.round(96 * k));
+        };
+        const widths = () => page.evaluate(() => [...document.querySelectorAll('.g-bin .g-art canvas')].map((c) => c.width).join());
+        assert(await page.evaluate(sharp), `container pictures at pixel ratio 1: ${await widths()}`);
+        for (const viewport of [{ width: 1600, height: 1000 }, { width: 1280, height: 800 }]) {
+          await page.setViewportSize(viewport);
+          await page.waitForFunction(sharp, null, { timeout: 5000 })
+            .catch(async () => { throw new Error(`not redrawn at ${viewport.width}×${viewport.height}: ${await widths()}`); });
+        }
       });
 
       await check('no console errors in the 3D game', async () => assertNoConsoleErrors(errors));
@@ -258,7 +338,7 @@ async function main() {
       await check('without WebGL the game draws the SVG appliances', async () => {
         assert(await page.locator('.screen-game.is-3d').count() === 0, 'is-3d without WebGL');
         assert(await page.locator('[data-blender="0"] .g-art svg [data-fill], [data-blender="0"] .g-art svg').count() >= 1, 'no SVG blender');
-        assert(await page.locator('.g-machine > svg').count() === 1, 'no SVG smoothie machine');
+        assert(await page.locator('.g-machine > svg').count() === 1, 'no SVG matcha machine');
         assert(await page.locator('.g-trash .g-art svg').count() === 1, 'no SVG trash can');
         assert(await page.locator('canvas.g-3d').count() === 0, '3D canvases without WebGL');
         await engine(page, 'return e.loadBlender(g, 0, "acai").ok;');

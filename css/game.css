@@ -9,6 +9,13 @@
   --l-base: var(--acai-2);
   --l-mid: var(--leaf);
   --l-top: var(--pitaya);
+  /* the layers' light tints (and a slightly deeper edge) behind the items in the order bubbles and the chips */
+  --l-base-tint: #efe3f7;
+  --l-base-edge: rgba(108, 42, 143, 0.2);
+  --l-mid-tint: #dcf5e6;
+  --l-mid-edge: rgba(47, 191, 113, 0.3);
+  --l-top-tint: #ffe3ee;
+  --l-top-edge: rgba(255, 61, 139, 0.26);
   background: var(--cream);
   font-family: var(--font-ui);
   color: var(--ink);
@@ -32,8 +39,12 @@
 .screen-game .g-decor-plants { top: 180px; }
 .screen-game .g-decor-jukebox { top: 182px; }
 .screen-game .g-decor-seating { top: 180px; }
-.screen-game .g-decor-neon { top: 92px; }
-.screen-game .g-decor-neon svg { filter: drop-shadow(0 0 10px rgba(255, 61, 139, 0.55)); }
+/* the neon hangs from the wainscot's rail (its hook y≈222, just above the rail at y 226), its sign on the oak reeds
+   below (y≈237–283): under the faces, between two guests' shoulders or beside the jukebox (its x: layoutDecor in
+   js/game-view.js) – the bubbles of long orders fill the wall above the heads, the window is glass. A soft, low glow,
+   so it reads as lit without pulling the eye from the guests */
+.screen-game .g-decor-neon { top: 214px; }
+.screen-game .g-decor-neon svg { filter: drop-shadow(0 0 6px rgba(236, 112, 160, 0.3)); }
 .screen-game .g-seats { position: absolute; inset: 0; }
 
 /* ------------------------------------------------------------ customers */
@@ -45,13 +56,30 @@
   margin-left: -100px;
   transition: left 0.6s ease;
 }
+/* the guest's bust (customerSVG, 160 px): its viewBox y 131 meets the pass's top (stage y 294), so head, neck,
+   shoulders and upper arms show above it; the face (y≈205–257) stays clear of the bubble, tall hair, caps and
+   steam may tuck under its tail */
 .screen-game .g-figure {
   position: absolute;
   left: 20px;
-  top: 108px;
+  top: 101px;
   width: 160px;
   height: 160px;
   transform-origin: 50% 100%;
+  isolation: isolate;
+}
+/* the guest's soft shadow on the wall behind, down to the right (light from the top left), and a faint darker rim
+   right round the head, so fair skin and blonde or grey hair still stand off the light plaster */
+.screen-game .g-figure::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(30px 38px at 94px 66px, rgba(74, 44, 20, 0.2), rgba(74, 44, 20, 0) 100%),
+    radial-gradient(38px 42px at 82px 60px, rgba(66, 40, 20, 0.24) 64%, rgba(66, 40, 20, 0) 100%),
+    radial-gradient(70px 32px at 91px 128px, rgba(74, 44, 20, 0.2), rgba(74, 44, 20, 0) 100%);
+  pointer-events: none;
 }
 .screen-game .g-cust.is-waiting .g-figure { animation: g-idle 2.8s ease-in-out infinite; }
 .screen-game .g-cust.is-waiting[data-state="waiting"] .g-bubble[data-mood="angry"] { animation: g-nag 0.7s ease-in-out infinite; }
@@ -71,57 +99,111 @@
 .screen-game .g-cust.drop-ok .g-bubble { box-shadow: 0 0 0 5px var(--glow-ok), 0 0 22px 6px var(--glow-ok); }
 .screen-game .g-cust.drop-ok.drop-hover .g-figure { scale: 1.06; }
 .screen-game .g-cust.drop-ok.drop-hover .g-bubble { box-shadow: 0 0 0 6px var(--mango), 0 0 30px 10px var(--glow-ok); }
-/* hovering a guest who will refuse it (cup still mixing, nothing ordered): muted red, no grow */
+/* hovering a guest who will refuse it (glass still brewing, nothing ordered): muted red, no grow */
 .screen-game .g-cust.drop-bad .g-bubble { box-shadow: 0 0 0 4px var(--glow-bad); }
 
-/* order bubble */
+/* order bubble (docs/DESIGN.md §4.7): a light, opaque white panel over the guest's head, its bottom at stage y 179 where the
+   tallest hair begins (the tip of a bun or an afro, an angry guest's steam tuck a few px under it), only the tail
+   reaching down to the crown – the faces stay clear. It is centred on the seat or, too wide for the seat's slot
+   (4 seats, long orders), pushed into it by --dx (js/game-view.js bubbleShift) – the tail stays on the head. Left the
+   bowl (the base cup, rows 2 and 3), right behind a divider the matcha glass, across the bottom the patience bar. */
 .screen-game .g-bubble {
+  --dx: 0px;
   position: absolute;
   left: 50%;
-  bottom: 152px;
-  translate: -50% 0;
-  min-width: 96px;
+  bottom: 149px;
+  translate: calc(-50% + var(--dx)) 0;
+  transform-origin: calc(50% - var(--dx)) 100%;
   background: var(--white);
   border: 2px solid #ddd2e3;
   border-radius: 18px;
-  padding: 6px 9px 7px;
-  box-shadow: 0 8px 18px rgba(40, 20, 50, 0.2);
+  padding: 4px 6px;
+  box-shadow: 0 8px 18px rgba(40, 20, 50, 0.2), inset 0 -2px 0 rgba(43, 45, 51, 0.05);
   animation: g-bubble-in 0.35s 0.35s ease-out backwards;
-  transition: box-shadow 0.12s ease;
+  transition: box-shadow 0.12s ease, border-color 0.3s ease, translate 0.6s ease;
 }
+/* the tail: under the bubble's content (the bubble is a stacking context), so its top corner never covers the bar */
 .screen-game .g-bubble::after {
   content: "";
   position: absolute;
-  left: 50%;
-  bottom: -13px;
-  width: 18px;
-  height: 18px;
+  z-index: -1;
+  left: calc(50% - var(--dx));
+  bottom: -11px;
+  width: 16px;
+  height: 16px;
   translate: -50% 0;
   rotate: 45deg;
   background: var(--white);
   border-right: 2px solid #ddd2e3;
   border-bottom: 2px solid #ddd2e3;
   border-bottom-right-radius: 4px;
+  transition: border-color 0.3s ease, left 0.6s ease;
 }
-.screen-game .g-order { display: flex; align-items: center; gap: 6px; }
-.screen-game .g-order-part { position: relative; display: flex; align-items: center; }
-.screen-game .g-order-bowl { gap: 3px; }
+/* a guest moving to another seat (endless: one more seat) takes its bubble along, the new --dx sliding with it; an
+   arriving guest's bubble is put in its place at once */
+.screen-game .g-cust.is-arriving .g-bubble { transition: box-shadow 0.12s ease, border-color 0.3s ease; }
+.screen-game .g-cust.is-arriving .g-bubble::after { transition: border-color 0.3s ease; }
+.screen-game .g-order { display: flex; align-items: stretch; }
+/* a part of the order: its own field, green with a big tick once it was handed over */
+.screen-game .g-order-part {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 2px 3px;
+  border-radius: 14px;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+.screen-game .g-order-bowl { gap: 4px; }
+/* the base: a cup of it on a soft circle in layer 1's tint, its badge on the rim */
 .screen-game .g-order-base { position: relative; flex: none; }
-.screen-game .g-order-base .g-lnum { position: absolute; left: -5px; top: -3px; }
-.screen-game .g-rows { display: flex; flex-direction: column; gap: 1px; }
-.screen-game .g-row { display: flex; align-items: center; height: 33px; }
-.screen-game .g-row .g-lnum { margin-right: 1px; }
-.screen-game .g-ico { display: block; flex: none; }
-.screen-game .g-order-cup {
-  padding-left: 6px;
-  border-left: 2px dotted rgba(42, 18, 54, 0.2);
-}
-.screen-game .g-cup-wrap { position: relative; display: block; }
-/* which fruit: the same icon the bin shows, on the cup's lower right (inside the bubble padding) */
-.screen-game .g-cup-fruit {
+.screen-game .g-order-base::before {
+  content: "";
   position: absolute;
-  right: -6px;
-  bottom: -3px;
+  inset: 1px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #fff 0, var(--l-base-tint) 70%);
+  box-shadow: inset 0 0 0 1.5px var(--l-base-edge);
+}
+.screen-game .g-order-base svg { position: relative; }
+.screen-game .g-order-base .g-lnum { position: absolute; left: -4px; top: -3px; width: 18px; height: 18px; font-size: 12px; }
+.screen-game .g-rows { display: flex; flex-direction: column; }
+.screen-game .g-row { display: flex; align-items: center; gap: 2px; height: 40px; }
+.screen-game .g-row .g-lnum { width: 18px; height: 18px; font-size: 12px; margin-right: 1px; }
+/* an item: its icon on a circle in its layer's tint (the chips under the cups speak the same language) */
+.screen-game .g-ico {
+  position: relative;
+  display: block;
+  flex: none;
+}
+.screen-game .g-ico::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #fff 0, var(--tint) 72%);
+  box-shadow: inset 0 0 0 1.5px var(--edge);
+}
+.screen-game .g-ico svg { position: relative; }
+.screen-game .g-ico-mid { --tint: var(--l-mid-tint); --edge: var(--l-mid-edge); }
+.screen-game .g-ico-top { --tint: var(--l-top-tint); --edge: var(--l-top-edge); }
+/* the drink, behind a divider: the glass (its transparent sides tucked in) with the fruit beside it, level with the
+   milk and the matcha – the purée at the bottom stays in sight */
+.screen-game .g-order-drink { margin-left: 13px; }
+.screen-game .g-order-drink::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: rgba(42, 18, 54, 0.16);
+}
+.screen-game .g-drink-wrap { position: relative; display: block; margin: 0 14px 0 -12px; }
+.screen-game .g-drink-fruit {
+  position: absolute;
+  left: 47px;
+  top: 16px;
   width: 26px;
   height: 26px;
   box-sizing: border-box;
@@ -133,36 +215,47 @@
   box-shadow: 0 1px 3px rgba(40, 20, 50, 0.25);
   pointer-events: none;
 }
+/* the big tick of a delivered part, on its lower right corner, down to the patience bar and drawn over the next
+   part's edge: the bowl's centred on the divider (without a matcha it overhangs the bubble's edge), where it hides
+   only the corners of the last icons; the drink ends at the bubble's edge, its tick tucked into the bubble beside the
+   glass, under the fruit badge – the contents stay recognisable */
 .screen-game .g-check {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  translate: -50% -50%;
+  z-index: 2;
+  right: -23px;
+  bottom: -4px;
   display: none;
+  filter: drop-shadow(0 2px 3px rgba(20, 90, 50, 0.35));
 }
-.screen-game .g-order-part.is-done > :not(.g-check) { opacity: 0.28; filter: grayscale(0.7); }
+.screen-game .g-order-drink .g-check { right: -8px; }
+.screen-game .g-order-part.is-done {
+  background: rgba(47, 191, 113, 0.17);
+  box-shadow: inset 0 0 0 2px rgba(47, 191, 113, 0.55);
+}
+.screen-game .g-order-part.is-done > :not(.g-check) { opacity: 0.5; filter: grayscale(0.35); }
 .screen-game .g-order-part.is-done .g-check { display: block; animation: pop-in 0.35s ease-out both; }
 
+/* patience: a thick bar across the bottom on a sunken track, its colour following the guest's mood */
 .screen-game .g-patience {
-  margin-top: 6px;
-  height: 8px;
-  border-radius: 999px;
-  background: #ebe4ef;
-  box-shadow: inset 0 1px 2px rgba(40, 20, 50, 0.25);
+  margin: 4px 1px 0;
+  height: 12px;
+  border-radius: 6px;
+  background: #e6deeb;
+  box-shadow: inset 0 1px 2px rgba(40, 20, 50, 0.3), 0 1px 0 rgba(255, 255, 255, 0.9);
   overflow: hidden;
 }
 .screen-game .g-patience i {
   display: block;
   height: 100%;
-  border-radius: 999px;
-  background: var(--leaf);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0, rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.1) 100%), var(--leaf);
   transform-origin: 0 50%;
   transition: background-color 0.3s ease;
 }
-.screen-game .g-bubble[data-mood="neutral"] .g-patience i { background: var(--mango); }
-.screen-game .g-bubble[data-mood="impatient"] .g-patience i { background: var(--g-orange); }
-.screen-game .g-bubble[data-mood="angry"] .g-patience i { background: var(--danger); }
-.screen-game .g-bubble[data-mood="angry"] { border-color: var(--danger); }
+.screen-game .g-bubble[data-mood="neutral"] .g-patience i { background-color: var(--mango); }
+.screen-game .g-bubble[data-mood="impatient"] .g-patience i { background-color: var(--g-orange); }
+.screen-game .g-bubble[data-mood="angry"] .g-patience i { background-color: var(--danger); }
+.screen-game .g-bubble[data-mood="angry"],
+.screen-game .g-bubble[data-mood="angry"]::after { border-color: var(--danger); }
 
 /* layer number badges (1 base · 2 fruits & crunch · 3 toppings & sauces) */
 .screen-game .g-lnum {
@@ -185,20 +278,21 @@
 .screen-game .g-lnum-mid { background: var(--l-mid); }
 .screen-game .g-lnum-top { background: var(--l-top); }
 
-/* ------------------------------------------------------------ pass (y 295–358): the customers' counter, a white marble
-   top (y 295–334) with a rounded edge and a fluted oak front facing the player; the work counter lies below it */
+/* ------------------------------------------------------------ pass (y 294–338): the customers' counter, a white marble
+   top (y 294–318) with a rounded edge and a fluted oak front facing the player; the work counter lies below it and the
+   tall appliances at its back stand in front of the pass */
 .screen-game .g-counter {
   position: absolute;
   left: 0;
-  top: 295px;
+  top: 294px;
   width: 1280px;
-  height: 63px;
-  z-index: 3;
+  height: 44px;
+  z-index: 2;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0 2px, transparent 2px),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='48' viewBox='0 0 640 48'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M-10 34C60 18 110 44 180 26S300 6 360 22S470 40 520 20S600 6 650 30' stroke='%23a99e91' stroke-opacity='.3' stroke-width='1.3'/%3E%3Cpath d='M120 50C160 34 200 38 250 18S330 2 400 9' stroke='%23b9b0a5' stroke-opacity='.35' stroke-width='.8'/%3E%3Cpath d='M440 -2C462 14 494 20 536 46' stroke='%23b4aa9e' stroke-opacity='.3' stroke-width='.7'/%3E%3Cpath d='M30 -2C50 10 70 12 96 6S140 4 170 16' stroke='%23c2b9ae' stroke-opacity='.3' stroke-width='.6'/%3E%3C/g%3E%3C/svg%3E") 0 2px / 640px 40px repeat-x,
     radial-gradient(ellipse 45% 160% at 26% 0%, rgba(255, 255, 255, 0.8), transparent 70%),
-    linear-gradient(180deg, #ece8e2 0%, #f6f4f0 55%, #fdfcfa 64%);
+    linear-gradient(180deg, #ece8e2 0%, #f6f4f0 40%, #fdfcfa 52%);
   border-top: 1px solid #a99f92;
   pointer-events: none;
 }
@@ -209,48 +303,65 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 24px;
+  height: 20px;
   background:
     linear-gradient(180deg, #ffffff 0, #ebe6df 2px, #cfc6ba 5px, #a99f92 6px, transparent 6px),
-    linear-gradient(180deg, rgba(40, 24, 16, 0.35) 6px, rgba(40, 24, 16, 0.08) 11px, rgba(40, 24, 16, 0.3) 100%),
+    linear-gradient(180deg, rgba(40, 24, 16, 0.35) 6px, rgba(40, 24, 16, 0.08) 10px, rgba(40, 24, 16, 0.3) 100%),
     repeating-linear-gradient(90deg, #a77a46 0 2px, #d2a874 2px 7px, #ecc896 7px 9px, #d2a874 9px 14px);
   box-shadow: 0 1px 0 rgba(59, 42, 34, 0.45);
 }
 
-/* ------------------------------------------------------------ work area (y 350–800): the counter in perspective
-   – terrazzo worktop up to y 704, its rounded front edge, open oak shelves with stock below (counterSVG) */
+/* ------------------------------------------------------------ work area (y 338–800): the counter in perspective
+   – terrazzo worktop up to y 742, its rounded front edge, a strip of open oak shelves with stock below (counterSVG).
+   Above the pass: the appliances at the back of the worktop reach up over its oak front. */
 .screen-game .g-work {
   position: absolute;
   left: 0;
-  top: 350px;
+  top: 338px;
   width: 1280px;
-  height: 450px;
-  z-index: 2;
+  height: 462px;
+  z-index: 3;
 }
 .screen-game .g-worktop { position: absolute; inset: 0; pointer-events: none; }
 .screen-game .g-worktop svg { width: 100%; height: 100%; }
 .screen-game .g-art { position: relative; }
 
-/* blenders (x 25–291), standing at the back of the worktop */
+/* blenders (x 10–320, y 338–548), standing at the back of the worktop: the front of the motor base on the box's
+   bottom edge, a big jug's lid (and an overflowing blender's foam) reaches up over the pass. The art is wider and
+   taller than the hit box and lets the pointer through; the drawn one (without WebGL, 245 px: js/game-view.js
+   BLENDER_ART) is as tall as the 3D 2-bowl jug, its foot on the box's bottom edge. */
 .screen-game .g-blender {
   position: absolute;
-  top: 6px;
-  width: 126px;
-  height: 150px;
+  top: 0;
+  width: 150px;
+  height: 210px;
   border-radius: 22px;
   transition: box-shadow 0.12s ease, background-color 0.12s ease;
 }
-.screen-game .g-blender .g-art { width: 126px; height: 126px; transform-origin: 50% 90%; }
+.screen-game .g-blender .g-art {
+  position: absolute;
+  left: -62px;
+  top: -28px;
+  width: 245px;
+  height: 245px;
+  transform-origin: 50% 90%;
+  pointer-events: none;
+}
+.screen-game .g-blender .g-badge { position: absolute; width: 36px; height: 38px; translate: -50% -50%; }
 .screen-game .g-blender[data-state="blending"] .g-art { animation: g-rattle 0.16s linear infinite; }
 .screen-game .g-blender[data-state="overflowing"] .g-art { animation: g-overflow 0.55s ease-in-out infinite; }
 .screen-game .g-blender[data-state="ruined"] .g-art { filter: saturate(0.6); }
 
+/* progress bar: a blender's lies on the worktop under its feet (centred under the motor base, over the freezer's
+   back rim), so it hides no dial or portion LED; the pointer goes through it */
 .screen-game .g-timer {
   position: absolute;
   left: 22px;
-  right: 22px;
-  top: 133px;
-  height: 11px;
+  right: 40px;
+  top: 213px;
+  height: 10px;
+  z-index: 1;
+  pointer-events: none;
   border-radius: 999px;
   background: rgba(43, 45, 51, 0.82);
   box-shadow: 0 2px 5px rgba(40, 24, 50, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -273,12 +384,12 @@
 .screen-game [data-state="overflowing"] > .g-timer { animation: g-red-pulse 0.55s ease-in-out infinite; }
 .screen-game [data-state="overflowing"] > .g-timer i { background: linear-gradient(180deg, #ff9a9a, var(--danger)); }
 
-/* chest freezer built into the counter (x 16–300, opening y 518–704, front panel below the edge):
+/* chest freezer built into the counter (x 16–300, opening y 556–742, front panel below the edge):
    the packs stand in the well, the frame's front edge (rim) covers their feet, names sit on top */
 .screen-game .g-freezer {
   position: absolute;
   left: 16px;
-  top: 168px;
+  top: 218px;
   width: 284px;
   height: 186px;
   isolation: isolate;
@@ -298,7 +409,7 @@
 .screen-game .g-freezer-label {
   position: absolute;
   left: 50%;
-  top: 216px;
+  top: 206px;
   translate: -50% 0;
   z-index: 3;
   padding: 3px 14px 2px;
@@ -335,7 +446,7 @@
 .screen-game .g-bin .g-name,
 .screen-game .g-stack .g-name {
   box-sizing: border-box;
-  max-width: 84px;
+  max-width: 100%;
   padding: 2px 7px 1px;
   border-radius: 6px;
   background: var(--g-label);
@@ -352,55 +463,69 @@
 .screen-game .g-pack .g-quality,
 .screen-game .g-pack .g-new { z-index: 3; }
 
-/* cup stack + bowl spots (x 316–964, y 354–515) */
+/* cup stack + bowl spots (x 330–940, y 340–528): the cups stand on the line of the stack's bottom cup, their content
+   chips below them, drawn over the granola jar's lid in the row in front (it reaches up to y 515) */
 .screen-game .g-stack {
   position: absolute;
-  top: 6px;
-  width: 76px;
-  height: 156px;
+  top: 2px;
+  width: 105px;
+  height: 182px;
   display: flex;
   flex-direction: column;
   align-items: center;
   border-radius: 18px;
 }
-.screen-game .g-stack .g-art { width: 76px; height: 127px; transform-origin: 50% 100%; }
-.screen-game .g-stack .g-name { margin-top: 6px; }
+.screen-game .g-stack .g-art { width: 105px; height: 162px; transform-origin: 50% 100%; }
+.screen-game .g-stack .g-name { margin-top: 2px; }
 .screen-game .g-bowl {
   position: absolute;
-  top: 4px;
-  width: 126px;
-  height: 160px;
+  top: 42px;
+  width: 120px;
+  height: 148px;
   border-radius: 22px;
   transition: box-shadow 0.12s ease, background-color 0.12s ease;
 }
-.screen-game .g-bowl .g-art { position: absolute; left: 0; top: 2px; width: 126px; height: 126px; transform-origin: 50% 90%; }
+.screen-game .g-bowl .g-art { position: absolute; left: 0; top: 0; width: 120px; height: 120px; transform-origin: 50% 90%; }
+/* what is in a cup, under it in the order bubbles' language and layout: the base chip, beside it a row of layer 2's
+   items and under that one of layer 3's – each item's icon on a circle in its layer's tint, in a white ring, every
+   chip whole; a wrong cup with more than 3 of one layer fills rows of 3, layer 2 first (js/game-view.js
+   chipsMarkup), so there are never more than two rows of 3. The block (≤ 107 × 50 px: 25 + 3 + 3 × 25 + 2 × 2) is
+   centred under the cup, within its width, and stands on its box's bottom edge (stage y 528): one row under the
+   cup's foot (y 503–528), with two rows the first in front of the foot (y 478–503) – inside the box, so the drop glow
+   and the tutorial's ring hold it, and the row of containers in front keeps its reach */
 .screen-game .g-bowl .g-chips {
   position: absolute;
-  left: -8px;
-  right: -8px;
-  top: 134px;
+  z-index: 1; /* over the lid of a jar standing tall in the row in front */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none; /* between the chips a press lifts what lies under it */
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding-left: 4px;
+  gap: 3px;
 }
+.screen-game .g-chip-rows { display: flex; flex-direction: column; }
+.screen-game .g-chip-row { display: flex; gap: 2px; }
 .screen-game .g-chip {
+  --tint: var(--l-base-tint);
+  --edge: var(--l-base-edge);
+  pointer-events: auto; /* a press on a chip lifts its cup */
   display: grid;
   place-items: center;
   width: 25px;
   height: 25px;
-  margin-left: -4px;
   border-radius: 50%;
-  background: var(--white);
-  border: 1.5px solid rgba(43, 45, 51, 0.35);
+  background: radial-gradient(circle at 50% 40%, #fff 0, var(--tint) 72%);
+  border: 1.5px solid var(--white);
   box-sizing: border-box;
-  box-shadow: 0 1px 3px rgba(40, 24, 50, 0.25);
+  box-shadow: 0 0 0 1px var(--edge), 0 1px 3px rgba(40, 24, 50, 0.3);
   overflow: hidden;
   flex: none;
 }
-.screen-game .g-chip svg { width: 21px; height: 21px; }
-.screen-game .g-chip-base { background: #efe3f7; }
-.screen-game .g-chip-mid { background: #e2f7ea; }
-.screen-game .g-chip-top { background: #ffe6f0; }
+.screen-game .g-chip svg { width: 22px; height: 22px; }
+.screen-game .g-chip-mid { --tint: var(--l-mid-tint); --edge: var(--l-mid-edge); }
+.screen-game .g-chip-top { --tint: var(--l-top-tint); --edge: var(--l-top-edge); }
 .screen-game .g-match {
   position: absolute;
   right: 4px;
@@ -410,42 +535,37 @@
 }
 .screen-game .g-bowl.is-match .g-match { display: block; animation: pop-in 0.3s ease-out both; }
 
-/* ingredient bowls on two oak trays (x 316–964): fruits & crunch y 516–608, toppings & sauces y 610–702 */
+/* ingredient containers in two rows on slim oak risers (x from 330, left and width set by the view): fruits &
+   crunch y 542–642 behind toppings & sauces y 642–742; a row's containers (hit boxes y +0–84) stand on its riser,
+   whose front edge (y +84–100) carries the layer name. Stacking (no stacking context per row): containers in DOM
+   order, so the front row stands in front of the back row's riser; layer numbers and stars (1) over them, the
+   layer names and name tags (2) over a tall bottle or jar of the row in front, "NEU" badges (3) over everything */
 .screen-game .g-shelf {
   position: absolute;
-  left: 316px;
-  width: 648px;
-  height: 92px;
+  height: 100px;
   display: flex;
   justify-content: center;
 }
-.screen-game .g-shelf-mid { top: 166px; }
-.screen-game .g-shelf-top { top: 260px; }
-.screen-game .g-shelf-in { position: relative; min-width: 272px; display: flex; justify-content: center; }
+.screen-game .g-shelf-mid { top: 204px; }
+.screen-game .g-shelf-top { top: 304px; }
 .screen-game .g-shelf-row {
   position: relative;
-  z-index: 1;
   display: flex;
   gap: 6px;
   height: 84px;
 }
-/* the oak tray the bowls stand on (width set by the view, art from traySVG) */
-.screen-game .g-board {
-  position: absolute;
-  left: 50%;
-  top: 14px;
-  height: 74px;
-  translate: -50% 0;
-  pointer-events: none;
-}
-/* layer name on the tray's front edge ("2 · Früchte & Crunch"), in the layer colour like the number badges.
-   z-index 1 (not more): the next tray's bowls still paint over it, so their badges stay visible */
+/* the riser (art from riserSVG, as wide as the row box, RISER_H in js/game-view.js): a board deep enough for the
+   containers' feet (top face y +34–84), its front edge is y +84–100 */
+.screen-game .g-riser { position: absolute; left: 0; right: 0; top: 33px; height: 70px; pointer-events: none; }
+/* layer name on the riser's front edge ("2 · Früchte & Crunch"), in the layer colour like the number badges. It
+   ends at y +100, where the next row begins; it is drawn over a tall container of the next row (a squeeze bottle
+   reaching up in front of the riser), a "NEU" badge sticking up from that row is drawn over it */
 .screen-game .g-shelf-label {
   position: absolute;
   left: 50%;
-  top: 70px;
+  top: 82px;
   transform: translateX(-50%);
-  z-index: 1;
+  z-index: 2;
   padding: 2px 10px 1px;
   border-radius: 999px;
   color: var(--white);
@@ -461,25 +581,45 @@
 .screen-game .g-shelf-label-top { background: var(--l-top); }
 .screen-game .g-bin {
   position: relative;
-  width: 86px;
+  width: 96px;
   height: 84px;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
   border-radius: 14px;
 }
-.screen-game .g-bin .g-art { width: 86px; height: 62px; }
-.screen-game .g-bin .g-name { margin-top: -6px; position: relative; }
-.screen-game .g-bin > .g-lnum { position: absolute; left: -2px; top: 0; width: 20px; height: 20px; font-size: 12px; }
+/* the hit area reaches 12 px above the box (BIN_REACH in js/game-view.js: drag.js counts it as the source, so a press
+   there that slides a little never drops the item into the cup above; tests/e2e/layout.e2e.mjs counts it too): up to
+   the cups' boxes for the back row, over the back riser's front edge for the front row, so a press on a tall
+   container's top picks it up */
+.screen-game .g-bin::before { content: ""; position: absolute; left: 0; right: 0; top: -12px; height: 12px; }
+.screen-game .g-bin .g-art {
+  position: absolute;
+  left: 0;
+  top: -28px;
+  width: 96px;
+  height: 112px;
+  pointer-events: none;
+}
+.screen-game .g-bin .g-art > * { position: absolute; left: 0; top: 0; display: block; }
+/* the name stands like a tag in front of the container's foot (y +68, PANTRY_VIEW.ay), ending 2 px above the layer
+   label of the riser's front edge (y +82); like the layer labels it is drawn over a tall container of the row in
+   front (the squeeze bottle's nozzle reaching up behind it) */
+.screen-game .g-bin .g-name { position: absolute; left: 50%; bottom: 2px; translate: -50% 0; z-index: 2; padding: 1px 7px 0; }
+/* the badges sit beside the container (js/pantry3d.js pantryBadges, set by js/game-view.js): the layer badge and the
+   quality stars on one line per row, the "NEU" sticker over the stars; they let the pointer through to the bin (a
+   sticker reaching past the bin's box never takes a press meant for the next one) */
+.screen-game .g-bin > .g-lnum { position: absolute; left: var(--lnum-x); top: var(--lnum-y); width: 20px; height: 20px; font-size: 12px; }
+.screen-game .g-bin > .g-quality { left: var(--stars-x); right: auto; top: var(--stars-y); }
+.screen-game .g-bin > .g-new { left: var(--new-l, auto); right: var(--new-r, auto); top: var(--new-y); }
+.screen-game .g-bin > :is(.g-lnum, .g-quality, .g-new) { pointer-events: none; }
+/* the chocolate is carried as its whole bottle: it leaves its place while carried */
+.screen-game .g-bin[data-carry="whole"].drag-source .g-art { opacity: 0.12; }
 .screen-game .g-quality { position: absolute; right: 2px; top: 2px; display: flex; z-index: 1; }
 .screen-game .g-pack .g-quality { top: 3px; }
 .screen-game .g-new {
   position: absolute;
   right: -10px;
   top: -12px;
-  z-index: 2;
+  z-index: 3;
   padding: 3px 7px 2px;
   border: 2px solid var(--white);
   border-radius: 10px;
@@ -499,40 +639,70 @@
 .screen-game .g-bin:active,
 .screen-game .g-stack:active { translate: 0 2px; }
 
-/* smoothie machine (x 1000–1236) */
+/* matcha machine (x 952–1264): a square box (its canvas, y 265–577) with the machine standing at its bottom, the
+   front of its drip tray on the line of the blenders' feet (y 548), its top just under the pass (y≈306), room
+   above for the steam; only the glass slots take the pointer */
 .screen-game .g-machine {
   position: absolute;
-  left: 1002px;
-  top: 0;
-  width: 236px;
-  height: 236px;
+  left: 952px;
+  top: -73px;
+  width: 312px;
+  height: 312px;
+  pointer-events: none;
 }
 .screen-game .g-slot {
   position: absolute;
-  width: 92px;
-  height: calc(var(--cup) + 32px);
+  width: 96px;
+  height: calc(var(--glass) + 34px);
   border-radius: 20px;
+  pointer-events: auto;
 }
 .screen-game .g-slot .g-art {
   position: absolute;
-  left: calc(50% - var(--cup) / 2);
-  top: 14px;
-  width: var(--cup);
-  height: var(--cup);
+  left: calc(50% - var(--glass) / 2);
+  top: 16px;
+  width: var(--glass);
+  height: var(--glass);
   transform-origin: 50% 100%;
 }
-.screen-game .g-slot .g-timer { left: 14px; right: 14px; top: auto; bottom: -6px; height: 10px; }
-.screen-game .g-slot[data-state="mixing"] .g-art { animation: g-rattle 0.22s linear infinite; }
+/* a glass's timer lies on the worktop just under the drip tray's front, like the blenders' bars (a glass under a
+   nozzle stands still while it brews) */
+.screen-game .g-slot .g-timer { left: 10px; right: 10px; top: auto; bottom: -5px; height: 10px; }
 .screen-game .g-slot[data-state="ready"] .g-art { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95)); }
+/* a glass that just got ready flashes its glow and pops only a little: its straw ends ≈4 px under the collar */
+.screen-game .g-slot .g-art.is-pop { animation: g-pop-glass 0.4s ease-out; }
+/* without WebGL: the drawn machine's status LED on the slot's collar, amber blinking while it brews, green when ready */
+.screen-game .g-slot .g-led {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+}
+.screen-game .g-slot[data-state="mixing"] .g-led {
+  opacity: 1;
+  background: radial-gradient(circle at 35% 35%, #fff3c4, #ffb000 62%);
+  box-shadow: 0 0 6px 2px rgba(255, 190, 59, 0.8);
+  animation: g-led-blink 0.78s steps(1) infinite;
+}
+.screen-game .g-slot[data-state="ready"] .g-led {
+  opacity: 1;
+  background: radial-gradient(circle at 35% 35%, #d8ffe0, #1fd65a 62%);
+  box-shadow: 0 0 6px 2px rgba(43, 255, 98, 0.75);
+}
 
 .screen-game .g-machine.is-locked { pointer-events: none; }
 .screen-game.has-tutorial .g-machine.is-locked { visibility: hidden; }
-.screen-game .g-machine.is-locked .g-art { opacity: 0.45; filter: grayscale(0.85); }
-.screen-game .g-lock { position: absolute; left: 50%; top: 104px; translate: -50% 0; }
+/* the dark machine greyed out and lightened by the filter alone (opaque: the pass must not show through it) */
+.screen-game .g-machine.is-locked .g-art { filter: grayscale(1) brightness(1.5) contrast(0.5); }
+/* the lock on the black front between the tank and the mill (clear of the collar, its knob and the mill), the label under it */
+.screen-game .g-lock { position: absolute; left: 170px; top: 120px; translate: -50% 0; }
 .screen-game .g-lock-label {
   position: absolute;
-  left: 50%;
-  top: 168px;
+  left: 170px;
+  top: 184px;
   translate: -50% 0;
   padding: 5px 12px 4px;
   border-radius: 10px;
@@ -544,26 +714,24 @@
   box-shadow: var(--g-soft-shadow);
 }
 
-/* trash can: on the floor in front of the cabinet, bottom right */
+/* trash can: on the floor in front of the cabinet, bottom right (y 664–800) */
 .screen-game .g-trash {
   position: absolute;
-  left: 1146px;
+  left: 1136px;
   top: 326px;
-  width: 124px;
-  height: 124px;
+  width: 136px;
+  height: 136px;
   display: grid;
   place-items: center;
   border-radius: 28px;
 }
-.screen-game .g-trash .g-art { width: 120px; height: 120px; transform-origin: 50% 100%; }
+.screen-game .g-trash .g-art { width: 134px; height: 134px; transform-origin: 50% 100%; }
 
 /* ------------------------------------------------------------ 3D appliances (js/art3d.js, WebGL)
    Each station holds a canvas drawn by the shared renderer; its size and the world origin inside it
    come from VIEWS in js/kitchen3d.js. The status badge, timers and hit areas stay DOM. */
 .screen-game .g-3d { position: absolute; left: 0; top: 0; display: block; pointer-events: none; }
-.screen-game.is-3d .g-blender .g-art { width: 126px; height: 134px; }
-.screen-game.is-3d .g-blender .g-badge { position: absolute; left: 92px; top: 4px; width: 30px; height: 32px; }
-.screen-game.is-3d .g-blender .g-badge svg { display: block; }
+.screen-game.is-3d .g-blender .g-art { left: -6px; top: -62px; width: 164px; height: 292px; transform-origin: 72px 260px; }
 /* the 3D jug shakes itself while blending; overflowing keeps the red warning glow */
 .screen-game.is-3d .g-blender[data-state="blending"] .g-art { animation: none; }
 .screen-game.is-3d .g-blender[data-state="overflowing"] .g-art { animation: g-warn-glow 0.55s ease-in-out infinite; }
@@ -572,11 +740,10 @@
 .screen-game .g-freezer .g-3d { top: -8px; }
 .screen-game .g-freezer .g-3d-back { z-index: 0; }
 .screen-game .g-freezer .g-3d-front { z-index: 2; }
-/* smoothie machine: the cups stand on its drip trays */
+/* matcha machine: the glasses stand on its drip trays */
 .screen-game .g-machine .g-slot { z-index: 1; }
-.screen-game.is-3d .g-slot[data-state="mixing"] .g-art { animation: none; }
 /* pedal bin: the canvas reaches above the hit area so the lid can open */
-.screen-game.is-3d .g-trash .g-art { position: absolute; left: -6px; top: -62px; width: 136px; height: 186px; transform-origin: 68px 170px; }
+.screen-game.is-3d .g-trash .g-art { position: absolute; left: -9px; top: -72px; width: 153px; height: 209px; transform-origin: 76px 191px; }
 
 /* ------------------------------------------------------------ drag & drop feedback (js/drag.js) */
 .screen-game [data-dnd-source] { cursor: grab; }
@@ -761,6 +928,9 @@
   line-height: 1.15;
   animation: pop-in 0.25s ease-out both, g-fade-out 0.35s ease-in 1.35s forwards;
 }
+/* a toast about a guest hangs from just under the chin and grows down over the collar and the pass (one line for
+   every reason; two lines still end above the worktop), so it never covers the face */
+.screen-game .g-toast.at-guest { translate: -50% 0; max-width: 560px; transform-origin: 50% 0; }
 .screen-game .g-float {
   position: absolute;
   translate: -50% -50%;
@@ -785,22 +955,25 @@
 .screen-game .g-float.is-heart { animation: g-heart-float 1.3s ease-out forwards; }
 .screen-game .g-flycoin { position: absolute; width: 30px; height: 30px; will-change: transform; }
 
-/* banner (non-blocking) – sits on the counter strip so customers' faces (y≈170-290) and bubbles stay visible */
+/* banner (non-blocking) – sits on the counter strip so customers' faces (y≈205–257) and bubbles (y 67–179) stay visible */
 .screen-game .g-banner {
   position: absolute;
   left: 0;
   right: 0;
-  top: 291px;
+  top: 290px;
   display: flex;
   justify-content: center;
   z-index: 35;
   pointer-events: none;
 }
+/* the banner stays in the middle column (x 330–950): clear of the blenders' lids and badges on the left and the
+   matcha machine on the right, which reach up over the pass; a long text wraps (up to 3 lines, to y≈375) */
 .screen-game .g-banner-card {
   display: flex;
   align-items: center;
   gap: 18px;
-  max-width: 1060px;
+  box-sizing: border-box;
+  max-width: 620px;
   padding: 6px 26px 7px;
   text-align: left;
   animation: g-banner-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
@@ -930,7 +1103,8 @@
 /* ------------------------------------------------------------ keyframes */
 @keyframes g-idle { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 @keyframes g-step { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
-@keyframes g-nag { 0%, 100% { rotate: 0deg; } 25% { rotate: -2deg; } 75% { rotate: 2deg; } }
+/* the angry bubble's nag: a small shake from side to side – a tilt would lift a wide bubble's far corner into the HUD */
+@keyframes g-nag { 0%, 100% { transform: none; } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 @keyframes g-walk-in-l { from { translate: -280px 0; opacity: 0; } 30% { opacity: 1; } to { translate: 0 0; opacity: 1; } }
 @keyframes g-walk-in-r { from { translate: 280px 0; opacity: 0; } 30% { opacity: 1; } to { translate: 0 0; opacity: 1; } }
 @keyframes g-walk-out-l { 0% { translate: 0 0; opacity: 1; } 20% { translate: 0 -12px; } 75% { opacity: 1; } 100% { translate: -300px 0; opacity: 0; } }
@@ -938,6 +1112,7 @@
 @keyframes g-stomp-out-l { 0% { translate: 0 0; } 8% { translate: -8px 0; } 16% { translate: 8px 0; } 24% { translate: -6px 0; } 32% { translate: 0 0; opacity: 1; } 100% { translate: -300px 0; opacity: 0; } }
 @keyframes g-stomp-out-r { 0% { translate: 0 0; } 8% { translate: 8px 0; } 16% { translate: -8px 0; } 24% { translate: 6px 0; } 32% { translate: 0 0; opacity: 1; } 100% { translate: 300px 0; opacity: 0; } }
 @keyframes g-bubble-in { from { scale: 0.3; opacity: 0; } 70% { scale: 1.08; opacity: 1; } to { scale: 1; opacity: 1; } }
+@keyframes g-led-blink { 58% { opacity: 0.2; } }
 @keyframes g-rattle { 0%, 100% { rotate: 0deg; translate: 0 0; } 25% { rotate: -1.6deg; translate: -1px 0; } 75% { rotate: 1.6deg; translate: 1px 0; } }
 @keyframes g-overflow { 0%, 100% { rotate: 0deg; filter: drop-shadow(0 0 0 rgba(255, 77, 77, 0)); } 25% { rotate: -2.5deg; } 50% { filter: drop-shadow(0 0 14px var(--glow-bad)); } 75% { rotate: 2.5deg; } }
 @keyframes g-red-pulse { 0%, 100% { scale: 1; } 50% { scale: 1.08; } }
@@ -945,6 +1120,7 @@
 @keyframes g-shake { 0%, 100% { translate: 0 0; } 20% { translate: -10px 0; } 40% { translate: 9px 0; } 60% { translate: -6px 0; } 80% { translate: 4px 0; } }
 @keyframes g-squash { 0% { scale: 1.14 0.86; } 55% { scale: 0.95 1.06; } 100% { scale: 1 1; } }
 @keyframes g-pop { 0% { scale: 1; } 40% { scale: 1.16; } 100% { scale: 1; } }
+@keyframes g-pop-glass { 40% { scale: 1.06 1.03; filter: drop-shadow(0 0 14px rgba(255, 255, 255, 1)); } }
 @keyframes g-wobble { 0%, 100% { rotate: 0deg; } 25% { rotate: -9deg; } 55% { rotate: 7deg; } 80% { rotate: -3deg; } }
 @keyframes g-hop { 0%, 100% { translate: 0 0; } 40% { translate: 0 -18px; } }
 @keyframes g-wiggle { 0%, 100% { rotate: 10deg; } 50% { rotate: 2deg; } }
@@ -965,7 +1141,10 @@
 @media (prefers-reduced-motion: reduce) {
   .screen-game .g-cust,
   .screen-game .g-figure,
+  .screen-game .g-bubble,
+  .screen-game .g-check,
   .screen-game .g-art,
+  .screen-game .g-led,
   .screen-game .g-new,
   .screen-game .g-tut-arrow,
   .screen-game .g-tut-ring,
@@ -974,5 +1153,7 @@
   .screen-game .g-cust.is-leavingHappy,
   .screen-game .g-cust.is-leavingAngry { opacity: 0.4; transition: opacity 0.3s linear; }
   .screen-game .g-decor-item,
-  .screen-game .g-cust { transition: none; }
+  .screen-game .g-cust,
+  .screen-game .g-bubble,
+  .screen-game .g-bubble::after { transition: none; }
 }

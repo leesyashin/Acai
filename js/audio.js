@@ -16,7 +16,7 @@ import { createRng } from './rng.js';
 
 export const SFX_NAMES = [
   'click', 'pickup', 'drop', 'reject', 'blenderStart', 'blenderReady', 'overflow', 'ruined',
-  'smoothieReady', 'pour', 'plop', 'coin', 'bell', 'angry', 'happy', 'trash', 'purchase',
+  'matchaReady', 'pour', 'plop', 'coin', 'bell', 'angry', 'happy', 'trash', 'purchase',
   'star', 'win', 'lose', 'closing', 'heart', 'tick', 'cup',
 ];
 export const MUSIC_TRACKS = ['menu', 'game'];
@@ -162,6 +162,8 @@ function noise(v, o) {
 
 const BELL_PARTIALS = [[1, 1, 1], [2, 0.32, 0.55], [2.76, 0.22, 0.4], [5.4, 0.08, 0.2]];
 const DOOR_PARTIALS = [[1, 1, 1], [2.4, 0.45, 0.5], [3.9, 0.2, 0.3], [6.2, 0.08, 0.15]];
+// a soft ding: mostly the fundamental, faint harmonic overtones (no metallic clang)
+const WARM_PARTIALS = [[1, 1, 1], [2, 0.16, 0.45], [3, 0.05, 0.25]];
 
 // Struck bell / chime from sine partials [ratio, gain, decay scale].
 function chime(v, { at = 0, f, peak = 0.3, decay = 0.8, partials = BELL_PARTIALS }) {
@@ -284,10 +286,12 @@ const SFX = {
     });
     noise(v, { ft: 'lowpass', f: 1400, f2: 250, slide: 0.2, a: 0.004, peak: 0.3, decay: 0.2 });
   },
-  smoothieReady(v) {
-    [[0, 420], [0.055, 560], [0.1, 480], [0.15, 680], [0.2, 820]].forEach(([dt, f]) =>
-      tone(v, { at: dt, f, f2: f * 2.1, slide: 0.045, a: 0.004, peak: 0.32, decay: 0.06 }));
-    chime(v, { at: 0.28, f: 1568, peak: 0.42, decay: 0.9 });
+  // a matcha is ready: a short hiss of steam from the nozzle, then a soft, warm ding
+  matchaReady(v) {
+    noise(v, { ft: 'highpass', f: 4200, f2: 2400, slide: 0.24, q: 0.7, a: 0.03, hold: 0.07, peak: 0.15, decay: 0.16 });
+    noise(v, { ft: 'bandpass', f: 6000, f2: 4500, slide: 0.2, q: 1.4, a: 0.02, hold: 0.05, peak: 0.07, decay: 0.12 });
+    chime(v, { at: 0.2, f: 1046.5, peak: 0.36, decay: 1.2, partials: WARM_PARTIALS });
+    tone(v, { at: 0.2, f: 523.25, a: 0.004, peak: 0.12, decay: 0.8 });
   },
   pour(v) {
     tone(v, {
