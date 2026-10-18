@@ -274,7 +274,8 @@ while `tutorialHold` is on, so the tutorial does not eat level time (blenders ke
 ```js
 const dnd = createDragManager({ root /* #stage element */, toStage, ghostLayer /* element inside stage */,
                                  onPickup?(payload), onDrop?(result), onCancel?(result) })
-dnd.source(el, { payload: () => obj|null, ghost: (payload) => HTMLElement|markup, onStart?, onEnd?, onTap? }) → unregister
+dnd.source(el, { payload: () => obj|null, ghost: (payload) => HTMLElement|markup, onStart?, onEnd?, onTap?,
+                 reach?: number /* stage px its hit area reaches above its box, e.g. by a ::before */ }) → unregister
 dnd.target(el, { accepts: (payload) => boolean, valid?: (payload) => boolean, drop: (payload) => {ok, reason?},
                  hitEls?: [Element] /* more boxes that count as the target, e.g. a guest's order bubble */,
                  land?: Element /* where an accepted ghost shrinks into, e.g. the guest itself */ }) → unregister
@@ -303,10 +304,11 @@ dnd.cancel(); dnd.destroy(); dnd.isDragging(); dnd.refresh()
   explain it (e.g. pack on a bowl → "The pack goes into the blender first!"), hit-testing each station the way the
   manager would (a guest with its order bubble).
 - While the pointer itself (not the ghost) still rests on its source – it has not moved more than the 6 CSS px tap
-  slop, or it is over the source rect expanded by 6 stage px – nothing is hit: no `drop-hover`, and a release there
-  is a silent return (`ok:false`, `targetEl:null`, `pos:null`, not a tap). Holding a bin, a slow sloppy press, or
-  picking an item up and putting it back never drops it into the target next to it (bowls sit 2 px above the fruit
-  bins).
+  slop, or it is over the source rect (its box, reaching `reach` stage px higher) expanded by 6 stage px – nothing is
+  hit: no `drop-hover`, and a release there is a silent return (`ok:false`, `targetEl:null`, `pos:null`, not a tap).
+  Holding a bin, a slow sloppy press (also on its raised hit area: the bins pass `reach: 12`), or picking an item up
+  and putting it back never drops it into the target next to it (a cup's box ends 2 px above the fruit bins' raised
+  hit area).
 - Must prevent page scroll/zoom/text selection/long-press callout during drags (`touch-action:none`,
   `user-select:none`, `-webkit-touch-callout:none`, `preventDefault` on pointerdown for sources).
 - `pointercancel`, window `blur` and `visibilitychange` cancel the drag cleanly.
@@ -335,7 +337,7 @@ matchaGlassSVG(fruitId|null, state, size = 70, { fill, stream, from }?)  // glas
                                       // (purée, milk, matcha with foam, ice, a paper straw, the fruit on the rim)
 matchaFruitColorOf(id), MATCHA_COLORS, MATCHA_MILK // the purée's colour, milk / matcha / foam, the share of the pour that
                                       // is milk (derived from the glass's layer heights; the 3D nozzle's stream takes the same colours);
-                                      // every purée stays clearly apart from the olive matcha at 50 px (kiwi: vivid green, big black seeds)
+                                      // every purée stays clearly apart from the olive matcha at the order bubble's 64 px (kiwi: vivid green, big black seeds)
 MATCHA_STRAW = { x0, y0, x1, y1, w }  // the ready glass's straw (viewBox), short enough to clear the machine's collar and nozzle
 customerSVG(look, mood, size = 160)  // mood: 'happy'|'neutral'|'impatient'|'angry'. A bust (viewBox 160): the head (drawn 46
                                       // wide and scaled 1.1 about the chin: ≈51 wide, crown y≈30, chin y 93), neck, shoulders
@@ -349,8 +351,10 @@ randomLook(rng)                       // → look {skin, hair, hairStyle, shirt,
                                       // last, so a seeded guest keeps the colours it had before; a look object missing them
                                       // (or with unknown values) gets them derived from the object itself
 lookFromSeed(seed), LOOK_OPTIONS      // the look of a seeded guest (engine customer.look.seed); the lists of styles
-blenderSVG({state, base, progress, remaining?, portions, maxPortions, badge?}, size = 150)  // badge:false hides the status badge;
-                                      // remaining: whole seconds the display counts down while blending
+blenderSVG({state, base, progress, remaining?, portions, maxPortions, badge?, tier?}, size = 150)  // badge:false hides the status
+                                      // badge; remaining: whole seconds the display counts down while blending; tier (blenderLook,
+                                      // default 1): one shape, the base in the model's colour – white Classic, stainless Turbo,
+                                      // açaí-purple Pro, graphite Pro Max (the game, menus and shop pass the player's model)
 matchaMachineSVG(slotCount, size)     // the machine without glasses (drawn separately at MATCHA_SLOT_X/Y, MATCHA_CUP_SIZE),
                                       // built from the 3D model's measures (MATCHA_GEO, machinePoint); MATCHA_POUR_FROM: the
                                       // glass's y at the nozzle tip (its stream's start); matchaLedAt(slotCount, i): a slot's
@@ -358,13 +362,15 @@ matchaMachineSVG(slotCount, size)     // the machine without glasses (drawn sepa
 trashSVG(size), coinSVG(size), heartSVG(filled, size), starSVG(filled, size)
 decorSVG(id, size, {wall = true})     // 'plants' | 'jukebox' | 'seating' | 'neon' – in the wall's light; wall: its own shape as
                                       // a soft shadow on the wall (the café), wall: false only the contact shadow (shop cards)
-shopSceneSVG(width, height)           // the café's back wall (1280×330): plaster, one wide window pane (x 351–729, no mullion)
+shopSceneSVG(width, height, {seats = 3}) // the café's back wall (1280×330): plaster, one wide window pane (x 351–729, no mullion)
                                       // with a deep reveal and hazy daylight – its frame lines keep ≥ 30 px from every head
                                       // with 2, 3 and 4 seats, so none grazes a face –, chalkboard menu at the far left
                                       // (x 24–152, on a nail below the HUD; t('art.menu'), so it is redrawn on a language
                                       // switch), one oak shelf, a pair of pendant lamps with warm halos (x 490 / 590, evenly
                                       // about the window's middle, at one height, only in the HUD's gap between the hearts and
-                                      // the money pill), fluted oak wainscot, soft shadows, a vignette
+                                      // the money pill), fluted oak wainscot, soft shadows, a vignette; seats: 4 leaves out the
+                                      // chalkboard and the shelf (the outer bubbles, x 6–312 and 968–1274, would hide them all
+                                      // but for slivers)
 counterSVG(width, height)             // the work counter under the pass (1280×462): terrazzo worktop in perspective, rounded
                                       // front edge (COUNTER_EDGE_Y), a strip of open oak shelves with stock, the freezer's
                                       // front panel, a fruit basket and a jar of straws in front of the machine
@@ -544,8 +550,11 @@ pixelRatio()                                 // device px per stage px, 1–3
 - **Rendering:** one shared offscreen WebGL context draws each view into the view's own 2D canvas (passes: contact shadow,
   opaque, decals, glass back-to-front – both sides of clear plastic, only the near side of a filled jar's glass –, glows).
   A view only redraws when its state changed or while it animates. If drawing is
-  slow (software WebGL), animation frames and progress updates are spaced out (state changes never); a lost context keeps
-  the last pictures until it is restored.
+  slow (software WebGL), animation frames and progress updates are spaced out (state changes never): all views share
+  one budget – after any draw no animation frame for 5 × the average frame time (at most 250 ms, or one frame time when
+  a frame takes longer), the view drawn longest ago goes next –, so at least half of the main thread stays free however
+  many appliances animate (two blenders and the two-slot machine at once kept the game at 2–9 fps with a gap per view);
+  a lost context keeps the last pictures until it is restored.
 - **In the game** (`game-view.js`): every ingredient's `.g-art` holds its container's still picture(s) and `binFillSVG`
   (drawn again only when a new pixel ratio has held for 200 ms, not for every step of a window being resized); the root gets `is-3d`; blender `.g-art` holds the canvas plus the DOM status badge
   (`blenderBadgeSVG` at `blenderBadgeAt` of the model, the blending ring keeps `data-ring`; the drawn blender without
@@ -595,12 +604,13 @@ ctx = { go, audio, t, screen /* current name */, rerender /* true on a language 
 ### 4.7 Gameplay screen layout (stage px, 1280 × 800)
 ```
 y   0– 64  HUD: [pause] [Level n / Endless stage] [hearts]   [money bar with ★ marks]   [clock]
-y  64–330  shop scene: back wall (window, chalkboard, shelf, pendant lamps), decor; customers stand behind the pass at
-           seat centers
+y  64–330  shop scene: back wall (window, chalkboard and shelf with 2–3 seats, pendant lamps), decor; customers
+           stand behind the pass at seat centers
            seat x-centers: 2 → [420, 860]; 3 → [270, 640, 1010]; 4 → [200, 493, 787, 1080]
-           a guest is a 160 px bust (y 163–323, the pass hides it from y 294): head, neck, shoulders (≈122 wide) and upper
-           arms show, the crown at y≈193, the face y≈205–257; a soft shadow on the wall behind, to the lower right, and
-           a faint darker rim right round the head (fair skin and light hair stand off the plaster)
+           a guest is a 160 px bust (y 163–323, the pass hides it from y 294): head, neck, shoulders (≈113 wide,
+           ≈2.2 heads) and upper arms show, the crown at y≈193, the face y≈205–257; a soft shadow on the wall behind,
+           to the lower right, and a faint darker rim right round the head (fair skin and light hair stand off the
+           plaster)
            order bubble over each guest's head (y 67–179, ≤ 306 × 112 px: border and padding 8 + bowl part (cup 50,
            rows 2 and 3 of up to 3 icons of 40 px, each row 40 high with its 18 px layer badge in front) + 13 divider +
            drink part (glass 64, fruit badge 26 beside it) + 8; patience bar 12 high across the bottom; without
@@ -625,7 +635,9 @@ y  64–330  shop scene: back wall (window, chalkboard, shelf, pendant lamps), d
            between their guests). A toast may hang over it for a moment. A soft, low glow, so it reads as lit without
            pulling the eye from the guests
 y 294–338  the pass: white marble top (y 294–318, overlaps customers' bodies) with a fluted oak front facing the
-           player; level/closing/stage banners (non-blocking) sit on it (y≈290–345) so faces and bubbles stay visible.
+           player; level/closing/stage banners (non-blocking) sit on it (y≈290–345, a long level intro wraps to
+           y≈375) so faces and bubbles stay visible, in the middle column (≤ 620 wide, x 330–950) so the blenders' lids
+           and badges and the matcha machine stay visible too.
            The work area is drawn over it: tall appliances at the back of the worktop stand in front of the pass and
            may cover its oak front and the lower marble edge (never the guests' faces or bubbles)
 y 338–742  worktop in perspective (counterSVG): terrazzo, chips shrinking toward the back, the pass's shadow on the
@@ -634,19 +646,21 @@ y 338–742  worktop in perspective (counterSVG): terrazzo, chips shrinking towa
   x  10–320  blenders at the back (hit box 150 × 210, y 338–548; 1 → x 89, 2 → x 10 and 170, so two big jugs keep a
              gap), every model equally tall: a 2-bowl jug ≈200 px (about twice a cup; its lid at y≈348, clearly below
              the pass), the 3-bowl jug ≈220 px (its lid at y≈328, over the pass's oak front) – 3D canvas 164 × 292
-             reaching up over the pass, drawn art 220 px; status badge over the right end of the lid, timer bar on
-             the worktop under the feet (y 551–561, over the freezer's back rim); in front of them the chest freezer
-             built into the counter (x 16–300, opening y 556–742): the base packs (owned bases only, 84 px) stand in
-             the frosty well, a glass lid slid back over spare packs, the frame's front edge covers their feet; its
-             front panel on the cabinet strip says "1 · Base"
+             reaching up over the pass, drawn art 245 px (without WebGL; as tall as the 2-bowl 3D jug, its lid at
+             y≈350); status badge over the right end of the lid, timer bar on the worktop under the feet (y 551–561,
+             over the freezer's back rim); in front of them the chest freezer built into the counter (x 16–300,
+             opening y 556–742): the base packs (owned bases only, 84 px) stand in the frosty well, a glass lid slid
+             back over spare packs, the frame's front edge covers their feet; its front panel on the cabinet strip
+             says "1 · Base"
   x 330–940  cup stack (105 px, "Bowls", y≈340–522; its cups are the size of a placed cup) + cup spots (2–4, 120 px
              boxes, y 380–528), centred together, with content chips under each cup in the bubbles' language and
              layout: the base chip, beside it a row of the fruits & crunch and under that one of the toppings &
-             sauces, each item a whole 22 px icon on a 25 px circle in its layer's tint, in a white ring (≤ 103 × 50
-             px, centred under the cup, standing on its box's bottom edge: one row under the cup's foot, y 503–528,
-             with toppings the first row in front of the foot, y 478–503 – inside the box, so the drop glow and the
-             tutorial's ring hold them; a press on a chip lifts its cup); a spot without a cup shows a white coaster
-             with a dashed cup outline.
+             sauces, each item a whole 22 px icon on a 25 px circle in its layer's tint, in a white ring; a wrong cup
+             with more than 3 of one layer (up to 6 items) fills rows of 3, the fruits & crunch first, so there are
+             never more than two rows (≤ 107 × 50 px, centred under the cup within its width, standing on its box's
+             bottom edge: one row under the cup's foot, y 503–528, with two rows the first in front of the foot,
+             y 478–503 – inside the box, so the drop glow and the tutorial's ring hold them; a press on a chip lifts
+             its cup); a spot without a cup shows a white coaster with a dashed cup outline.
              Ingredients (owned only, 96 × 84 px boxes, pitch 102, the hit area reaching 12 px higher: up to the
              cups' boxes, over the back riser's front edge) in their containers (js/pantry3d.js) in two
              rows on oak risers: "Fruits & Crunch" y 542–642 (the fruit pans first, then the granola jar) behind
@@ -690,11 +704,12 @@ machine slots, trash) lies fully on the stage below the pass, is ≥ 64 × 64 an
 the layer names and the ingredients' name tags stay uncovered (and "NEU" badges are drawn on top, over the riser behind them
 or beside their container, hiding no quality stars or layer badge) – in the fullest kitchen (4 seats, 2 blenders, 4 cups, 16 ingredients, 2 machine
 slots, with and without WebGL, at 1280×800 and 1024×768) and in small ones (level 1, level 5, endless), and that a press
-on any of a cup's content chips (seven of them) lifts that cup (the chips stay within the cup's width, so they never take
-a press from the neighbour). It also seats 4, 3 and 2 guests with the longest orders (3 + 3 + a matcha): their bubbles
-stay on the stage below the HUD (from y 66), keep ≥ 8 px between each other (with 4 seats the same gap between each two),
-end above the hair (y ≤ 180), point their tail at their guest's head (with 2 and 3 seats: centred on it), show icons
-≥ 38 px and a big tick on a delivered part, and leave the neon sign clear (it hangs clear of the guests and the window
+on any of a cup's content chips (seven of them: 3 + 3 items, 6 fruits & crunch, 4 + 2 and 1 + 5) lifts that cup (the
+chips stay within the cup's width in at most two rows, so they never take a press from the neighbour). It also seats
+4, 3 and 2 guests with the longest orders (3 + 3 + a matcha): their bubbles stay on the stage below the HUD (from
+y 66), keep ≥ 8 px between each other (with 4 seats the same gap between each two), end above the hair (y ≤ 180),
+point their tail at their guest's head (with 2 and 3 seats: centred on it), show icons ≥ 38 px and a big tick on a
+delivered part, and leave the neon sign clear (it hangs clear of the guests and the window
 too); a pack let go on the outer bubble's drink part gets that guest's hint, and a glass dropped with the mouse there and
 a bowl on the other outer bubble's base cup – both beside their guest – are served and fly into their guest.
 
@@ -705,20 +720,22 @@ a bowl on the other outer bubble's base cup – both beside their guest – are 
   Its back wall is deliberately calm – mid-light, slightly muted, soft contrasts – so the guests and their bubbles stay
   in front: warm greige plaster with a soft texture and a slanted patch of light from the top left, a window with a deep
   reveal (its top in shadow, the right jamb lit) and a hazy, bright beach view – its frame lines never graze a guest's
-  head –, a chalkboard menu, one oak shelf with jars, a plant and cups, a matched pair of pendant lamps over the window
-  (clear of the HUD's pills) with warm halos and light falling on the wall, a fluted oak wainscot with the
+  head –, a chalkboard menu and one oak shelf with jars, a plant and cups (with 2 and 3 seats; with 4 the outer bubbles
+  would hide them all but for awkward slivers, so the wall leaves them out), a matched pair of pendant lamps over the
+  window (clear of the HUD's pills) with warm halos and light falling on the wall, a fluted oak wainscot with the
   rail's shadow on it, soft shadows to the lower right and a vignette toward the corners; nothing busy or saturated
-  behind the bubbles (y≈68–200) or the faces. The guests are drawn with natural proportions (busts: head, neck, broad
-  shoulders) in the same light, their clothes in clear colours that stand out against the wall. In front of them: a
-  marble pass with an oak front, a terrazzo worktop in perspective with a rounded front edge and open shelves of
-  stock below, the ingredients in real containers on oak risers (brushed stainless pans of fruit in neat rows, glass jars, a squeeze bottle, a coconut
+  behind the bubbles (y≈67–191 with their tails) or the faces. The guests are drawn with natural proportions (busts:
+  head, neck, broad shoulders) in the same light, their clothes in clear colours that stand out against the wall. In
+  front of them: a marble pass with an oak front, a terrazzo worktop in perspective with a rounded front edge and open
+  shelves of stock below, the ingredients in real containers on oak risers (brushed stainless pans of fruit in neat rows, glass jars, a squeeze bottle, a coconut
   shell, a walnut bowl, a board – 3D, light from the top left like everything else), 3D appliances about twice as tall as a cup (a stand
   blender after a household model – fluted glass jug, tall stainless base with a black glass V display band and a big chrome dial –, a matcha
   machine after a household tea-latte machine – muted olive shell, black front, smoked water tank, a glass tea mill –,
   stainless freezer and pedal bin) – clean and modern rather than cluttered.
-  Bubbles, HUD pills, toasts and cards in the café are light frosted panels with soft shadows. In the order bubbles
-  every layer keeps its colour – badge 1 açaí purple, 2 leaf green, 3 pitaya pink, like the badges on the freezer and the
-  containers – and its items sit on circles in that colour's light tint (the chips under the cups the same); the patience
+  HUD pills, toasts and cards in the café are light frosted panels with soft shadows; the order bubbles are opaque white
+  panels with a soft shadow. In the order bubbles every layer keeps its colour – badge 1 açaí purple, 2 leaf green,
+  3 pitaya pink, like the badges on the freezer and the containers – and its items sit on circles in that colour's
+  light tint (the chips under the cups the same); the patience
   bar runs leaf → mango → orange → red with the guest's mood (angry: a red border and a small shake from side to side –
   a tilt would lift a wide bubble's far corner into the HUD); a delivered part becomes a green field with a big glossy
   tick in a white ring on its lower right corner, down to the patience bar: the bowl's centred on the divider (without a
@@ -761,6 +778,7 @@ Key `acaiFever.save.v1`. Shape:
   `tools/appliances-3d.html` at https://leesyashin.github.io/Acai/.
 - `npm run build` → `dist/acai-fever.html` (single self-contained file, works from `file://`) and
   `dist/artifact.html` (same content without doctype/html/head/body wrapper, for publishing as a Claude artifact).
+  `dist/` is committed – rebuild it with every change to the game (Pages copies it without building).
 - `npm test` → `node --test "tests/**/*.test.mjs"` (`node --test tests/` also works through `tests/index.js`;
   Node 22 treats a bare directory argument as a module).
 - `appliances.e2e.mjs` checks the 3D stations in a real browser (canvases drawn, model per upgrade, blending animates,

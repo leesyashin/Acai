@@ -66,7 +66,7 @@ registerStrings({
     'game.lockedMatcha': 'Matcha ab Level {n}',
     'game.banner.overflow': 'Achtung: Ein fertiger Mixer läuft über, wenn er zu lange steht! Verdorbene Mixer ziehst du in den Müll.',
     'game.banner.moreSeats': 'Jetzt gibt es 3 Plätze – mehr Gäste gleichzeitig!',
-    'game.banner.matcha': 'Neu: die Matcha-Maschine! Zieh eine Frucht auf ein Glas und den fertigen Matcha zum Gast.',
+    'game.banner.matcha': 'Neu: die Matcha-Maschine!', // short: the card before the level explains it
     'game.banner.fourSeats': '4 Plätze – jetzt wird es richtig voll!',
     'game.banner.endless': 'Der Endlos-Modus ist freigeschaltet – probier ihn nach diesem Level aus!',
     'game.banner.endlessMode': 'Jede halbe Minute wird es schneller. Wie lange hältst du durch?',
@@ -169,7 +169,7 @@ registerStrings({
     'game.lockedMatcha': 'Matcha from level {n}',
     'game.banner.overflow': 'Careful: a ready blender overflows if it waits too long! Drag spoiled blenders to the trash.',
     'game.banner.moreSeats': 'Now there are 3 seats – more customers at once!',
-    'game.banner.matcha': 'New: the matcha machine! Drag a fruit onto a glass, then the finished matcha to the customer.',
+    'game.banner.matcha': 'New: the matcha machine!', // short: the card before the level explains it
     'game.banner.fourSeats': '4 seats – now it gets really busy!',
     'game.banner.endless': 'Endless mode is unlocked – try it after this level!',
     'game.banner.endlessMode': 'Every half minute it gets faster. How long can you last?',
@@ -243,7 +243,7 @@ const SEAT_X = [null, [640], [420, 860], [270, 640, 1010], [200, 493, 787, 1080]
 // (css/game.css) with the front of the motor base on its bottom edge (stage y 548); two of them
 // keep a gap, so two big jugs do not touch.
 const BLENDER_X = [null, [89], [10, 170]];
-const BLENDER_ART = 220; // the drawn blender without WebGL (wider than the box, transparent)
+const BLENDER_ART = 245; // the drawn blender without WebGL (wider than the box, transparent; as tall as the 3D 2-bowl jug)
 const BLENDER_BADGE = 36;
 // The cup stack stands at the left end of the cup row; stack + spots are centred in the middle column.
 const MID_X0 = 330;
@@ -298,6 +298,8 @@ const BUBBLE_W = BUBBLE_FRAME + BUBBLE_BOWL + bubbleRow(3) + BUBBLE_DRINK;
 const BUBBLE_EDGE = 6;
 const BUBBLE_GAP = 8;
 const CHIP_ICON = 22; // an item's icon in its chip under a cup (css/game.css .g-chip)
+const BIN_REACH = 12; // stage px an ingredient's hit area reaches above its box (css/game.css .g-bin::before)
+const CHIP_ROW = 3; // chips side by side under a cup: two rows of 3 hold MAX_BOWL_ITEMS (js/data.js)
 const LAYER_NUM = { base: 1, mid: 2, top: 3 };
 const MOODS = ['happy', 'neutral', 'impatient', 'angry'];
 const STAMP_MS = 1700;
@@ -503,10 +505,10 @@ class GameView {
     work.append(top);
 
     // blenders; the status badge (ring while blending, ✓, !, spoiled) sits over the right end of the
-    // lid: placed on the 3D model's lid, or where blenderSVG would draw it (127, 22 of 150), a little
-    // further left so it stays inside the blender's box
+    // lid: placed on the 3D model's lid, or where blenderSVG would draw it (127, 22 of 150), further
+    // left (over the handle's top) so it stays inside the blender's box
     const bx = BLENDER_X[g.blenders.length] || BLENDER_X[2];
-    const badgeAt = this.k3d ? blenderBadgeAt(this.look.tier, this.look.big) : { x: (125 * BLENDER_ART) / 150, y: (22 * BLENDER_ART) / 150 };
+    const badgeAt = this.k3d ? blenderBadgeAt(this.look.tier, this.look.big) : { x: (119 * BLENDER_ART) / 150, y: (22 * BLENDER_ART) / 150 };
     this.blenderViews = g.blenders.map((b, i) => {
       const node = el('div', 'g-blender', { 'data-blender': i, 'data-state': b.state, 'data-model': this.look.tier });
       node.style.left = `${bx[i]}px`;
@@ -801,9 +803,16 @@ class GameView {
     return ov;
   }
 
+  // The café's back wall for `seats` guests (with 4 it leaves out the chalkboard and the shelf, which the
+  // outer order bubbles would hide all but for slivers); drawn again on a language switch (the board's title).
+  drawWall(seats) {
+    this.wallSeats = seats;
+    this.wallEl.innerHTML = shopSceneSVG(1280, 330, { seats });
+  }
+
   // All language-dependent static text (also used on language change).
   applyTexts() {
-    this.wallEl.innerHTML = shopSceneSVG(1280, 330);
+    this.drawWall(this.game.seats.length);
     if (this.decorEls.neon) this.decorEls.neon.innerHTML = decorSVG('neon', DECOR_SIZE.neon);
     for (const [id, node] of Object.entries(this.packEls)) setText(node.querySelector('.g-name'), ingName(id, true));
     for (const [id, node] of Object.entries(this.binEls)) setText(node.querySelector('.g-name'), ingName(id, true));
@@ -911,6 +920,7 @@ class GameView {
         // long as it stands on the riser (drag.js enlarges ghosts by 1.12)
         ghost: () => scoopSVG(id, pantryKind(id) === 'bottle' ? 110 : 84),
         onTap: () => this.hint(node, 'game.hint.bin'),
+        reach: BIN_REACH, // a press on the raised hit area that slides a little is still a hold, never a drop on the cup above
       });
     }
 
@@ -924,7 +934,7 @@ class GameView {
         ghost: () => {
           const b = g.blenders[i];
           if (v.view?.el.width) return snapshot(v.view, 0.9, blenderBox(this.look.tier, this.look.big, b.state));
-          return blenderSVG({ state: b.state, base: b.base, progress: b.progress, remaining: secsLeft(b), portions: b.portions, maxPortions: b.maxPortions, badge: false }, Math.round(BLENDER_ART * 0.9));
+          return blenderSVG({ tier: this.look.tier, state: b.state, base: b.base, progress: b.progress, remaining: secsLeft(b), portions: b.portions, maxPortions: b.maxPortions, badge: false }, Math.round(BLENDER_ART * 0.9));
         },
         onTap: () => this.hint(v.el, g.blenders[i].state === 'ruined' ? 'game.hint.blenderRuined' : 'game.hint.blender'),
       });
@@ -1363,6 +1373,7 @@ class GameView {
     if (count !== this.seatCount) {
       this.seatCount = count;
       this.layoutDecor(count);
+      if (count !== this.wallSeats) this.drawWall(count);
     }
     const alive = new Set();
     g.seats.forEach((c, seat) => {
@@ -1516,7 +1527,7 @@ class GameView {
       if (v.pic) {
         const secs = secsLeft(b);
         patch(v.pic, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}|${secs}`, () => blenderSVG({
-          state: b.state, base: b.base, progress: 0, remaining: secs, portions: b.portions, maxPortions: b.maxPortions, badge: false,
+          tier: this.look.tier, state: b.state, base: b.base, progress: 0, remaining: secs, portions: b.portions, maxPortions: b.maxPortions, badge: false,
         }, BLENDER_ART));
       }
       if (patch(v.badge, b.state, () => blenderBadgeSVG(b.state, BLENDER_BADGE))) {
@@ -1583,13 +1594,23 @@ class GameView {
   }
 
   // What is in a cup, laid out like its order bubble: the base chip, beside it a row of the fruits & crunch and under
-  // that one of the toppings & sauces – every chip whole, at most four side by side (css/game.css .g-chips).
+  // that one of the toppings & sauces – every chip whole, at most CHIP_ROW side by side (css/game.css .g-chips). A
+  // wrong cup with more of one layer than a row holds (up to MAX_BOWL_ITEMS of them) fills rows of CHIP_ROW, the
+  // fruits & crunch first, then the toppings & sauces (their tints tell the layers apart): never more than two rows,
+  // so the block always stays within the cup's width and never takes a press meant for the neighbour.
   chipsMarkup(b) {
     if (!b.base) return '';
-    const chip = (id, layer) => `<span class="g-chip g-chip-${layer}">${ingredientIcon(id, CHIP_ICON)}</span>`;
-    const row = (layer, ids) => (ids.length ? `<span class="g-chip-row">${ids.map((id) => chip(id, layer)).join('')}</span>` : '');
-    const rows = b.mid.length || b.top.length ? `<span class="g-chip-rows">${row('mid', b.mid)}${row('top', b.top)}</span>` : '';
-    return chip(b.base, 'base') + rows;
+    const chip = ([id, layer]) => `<span class="g-chip g-chip-${layer}">${ingredientIcon(id, CHIP_ICON)}</span>`;
+    const items = (layer, ids) => ids.map((id) => [id, layer]);
+    const mid = items('mid', b.mid);
+    const top = items('top', b.top);
+    const rows = mid.length <= CHIP_ROW && top.length <= CHIP_ROW ? [mid, top].filter((r) => r.length) : [];
+    if (!rows.length) {
+      const all = [...mid, ...top];
+      for (let i = 0; i < all.length; i += CHIP_ROW) rows.push(all.slice(i, i + CHIP_ROW));
+    }
+    const markup = rows.map((r) => `<span class="g-chip-row">${r.map(chip).join('')}</span>`).join('');
+    return chip([b.base, 'base']) + (rows.length ? `<span class="g-chip-rows">${markup}</span>` : '');
   }
 
   updateSlots() {
@@ -1659,11 +1680,18 @@ class GameView {
         this.stillQueue = [...new Set(this.binStills.map((p) => p.key))];
         this.stillPr = 0; // some pictures at the old ratio, some at the new one, until the queue is done
       }
-      const key = this.stillQueue.shift();
-      for (const p of this.binStills) if (p.key === key) still('pantry', p.o, p.c);
-      if (!this.stillQueue.length) {
+      // with the WebGL context lost no picture is drawn: the queue stops (nothing counts as done) and starts
+      // again a moment later, until the context is back
+      const key = this.stillQueue[0];
+      if (!this.binStills.filter((p) => p.key === key).every((p) => still('pantry', p.o, p.c))) {
         this.stillQueue = null;
-        this.stillPr = pr;
+        this.prNext = 0;
+      } else {
+        this.stillQueue.shift();
+        if (!this.stillQueue.length) {
+          this.stillQueue = null;
+          this.stillPr = pr;
+        }
       }
     }
   }

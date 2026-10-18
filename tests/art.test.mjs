@@ -25,6 +25,15 @@ test('ready blender without portions (shop/intro art) draws a full jug', () => {
   assert.equal(fillTop(blenderSVG({ state: 'ready', base: 'acai', portions: 3, maxPortions: 3 }, 140)), 50);
 });
 
+test('drawn blender (no WebGL): every model has its own base colour, the same shape; Turbo without a tier', () => {
+  const o = { state: 'ready', base: 'acai', portions: 2, maxPortions: 2 };
+  const tiers = [0, 1, 2, 3].map((tier) => blenderSVG({ ...o, tier }, 140));
+  assert.equal(new Set(tiers).size, 4, 'two models are drawn alike');
+  assert.equal(blenderSVG(o, 140), tiers[1], 'without a tier the stainless Turbo is drawn');
+  assert.equal(blenderSVG({ ...o, tier: 9 }, 140), tiers[1], 'an unknown tier falls back to the Turbo');
+  for (const svg of tiers) assert.equal(fillTop(svg), 50, 'every model holds the same jug');
+});
+
 // ------------------------------------------------------------------ shared paint servers
 import * as art from '../js/art.js';
 import { memoTable } from '../js/svg.js';
@@ -169,6 +178,19 @@ test('a memo table drops the picture used longest ago, not the oldest one', () =
   assert.equal(draws, 3, 'a is still cached');
   memo('b', draw(2));
   assert.equal(draws, 4, 'b was dropped');
+});
+
+test('the café wall leaves out the chalkboard and the shelf with 4 seats (the outer bubbles would hide them)', () => {
+  const slate = '#3e4541'; // the chalkboard's slate
+  const board = '#b58c63'; // the shelf's oak board
+  for (const seats of [2, 3]) {
+    const wall = art.shopSceneSVG(1280, 330, { seats });
+    assert.ok(wall.includes(slate) && wall.includes(board), `${seats} seats: chalkboard and shelf on the wall`);
+  }
+  assert.ok(art.shopSceneSVG(1280, 330).includes(slate), 'the default wall has the chalkboard');
+  const full = art.shopSceneSVG(1280, 330, { seats: 4 });
+  assert.ok(!full.includes(slate) && !full.includes(board), '4 seats: no chalkboard, no shelf');
+  assert.ok(full.includes('af-sky-'), '4 seats: the window stays');
 });
 
 test('decor casts its shadow on the café wall only, not on a shop card', () => {

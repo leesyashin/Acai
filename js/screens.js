@@ -757,7 +757,7 @@ const map = {
 // or the drawn art without WebGL. look overrides the model (shop cards show the next one).
 function blenderArt(o, size, look = null, svgOpts = { badge: false }) {
   const model = look || blenderLook(getSave().upgrades);
-  return pictureMarkup('blender', { ...model, ...o }, size, () => blenderSVG({ ...svgOpts, ...o }, size), o.state === 'overflowing' ? 0.7 : 0.4);
+  return pictureMarkup('blender', { ...model, ...o }, size, () => blenderSVG({ ...svgOpts, ...o, tier: model.tier }, size), o.state === 'overflowing' ? 0.7 : 0.4);
 }
 
 // =====================================================================
@@ -766,9 +766,11 @@ function blenderArt(o, size, look = null, svgOpts = { badge: false }) {
 function introArt(key) {
   switch (key) {
     case 'basics':
-      return `<div class="intro-art intro-art-steps">${packIcon('acai', 54)}<i></i>${blenderArt({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 64, null, {})}<i></i>${bowlSVG(null, 60)}<i></i>${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 70)}</div>`;
+      // the blender about 1.4 × the cup's height, as in the kitchen (its picture is a square, the tall blender fills
+      // its height; css/screens.css .intro-blender trims the empty sides)
+      return `<div class="intro-art intro-art-steps">${packIcon('acai', 54)}<i></i><span class="intro-blender">${blenderArt({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 90, null, {})}</span><i></i>${bowlSVG(null, 60)}<i></i>${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 70)}</div>`;
     case 'overflow':
-      return `<div class="intro-art">${blenderArt({ state: 'overflowing', base: 'acai', portions: 2, maxPortions: 2 }, 110, null, {})}</div>`;
+      return `<div class="intro-art">${blenderArt({ state: 'overflowing', base: 'acai', portions: 2, maxPortions: 2 }, 136, null, {})}</div>`;
     case 'matcha':
       return `<div class="intro-art">${matchaMachineArt(140, ['strawberry'], true)}</div>`;
     case 'endless':

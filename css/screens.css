@@ -812,6 +812,9 @@
 }
 .intro-art svg { display: block; }
 .intro-art-steps { gap: 2px; align-items: center; }
+/* the tall blender in its square picture: the empty sides tucked under its neighbours' gaps */
+.intro-art-steps .intro-blender { display: block; margin: 0 -14px; }
+.intro-art-steps .intro-blender > * { display: block; }
 .intro-art-steps i {
   width: 0;
   height: 0;

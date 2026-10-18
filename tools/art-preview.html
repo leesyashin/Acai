@@ -253,7 +253,7 @@ function render() {
   m += `<div class="counter"></div><div style="left:0;top:338px">${art.counterSVG(1280, 462)}</div>`;
   m += `<div class="hud"><div class="pill">${art.heartSVG(true, 30)}${art.heartSVG(true, 30)}${art.heartSVG(false, 30)}</div><div class="pill">${art.coinSVG(32)} 128</div><div class="pill">${art.clockSVG(32)} 1:12</div><div class="pill">${art.starSVG(true, 30)}${art.starSVG(false, 30)}</div></div>`;
   m += `<div style="left:-40px;top:334px">${art.blenderSVG({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 220)}</div>`;
-  m += `<div style="left:120px;top:334px">${art.blenderSVG({ state: 'blending', base: 'pitaya', progress: 0.4 }, 220)}</div>`;
+  m += `<div style="left:120px;top:334px">${art.blenderSVG({ state: 'blending', base: 'pitaya', progress: 0.4, remaining: 3 }, 220)}</div>`;
   m += `<div style="left:16px;top:556px">${art.freezerSVG('well', 284, 186)}</div>`;
   ['acai', 'pitaya', 'spirulina'].forEach((id, i) => { m += `<div style="left:${28 + i * 88}px;top:648px">${art.packIcon(id, 84)}</div>`; });
   m += `<div style="left:16px;top:556px">${art.freezerSVG('rim', 284, 186)}</div>`;

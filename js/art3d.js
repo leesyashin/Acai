@@ -28,7 +28,26 @@ export function pixelRatio() {
 // slow (a software WebGL renderer) these updates and the animation frames are spaced out so the
 // game stays responsive; a state change is always drawn at once.
 const SOFT = new Set(['progress', 'remaining', 'lid', 'door']);
-let cost = 0; // running average of one draw in ms
+let cost = 0; // running average of one animation frame in ms
+// The animation frames of all views share one budget: after any draw, no view draws an animation
+// frame for a gap that grows with the cost (5 × the cost, at most 250 ms – or as long as a frame
+// itself when one takes longer), and of the views waiting, the one drawn longest ago goes next. So
+// the game keeps at least half of the main thread however many appliances animate at once (two
+// blenders and the machine drew back to back before, 2–9 fps with software WebGL); one animating
+// view redraws as often as ever. Nothing is held back while drawing is fast (a GPU).
+let freeAt = 0; // when the next animation frame may be drawn
+const waiting = new Map(); // canvas → [end of its last draw, when it last asked for a frame]
+const WAIT_STALE = 1000; // ms: a view that stopped asking (stopped animating, left the screen)
+const gap = () => (cost > 4 ? Math.min(Math.max(250, cost), cost * 5) : 0);
+function myTurn(key, at, now) {
+  waiting.set(key, [at, now]);
+  if (now < freeAt) return false;
+  for (const [k, [a, asked]] of waiting) {
+    if (now - asked > WAIT_STALE) waiting.delete(k);
+    else if (a < at) return false;
+  }
+  return true;
+}
 
 export function createView(kind, className = '') {
   const frame = VIEWS[kind];
@@ -49,14 +68,19 @@ export function createView(kind, className = '') {
       const pr = pixelRatio();
       const h = `${pr}|${JSON.stringify(o, (k, v) => (SOFT.has(k) ? undefined : v))}`;
       const s = `${JSON.stringify(o)}${isAnimated(kind, o) ? `|${t}` : ''}`;
-      if (h === hard && s === soft) return true;
+      if (h === hard && s === soft) {
+        waiting.delete(canvas);
+        return true;
+      }
       const now = performance.now();
-      if (h === hard && now - at < (cost > 4 ? Math.min(250, cost * 5) : 0)) return true;
+      if (h === hard && cost > 4 && !myTurn(canvas, at, now)) return true;
       const ok = r.drawTo(canvas, SCENES[kind](o, t, frame), Math.round(frame.w * pr), Math.round(frame.h * pr));
       const end = performance.now();
       // only animation frames count: a new state may build meshes and textures once
       if (h === hard) cost = cost ? cost * 0.8 + (end - now) * 0.2 : end - now;
       at = end;
+      freeAt = end + gap();
+      waiting.delete(canvas);
       hard = ok ? h : null;
       soft = ok ? s : null;
       return ok;

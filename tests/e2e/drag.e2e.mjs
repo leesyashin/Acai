@@ -168,8 +168,8 @@ function assertSilentReturn(evs, what) {
     `${what}: onEnd ${JSON.stringify(end)}`);
 }
 
-// The game's counter: a bowl sits 2 px above the fruit bins, closer than touch lift + hit pad, so the
-// lifted ghost of a finger resting on a bin is over the bowl. This puts a strawberry bin (game height,
+// The game's counter: a cup's box ends 2 px above the fruit bins' (raised) hit area, closer than touch lift + hit
+// pad, so the lifted ghost of a finger resting on a bin is over the bowl. This puts a strawberry bin (game height,
 // 84 stage px) 2 px under the demo bowl and returns its client centre and top; removeBinUnderBowl()
 // takes it away.
 async function binUnderBowl(page) {
@@ -635,6 +635,9 @@ async function touchSuite(browser, vp) {
       },
     });
     assert(mid?.dragging && mid.dropHover.join() === 'tgt-bowl', 'drag was not active over the bowl');
+    // CDP returns once the touchcancel is dispatched, the browser may hand the pointercancel to the page a little
+    // later (on a busy machine): give it up to 2 s, then look
+    await page.waitForFunction(() => !window.__dragDemo.dnd.isDragging(), null, { timeout: 2000 }).catch(() => {});
     const s = await snapshot(page);
     assert(!s.dragging && (s.ghosts === 0 || s.ghostClass.includes('is-returning')), `after cancel ${JSON.stringify(s)}`);
     const evs = await eventsSince(page, m);

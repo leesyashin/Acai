@@ -6,7 +6,7 @@
 
 import path from 'node:path';
 import {
-  startServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, e2eOutDir,
+  startServer, reuseServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, e2eOutDir,
 } from './helpers.mjs';
 import { createGame, tick } from '../../js/engine.js';
 import { getKitchenStats, INGREDIENTS } from '../../js/data.js';
@@ -39,11 +39,7 @@ async function serve() {
     return { url: srv.url.replace(/\/$/, ''), close: () => srv.close() };
   } catch (err) {
     if (err.code !== 'EADDRINUSE') throw err;
-    const url = `http://127.0.0.1:${PORT}`;
-    const res = await fetch(`${url}/tools/game-harness.html`).catch(() => null);
-    if (!res?.ok) throw err;
-    console.log(`(reusing the server already listening on :${PORT})`);
-    return { url, close: async () => {} };
+    return { url: await reuseServer(PORT), close: async () => {} };
   }
 }
 
@@ -477,7 +473,7 @@ async function matchaTouch(srv) {
     await check(`${tag} a topping on a matcha slot bounces back with a hint`, async () => {
       await expectReject(page, '[data-bin="honey"]', '[data-matcha-slot="0"]', 'notMatchaFruit', true);
     });
-    await check(`${tag} holding a fruit bin or putting it back never drops it into the bowl above`, async () => {
+    await check(`${tag} holding a fruit bin (also by its raised hit area) or putting it back never drops it into the bowl above`, async () => {
       const bi = await readyBlender(page, 'acai', true);
       const bowl = (await snap(page)).bowls.findIndex((b) => !b.base);
       await pour(page, bi, bowl, true);
@@ -504,6 +500,27 @@ async function matchaTouch(srv) {
           await touch('touchEnd');
           await sleep(120);
           assert(await toastText(page) === '', `putting ${id} back showed "${await toastText(page)}"`);
+          // a sloppy press on the raised hit area above the bin's box (css/game.css .g-bin::before, 9 stage px over
+          // its top, right under the bowl's box) that slides 10 px sideways: still a hold, no drop into the bowl
+          const up = await page.evaluate((bin) => {
+            const st = document.getElementById('stage').getBoundingClientRect();
+            const r = document.querySelector(`[data-bin="${bin}"]`).getBoundingClientRect();
+            const p = { x: r.left + r.width / 2, y: r.top - 9 * (st.width / 1280) };
+            return { ...p, on: document.elementFromPoint(p.x, p.y)?.closest('[data-bin]')?.dataset.bin };
+          }, id);
+          assert(up.on === id, `the raised hit area above ${id} belongs to ${up.on || 'nothing'}`);
+          await clearToast(page);
+          await touch('touchStart', up);
+          for (let i = 1; i <= 5; i++) {
+            await touch('touchMove', { x: up.x + 2 * i, y: up.y });
+            await sleep(60);
+          }
+          await sleep(300);
+          const hovered = await page.evaluate(() => !!document.querySelector('.screen-game [data-bowl].drop-hover'));
+          await touch('touchEnd');
+          await sleep(120);
+          assert(!hovered, `a press on ${id}'s raised hit area that slid 10 px lights a bowl as the drop target`);
+          assert(await toastText(page) === '', `a press on ${id}'s raised hit area that slid 10 px showed "${await toastText(page)}"`);
         }
       } finally {
         await cdp.detach().catch(() => {});

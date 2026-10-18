@@ -111,8 +111,9 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
   }
 
   // The pointer (not the lifted ghost) still rests on its source: it has not left the tap slop yet,
-  // or it is back over the source rect. Holding an item or putting it back must never drop it into a
-  // target next to the source (in the game a bowl sits 2 px above the fruit bins' hit area, within the lift).
+  // or it is back over the source rect (its box, reaching cfg.reach stage px higher where its hit area does).
+  // Holding an item or putting it back must never drop it into a target next to the source (in the game a
+  // cup's box ends 2 px above the fruit bins' raised hit area, within the lift).
   function onSource(d) {
     if (d.moved <= TAP_SLOP) return true;
     const s = d.src;
@@ -333,7 +334,8 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     };
     track(d, e);
     const r = rectOf(reg.el); // before .drag-source restyles it
-    d.src = r;
+    const reach = Math.max(0, Number(reg.cfg.reach) || 0); // a hit area raised above the box (e.g. by a ::before)
+    d.src = reach ? { ...r, y1: r.y1 - reach, h: r.h + reach, cy: r.cy - reach / 2 } : r;
     d.home = { x: r.cx, y: r.cy };
     drag = d;
     try {

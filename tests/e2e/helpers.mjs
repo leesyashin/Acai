@@ -9,12 +9,15 @@
 //   assertNoConsoleErrors(errors);
 //   await close(); await srv.close();
 
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 export { startServer } from '../../tools/serve.mjs';
+
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 export const STAGE_W = 1280;
 export const STAGE_H = 800;
@@ -194,4 +197,20 @@ export function e2eOutDir(sub = '') {
   const dir = path.join(process.env.E2E_OUT_DIR || path.join(os.tmpdir(), 'acai-fever-e2e'), sub);
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+// A script whose port is taken reuses the server listening there only when it serves this tree: a
+// stray server of another checkout would let the checks fail, or pass, for other code. Compares a few
+// files with the local ones and throws when one differs. Returns the server's URL (no trailing '/').
+export async function reuseServer(port, files = ['js/data.js', 'js/game-view.js', 'css/game.css']) {
+  const url = `http://127.0.0.1:${port}`;
+  for (const file of files) {
+    const res = await fetch(`${url}/${file}`).catch(() => null);
+    const served = res?.ok ? await res.text() : null;
+    if (served !== readFileSync(path.join(REPO_ROOT, file), 'utf8')) {
+      throw new Error(`:${port} is taken by a server that does not serve this tree (${file} differs) – stop it or set E2E_PORT to a free port`);
+    }
+  }
+  console.log(`(reusing the server already listening on :${port})`);
+  return url;
 }

@@ -13,7 +13,9 @@
 // Run: node tests/e2e/layout.e2e.mjs   (serves the repo on :8090, exits non-zero on failure)
 
 import path from 'node:path';
-import { startServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, e2eOutDir, STAGE_W, STAGE_H } from './helpers.mjs';
+import {
+  startServer, reuseServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, e2eOutDir, STAGE_W, STAGE_H,
+} from './helpers.mjs';
 
 const PORT = Number(process.env.E2E_PORT) || 8090;
 const OUT = e2eOutDir('layout');
@@ -44,7 +46,7 @@ async function serve() {
     return { url: srv.url.replace(/\/$/, ''), close: () => srv.close() };
   } catch (err) {
     if (err.code !== 'EADDRINUSE') throw err;
-    return { url: `http://127.0.0.1:${PORT}`, close: async () => {} };
+    return { url: await reuseServer(PORT), close: async () => {} };
   }
 }
 
@@ -363,21 +365,31 @@ async function hintOnBubble(page) {
     });
 }
 
-// A press on any of a cup's content chips (7 of them, the rows at their widest) – its middle and just inside its left,
-// right and bottom edge – lifts that cup, also where the chips reach below its box (over the raised hit area of the
-// row in front); the chips stay within the cup's width, so they never take a press from the neighbour.
-const chipPresses = (page) => page.evaluate(() => {
+// A press on any of a cup's content chips (7 of them: the longest order's 3 + 3 items, and the widest wrong cups – 6
+// fruits & crunch, 4 + 2, 1 + 5 –, MAX_BOWL_ITEMS in all) – its middle and just inside its left, right and bottom edge –
+// lifts that cup; the chips stand inside the cup's box (on its bottom edge, y 503–528 / 478–528) within its width in at
+// most two rows, so they never take a press from the neighbour or the row in front.
+const CHIP_FILLS = [
+  { mid: ['banana', 'kiwi', 'granola'], top: ['honey', 'chia', 'mint'] },
+  { mid: ['banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi'], top: [] },
+  { mid: ['banana', 'granola', 'strawberry', 'blueberry'], top: ['honey', 'chocolate'] },
+  { mid: ['mango'], top: ['honey', 'chia', 'coconut', 'peanut', 'cacao'] },
+];
+const chipPresses = (page, fill) => page.evaluate((f) => {
   const g = window.__acaiGame;
-  for (const bw of g.bowls) Object.assign(bw, { cup: true, base: 'acai', mid: ['banana', 'kiwi', 'granola'], top: ['honey', 'chia', 'mint'] });
+  for (const bw of g.bowls) Object.assign(bw, { cup: true, base: 'acai', mid: [...f.mid], top: [...f.top] });
+  const what = `${f.mid.length} + ${f.top.length}`;
   return new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => {
     const wrong = [];
     for (const cup of document.querySelectorAll('[data-bowl]')) {
       const r = cup.getBoundingClientRect();
       const chips = [...cup.querySelectorAll('.g-chip')];
-      if (chips.length !== 7) wrong.push(`cup ${cup.dataset.bowl}: 7 chips expected`);
+      if (chips.length !== 7) wrong.push(`cup ${cup.dataset.bowl} (${what}): 7 chips expected, saw ${chips.length}`);
+      const rows = new Set(chips.slice(1).map((c) => Math.round(c.getBoundingClientRect().top)));
+      if (rows.size > 2) wrong.push(`cup ${cup.dataset.bowl} (${what}): ${rows.size} rows of chips, at most 2 expected`);
       chips.forEach((chip, i) => {
         const c = chip.getBoundingClientRect();
-        const at = `cup ${cup.dataset.bowl}, chip ${i + 1}`;
+        const at = `cup ${cup.dataset.bowl} (${what}), chip ${i + 1}`;
         if (c.left < r.left - 0.5 || c.right > r.right + 0.5) wrong.push(`${at} reaches out of the cup's width`);
         const mx = c.left + c.width / 2;
         const my = c.top + c.height / 2;
@@ -389,7 +401,7 @@ const chipPresses = (page) => page.evaluate(() => {
     }
     done(wrong);
   })));
-});
+}, fill);
 
 // new toppings in the front row's middle, right under the fruits' layer label, the jars with their lid beside them and
 // the granola jar; every ingredient with two quality stars, or none (the sticker takes the stars' place)
@@ -408,7 +420,8 @@ async function main() {
         });
         if (c.want.bowl) {
           await check(`${c.name}: a press on a cup's content chips lifts that cup, not its neighbour`, async () => {
-            const wrong = await chipPresses(page);
+            const wrong = [];
+            for (const fill of CHIP_FILLS) wrong.push(...await chipPresses(page, fill));
             assert(wrong.length === 0, wrong.join('\n'));
           });
         }

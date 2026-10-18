@@ -6,7 +6,7 @@
 
 import path from 'node:path';
 import {
-  startServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, e2eOutDir,
+  startServer, reuseServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, e2eOutDir,
 } from './helpers.mjs';
 
 const PORT = Number(process.env.E2E_PORT) || 8090;
@@ -36,7 +36,7 @@ async function serve() {
     return { url: srv.url.replace(/\/$/, ''), close: () => srv.close() };
   } catch (err) {
     if (err.code !== 'EADDRINUSE') throw err;
-    return { url: `http://127.0.0.1:${PORT}`, close: async () => {} };
+    return { url: await reuseServer(PORT), close: async () => {} };
   }
 }
 
@@ -204,7 +204,11 @@ async function main() {
         await sleep(700);
         const open = await canvasInfo(page, '.g-freezer canvas.g-3d-front');
         await page.screenshot({ path: path.join(OUT, 'freezer-open.png') });
-        await page.mouse.up(); // over the counter: the pack flies back
+        // put back where it was taken (let go up there, it would land in the empty second blender, whose
+        // animation would then share the drawing budget with the machine in the next check)
+        await page.mouse.move(pack.x + pack.width / 2, pack.y + pack.height / 2, { steps: 8 });
+        await page.mouse.up();
+        assert(await page.evaluate(() => window.__acaiGame.blenders.every((b) => b.state !== 'blending')), 'the pack went into a blender');
         await sleep(1600);
         const after = await canvasInfo(page, '.g-freezer canvas.g-3d-front');
         assert(open.hash !== closed.hash, 'no cold air while the pack is taken');
@@ -226,6 +230,46 @@ async function main() {
         await sleep(200);
         assert(await glassHas('#7f9f37'), 'the glass does not fill while the nozzle pours');
         await page.screenshot({ path: path.join(OUT, 'pour.png') });
+      });
+
+      await check('with both blenders and both glasses animating the game keeps its frame rate, every appliance moves', async () => {
+        // headless Chromium draws WebGL in software, slowly (100–200 ms a picture): the animation frames
+        // of all views share one budget (js/art3d.js), otherwise the three would draw back to back and
+        // leave the game a few frames a second
+        const fps = (ms) => page.evaluate((span) => new Promise((res) => {
+          let n = 0;
+          const t0 = performance.now();
+          const f = (ts) => {
+            n++;
+            if (ts - t0 < span) requestAnimationFrame(f);
+            else res(n / ((ts - t0) / 1000));
+          };
+          requestAnimationFrame(f);
+        }), ms);
+        await fastUntil(page, () => window.__acaiGame.matcha.slots[0].state === 'ready');
+        await engine(page, 'e.trashMatcha(g, 0); e.trashMatcha(g, 1); e.cleanBlender(g, 0); e.cleanBlender(g, 1);');
+        await sleep(600);
+        const idle = await fps(2000);
+        await page.evaluate(() => { window.__acaiSpeed = 0.05; }); // the states hold while the frames are counted
+        try {
+          const loaded = await engine(page, `return [e.loadBlender(g, 0, 'acai'), e.loadBlender(g, 1, 'pitaya'),
+            e.loadMatcha(g, 0, 'mango'), e.loadMatcha(g, 1, 'kiwi')].every((r) => r.ok);`);
+          assert(loaded, 'could not start both blenders and both glasses');
+          await sleep(800);
+          const sels = ['[data-blender="0"] canvas', '[data-blender="1"] canvas', '.g-machine canvas.g-3d'];
+          const before = await Promise.all(sels.map((s) => canvasInfo(page, s)));
+          const busy = await fps(3000);
+          const after = await Promise.all(sels.map((s) => canvasInfo(page, s)));
+          const still = sels.filter((s, i) => before[i].hash === after[i].hash);
+          await page.screenshot({ path: path.join(OUT, 'all-busy.png') });
+          assert(busy >= Math.max(12, idle * 0.4), `${busy.toFixed(1)} fps with everything animating (idle ${idle.toFixed(1)} fps)`);
+          assert(!still.length, `not redrawn in 3 s: ${still.join(', ')}`);
+        } finally {
+          await page.evaluate(() => { window.__acaiSpeed = 1; });
+        }
+        await fastUntil(page, () => window.__acaiGame.blenders.every((b) => b.state !== 'blending')
+          && window.__acaiGame.matcha.slots.every((s) => s.state !== 'mixing'));
+        await engine(page, 'e.trashMatcha(g, 0); e.trashMatcha(g, 1); e.cleanBlender(g, 0); e.cleanBlender(g, 1);');
       });
 
       await check('a bigger window (a new pixel ratio) draws the ingredient containers again, sharp', async () => {

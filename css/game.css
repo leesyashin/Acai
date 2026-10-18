@@ -102,7 +102,7 @@
 /* hovering a guest who will refuse it (glass still brewing, nothing ordered): muted red, no grow */
 .screen-game .g-cust.drop-bad .g-bubble { box-shadow: 0 0 0 4px var(--glow-bad); }
 
-/* order bubble (docs/DESIGN.md §4.7): a light frosted panel over the guest's head, its bottom at stage y 179 where the
+/* order bubble (docs/DESIGN.md §4.7): a light, opaque white panel over the guest's head, its bottom at stage y 179 where the
    tallest hair begins (the tip of a bun or an afro, an angry guest's steam tuck a few px under it), only the tail
    reaching down to the crown – the faces stay clear. It is centred on the seat or, too wide for the seat's slot
    (4 seats, long orders), pushed into it by --dx (js/game-view.js bubbleShift) – the tail stays on the head. Left the
@@ -328,7 +328,8 @@
 
 /* blenders (x 10–320, y 338–548), standing at the back of the worktop: the front of the motor base on the box's
    bottom edge, a big jug's lid (and an overflowing blender's foam) reaches up over the pass. The art is wider and
-   taller than the hit box and lets the pointer through. */
+   taller than the hit box and lets the pointer through; the drawn one (without WebGL, 245 px: js/game-view.js
+   BLENDER_ART) is as tall as the 3D 2-bowl jug, its foot on the box's bottom edge. */
 .screen-game .g-blender {
   position: absolute;
   top: 0;
@@ -339,10 +340,10 @@
 }
 .screen-game .g-blender .g-art {
   position: absolute;
-  left: -50px;
-  top: -4px;
-  width: 220px;
-  height: 220px;
+  left: -62px;
+  top: -28px;
+  width: 245px;
+  height: 245px;
   transform-origin: 50% 90%;
   pointer-events: none;
 }
@@ -487,9 +488,11 @@
 .screen-game .g-bowl .g-art { position: absolute; left: 0; top: 0; width: 120px; height: 120px; transform-origin: 50% 90%; }
 /* what is in a cup, under it in the order bubbles' language and layout: the base chip, beside it a row of layer 2's
    items and under that one of layer 3's – each item's icon on a circle in its layer's tint, in a white ring, every
-   chip whole. The block (≤ 103 × 50 px) is centred under the cup and stands on its box's bottom edge (stage y 528):
-   one row under the cup's foot (y 503–528), with toppings the first row in front of the foot (y 478–503) – inside
-   the box, so the drop glow and the tutorial's ring hold it, and the row of containers in front keeps its reach */
+   chip whole; a wrong cup with more than 3 of one layer fills rows of 3, layer 2 first (js/game-view.js
+   chipsMarkup), so there are never more than two rows of 3. The block (≤ 107 × 50 px: 25 + 3 + 3 × 25 + 2 × 2) is
+   centred under the cup, within its width, and stands on its box's bottom edge (stage y 528): one row under the
+   cup's foot (y 503–528), with two rows the first in front of the foot (y 478–503) – inside the box, so the drop glow
+   and the tutorial's ring hold it, and the row of containers in front keeps its reach */
 .screen-game .g-bowl .g-chips {
   position: absolute;
   z-index: 1; /* over the lid of a jar standing tall in the row in front */
@@ -583,8 +586,10 @@
   box-sizing: border-box;
   border-radius: 14px;
 }
-/* the hit area reaches 12 px above the box (tests/e2e/layout.e2e.mjs counts it): up to the cups' boxes for the back
-   row, over the back riser's front edge for the front row, so a press on a tall container's top picks it up */
+/* the hit area reaches 12 px above the box (BIN_REACH in js/game-view.js: drag.js counts it as the source, so a press
+   there that slides a little never drops the item into the cup above; tests/e2e/layout.e2e.mjs counts it too): up to
+   the cups' boxes for the back row, over the back riser's front edge for the front row, so a press on a tall
+   container's top picks it up */
 .screen-game .g-bin::before { content: ""; position: absolute; left: 0; right: 0; top: -12px; height: 12px; }
 .screen-game .g-bin .g-art {
   position: absolute;
@@ -950,7 +955,7 @@
 .screen-game .g-float.is-heart { animation: g-heart-float 1.3s ease-out forwards; }
 .screen-game .g-flycoin { position: absolute; width: 30px; height: 30px; will-change: transform; }
 
-/* banner (non-blocking) – sits on the counter strip so customers' faces (y≈170-290) and bubbles stay visible */
+/* banner (non-blocking) – sits on the counter strip so customers' faces (y≈205–257) and bubbles (y 67–179) stay visible */
 .screen-game .g-banner {
   position: absolute;
   left: 0;
@@ -961,11 +966,14 @@
   z-index: 35;
   pointer-events: none;
 }
+/* the banner stays in the middle column (x 330–950): clear of the blenders' lids and badges on the left and the
+   matcha machine on the right, which reach up over the pass; a long text wraps (up to 3 lines, to y≈375) */
 .screen-game .g-banner-card {
   display: flex;
   align-items: center;
   gap: 18px;
-  max-width: 1060px;
+  box-sizing: border-box;
+  max-width: 620px;
   padding: 6px 26px 7px;
   text-align: left;
   animation: g-banner-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;

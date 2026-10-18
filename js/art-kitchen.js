@@ -19,10 +19,22 @@ const LAGOON = '#18c2c9';
 
 // ======================================================================
 // Blender (viewBox 150×150), the drawn version of the 3D stand blender (js/kitchen3d.js) for
-// browsers without WebGL: brushed stainless motor base with a black glass band that dips into a V
-// (display, portion LEDs), the big start/stop dial and the brand line; a fluted glass jug with the
-// scale on the left, the spout on the left and a clear handle on the right; black lid, clear cap.
+// browsers without WebGL: a motor base with a black glass band that dips into a V (display, portion
+// LEDs), the big start/stop dial and the brand line; a fluted glass jug with the scale on the left,
+// the spout on the left and a clear handle on the right; black lid, clear cap. One shape for every
+// model, only the base's colour tells them apart (opts.tier, blenderLook in js/kitchen3d.js; the
+// 3D models' colours): white Classic, brushed stainless Turbo (the default), açaí-purple Pro,
+// graphite Pro Max.
 // ======================================================================
+// body: the base's fill, its light (overlay, opacity) and outline, how much it darkens toward the foot; print: the
+// dial's ticks; brand: the brand line
+const BASE_TIERS = [
+  { fill: '#fbfaf7', light: ['cyl-soft', 0.55], edge: '#b3ada3', dark: 0.12, print: '#43474e', brand: '#3d4148' },
+  { fill: paint('steel', '#c9d0d6'), edge: '#6c7680', dark: 0.3, print: '#2a2d33', brand: '#25272c', brushed: true },
+  { fill: '#4b1f72', light: ['cyl', 1], edge: '#250c3b', dark: 0.3, print: '#efe4f8', brand: '#f3ecf9' },
+  { fill: '#2d3036', light: ['cyl', 1], edge: '#121317', dark: 0.3, print: '#c9cfd6', brand: '#dde2e8' },
+];
+const tierOf = (t) => (Number.isInteger(t) && t >= 0 && t < BASE_TIERS.length ? t : 1);
 const BX = 74; // centre line of jug and base
 const JUG_TOP = 32;
 const JUG_BOT = 89;
@@ -94,10 +106,11 @@ function baseShape(y0, y1, r = 0) {
 }
 
 function motorBase(state, o) {
+  const T = BASE_TIERS[tierOf(o.tier)];
   let s = path(rrect(BX - 27.5, BASE_B - 3, 55, 7, 2.6), '#141418', stroke(0.8, '#000000'));
   const body = baseShape(BASE_T, BASE_B, 4);
-  s += path(body, paint('steel', '#c9d0d6'), stroke(1, '#6c7680')) + path(body, paint('down-dark'), op(0.3));
-  for (const x of [-18, -9, 6, 15]) s += line(`M${BX + x} 112V140`, WHITE, 0.7, op(0.18));
+  s += path(body, T.fill, stroke(1, T.edge)) + (T.light ? path(body, paint(T.light[0]), op(T.light[1])) : '') + path(body, paint('down-dark'), op(T.dark));
+  if (T.brushed) for (const x of [-18, -9, 6, 15]) s += line(`M${BX + x} 112V140`, WHITE, 0.7, op(0.18));
   // black glass band with the V on the front
   const v = (dy = 0) => `M${f(BX - baseW(BAND))} ${BAND + dy}L${BX - 4} ${111.6 + dy}Q${BX} ${113.6 + dy} ${BX + 4} ${111.6 + dy}L${f(BX + baseW(BAND))} ${BAND + dy}`;
   const bandPath = `M${f(BX - baseW(BASE_T) + 4)} ${BASE_T}H${f(BX + baseW(BASE_T) - 4)}Q${f(BX + baseW(BASE_T))} ${BASE_T} ${f(BX + baseW(BASE_T + 4))} ${BASE_T + 4}L${f(BX + baseW(BAND))} ${BAND}` +
@@ -130,9 +143,9 @@ function motorBase(state, o) {
   for (let i = 0; i <= 10; i++) {
     const a = ((-90 + i * 13) * Math.PI) / 180;
     const r1 = 12.2 + i * 0.12;
-    s += line(`M${f(K[0] + Math.cos(a) * 11.4)} ${f(K[1] + Math.sin(a) * 11.4)}L${f(K[0] + Math.cos(a) * r1)} ${f(K[1] + Math.sin(a) * r1)}`, '#2a2d33', 0.55);
+    s += line(`M${f(K[0] + Math.cos(a) * 11.4)} ${f(K[1] + Math.sin(a) * 11.4)}L${f(K[0] + Math.cos(a) * r1)} ${f(K[1] + Math.sin(a) * r1)}`, T.print, 0.55);
   }
-  for (const a of [150, 185, 220]) s += circle(K[0] + Math.cos((a * Math.PI) / 180) * 13, K[1] + Math.sin((a * Math.PI) / 180) * 13, 0.9, '#2a2d33');
+  for (const a of [150, 185, 220]) s += circle(K[0] + Math.cos((a * Math.PI) / 180) * 13, K[1] + Math.sin((a * Math.PI) / 180) * 13, 0.9, T.print);
   s += circle(K[0], K[1] + 0.8, 10.6, '#000000', op(0.25));
   s += circle(K[0], K[1], 10.2, paint('steel', '#cfd6dc'), stroke(0.8, '#5c6670')) + litCircle(K[0], K[1], 10.2, 'sph');
   s += circle(K[0], K[1], 7.4, paint('black-v', '#1d1d22'), stroke(0.6, '#000000'));
@@ -140,7 +153,7 @@ function motorBase(state, o) {
   s += knobText('Start', K[1] - 1) + rect(K[0] - 3.2, K[1] - 0.2, 6.4, 0.35, 0.15, WHITE, op(0.6)) + knobText('Stop', K[1] + 2.6);
   const ang = ((state === 'blending' ? 30 : -90) * Math.PI) / 180;
   s += line(`M${f(K[0] + Math.cos(ang) * 8)} ${f(K[1] + Math.sin(ang) * 8)}L${f(K[0] + Math.cos(ang) * 9.9)} ${f(K[1] + Math.sin(ang) * 9.9)}`, WHITE, 1.4);
-  s += `<text x="${BX}" y="139.2" text-anchor="middle" font-family="${FONT}" font-size="3.6" letter-spacing="0.7" fill="#25272c">AÇAÍ FEVER</text>`;
+  s += `<text x="${BX}" y="139.2" text-anchor="middle" font-family="${FONT}" font-size="3.6" letter-spacing="0.7" fill="${T.brand}">AÇAÍ FEVER</text>`;
   return s;
 }
 
@@ -174,7 +187,7 @@ export function blenderSVG(opts = {}, size = 150) {
   const state = ['empty', 'blending', 'ready', 'overflowing', 'ruined'].includes(o.state) ? o.state : 'empty';
   // progress is quantised so the cache stays small while the ring still moves smoothly
   const p = state === 'blending' ? Math.round(Math.max(0, Math.min(1, Number(o.progress) || 0)) * 48) / 48 : 0;
-  const key = `x|${state}|${o.base}|${p}|${secsLeft(state, o)}|${o.portions}|${o.maxPortions}|${o.badge !== false}|${size}`;
+  const key = `x|${tierOf(o.tier)}|${state}|${o.base}|${p}|${secsLeft(state, o)}|${o.portions}|${o.maxPortions}|${o.badge !== false}|${size}`;
   return memo(key, () => drawBlender(state, o, p, size));
 }
 
@@ -534,7 +547,8 @@ function stock() {
   s += stockIcon('honey', 862, 400, 0.6) + stockIcon('peanut', 904, 402, 0.56);
   s += stockIcon('coconut', 958, 398, 0.62) + stockIcon('coconut', 1004, 404, 0.56);
   s += stockCrate(1060, base, 82, 34, stockIcon('strawberry', 1052, 398, 0.5) + stockIcon('strawberry', 1090, 396, 0.5) + stockIcon('blueberry', 1072, 404, 0.42));
-  s += kraftBag(1164, base, 70, 52, 'AÇAÍ');
+  // nothing in the last compartment (x 1150–1280): the trash can stands in front of it, a label peeking out under
+  // its pedal would look like a glitch
   return s;
 }
 
@@ -712,7 +726,7 @@ export function riserSVG(w, h) {
 
 // ======================================================================
 // Café back wall (1280×330 stage px). Deliberately calm – mid-light, slightly muted colours, soft
-// contrasts – so the guests and their bubbles stay in front: the bubbles cover y≈68–190 and the heads
+// contrasts – so the guests and their bubbles stay in front: the bubbles cover y≈67–191 (with their tails) and the heads
 // sit at y≈193–257 (seat x ± 27, ears ± 33), so nothing busy or saturated lies there. Depth from light: the
 // room is lit from the top left like the counter, the window glows, the lamps throw warm halos, things on
 // the wall cast soft shadows to the lower right and the corners fall off into a vignette.
@@ -794,8 +808,8 @@ function chalkCup(x, y, col) {
     path(`${cup}Z`, col, op(0.32)) + line(cup, '#f1eee6', 1.1, op(0.8)) + line(`M${x - 6} ${y - 3}H${x + 6}`, '#f1eee6', 1.1, op(0.8));
 }
 
-// The menu board hangs at the far left, so its title stays clear of the first bubble with 2 or 3 seats (it
-// is decoration: with 4 seats the bubble covers most of it); its nail sits below the HUD.
+// The menu board hangs at the far left, so its title stays clear of the first bubble with 2 or 3 seats (with 4
+// the first bubble would cover all but a sliver of it: that wall leaves it out); its nail sits below the HUD.
 function chalkBoard() {
   const [x, y, w, h] = [24, 76, 128, 112];
   const frame = rrect(x, y, w, h, 5);
@@ -893,7 +907,8 @@ function wainscot(W, H, ids) {
 
 function shelf(ids) {
   // one floating oak shelf with a few jars, a plant and a stack of cups (low-key: the bubbles of the
-  // right seats lie over it); everything throws a soft shadow down to the right
+  // right seats lie over it; with 4 seats the last bubble would hide all but its ends: that wall leaves it
+  // out); everything throws a soft shadow down to the right
   const [x, y, w] = [950, 150, 276];
   let s = rect(x + 6, y + 9, w, 9, 0, `url(#${ids.under})`);
   for (const bx of [x + 26, x + w - 26]) s += path(`M${bx - 3} ${y + 8}H${bx + 3}L${bx + 1} ${y + 22}H${bx - 1}Z`, '#5a4636') + rect(bx + 3, y + 12, 3, 12, 1, '#4a3018', op(0.08));
@@ -907,7 +922,9 @@ function shelf(ids) {
   return s;
 }
 
-export function shopSceneSVG(width = 1280, height = 330) {
+// seats: the guests in front of it – with 4, whose outer order bubbles (x 6–312, 968–1274) would hide the
+// chalkboard and the shelf all but for awkward slivers, the wall leaves both out.
+export function shopSceneSVG(width = 1280, height = 330, { seats = 3 } = {}) {
   const W = 1280;
   const H = 330;
   // ids local to this picture (one wall per screen); all named af-wall-… / af-glow-… / af-sky-… / af-sea-… / af-win-…
@@ -941,8 +958,7 @@ export function shopSceneSVG(width = 1280, height = 330) {
   s += path(grain, '#9e8668', op(0.16));
   s += ellipse(300, 110, 430, 120, `url(#${ids.shaft})`, tf('rotate(24 300 110)'));
   s += cafeWindow(winClip, ids);
-  s += chalkBoard();
-  s += shelf(ids);
+  if (seats < 4) s += chalkBoard() + shelf(ids);
   s += wainscot(W, H, ids) + windowSill();
   // ceiling: a dark oak cornice, its shadow on the wall
   s += rect(0, 12, W, 18, 0, `url(#${ids.under})`) + rect(0, 0, W, 12, 0, '#5a4232') + rect(0, 10, W, 2, 0, '#7d604a');

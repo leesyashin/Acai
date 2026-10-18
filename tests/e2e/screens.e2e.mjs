@@ -13,7 +13,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { startServer, collectConsoleErrors, e2eOutDir, STAGE_W } from './helpers.mjs';
+import { startServer, reuseServer, collectConsoleErrors, e2eOutDir, STAGE_W } from './helpers.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PORT = Number(process.env.SCREENS_E2E_PORT || process.env.E2E_PORT) || 8090;
@@ -75,11 +75,7 @@ async function serve() {
     return await startServer({ port: PORT });
   } catch (err) {
     if (err.code !== 'EADDRINUSE') throw err;
-    const url = `http://127.0.0.1:${PORT}/`;
-    const res = await fetch(`${url}index.html`).catch(() => null);
-    if (!res?.ok) throw err;
-    console.log(`(reusing server already listening on :${PORT})`);
-    return { url, close: async () => {} };
+    return { url: `${await reuseServer(PORT)}/`, close: async () => {} };
   }
 }
 
