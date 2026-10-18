@@ -124,25 +124,39 @@ aller Bildschirme in mehreren Größen.
 
 ## Werbevideo für TikTok
 
-`tools/promo/` enthält einen kurzen Werbefilm (ca. 25 s, Hochformat 1080×1920), der das Spiel vorstellt: Hook
-(„4 Gäste · 1 Mixer · keine Zeit“), Logo, die drei Schritte *Mixen → Belegen → Servieren*, Zeitdruck, 16 Zutaten,
-die 3D-Mixer-Upgrades, Smoothies, 20 Level + Endlos-Modus, ein Blick ins echte Spiel und eine Endkarte mit Link.
+`tools/promo/` enthält kurze Werbefilme (25–29 s, Hochformat 1080×1920), die das Spiel vorstellen – in drei Fassungen
+(`--version`):
+
+- **`hype`** (Standard): schneller Motion-Design-Film – Hook („4 Gäste · 1 Mixer · keine Zeit“), Logo, die drei Schritte
+  *Mixen → Belegen → Servieren* animiert, Zeitdruck, 16 Zutaten, 3D-Mixer-Upgrades, Smoothies, Level, Endkarte.
+- **`mix`**: ruhiger geschnitten (ein Schnitt alle zwei Takte, weiche Übergänge, kaum Wackler) – die drei Schritte und der
+  Ansturm in **echtem Gameplay** im Bildschirm-Fenster, dazu Logo, Zutaten, Upgrades und Endkarte.
+- **`gameplay`**: fast nur **echtes Gameplay**, bildschirmfüllend, die Kamera folgt dem Finger, kurze Untertitel
+  („Basis mixen“, „Belegen“, „Servieren & kassieren“ …), ein Logo-Moment, eine Totale mit den Features und die Endkarte.
+
 Alles ist aus den Grafiken, 3D-Geräten, Sounds und der Musik des Spiels gebaut (124 BPM, jeder Schnitt sitzt auf
-dem Beat) – es gibt keine Video- oder Audiodateien im Repository.
+dem Beat) – es gibt keine Video- oder Audiodateien im Repository. Das echte Gameplay nimmt `tools/promo/capture.mjs`
+auf: Ein kleiner Bot spielt Level 10 mit echten Maus-Drags, Bild für Bild unter einer kontrollierten Uhr (auch die
+CSS-Animationen), und merkt sich Fingerposition, Spielzüge und die Sound-Aufrufe des Spiels – die Filme legen die
+Original-Sounds dann synchron unter das Bild. Die Aufnahme landet in `tools/promo/footage/` (nicht im Git).
 
 ```bash
 npm install                                         # Playwright + Chromium, ffmpeg muss installiert sein
 node tools/promo/render.mjs acai-fever-tiktok.mp4   # MP4 mit Musik, Ton auf -14 LUFS (TikTok)
 node tools/promo/render.mjs out.mp4 --sfx-only      # zusätzlich out-sfx.mp4 nur mit Effekten (für einen TikTok-Sound)
+node tools/promo/render.mjs out.mp4 --version mix   # ruhigere Fassung mit echtem Gameplay (nimmt es vorher auf)
+node tools/promo/render.mjs out.mp4 --version gameplay   # fast nur echtes Gameplay
+node tools/promo/capture.mjs --seconds 48           # Gameplay neu aufnehmen (sonst: render.mjs --recapture)
 node tools/promo/render.mjs out.mp4 --lang en       # englische Fassung
 node tools/promo/render.mjs out.mp4 --stills 1,6.5  # nur Einzelbilder zum Prüfen
 ```
 
 Weitere Optionen: `--fps 30` (Bilder pro Sekunde), `--blur 3` (Teilbilder pro Bild für Bewegungsunschärfe,
 `1` = aus, schneller), `--workers 3` (parallele Browser-Seiten), `--from`/`--to` (nur ein Ausschnitt).
-Das Skript macht zuerst einen Screenshot vom echten Spiel (Level 14), rendert dann jedes Bild einzeln im Browser und
-setzt Bild und Ton mit ffmpeg zusammen. Vorschau mit Ton und Zeitleiste: `npm start`, dann
-<http://localhost:8080/tools/promo/promo.html> (Leertaste = Play/Pause, Pfeiltasten = ein Bild, `?lang=en`).
+Das Skript macht zuerst einen Screenshot vom echten Spiel (Level 14), nimmt für `mix`/`gameplay` bei Bedarf das Gameplay
+auf (ca. 15 Minuten), rendert dann jedes Bild einzeln im Browser und setzt Bild und Ton mit ffmpeg zusammen. Vorschau mit
+Ton und Zeitleiste: `npm start`, dann <http://localhost:8080/tools/promo/promo.html?version=mix> (Leertaste = Play/Pause,
+Pfeiltasten = ein Bild, `&lang=en`).
 
 ## Projektstruktur
 
@@ -177,7 +191,8 @@ tools/build.mjs       esbuild-Build → dist/
 tools/run-e2e.mjs     startet die E2E-Skripte nacheinander
 tools/shots.mjs       Screenshots aller Bildschirme zur Sichtprüfung
 tools/*.html          Vorschauseiten für Grafiken, 3D-Geräte (appliances-3d.html), Sound und Drag & Drop
-tools/promo/          TikTok-Werbefilm: film.js (Szenen), kit.js/motion.js (Bausteine, Easing), score.js (Soundtrack),
+tools/promo/          TikTok-Werbefilme: film.js (Szenen + Schnittfassungen), kit.js/motion.js (Bausteine, Easing),
+                      footage.js (echtes Gameplay mit Kamera), capture.mjs (nimmt es auf), score.js (Soundtrack),
                       promo.html (Vorschau), render.mjs (rendert das MP4 mit Playwright + ffmpeg)
 tests/*.test.mjs      Unit-Tests (node --test)
 tests/e2e/            Playwright-Skripte + gemeinsame Helfer (helpers.mjs)
@@ -217,6 +232,7 @@ npm run build      # dist/acai-fever.html (single file, works via file://) + dis
 npm run e2e        # Playwright scripts in tests/e2e/*.e2e.mjs, one after another (server on :8090)
 node tools/shots.mjs <dir>   # review screenshots of every screen
 node tools/promo/render.mjs promo.mp4 --lang en   # the 25 s TikTok promo video (1080×1920, needs ffmpeg)
+node tools/promo/render.mjs promo.mp4 --version gameplay   # calmer cuts with real recorded gameplay: mix | gameplay
 ```
 
 Or build once and open `dist/acai-fever.html` directly. The full spec lives in [`docs/DESIGN.md`](docs/DESIGN.md).
