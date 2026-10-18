@@ -31,7 +31,9 @@
 <script type="module">
 import { getRenderer } from '../js/gl3d.js';
 import { blenderScene, machineScene, trashScene, freezerScene, VIEWS, BLENDER_MODELS, MACHINE_SLOT_X, pourFill } from '../js/kitchen3d.js';
-import { packIcon, cupSVG, artDefsSVG, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE } from '../js/art.js';
+import { pantryScene, pantryHasFront, PANTRY_IDS } from '../js/pantry3d.js';
+import { ingName } from '../js/data.js';
+import { packIcon, cupSVG, binFillSVG, artDefsSVG, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE } from '../js/art.js';
 
 document.body.insertAdjacentHTML('afterbegin', artDefsSVG());
 const q = new URLSearchParams(location.search);
@@ -184,6 +186,20 @@ if (!r) {
     (t, f) => freezerScene({ layer: 'front', door: taking(t) }, t, f),
   ], packs);
   figure(brow, 'Truhe · leer', 'freezer', [(t, f) => freezerScene({ layer: 'back' }, t, f), (t, f) => freezerScene({ layer: 'front' }, t, f)]);
+  // the ingredient containers on the risers: the 3D container, what lies in it (SVG), its front rim
+  const prow = section('Zutaten-Behälter (3D, Inhalt als SVG darüber, vorderer Rand darüber)');
+  for (const id of PANTRY_IDS) {
+    const fill = {
+      between(box, frame) {
+        const d = document.createElement('div');
+        d.innerHTML = binFillSVG(id, frame.w);
+        box.append(d);
+      },
+    };
+    const layers = [(t, f) => pantryScene({ id, layer: 'back' }, t, f)];
+    if (pantryHasFront(id)) layers.push((t, f) => pantryScene({ id, layer: 'front' }, t, f));
+    figure(prow, `Behälter ${ingName(id, true)}`, 'pantry', layers, fill);
+  }
   renderAt(T0);
   if (q.get('anim') === '1') {
     const start = performance.now();

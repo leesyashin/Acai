@@ -369,11 +369,11 @@
 .screen-game .g-pack .g-quality,
 .screen-game .g-pack .g-new { z-index: 3; }
 
-/* cup stack + bowl spots (x 330–940, y 352–540): the cups stand on the line of the stack's bottom cup, their content
-   chips below them */
+/* cup stack + bowl spots (x 330–940, y 340–528): the cups stand on the line of the stack's bottom cup, their content
+   chips below them, drawn over the granola jar's lid in the row in front (it reaches up to y 515) */
 .screen-game .g-stack {
   position: absolute;
-  top: 14px;
+  top: 2px;
   width: 105px;
   height: 182px;
   display: flex;
@@ -385,7 +385,7 @@
 .screen-game .g-stack .g-name { margin-top: 2px; }
 .screen-game .g-bowl {
   position: absolute;
-  top: 54px;
+  top: 42px;
   width: 120px;
   height: 148px;
   border-radius: 22px;
@@ -394,6 +394,7 @@
 .screen-game .g-bowl .g-art { position: absolute; left: 0; top: 0; width: 120px; height: 120px; transform-origin: 50% 90%; }
 .screen-game .g-bowl .g-chips {
   position: absolute;
+  z-index: 1; /* over the lid of a jar standing tall in the row in front */
   left: -8px;
   right: -8px;
   top: 122px;
@@ -428,9 +429,11 @@
 }
 .screen-game .g-bowl.is-match .g-match { display: block; animation: pop-in 0.3s ease-out both; }
 
-/* ingredient bowls in two rows on slim oak risers (x from 330, left and width set by the view): fruits & crunch
-   y 542–642 behind toppings & sauces y 642–742; a row's bowls (y +0–84) stand on its riser, whose front edge
-   (y +84–100) carries the layer name */
+/* ingredient containers in two rows on slim oak risers (x from 330, left and width set by the view): fruits &
+   crunch y 542–642 behind toppings & sauces y 642–742; a row's containers (hit boxes y +0–84) stand on its riser,
+   whose front edge (y +84–100) carries the layer name. Stacking (no stacking context per row): containers in DOM
+   order, so the front row stands in front of the back row's riser; layer numbers and stars (1) over them, the
+   layer names and name tags (2) over a tall bottle or jar of the row in front, "NEU" badges (3) over everything */
 .screen-game .g-shelf {
   position: absolute;
   height: 100px;
@@ -441,22 +444,22 @@
 .screen-game .g-shelf-top { top: 304px; }
 .screen-game .g-shelf-row {
   position: relative;
-  z-index: 1;
   display: flex;
   gap: 6px;
   height: 84px;
 }
-/* the riser (art from riserSVG, as wide as the row box, RISER_H in js/game-view.js): its front edge is y +84–100 */
-.screen-game .g-riser { position: absolute; left: 0; right: 0; top: 54px; height: 49px; pointer-events: none; }
+/* the riser (art from riserSVG, as wide as the row box, RISER_H in js/game-view.js): a board deep enough for the
+   containers' feet (top face y +34–84), its front edge is y +84–100 */
+.screen-game .g-riser { position: absolute; left: 0; right: 0; top: 33px; height: 70px; pointer-events: none; }
 /* layer name on the riser's front edge ("2 · Früchte & Crunch"), in the layer colour like the number badges. It
-   ends at y +100, where the next row begins, so no bowl covers it; z-index 1 like the rows: the next row (later
-   in the DOM) still paints over it, so a "NEU" badge sticking up from that row stays visible */
+   ends at y +100, where the next row begins; it is drawn over a tall container of the next row (a squeeze bottle
+   reaching up in front of the riser), a "NEU" badge sticking up from that row is drawn over it */
 .screen-game .g-shelf-label {
   position: absolute;
   left: 50%;
   top: 82px;
   transform: translateX(-50%);
-  z-index: 1;
+  z-index: 2;
   padding: 2px 10px 1px;
   border-radius: 999px;
   color: var(--white);
@@ -475,22 +478,40 @@
   width: 96px;
   height: 84px;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
   border-radius: 14px;
 }
-.screen-game .g-bin .g-art { width: 96px; height: 69px; }
-.screen-game .g-bin .g-name { margin-top: -4px; position: relative; }
-.screen-game .g-bin > .g-lnum { position: absolute; left: -2px; top: 0; width: 20px; height: 20px; font-size: 12px; }
+/* the hit area reaches 12 px above the box (tests/e2e/layout.e2e.mjs counts it): up to the cups' boxes for the back
+   row, over the back riser's front edge for the front row, so a press on a tall container's top picks it up */
+.screen-game .g-bin::before { content: ""; position: absolute; left: 0; right: 0; top: -12px; height: 12px; }
+.screen-game .g-bin .g-art {
+  position: absolute;
+  left: 0;
+  top: -28px;
+  width: 96px;
+  height: 112px;
+  pointer-events: none;
+}
+.screen-game .g-bin .g-art > * { position: absolute; left: 0; top: 0; display: block; }
+/* the name stands like a tag in front of the container's foot (y +68, PANTRY_VIEW.ay), ending 2 px above the layer
+   label of the riser's front edge (y +82); like the layer labels it is drawn over a tall container of the row in
+   front (the squeeze bottle's nozzle reaching up behind it) */
+.screen-game .g-bin .g-name { position: absolute; left: 50%; bottom: 2px; translate: -50% 0; z-index: 2; padding: 1px 7px 0; }
+/* the badges sit beside the container (js/pantry3d.js pantryBadges, set by js/game-view.js): the layer badge and the
+   quality stars on one line per row, the "NEU" sticker over the stars; they let the pointer through to the bin (a
+   sticker reaching past the bin's box never takes a press meant for the next one) */
+.screen-game .g-bin > .g-lnum { position: absolute; left: var(--lnum-x); top: var(--lnum-y); width: 20px; height: 20px; font-size: 12px; }
+.screen-game .g-bin > .g-quality { left: var(--stars-x); right: auto; top: var(--stars-y); }
+.screen-game .g-bin > .g-new { left: var(--new-l, auto); right: var(--new-r, auto); top: var(--new-y); }
+.screen-game .g-bin > :is(.g-lnum, .g-quality, .g-new) { pointer-events: none; }
+/* the chocolate is carried as its whole bottle: it leaves its place while carried */
+.screen-game .g-bin[data-carry="whole"].drag-source .g-art { opacity: 0.12; }
 .screen-game .g-quality { position: absolute; right: 2px; top: 2px; display: flex; z-index: 1; }
 .screen-game .g-pack .g-quality { top: 3px; }
 .screen-game .g-new {
   position: absolute;
   right: -10px;
   top: -12px;
-  z-index: 2;
+  z-index: 3;
   padding: 3px 7px 2px;
   border: 2px solid var(--white);
   border-radius: 10px;

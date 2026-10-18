@@ -15,7 +15,7 @@ player decisions listed in §1.
 | # | Topic | Decision |
 |---|---|---|
 | 1 | Device | **Tablet, landscape** first (touch). Must still work with mouse on PC and (scaled) on phones. |
-| 2 | Style | **Realistic, glossy Cooking Fever look in a modern café**: the player stands at the counter, seen in perspective like in Cooking Fever (a slim marble pass in front of the guests, the worktop with its rounded front edge and a strip of open shelves with stock below; the tall appliances stand at the back of the worktop in front of the pass); believable size relations (blender and machine about twice as tall as a cup); clear plastic cups that show their layers, ingredients heaped in stoneware bowls, 3D appliances (blender, smoothie machine, freezer), a little cleaner and more modern than Cooking Fever. Menus keep their chunky cartoon UI. |
+| 2 | Style | **Realistic, glossy Cooking Fever look in a modern café**: the player stands at the counter, seen in perspective like in Cooking Fever (a slim marble pass in front of the guests, the worktop with its rounded front edge and a strip of open shelves with stock below; the tall appliances stand at the back of the worktop in front of the pass); believable size relations (blender and machine about twice as tall as a cup); clear plastic cups that show their layers, every ingredient in its own realistic container (fruit in brushed stainless pans, granola, honey, chia and peanut butter in glass jars, chocolate sauce in a squeeze bottle, coconut in its shell, cacao nibs in a wooden bowl, mint on a board), 3D appliances (blender, smoothie machine, freezer), a little cleaner and more modern than Cooking Fever. Menus keep their chunky cartoon UI. |
 | 3 | Controls | **Drag & drop** (touch + mouse) for every action. No tap-to-place. |
 | 4 | Order rule | **Fixed layers**: Base (from blender) → Fruits & Crunch → Toppings & Sauces. A drop into the wrong layer is **rejected** (bounce back + hint). Order *within* a layer is free. |
 | 5 | Stations | **Blender** with wait time for the base; it **overflows / spoils** if left too long. Later a **smoothie machine**. |
@@ -30,7 +30,7 @@ player decisions listed in §1.
 | 14 | Sound | **SFX + music**, each mutable, remembered. |
 | 15 | Name | **Açaí Fever** |
 | 16 | Cups | A bowl is a **clear plastic cup**. An empty cup is **put down from the stack** on a free spot before anything goes into it; serving or trashing takes it off the counter. |
-| 17 | Appliances | The kitchen machines are **3D** (real-time WebGL) and **animated** (blending vortex, churning slush, pouring tap, lids and doors), modelled on **real household appliances**, with **a new model per upgrade level** (blender: Classic → Turbo → Pro → Pro Max, normal or big jug; smoothie machine: one tank → two tanks). Without WebGL the drawn SVG art is used. |
+| 17 | Appliances | The kitchen machines are **3D** (real-time WebGL) and **animated** (blending vortex, churning slush, pouring tap, lids and doors), modelled on **real household appliances**, with **a new model per upgrade level** (blender: Classic → Turbo → Pro → Pro Max, normal or big jug; smoothie machine: one tank → two tanks). The ingredient containers are 3D pictures too (drawn once, what lies in them is SVG). Without WebGL the drawn SVG art is used. |
 
 ---
 
@@ -143,25 +143,27 @@ js/orders.js          order generation + pricing (pure)
 js/engine.js          pure game simulation (no DOM): createGame, tick, actions, events
 js/drag.js            generic pointer-based drag & drop manager (touch + mouse), stage-scale aware
 js/svg.js             shared SVG helpers + the shared gradients/clip paths (artDefsSVG, one hidden <svg> per page)
-js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, ingredient bowls, packs, smoothie cups
+js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, what lies in the ingredient containers (and the
+                      containers drawn, without WebGL), packs, smoothie cups
 js/art-kitchen.js     realistic kitchen art: work counter, freezer, risers, café back wall, decor; blender, smoothie machine,
                       trash and freezer as the SVG fallback of the 3D models
 js/art.js             people, HUD icons, logo, map; re-exports the food + kitchen art (screens import from here)
 js/geo3d.js           3D math, mesh builders (lathe, rounded box, tube, liquid surface) and materials – pure
 js/kitchen3d.js       3D models of the appliances as scene descriptions (blender tiers, smoothie machine, bin, freezer) – pure
+js/pantry3d.js        3D models of the ingredient containers (stainless pans, jars, squeeze bottle, coconut, wood) – pure
 js/gl3d.js            WebGL renderer: one shared offscreen context, studio lighting, glass, patterns
-js/art3d.js           live 3D station views (canvas) and cached 3D pictures for menus; SVG fallback
+js/art3d.js           live 3D station views (canvas), still pictures drawn once (containers), cached 3D pictures for menus
 js/audio.js           WebAudio synthesized SFX + music loops (no audio files)
 js/game-view.js       gameplay screen: DOM from engine state, drag wiring, HUD, pause, tutorial, FX
 js/screens.js         menu screens: title, map, shop, settings, pre-level modal, results
 tools/build.mjs       esbuild bundle → dist/acai-fever.html (standalone) + dist/artifact.html
-tests/*.test.mjs      node --test unit tests (engine, orders, data, save, i18n, audio, art, 3D geometry + models, balance simulation)
+tests/*.test.mjs      node --test unit tests (engine, orders, data, save, i18n, audio, art, 3D geometry + models + containers, balance simulation)
 tests/e2e/*.e2e.mjs   Playwright scripts (drag, gameplay, screens, playthrough, appliances, layout, build) – `npm run e2e`
 ```
 
 Rules:
 - **engine.js / orders.js / rng.js / data.js are pure** (no `document`, no `window`) so `node --test` can import them.
-  `data.js` may call `registerStrings` (pure). So are **geo3d.js / kitchen3d.js** (scene descriptions only);
+  `data.js` may call `registerStrings` (pure). So are **geo3d.js / kitchen3d.js / pantry3d.js** (scene descriptions only);
   `gl3d.js` and `art3d.js` touch the DOM only when called, never at import time.
 - Only `save.js` touches `localStorage` (always inside try/catch).
 - Only `audio.js` touches WebAudio.
@@ -299,10 +301,14 @@ dnd.cancel(); dnd.destroy(); dnd.isDragging(); dnd.refresh()
 ### 4.4 Art (`js/art.js`) – contract (all return SVG markup strings)
 ```js
 ingredientIcon(id, size = 64)        // order / chip / shop icon for any of the 16 ingredients (realistic)
-binSVG(id, width = 84)               // ingredient bowl (100×72): white stoneware bowl seen from above at an angle, heaped with
-                                     // the ingredient; sauces fill the bowl and keep a dipper (honey) or a spoon in it
-scoopSVG(id, size = 84)              // what a drag from a bowl carries: a handful, a spoonful (seeds, nibs, sauce), a sprig,
-                                     // the honey dipper
+binSVG(id, width = 84)               // the ingredient's container with what is in it, drawn (96×112 = PANTRY_VIEW, seen from
+                                     // above at PANTRY_ELEV like the 3D containers; used without WebGL)
+binFillSVG(id, width = 84)           // only what lies in/on the container (fruit in rows on the pan, granola heaped in the jar's
+                                     // mouth, shredded coconut, nibs, mint sprigs), drawn over its 3D picture; '' when all of
+                                     // it is 3D (honey, chia, peanut butter, chocolate)
+scoopSVG(id, size = 84)              // what a drag from a container carries: a handful (fruit, granola, coconut chips), a
+                                     // spoonful (nibs, peanut butter), the measuring spoon of chia, a sprig, the honey dipper,
+                                     // the chocolate's whole squeeze bottle tipped to pour
 packIcon(baseId, size = 72)          // frosty frozen pack for base bins (açaí / pitaya / spirulina)
 bowlSVG(bowl, size = 150)            // clear cup {base, mid[], top[]}: purée, a band per fruit/crunch seen through the
                                      // side, sauce runs on the inner wall, heaped toppings; empty cup when base null
@@ -323,23 +329,27 @@ counterSVG(width, height)             // the work counter under the pass (1280×
                                       // front panel, a fruit basket and a jar of straws in front of the machine
 freezerSVG('well'|'rim', w, h)        // chest freezer in the counter (284×186): frosty well with a glass lid slid back /
                                       // the frame's front edge drawn over the packs
-riserSVG(w, h)                        // slim oak riser an ingredient row stands on (drawn 1:1; its 16 px front edge,
-                                      // ending 3 px above the bottom, carries the layer label)
+riserSVG(w, h)                        // oak riser an ingredient row stands on (drawn 1:1; its 16 px front edge, ending
+                                      // 3 px above the bottom, carries the layer label)
 logoSVG(width)                        // "Açaí Fever" logo with bowl
 ```
 Look: shapes are filled with their colour and shaded with the shared overlay gradients (`url(#af-sph)`,
 `af-cyl`, `af-plastic`, `af-steel` …, light from the top left), thin outlines in a darker shade of the fill.
 Everything on the counter is seen from the player's side, from above at an angle (Cooking Fever's view): round
 things are ellipses, boxes show their top face and the side that faces the middle of the screen (blender: right
-side, smoothie machine: left side), and every object casts a soft shadow on the worktop.
+side, smoothie machine: left side), and every object casts a soft shadow on the worktop. The ingredient containers
+in the two front rows are seen more steeply (`PANTRY_ELEV` 38°, the tilt the fruit pieces are drawn with): the
+rows are nearer to the player and lower than the appliances, and the pans' tops and the jars' mouths must read.
+The fruit lies in neat staggered rows like a deli counter, each piece with a little contact shadow away from the
+light.
 Memoised pictures never contain their own ids (they reference the shared defs); a picture that needs a local
 gradient (café wall, work counter, logo, map) builds unique ids with `uid()`. Paint references name a fallback colour
 (`url(#af-steel) #cfd6dc`), so a page without the defs still shows plain fills. Guests are drawn with a thin warm
 outline (`withInk`), the HUD icons, logo and map keep the cartoon ink line of the menus.
 
 ### 4.4.1 3D appliances (`js/geo3d.js`, `js/kitchen3d.js`, `js/gl3d.js`, `js/art3d.js`)
-The blender, smoothie machine, pedal bin and chest freezer are real 3D models rendered with WebGL (no library). Everything else
-(guests, food, cups, HUD) stays SVG.
+The blender, smoothie machine, pedal bin and chest freezer are real 3D models rendered with WebGL (no library), and so are
+the ingredient containers (js/pantry3d.js, drawn once as still pictures). Everything else (guests, food, cups, HUD) stays SVG.
 ```js
 // kitchen3d.js (pure): scene = { frame, elev, persp?, time, items: [{ mesh, mat, m, pass }] }
 blenderScene({ tier 0–3, big, state, base, progress, remaining, portions, maxPortions }, t, frame?)
@@ -354,27 +364,72 @@ blenderZoom(tier, big)                      // a model's zoom: every model equal
 blenderBadgeAt(tier, big) → { x, y }        // canvas point above the right end of the model's lid (status badge)
 blenderBox(tier, big, state) → [x0, y0, x1, y1]  // the canvas part a model in a state covers (drag ghost), measured once
 fitFrame(frame, size)                       // a view (its pic rows, if set) fitted into a size×size menu picture
+// pantry3d.js (pure), the view 'pantry' of VIEWS / SCENES
+pantryScene({ kind | id, layer: 'back'|'front' }, t, frame?)  // an ingredient's container; 'front' = its front rim only
+PANTRY_VIEW = { w: 96, h: 112, ax: 48, ay: 96 }  // the art box of a container: 28 px above a bin's hit box down to its
+                                            // bottom; the world origin (the line the containers' feet stand on) at ay
+PANTRY_ELEV (38°); pantryPoint([x, y, z]) → [x, y] in the art box; pantryKind(id); pantryHasFront(id)
+pantryTop(id)                               // where the SVG of what lies in/on it goes (pan inside, jar mouth, bowl, board)
+pantryHead(id)                              // art-box y of the back of its top (flange, rim, board edge): how tall it stands
+pantryBadges(id, { q, low }) → { lnum, stars, fresh }  // where the bin's layer badge, quality stars (q of them) and "NEU"
+                                            // sticker go (art-box px); low: the sticker down beside the container
+PANTRY_GEO; PANTRY_IDS; PANTRY_PICTURES     // the containers' measures (drawn art); every picture the game needs
 // art3d.js
 has3D() → bool                               // false without WebGL → callers keep the SVG art
 createView(kind, className?) → { el /* <canvas> */, draw(o, t), invalidate() }
 snapshot(view, scale = 1, box?) → <canvas>   // drag ghost of a station: box of its canvas, copied with drawImage only
 pictureMarkup(kind, o, size, fallback, t?)   // <img> (cached data URL) or fallback() markup for menus
+still(kind, o, target?) → <canvas> | null    // a picture that never changes, drawn once per state into a cache of the
+                                             // current pixel ratio; every call gets a copy (drawImage only) – the
+                                             // ingredient containers
+prepareStills(kind, states)                  // draws them into the cache ahead, one per idle moment (main.js: while the
+                                             // title shows)
+pixelRatio()                                 // device px per stage px, 1–3
 ```
 - **World:** y up, +z toward the player, units = stage px. One fixed orthographic camera looks down by 17° (the angle the
   cup rims are drawn with), so every appliance shares one perspective and its canvas lines up with the DOM hit areas. The
   chest freezer built into the worktop is seen from above like the worktop itself: `FREEZER_ELEV` 60° and a gentle
   perspective (`scene.persp`, a camera 1100 px from the middle of its opening), so its frame tapers toward the back like
-  the worktop and the inner side walls show.
+  the worktop and the inner side walls show. The ingredient containers: `PANTRY_ELEV` 38°, orthographic.
 - **Sizes (`VIEWS`, CSS px):** blender 164 × 292 (no zoom of its own: `blenderZoom` scales each model so the lid of a
   2-bowl jug ends 188 px above the floor, the 3-bowl jug's 208 px – ≈200 / ≈220 px tall in all, about 2× / 2.25× a cup,
   whatever the motor base; the canvas keeps headroom for the lid an overflowing blender lifts, menu pictures crop most of
   it with `pic`), smoothie machine 312 × 312 (zoom 312/236, the machine box of the game; the cups' slots line up with its
-  taps and drip trays), pedal bin 153 × 209 (zoom 1.35), chest freezer 284 × 194. Every part of every blender state stays
-  inside its canvas and its `blenderBox` (tests/kitchen3d.test.mjs).
+  taps and drip trays), pedal bin 153 × 209 (zoom 1.35), chest freezer 284 × 194, ingredient container 96 × 112
+  (`PANTRY_VIEW`, origin at ax 48 / ay 96). Every part of every blender state stays inside its canvas and its `blenderBox`
+  (tests/kitchen3d.test.mjs), every container inside its art box (tests/pantry3d.test.mjs).
 - **Look:** metal/roughness shading with GGX highlights from three studio lights, reflections of a procedural photo studio
   (soft boxes over a warm room), clear plastic with Fresnel reflections, procedural surface patterns (brushed steel, swirling
-  purée, slush crystals, frost, printed scales, seven-segment displays, LED rings), ACES tone mapping. Colours are sRGB in
-  the models and linear in the shader.
+  purée, slush crystals, frost, printed scales, seven-segment displays, LED rings, wood grain, coconut fibres, and packed
+  granola clusters or chia seeds as 3D cells – round or long pieces in shades of their own with dark gaps, so no side of a
+  jar shows them stretched), ACES tone
+  mapping. Colours are sRGB in the models and linear in the shader. Objects darken toward the floor they stand on (a band of
+  `scene.ao` px, 16 for the appliances, 3.5 for the small containers); the clear jars' reflections add light over their
+  bright contents (glass `p.w`) instead of veiling them.
+- **Ingredient containers (`pantry3d.js`):** one per ingredient on the risers, believable next to a cup (≈97 px tall):
+  banana, strawberry, blueberry, mango and kiwi in a deep brushed-stainless gastronorm pan (91 px wide, rolled flange that
+  catches the key light, ≈54 px tall), granola in a 1 l clip-top jar (the tallest of the back row, 52 px wide, its glass
+  ≈81 px tall, ≈95 px with the lid: ≈1 × a cup) with a thick, darker wire bail and its glass lid with the orange seal
+  swung right back and tipped 22° below level behind the mouth, so its glass and seal face the camera and read as a lid
+  instead of standing up over the jar (it reaches up to the top of the art box, under the content chips of the cup behind
+  it, which are drawn over it), honey in a labelled jar (honeycomb label, deep amber like its icon) with a wooden dipper
+  whose grooved, honey-soaked head stands out of the honey, the gold lid lying beside it, chia in a Weck glass with a deep
+  round steel measuring spoon tipped toward the player on the seeds (darker inside, a few seeds in it), its flat handle
+  over the rim toward the front right, peanut butter in a labelled jar with a spoon in it and the red screw lid lying top
+  up beside it (knurled skirt, glossy top: a lid, not a ball or a dish), chocolate sauce in a brown squeeze bottle with a
+  nozzle cap and label (the tallest of the front row, ≈91 px: ≈0.95 × a cup; its nozzle stands behind the back row's name
+  tags, which are drawn over it like the layer labels), shredded coconut in half a coconut shell (86 px wide, clearly
+  wider than the bowl), cacao nibs in a turned walnut bowl (≈80 px), mint on an oak board. Every container stands
+  with the front of its foot on one line (`PANTRY_VIEW.ay`, just above the name tag) and casts a soft contact shadow on the
+  riser. What lies in/on it is SVG (`binFillSVG`): the 3D picture, the SVG, and for the pans, the coconut and the bowl the
+  front rim ('front' layer) over it again, so the pieces lie inside. The five pans share one picture.
+- **Cost of the containers:** the 12 pictures (20 canvases in the fullest kitchen) are drawn once per pixel ratio. With
+  software WebGL on the 4-core dev container all of them take ≈170–210 ms at pixel ratio 1 and ≈300–330 ms at 2, mostly
+  rasterising the jars (a hardware GPU is many times faster), so main.js draws them ahead while the title shows; a level
+  started before that (the test harness, a deep link) draws the missing ones once while it is built. After a pixel-ratio
+  change the game draws them again one picture per frame, the old pictures (scaled by the browser) staying until then.
+  Drawing them into one atlas would save the per-picture readback only by growing the one shared WebGL canvas, which makes
+  every later frame of the appliances slower (its whole buffer is resolved on each copy), so they are drawn one by one.
 - **Models per upgrade:** Turbo-Mixer level 0–3 picks the motor base (white Classic with a knob, brushed-steel Turbo with speed
   LEDs, açaí-purple Pro with an LED ring that fills while blending, black Pro Max with a countdown display and light bar);
   the big jug is taller and wider; the smoothie machine is a compact white one-tank machine or the stainless two-tank
@@ -386,10 +441,12 @@ pictureMarkup(kind, o, size, fallback, t?)   // <img> (cached data URL) or fallb
   opens while something trashable is carried (wide over the bin) and falls shut with a bounce; cold air spills out of the
   chest freezer while a pack is taken.
 - **Rendering:** one shared offscreen WebGL context draws each view into the view's own 2D canvas (passes: contact shadow,
-  opaque, decals, glass back-to-front, glows). A view only redraws when its state changed or while it animates. If drawing is
+  opaque, decals, glass back-to-front – both sides of clear plastic, only the near side of a filled jar's glass –, glows).
+  A view only redraws when its state changed or while it animates. If drawing is
   slow (software WebGL), animation frames and progress updates are spaced out (state changes never); a lost context keeps
   the last pictures until it is restored.
-- **In the game** (`game-view.js`): the root gets `is-3d`; blender `.g-art` holds the canvas plus the DOM status badge
+- **In the game** (`game-view.js`): every ingredient's `.g-art` holds its container's still picture(s) and `binFillSVG`
+  (drawn again only when a new pixel ratio has held for 200 ms, not for every step of a window being resized); the root gets `is-3d`; blender `.g-art` holds the canvas plus the DOM status badge
   (`blenderBadgeSVG` at `blenderBadgeAt` of the model, the blending ring keeps `data-ring`; the drawn blender without
   WebGL gets the same DOM badge); a dragged blender carries `snapshot()` of its canvas, cropped to `blenderBox` of its
   model and state (measured when the blenders are built; a live canvas is never read back – that would stall the GPU); the
@@ -398,7 +455,8 @@ pictureMarkup(kind, o, size, fallback, t?)   // <img> (cached data URL) or fallb
   worktop's front edge); the machine canvas sits under the DOM cups (slots); the blender and bin canvases reach above
   their hit areas (an overflowing lid, the bin lid). The animation clock `animT` only runs while the game runs (pause,
   game over and `prefers-reduced-motion` freeze it).
-- Preview of every model and state: `tools/appliances-3d.html` (`?z=2` zoom, `?only=` filter, `?t=` time).
+- Preview of every model and state, and of every ingredient container: `tools/appliances-3d.html` (`?z=2` zoom, `?only=`
+  filter, `?t=` time).
 
 ### 4.5 Audio (`js/audio.js`) – contract
 ```js
@@ -445,7 +503,7 @@ y 294–338  the pass: white marble top (y 294–318, overlaps customers' bodies
            may cover its oak front and the lower marble edge (never the guests' faces or bubbles)
 y 338–742  worktop in perspective (counterSVG): terrazzo, chips shrinking toward the back, the pass's shadow on the
            far edge; everything on it is seen from above at an angle and casts a soft shadow. Back row: the front feet
-           of the blenders and the machine and the cups' content chips end on one line at y≈548.
+           of the blenders and the machine end on one line at y≈548.
   x  10–320  blenders at the back (hit box 150 × 210, y 338–548; 1 → x 89, 2 → x 10 and 170, so two big jugs keep a
              gap), every model equally tall: a 2-bowl jug ≈200 px (about twice a cup; its lid at y≈348, clearly below
              the pass), the 3-bowl jug ≈220 px (its lid at y≈328, over the pass's oak front) – 3D canvas 164 × 292
@@ -454,15 +512,30 @@ y 338–742  worktop in perspective (counterSVG): terrazzo, chips shrinking towa
              built into the counter (x 16–300, opening y 556–742): the base packs (owned bases only, 84 px) stand in
              the frosty well, a glass lid slid back over spare packs, the frame's front edge covers their feet; its
              front panel on the cabinet strip says "1 · Base"
-  x 330–940  cup stack (105 px, "Bowls", y≈352–534; its cups are the size of a placed cup) + cup spots (2–4, 120 px
-             boxes, y 392–540), centred together, with small content chips under each cup; a spot without a cup shows
-             a white coaster with a dashed cup outline.
-             Ingredient bowls (owned ingredients only, 96 × 84 px: bowl + short name label, pitch 102) in two rows
-             on slim oak risers: "Fruits & Crunch" y 542–642 behind "Toppings & Sauces" y 642–742; a row is centred
-             under the cups while it fits into x 330–940, a longer one starts at x 330 and reaches right in front of
-             the machine (7 toppings: x 330–1038); each riser carries its layer name on its front edge
-             ("2 · Fruits & Crunch", "3 · Toppings & Sauces") like the freezer's "1 · Base", never covered by bowls
-             (only a "NEU" badge sticking up from a bowl of the row in front is drawn over it)
+  x 330–940  cup stack (105 px, "Bowls", y≈340–522; its cups are the size of a placed cup) + cup spots (2–4, 120 px
+             boxes, y 380–528), centred together, with small content chips under each cup (y≈502–527); a spot without
+             a cup shows a white coaster with a dashed cup outline.
+             Ingredients (owned only, 96 × 84 px boxes, pitch 102, the hit area reaching 12 px higher: up to the
+             cups' boxes, over the back riser's front edge) in their containers (js/pantry3d.js) in two
+             rows on oak risers: "Fruits & Crunch" y 542–642 (the fruit pans first, then the granola jar) behind
+             "Toppings & Sauces" y 642–742; a row is centred under the cups while it fits into x 330–940, a longer
+             one starts at x 330 and reaches right in front of the machine (7 toppings: x 330–1038). A riser's top
+             face (y +34–84) holds the containers, their feet on one line (y +68) with the name tag standing in
+             front of them (y +67–82, clear of the layer label below). The badges sit beside the containers
+             (pantryBadges), never in the air above a flat one or on a dipper, spoon or nozzle: a row's layer badges
+             and quality stars on one line (y +6), the badge left of the container's body (on the back corner of a
+             wide pan, bowl or board), the stars right of it, a "NEU" sticker right above the stars (beside the
+             granola jar under them; honey and peanut butter stack sticker, badge and stars on their lid's side); an
+             ingredient without stars has its sticker in their place, stuck to the container. A container's art
+             box (96 × 112) starts 28 px above its box, so a tall one of the front row (the honey dipper) reaches up
+             in front of the riser behind it, the squeeze bottle's nozzle up behind that row's name tags (drawn over
+             it), and the granola jar's lid, swung back behind its mouth, reaches up under the content chips of the
+             cup behind it (y ≥ 515; the chips are drawn over it, and a press on its top 13 px takes that cup). Each
+             riser carries its layer name on its front edge ("2 · Fruits & Crunch", "3 · Toppings & Sauces") like the
+             freezer's "1 · Base", drawn over a tall container of the row in front; a "NEU" sticker of that row
+             sticks up over the riser's front edge, except where it would cover the layer name (within ≈72 px of
+             its middle): then it sits on the badges' line beside its container, the stars under it (honey and
+             peanut butter: under their stars)
   x 952–1264 smoothie machine at the back (when present, slots = kitchen.smoothieSlots; a locked teaser before
              level 7): a 312 px box (y 265–577), the machine ≈285 px wide with two tanks (≈175 with one), its feet on
              the back-row line; the drink glasses (103 px boxes: an empty glass ≈0.65 × a cup's height, a ready one
@@ -474,9 +547,10 @@ y 756–800  cabinet strip: the tops of open oak shelves with the café's stock 
            higher) stands on the floor in front of it, bottom right
 ```
 Interaction targets must be ≥ 64 stage px (tablet fingers). Valid drop targets glow while dragging.
-`tests/e2e/layout.e2e.mjs` checks that every station (blenders, packs, cup stack, cup spots, ingredient bowls,
+`tests/e2e/layout.e2e.mjs` checks that every station (blenders, packs, cup stack, cup spots, ingredients,
 machine slots, trash) lies fully on the stage below the pass, is ≥ 64 × 64 and overlaps no other station, and that
-the layer names stay uncovered (and "NEU" badges are drawn over the riser behind them) – in the fullest kitchen (4 seats, 2 blenders, 4 cups, 16 ingredients, 2 machine
+the layer names and the ingredients' name tags stay uncovered (and "NEU" badges are drawn on top, over the riser behind them
+or beside their container, hiding no quality stars or layer badge) – in the fullest kitchen (4 seats, 2 blenders, 4 cups, 16 ingredients, 2 machine
 slots, with and without WebGL, at 1280×800 and 1024×768) and in small ones (level 1, level 5, endless).
 
 ### 4.8 Visual language
@@ -484,8 +558,9 @@ slots, with and without WebGL, at 1280×800 and 1024×768) and in small ones (le
   `"Trebuchet MS", system-ui, sans-serif`. Loaded from Google Fonts.
 - Gameplay: a modern café in a realistic, glossy illustration style (warm plaster wall with fluted oak, pendant
   lamps, menu boards) seen like Cooking Fever from behind the counter: a marble pass with an oak front, a terrazzo
-  worktop in perspective with a rounded front edge and open shelves of stock below, ingredients heaped in white
-  stoneware bowls on slim oak risers, 3D appliances about twice as tall as a cup (black pro blender, white smoothie
+  worktop in perspective with a rounded front edge and open shelves of stock below, the ingredients in real
+  containers on oak risers (brushed stainless pans of fruit in neat rows, glass jars, a squeeze bottle, a coconut
+  shell, a walnut bowl, a board – 3D, light from the top left like everything else), 3D appliances about twice as tall as a cup (black pro blender, white smoothie
   machine with an açaí-purple head, stainless freezer and pedal bin) – clean and modern rather than cluttered.
   Bubbles, HUD pills, toasts and cards in the café are light frosted panels with soft shadows. Menus keep the chunky
   cartoon UI (thick ink outline buttons and panels) around the same realistic food art.
@@ -523,7 +598,9 @@ Key `acaiFever.save.v1`. Shape:
 - `npm test` → `node --test "tests/**/*.test.mjs"` (`node --test tests/` also works through `tests/index.js`;
   Node 22 treats a bare directory argument as a module).
 - `appliances.e2e.mjs` checks the 3D stations in a real browser (canvases drawn, model per upgrade, blending animates,
-  bin lid and the freezer's cold air react to drags, the tap fills the cup, shop pictures) and the SVG fallback without WebGL.
-- `layout.e2e.mjs` checks the gameplay layout of §4.7 (stations on the stage, ≥ 64 px, no overlaps, labels uncovered).
+  bin lid and the freezer's cold air react to drags, the tap fills the cup, shop pictures, the ingredient containers'
+  still pictures drawn again sharp for a new pixel ratio) and the SVG fallback without WebGL.
+- `layout.e2e.mjs` checks the gameplay layout of §4.7 (stations on the stage, ≥ 64 px, no overlaps, layer names and name
+  tags uncovered, badges visible).
 - `npm run e2e` → every `tests/e2e/*.e2e.mjs` in sequence (Playwright, static server on :8090 by default,
   `E2E_PORT` overrides). `node tools/shots.mjs <dir>` writes review screenshots of every screen.

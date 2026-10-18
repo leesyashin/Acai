@@ -11,12 +11,13 @@ import {
   loadBlenderError, pourError, addIngredientError, loadSmoothieError, serveBowlError, serveSmoothieError, placeCupError,
 } from './engine.js';
 import {
-  ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, scoopSVG, cupStackSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
+  ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, binFillSVG, scoopSVG, cupStackSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
   blenderBadgeSVG, smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
   trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG, counterSVG, freezerSVG, riserSVG,
 } from './art.js';
-import { has3D, createView, snapshot } from './art3d.js';
+import { has3D, createView, snapshot, still, pixelRatio } from './art3d.js';
 import { blenderLook, blenderBadgeAt, blenderBox, pourFill } from './kitchen3d.js';
+import { PANTRY_VIEW, pantryKind, pantryHasFront, pantryTop, pantryBadges } from './pantry3d.js';
 import { createDragManager } from './drag.js';
 import defaultAudio from './audio.js';
 import {
@@ -253,12 +254,19 @@ const GHOST_BOWL = Math.round(BOWL_SIZE * 1.05); // a carried cup is a little bi
 const STACK_W = 105; // its cups are the cups of bowlSVG(BOWL_SIZE) (see cupStackSVG)
 const STACK_GAP = 6;
 // Ingredient rows on slim oak risers, centred under the cups while they fit into the middle column,
-// else from its left edge on to the right (7 toppings reach in front of the machine).
-const BIN_W = 96; // also the width of the bin art
+// else from its left edge on to the right (7 toppings reach in front of the machine). Each ingredient
+// stands in its own container (js/pantry3d.js): the fruit trays first, then the jar of granola.
+const BIN_W = PANTRY_VIEW.w; // a bin is as wide as its container's art box
+const BIN_H = 84; // css/game.css .g-bin; the art box reaches PANTRY_VIEW.h - BIN_H above it
 const BIN_GAP = 6;
 const RISER_PAD = 14;
 const RISER_MIN = 260;
-const RISER_H = 49;
+const RISER_H = 70;
+// A "NEU" sticker of the front row sticks up over the back riser's front edge: where that would cover
+// the layer label there (centred on the riser, "2 · Früchte & Crunch" ≈130 px wide), it goes down
+// beside its container instead (pantryBadges low).
+const STICKER_W = 54; // css/game.css .g-new, the widest ("NEW")
+const SHELF_LABEL_HALF = 72;
 const FREEZER_W = 284;
 const FREEZER_H = 186;
 const PACK_ART = 84;
@@ -270,6 +278,7 @@ const LAYER_NUM = { base: 1, mid: 2, top: 3 };
 const MOODS = ['happy', 'neutral', 'impatient', 'angry'];
 const STAMP_MS = 1700;
 const MAX_FRAME_DT = 0.25;
+const STILL_SETTLE_MS = 200; // a new pixel ratio draws the containers again once it has held this long
 // Progress bars (patience, blender/smoothie timers, blender ring) write on one shared cadence:
 // in Chromium every frame with such a write re-layerizes the whole stage.
 const BAR_TICK = 0.1; // s
@@ -542,25 +551,48 @@ class GameView {
       return { el: node, art, chips, match, isMatch: false };
     });
 
-    // ingredient bowls (owned only) in two rows on slim oak risers, fruits & crunch behind toppings &
-    // sauces; each riser names its layer on its front edge ("2 · Früchte & Crunch") like the freezer,
-    // so the layer-rule toasts point at visible words
+    // ingredient containers (owned only) in two rows on slim oak risers, fruits & crunch behind
+    // toppings & sauces; each riser names its layer on its front edge ("2 · Früchte & Crunch") like the
+    // freezer, so the layer-rule toasts point at visible words. With WebGL a container is a 3D picture
+    // (drawn once, js/art3d.js still()) with what lies in it as SVG on top and, for the trays, the
+    // coconut and the bowl, its front rim over that again.
     this.binEls = {};
+    this.binStills = [];
     this.shelfLabels = {};
+    let labelX = null; // the middle of the back riser's layer label (the riser is centred on its row)
     for (const layer of ['mid', 'top']) {
       const shelf = el('div', `g-shelf g-shelf-${layer}`, { 'data-layer': layer });
       const row = el('div', 'g-shelf-row');
-      let n = 0;
-      for (const ing of INGREDIENTS) {
-        if (ing.layer !== layer || !g.owned.includes(ing.id)) continue;
-        const node = el('div', 'g-bin', { 'data-bin': ing.id, 'data-layer': layer });
-        node.innerHTML = `<span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span><div class="g-art">${binSVG(ing.id, BIN_W)}</div><span class="g-name"></span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`;
-        row.append(node);
-        this.binEls[ing.id] = node;
-        n++;
-      }
+      const list = INGREDIENTS.filter((ing) => ing.layer === layer && g.owned.includes(ing.id));
+      list.sort((a, b) => (pantryKind(b.id) === 'tray') - (pantryKind(a.id) === 'tray'));
+      const n = list.length;
       const rowW = n * BIN_W + Math.max(0, n - 1) * BIN_GAP;
       const x = rowW <= MID_W ? MID_X0 + (MID_W - rowW) / 2 : MID_X0;
+      list.forEach((ing, i) => {
+        // the chocolate is carried as its whole squeeze bottle
+        const node = el('div', 'g-bin', { 'data-bin': ing.id, 'data-layer': layer, 'data-carry': pantryKind(ing.id) === 'bottle' ? 'whole' : null });
+        const art = el('div', 'g-art');
+        if (!this.k3d || !this.binArt3D(art, ing.id)) art.innerHTML = binSVG(ing.id, BIN_W);
+        node.append(art);
+        node.insertAdjacentHTML('beforeend', `<span class="g-name"></span><span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`);
+        // the badges sit beside the container (not in the air above a flat one, nor on a dipper or nozzle)
+        const q = this.quality(ing.id);
+        let badges = pantryBadges(ing.id, { q });
+        if (labelX !== null && this.featured.has(ing.id)) {
+          const { fresh } = badges;
+          const x0 = x + i * (BIN_W + BIN_GAP) + ('left' in fresh ? fresh.left : BIN_W + fresh.right - STICKER_W);
+          if (x0 < labelX + SHELF_LABEL_HALF && x0 + STICKER_W > labelX - SHELF_LABEL_HALF) badges = pantryBadges(ing.id, { q, low: true });
+        }
+        const { lnum, stars, fresh } = badges;
+        const up = PANTRY_VIEW.h - BIN_H; // the art box reaches this far above the bin
+        const css = { 'lnum-x': lnum[0], 'lnum-y': lnum[1] - up, 'stars-x': stars[0], 'stars-y': stars[1] - up, 'new-y': fresh.top - up };
+        if ('left' in fresh) css['new-l'] = fresh.left;
+        else css['new-r'] = fresh.right;
+        for (const [k, v] of Object.entries(css)) node.style.setProperty(`--${k}`, `${v}px`);
+        row.append(node);
+        this.binEls[ing.id] = node;
+      });
+      labelX = x + rowW / 2;
       const w = Math.max(RISER_MIN, rowW + RISER_PAD * 2);
       shelf.style.left = `${Math.round(x + rowW / 2 - w / 2)}px`;
       shelf.style.width = `${w}px`;
@@ -631,9 +663,28 @@ class GameView {
     return this.featured.has(id) ? '<span class="g-new"></span>' : '';
   }
 
+  // The 3D container of an ingredient: its picture, what lies in it, its front rim. false when a
+  // picture cannot be drawn (the caller keeps the drawn art).
+  binArt3D(art, id) {
+    const kind = pantryKind(id); // the fruit trays share one picture
+    const layers = pantryHasFront(id) ? ['back', 'front'] : ['back'];
+    const pics = layers.map((layer) => ({ key: `${kind}|${layer}`, o: { kind, layer }, c: still('pantry', { kind, layer }) }));
+    if (pics.some((p) => !p.c)) return false;
+    art.append(pics[0].c);
+    if (pantryTop(id)) art.insertAdjacentHTML('beforeend', binFillSVG(id, BIN_W));
+    if (pics[1]) art.append(pics[1].c);
+    this.binStills.push(...pics);
+    this.stillPr = pixelRatio();
+    return true;
+  }
+
   // Quality upgrades (0–2 stars) on packs and bins alike.
+  quality(id) {
+    return Math.max(0, Math.min(2, Math.floor(Number(this.game.ingLevels[id]) || 0)));
+  }
+
   qualityMarkup(id) {
-    const q = Math.max(0, Math.min(2, Math.floor(Number(this.game.ingLevels[id]) || 0)));
+    const q = this.quality(id);
     return q ? `<span class="g-quality">${starSVG(true, 15).repeat(q)}</span>` : '';
   }
 
@@ -809,7 +860,9 @@ class GameView {
       const layer = node.dataset.layer;
       dnd.source(node, {
         payload: () => (this.canAct() ? { kind: 'ing', id, layer } : null),
-        ghost: () => scoopSVG(id, 84),
+        // a handful or spoonful at 84 px; the chocolate's whole squeeze bottle (74 % of its picture) about as
+        // long as it stands on the riser (drag.js enlarges ghosts by 1.12)
+        ghost: () => scoopSVG(id, pantryKind(id) === 'bottle' ? 110 : 84),
         onTap: () => this.hint(node, 'game.hint.bin'),
       });
     }
@@ -1478,8 +1531,8 @@ class GameView {
   // state changed or it animates (blending, mixing, overflowing, a moving lid or door).
   update3D(dt) {
     const g = this.game;
-    const still = reducedMotion();
-    if (!this.paused && !this.over && !still) this.animT += dt;
+    const frozen = reducedMotion(); // not `still`: that draws the containers' pictures
+    if (!this.paused && !this.over && !frozen) this.animT += dt;
     const t = Math.round(this.animT * 240) / 240;
     g.blenders.forEach((b, i) => {
       const v = this.blenderViews[i];
@@ -1496,19 +1549,42 @@ class GameView {
     }
     // the bin opens a little while something that may go in is carried, wide over it
     const tr = this.trashEl.classList;
-    this.spring(this.lid, tr.contains('drop-hover') ? 1 : tr.contains('drop-ok') ? 0.32 : 0, dt, still);
+    this.spring(this.lid, tr.contains('drop-hover') ? 1 : tr.contains('drop-ok') ? 0.32 : 0, dt, frozen);
     this.trashView?.draw({ lid: Math.round(this.lid.x * 100) / 100 }, t);
     // cold air spills out of the freezer while a pack is taken out
     const taking = Object.values(this.packEls).some((n) => n.classList.contains('drag-source'));
-    this.spring(this.door, taking ? 1 : 0, dt, still);
+    this.spring(this.door, taking ? 1 : 0, dt, frozen);
     this.freezerBack?.draw({ layer: 'back' }, 0);
     this.freezerFront?.draw({ layer: 'front', door: Math.round(this.door.x * 100) / 100 }, t);
+    // the containers' pictures only change with the pixel ratio (a resized window): drawn again once
+    // the new ratio has held for a moment, not for every step of a window edge being dragged, and one
+    // picture a frame (copied into every bin that shows it; the old one, scaled by the browser, stays
+    // until then)
+    const pr = pixelRatio();
+    if (!this.binStills.length || pr === this.stillPr) {
+      this.prNext = 0;
+    } else if (pr !== this.prNext) {
+      this.prNext = pr;
+      this.prSince = performance.now();
+      this.stillQueue = null;
+    } else if (performance.now() - this.prSince >= STILL_SETTLE_MS) {
+      if (!this.stillQueue) {
+        this.stillQueue = [...new Set(this.binStills.map((p) => p.key))];
+        this.stillPr = 0; // some pictures at the old ratio, some at the new one, until the queue is done
+      }
+      const key = this.stillQueue.shift();
+      for (const p of this.binStills) if (p.key === key) still('pantry', p.o, p.c);
+      if (!this.stillQueue.length) {
+        this.stillQueue = null;
+        this.stillPr = pr;
+      }
+    }
   }
 
   // Damped spring toward target (a little bounce when a lid falls shut).
-  spring(s, target, dt, still) {
-    if (still || dt <= 0) {
-      if (still) Object.assign(s, { x: target, v: 0 });
+  spring(s, target, dt, frozen) {
+    if (frozen || dt <= 0) {
+      if (frozen) Object.assign(s, { x: target, v: 0 });
       return;
     }
     for (let left = Math.min(dt, 0.1); left > 1e-4; left -= 1 / 120) {

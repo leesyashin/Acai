@@ -1,7 +1,7 @@
 // E2E checks of the 3D kitchen appliances (js/art3d.js + js/kitchen3d.js through js/game-view.js
 // and js/screens.js): WebGL canvases at every station, one model per upgrade level, animations that
-// follow the game (blending, bin lid, cold air from the freezer, smoothie tap) and the drawn SVG art when the
-// browser has no WebGL.
+// follow the game (blending, bin lid, cold air from the freezer, smoothie tap), the ingredient containers' still
+// pictures drawn again for a new pixel ratio, and the drawn SVG art when the browser has no WebGL.
 // Run: node tests/e2e/appliances.e2e.mjs   (serves the repo on :8090, exits non-zero on failure)
 
 import path from 'node:path';
@@ -220,6 +220,22 @@ async function main() {
         await sleep(200);
         assert(await cupHasMango(), 'the cup does not fill while the tap pours');
         await page.screenshot({ path: path.join(OUT, 'pour.png') });
+      });
+
+      await check('a bigger window (a new pixel ratio) draws the ingredient containers again, sharp', async () => {
+        // every container picture is 96 css px × the pixel ratio (device px per stage px) wide
+        const sharp = () => {
+          const k = Math.max(1, Math.min(3, window.devicePixelRatio * (document.getElementById('stage').getBoundingClientRect().width / 1280)));
+          const cs = [...document.querySelectorAll('.g-bin .g-art canvas')];
+          return cs.length >= 13 && cs.every((c) => c.width === Math.round(96 * k));
+        };
+        const widths = () => page.evaluate(() => [...document.querySelectorAll('.g-bin .g-art canvas')].map((c) => c.width).join());
+        assert(await page.evaluate(sharp), `container pictures at pixel ratio 1: ${await widths()}`);
+        for (const viewport of [{ width: 1600, height: 1000 }, { width: 1280, height: 800 }]) {
+          await page.setViewportSize(viewport);
+          await page.waitForFunction(sharp, null, { timeout: 5000 })
+            .catch(async () => { throw new Error(`not redrawn at ${viewport.width}×${viewport.height}: ${await widths()}`); });
+        }
       });
 
       await check('no console errors in the 3D game', async () => assertNoConsoleErrors(errors));

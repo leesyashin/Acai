@@ -1,5 +1,6 @@
 // 3D models of the kitchen appliances: the blender (4 motor bases × 2 jugs, one per upgrade
-// level), the frozen-drink machine (1 or 2 tanks), the pedal bin and the chest freezer.
+// level), the frozen-drink machine (1 or 2 tanks), the pedal bin and the chest freezer; the
+// ingredient containers on the risers come from js/pantry3d.js (the view 'pantry').
 // Pure module: every *Scene() returns { frame, elev, time, items } for js/gl3d.js – nothing here
 // touches the DOM. Geometry is in stage pixels, the floor is y = 0 and +z points at the player.
 // Animations are functions of the state and the time t (seconds), so a scene can be drawn at
@@ -12,6 +13,7 @@ import {
 import { ING } from './data.js';
 import { mix, rngFor } from './svg.js';
 import { pureeOf, smoothieColorOf } from './art-food.js';
+import { pantryScene, PANTRY_VIEW } from './pantry3d.js';
 
 // The camera looks down at the worktop by 17° – the angle the cup rims are drawn with.
 export const ELEV = (17 * Math.PI) / 180;
@@ -31,6 +33,8 @@ export const VIEWS = {
   // the freezer's origin is the floor of its well (FREEZER_ELEV, a gentle perspective)
   // (the canvas ends at the worktop's front edge, the frame's front face reaches past it)
   freezer: { w: 284, h: 194, ax: 142, ay: 142, zoom: 0.99 },
+  // an ingredient container on its riser (js/pantry3d.js): a static picture, drawn once
+  pantry: PANTRY_VIEW,
 };
 
 // The frame of a view (its pic rows) scaled to fit a size×size square (shop and menu pictures).
@@ -1079,4 +1083,4 @@ export function isAnimated(kind, o = {}) {
   return false;
 }
 
-export const SCENES = { blender: blenderScene, machine: machineScene, trash: trashScene, freezer: freezerScene };
+export const SCENES = { blender: blenderScene, machine: machineScene, trash: trashScene, freezer: freezerScene, pantry: pantryScene };

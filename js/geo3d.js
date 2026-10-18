@@ -546,8 +546,8 @@ export function bounds(mesh, m = null) {
 // ------------------------------------------------------------------ materials
 // Surface patterns of the shader (js/gl3d.js). p = the pattern's 4 parameters.
 export const MODE = {
-  PLAIN: 0,
-  BRUSHED: 1, // brushed metal; p.x line density, p.y 1 = vertical lines
+  PLAIN: 0, // glass only: p.w the share of its reflections that adds light (clear jars over bright contents)
+  BRUSHED: 1, // brushed metal; p.x line density, p.y 1 = vertical lines, 2 = lines along x (flat trays), p.z more contrast
   PUREE: 2, // blended fruit; colour2 streaks, p.x arms, p.y twist, p.z speed (rad/s), p.w amount
   GLASS: 3, // printed scale on clear plastic; p.x marks, p.y first mark (object y), p.z spacing, p.w side (angle)
   FROST: 4, // frosted surface; p.x amount, p.y frost along the uv edges, p.z light streaks (glass panes)
@@ -561,6 +561,8 @@ export const MODE = {
   MOLD: 12, // spoiled: spots of colour2; p.x scale, p.y amount
   GLOW: 13, // round glow sprite (uv), emitted colour only
   LEDRING: 14, // ring of LED segments around the object's y axis; p.x segments, p.y lit share, p.z gap
+  WOOD: 15, // wood grain (colour2 the dark grain) or coconut fibres; p.x ring density, p.y ring wobble, p.z fibres
+  GRAIN: 16, // grains: p.x scale, p.y light bits, p.z dark bits (colour2); p.w 0 fibres, 1 packed clusters, 2 packed long seeds
 };
 
 // sRGB hex → linear rgb
@@ -569,7 +571,9 @@ export function linear(hex) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => (v / 255) ** 2.2);
 }
 
-// Material in the shader's terms. Colours are sRGB hex; emit is scaled by glow.
+// Material in the shader's terms. Colours are sRGB hex; emit is scaled by glow. A clear surface is
+// drawn on both sides (double, the far side first) or, when what is behind it hides its far side (a
+// filled jar), only on the side toward the camera (front).
 export function material(o = {}) {
   return {
     color: linear(o.color || '#ffffff'),
@@ -584,6 +588,7 @@ export function material(o = {}) {
     glass: !!o.glass,
     tex: o.tex || null,
     double: !!o.double,
+    front: !!o.front,
   };
 }
 

@@ -27,7 +27,7 @@ und ein kurzer Hinweis erklärt, warum.
    Platz. Ohne Becher geht nichts hinein – am besten stellst du ihn hin, während der Mixer noch läuft.
 3. **Bowl füllen:** Zieh den fertigen Mixer auf die leere Bowl. Eine Mischung reicht für zwei Bowls
    (mit dem großen Mixkrug für drei).
-4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus den Schalen auf der Theke auf die Bowl.
+4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus ihren Behältern auf der Theke auf die Bowl.
 5. **Servieren:** Zieh die fertige Bowl auf den Gast. Stimmt sie genau mit der Bestellung überein,
    wird bezahlt – plus Trinkgeld, je geduldiger der Gast noch war. Der Platz ist danach frei für den
    nächsten Becher.
@@ -67,6 +67,15 @@ Zapfhahn und der Becher füllt sich. Der Mülleimer öffnet den Deckel, wenn du 
 Gefriertruhe in der Theke (Glasschiebedeckel, Vorratspackungen auf der Stufe hinten) quillt Kaltluft, wenn du eine Packung
 herausnimmst. Ohne WebGL zeigt das Spiel die gezeichneten Geräte.
 
+**Zutaten in echten Behältern:** Die Zutaten stehen auf Eichen-Podesten in ihren eigenen Behältern: Obst in gebürsteten
+Edelstahl-Schalen (ordentlich in Reihen), Granola im großen Bügelglas mit zurückgeklapptem Deckel, Honig mit Honiglöffel
+(der Deckel liegt daneben), Chia im Weckglas mit Messlöffel, Erdnussbutter mit Löffel und rotem Deckel daneben,
+Schokosoße in der Quetschflasche, Kokosraspeln in der halben Kokosnuss, Kakao-Nibs in einer Nussholz-Schale und
+frische Minze auf einem Brettchen – in glaubwürdigen Größen neben den Bechern. Behälter, Glas, Stahl und Holz sind
+3D-Bilder, die nur einmal gezeichnet werden; was obenauf liegt (Obst, Granola, Raspeln, Nibs, Minze), ist SVG. Ohne
+WebGL sind auch die Behälter gezeichnet. Gezogen wird, was du in der Hand hättest: eine Handvoll Obst, der Honiglöffel,
+der Messlöffel Chia – und die Schokosoße als ganze Flasche.
+
 **Endlos-Modus:** Nach Level 10 wird der Endlos-Modus freigeschaltet: kein Zeitlimit, alle 30 Sekunden
 wird es schwerer (mehr Plätze, mehr Gäste, größere Bestellungen). Gespielt wird, bis alle Herzen weg sind
 oder du im Pausenmenü die Schicht beendest – deine Münzen und dein Highscore werden gespeichert.
@@ -104,11 +113,13 @@ E2E-Skripte legen Screenshots in `$E2E_OUT_DIR` ab (Standard: Temp-Ordner), nie 
 dann mit Touch auf 1024×768, testet den Endlos-Modus und die englische Oberfläche, prüft, dass ein
 Zwei-Finger-Pinch im Rand um die Bühne die Seite nicht zoomt, und dass zwei offene Tabs sich den Spielstand
 nicht gegenseitig überschreiben. `appliances.e2e.mjs` prüft die 3D-Geräte (Modelle je Upgrade, Animationen, Deckel,
-Kaltluft der Truhe, Zapfhahn, Shop-Bilder) und die gezeichneten Geräte ohne WebGL. `layout.e2e.mjs` prüft das
-Spielfeld: Jede Station liegt ganz auf der Bühne, ist mindestens 64 px groß und überdeckt keine andere – auch in der
-vollsten Küche mit 4 Gästen, 2 Mixern, 4 Bechern und allen 16 Zutaten. `build.e2e.mjs` baut das
+Kaltluft der Truhe, Zapfhahn, Shop-Bilder), dass die Bilder der Zutaten-Behälter bei einer neuen Pixeldichte wieder
+scharf gezeichnet werden, und die gezeichneten Geräte ohne WebGL. `layout.e2e.mjs` prüft das
+Spielfeld: Jede Station liegt ganz auf der Bühne, ist mindestens 64 px groß und überdeckt keine andere, kein Behälter
+verdeckt einen Namen oder ein Namensschild, kein *NEU*-Schild verdeckt Qualitätssterne oder Ebenen-Nummer – auch in
+der vollsten Küche mit 4 Gästen, 2 Mixern, 4 Bechern und allen 16 Zutaten. `build.e2e.mjs` baut das
 Spiel und startet es per `file://`. Alle 3D-Geräte in allen Zuständen zeigt `tools/appliances-3d.html`
-(`npm start`, dann `http://localhost:8080/tools/appliances-3d.html?anim=1`). Für eine Sichtprüfung erzeugt `node tools/shots.mjs <ordner>` Screenshots
+(`npm start`, dann `http://localhost:8080/tools/appliances-3d.html?anim=1`), dort auch alle Zutaten-Behälter. Für eine Sichtprüfung erzeugt `node tools/shots.mjs <ordner>` Screenshots
 aller Bildschirme in mehreren Größen.
 
 ## Projektstruktur
@@ -128,12 +139,13 @@ js/orders.js          Bestellungen und Preise
 js/engine.js          Spiel-Simulation ohne DOM
 js/drag.js            Drag & Drop für Touch und Maus
 js/svg.js             gemeinsame SVG-Helfer + Farbverläufe (eine versteckte <svg> pro Seite)
-js/art-food.js        Becher mit Schichten, Zutaten, Zutaten-Schalen, Packungen, Smoothies
+js/art-food.js        Becher mit Schichten, Zutaten, Inhalt der Zutaten-Behälter (und die Behälter ohne WebGL), Packungen, Smoothies
 js/art-kitchen.js     Theke in Perspektive (Arbeitsplatte, Regal), Gefriertruhe, Podeste, Café-Rückwand, Deko;
                       Mixer, Smoothie-Maschine, Mülleimer als Ersatz ohne WebGL
 js/art.js             Gäste, HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
 js/geo3d.js           3D-Mathematik, Geometrie (Drehkörper, abgerundete Boxen, Rohre, Flüssigkeitsoberflächen), Materialien
 js/kitchen3d.js       3D-Modelle der Küchengeräte mit allen Ausbaustufen und Animationen
+js/pantry3d.js        3D-Modelle der Zutaten-Behälter (Edelstahl-Schalen, Gläser, Quetschflasche, Kokosnuss, Holz)
 js/gl3d.js            WebGL-Renderer (Studiolicht, Edelstahl, Glas, Muster) – ohne Bibliothek
 js/art3d.js           3D-Ansichten der Stationen im Spiel und 3D-Bilder für Shop und Menüs
 js/audio.js           Soundeffekte und Musik (WebAudio)
@@ -160,7 +172,10 @@ patience runs out. Made for landscape tablets, also playable with a mouse and on
 The kitchen appliances are real-time 3D models (WebGL, no library) with animations – a vortex in the blender jug,
 churning slush and a pouring tap in the smoothie machine, a pedal bin lid and cold air from the chest freezer – and every kitchen upgrade
 brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-tank → two-tank smoothie machine). Blenders and
-machine stand at the back of the worktop in front of the pass, about twice as tall as a cup.
+machine stand at the back of the worktop in front of the pass, about twice as tall as a cup. The ingredients stand in real
+containers on oak risers: fruit in brushed stainless pans, granola in a clip-top jar, honey with its dipper, chia in a
+Weck glass with a measuring spoon, peanut butter with a spoon, chocolate sauce in a squeeze bottle, shredded coconut in
+its shell, cacao nibs in a walnut bowl and mint on a board (3D pictures drawn once; drawn in SVG without WebGL).
 
 **How to play:** drag a frozen pack into the blender, put an empty bowl (a clear cup) from the stack on a
 free spot, drag the ready blender onto it, add *Fruits & Crunch*, then *Toppings & Sauces* (fixed layer order –

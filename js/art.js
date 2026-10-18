@@ -16,7 +16,7 @@ import {
 } from './svg.js';
 
 export {
-  ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, scoopSVG, cupStackSVG, cupSpotSVG,
+  ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, binFillSVG, scoopSVG, cupStackSVG, cupSpotSVG,
 } from './art-food.js';
 export {
   blenderSVG, blenderBadgeSVG, smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE, trashSVG, shopSceneSVG, decorSVG,

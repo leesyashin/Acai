@@ -2,8 +2,10 @@
 // every station the player drags from or onto lies fully on the 1280×800 stage, below the pass (never
 // over the guests), is at least 64 × 64 stage px and does not overlap another station – in the fullest
 // kitchen (4 seats, 2 blenders, 4 cups, all 16 ingredients, 2 machine slots) as well as in small ones,
-// with and without WebGL. The layer names on the freezer and the risers stay uncovered, and a "NEU" badge
-// sticking up from a bowl is drawn over the riser behind it.
+// with and without WebGL. The layer names on the freezer and the risers and the ingredients' name tags stay
+// uncovered (a tall container of the front row reaches up in front of the riser behind it, its names are drawn
+// over it), a "NEU" badge sticking up from a container is drawn over the riser behind it but leaves the layer
+// name there readable, and no badge hides an ingredient's quality stars or layer badge.
 // Run: node tests/e2e/layout.e2e.mjs   (serves the repo on :8090, exits non-zero on failure)
 
 import path from 'node:path';
@@ -43,7 +45,8 @@ async function serve() {
 }
 
 // The hit boxes (getBoundingClientRect, as drag.js measures them) of every station in stage px, plus
-// whether each layer label is the topmost element at its centre.
+// whether each layer label and name tag is the topmost element at its centre (the container pictures
+// count: they let the pointer through, so they are hit-tested for a moment like the labels).
 const measure = (page, sel) => page.evaluate((stations) => {
   const st = document.getElementById('stage').getBoundingClientRect();
   const k = 1280 / st.width;
@@ -51,17 +54,26 @@ const measure = (page, sel) => page.evaluate((stations) => {
     const r = el.getBoundingClientRect();
     return { x1: (r.left - st.left) * k, y1: (r.top - st.top) * k, x2: (r.right - st.left) * k, y2: (r.bottom - st.top) * k };
   };
+  // an ingredient's hit area reaches above its box (css/game.css .g-bin::before)
+  const hit = (el) => {
+    const b = box(el);
+    const reach = el.matches('[data-bin]') ? -parseFloat(getComputedStyle(el, '::before').top) || 0 : 0;
+    return { ...b, y1: b.y1 - reach };
+  };
   const name = (el) => ['blender', 'pack', 'cupStack', 'bowl', 'bin', 'smoothieSlot', 'trash']
     .filter((a) => a in el.dataset).map((a) => `${a}${el.dataset[a] ? `=${el.dataset[a]}` : ''}`)[0];
-  // labels let the pointer through: hit-test them for a moment to see what is drawn on top
-  const labels = [...document.querySelectorAll('.g-shelf-label, .g-freezer-label')].map((el) => {
+  // labels and pictures let the pointer through: hit-test them for a moment to see what is drawn on top
+  const arts = [...document.querySelectorAll('.g-bin .g-art')];
+  for (const a of arts) a.style.pointerEvents = 'auto';
+  const labels = [...document.querySelectorAll('.g-shelf-label, .g-freezer-label, .g-bin .g-name')].map((el) => {
     const r = el.getBoundingClientRect();
     el.style.pointerEvents = 'auto';
     const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     el.style.pointerEvents = '';
     return { text: el.textContent, ...box(el), clear: !!top && (top === el || el.contains(top)) };
   });
-  return { stations: [...document.querySelectorAll(stations)].map((el) => ({ name: name(el), ...box(el) })), labels };
+  for (const a of arts) a.style.pointerEvents = '';
+  return { stations: [...document.querySelectorAll(stations)].map((el) => ({ name: name(el), ...hit(el) })), labels };
 }, sel);
 
 async function open(srv, query, { viewport, noWebgl = false } = {}) {
@@ -83,21 +95,35 @@ async function open(srv, query, { viewport, noWebgl = false } = {}) {
 
 const fmt = (s) => `${s.name} [${[s.x1, s.y1, s.x2, s.y2].map((v) => v.toFixed(1)).join(', ')}]`;
 
-// The ingredients whose "NEU" badge is not the topmost element near its top edge or at its centre (something
-// of the row behind it, e.g. its layer label, is drawn over it). The labels let the pointer through: hit-test
-// them for a moment too.
+// The badges that are not the topmost element where they are drawn: a "NEU" badge near its top edge or at its
+// centre (something of the row behind it, e.g. its layer label, is drawn over it), a quality star or a bin's layer
+// badge at its centre (a "NEU" badge is drawn over it). Labels and badges let the pointer through: hit-test them for
+// a moment too.
 const hiddenBadges = (page) => page.evaluate(() => {
-  const labels = [...document.querySelectorAll('.g-shelf-label, .g-freezer-label')];
-  for (const l of labels) l.style.pointerEvents = 'auto';
-  const hidden = [...document.querySelectorAll('.g-new')].filter((el) => {
-    const r = el.getBoundingClientRect();
-    return [r.top + 4, r.top + r.height / 2].some((y) => {
-      const top = document.elementFromPoint(r.left + r.width / 2, y);
-      return !top || !(top === el || el.contains(top));
-    });
+  const through = [...document.querySelectorAll('.g-shelf-label, .g-freezer-label, .g-new, .g-quality, .g-bin > .g-lnum')];
+  for (const l of through) l.style.pointerEvents = 'auto';
+  const owner = (el) => el.closest('[data-bin]')?.dataset.bin || el.closest('[data-pack]')?.dataset.pack;
+  const covered = (el, pts) => pts.some(([x, y]) => {
+    const top = document.elementFromPoint(x, y);
+    return !top || !(top === el || el.contains(top));
   });
-  for (const l of labels) l.style.pointerEvents = '';
-  return hidden.map((el) => el.closest('[data-bin]')?.dataset.bin || el.closest('[data-pack]')?.dataset.pack);
+  const mid = (el) => {
+    const r = el.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  };
+  const hidden = [];
+  for (const el of document.querySelectorAll('.g-new')) {
+    const [x, y] = mid(el);
+    if (covered(el, [[x, el.getBoundingClientRect().top + 4], [x, y]])) hidden.push(`"NEU" of ${owner(el)}`);
+  }
+  for (const el of document.querySelectorAll('.g-quality')) {
+    if (covered(el, [...el.children].map(mid))) hidden.push(`stars of ${owner(el)}`);
+  }
+  for (const el of document.querySelectorAll('.g-bin > .g-lnum')) {
+    if (covered(el, [mid(el)])) hidden.push(`layer badge of ${owner(el)}`);
+  }
+  for (const l of through) l.style.pointerEvents = '';
+  return hidden;
 });
 
 function assertLayout({ stations, labels }, want) {
@@ -136,8 +162,9 @@ const CASES = [
   { name: 'level 5 (3 seats, locked machine)', query: 'level=5&fresh=1&seed=11', want: { blender: 1, bowl: 2, smoothieSlot: 0, trash: 1 }, shot: 'level5' },
   { name: 'endless with the one-tank machine', query: 'mode=endless&fresh=1&seed=9', want: { smoothieSlot: 1, trash: 1 } },
 ];
-// new toppings in the front row's middle, right under the fruits' layer label
-const NEW_BADGES = 'level=14&owned=all&upgrades=max&seed=4&new=coconut,chia,peanut,chocolate,banana';
+// new toppings in the front row's middle, right under the fruits' layer label, the jars with their lid beside them and
+// the granola jar; every ingredient with two quality stars, or none (the sticker takes the stars' place)
+const NEW_BADGES = 'level=14&owned=all&upgrades=max&seed=4&new=coconut,chia,peanut,chocolate,banana,honey,granola';
 
 async function main() {
   const srv = await serve();
@@ -155,17 +182,22 @@ async function main() {
         await close();
       }
     }
-    const { page, errors, close } = await open(srv, NEW_BADGES);
-    try {
-      await check('"NEU" badges of new toppings are drawn over the layer label behind them', async () => {
-        const count = await page.locator('.g-new').count();
-        assert(count === 5, `5 "NEU" badges expected, found ${count}`);
-        const hidden = await hiddenBadges(page);
-        assert(hidden.length === 0, `covered "NEU" badges: ${hidden.join(', ')}`);
-      });
-      await check('"NEU" badges: no console errors', async () => assertNoConsoleErrors(errors, 'new badges'));
-    } finally {
-      await close();
+    for (const quality of [2, 0]) {
+      const { page, errors, close } = await open(srv, `${NEW_BADGES}&quality=${quality}`);
+      try {
+        await check(`"NEU" badges of new toppings (${quality} stars) leave the layer label behind them readable, quality stars and layer badges stay visible`, async () => {
+          const count = await page.locator('.g-new').count();
+          assert(count === 7, `7 "NEU" badges expected, found ${count}`);
+          assert(await page.locator('.g-bin .g-quality').count() === (quality ? 13 : 0), `quality stars on ${quality ? 'every' : 'no'} ingredient`);
+          const hidden = await hiddenBadges(page);
+          assert(hidden.length === 0, `covered: ${hidden.join(', ')}`);
+          const covered = (await measure(page, STATIONS)).labels.filter((l) => !l.clear).map((l) => `"${l.text}"`);
+          assert(covered.length === 0, `covered labels: ${covered.join(', ')}`);
+        });
+        await check(`"NEU" badges (${quality} stars): no console errors`, async () => assertNoConsoleErrors(errors, 'new badges'));
+      } finally {
+        await close();
+      }
     }
   } finally {
     await srv.close();

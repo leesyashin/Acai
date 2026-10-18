@@ -70,6 +70,7 @@
 <script type="module">
 import * as art from '../js/art.js';
 import { INGREDIENTS, ingName, isSmoothieFruit } from '../js/data.js';
+import { pantryKind } from '../js/pantry3d.js';
 import { createRng } from '../js/rng.js';
 import { registerStrings, t, setLang, getLang } from '../js/i18n.js';
 
@@ -85,8 +86,8 @@ registerStrings({
     'artprev.ok': 'Keine doppelten IDs ({n} SVGs)', 'artprev.dup': 'Doppelte IDs: {list}',
     'artprev.empty': 'leer', 'artprev.baseOnly': 'nur Basis', 'artprev.mock': 'Im Spiel (Attrappe, 1280 × 800)',
     'artprev.pours': 'Füllstand nach jedem Ausgießen (Portionen übrig)',
-    'artprev.bins': 'Zutaten-Schalen (96 px wie im Spiel)', 'artprev.stack': 'Bowl-Stapel und freier Platz',
-    'artprev.counter': 'Theke: Arbeitsplatte mit Regal, Gefriertruhe, Podest', 'artprev.scoops': 'Was man aus den Schalen zieht',
+    'artprev.bins': 'Zutaten-Behälter, gezeichnet (ohne WebGL; 120 und 96 px wie im Spiel)', 'artprev.stack': 'Bowl-Stapel und freier Platz',
+    'artprev.counter': 'Theke: Arbeitsplatte mit Regal, Gefriertruhe, Podest', 'artprev.scoops': 'Was man aus den Behältern zieht',
   },
   en: {
     'artprev.title': 'Açaí Fever – art preview', 'artprev.lang': 'Deutsch',
@@ -97,8 +98,8 @@ registerStrings({
     'artprev.ok': 'No duplicate ids ({n} SVGs)', 'artprev.dup': 'Duplicate ids: {list}',
     'artprev.empty': 'empty', 'artprev.baseOnly': 'base only', 'artprev.mock': 'In game (mock-up, 1280 × 800)',
     'artprev.pours': 'Fill level after each pour (portions left)',
-    'artprev.bins': 'Ingredient bowls (96 px as in game)', 'artprev.stack': 'Bowl stack and free spot',
-    'artprev.counter': 'Counter: worktop with shelves, freezer, riser', 'artprev.scoops': 'What a drag from a bowl carries',
+    'artprev.bins': 'Ingredient containers, drawn (no WebGL; 120 and 96 px as in game)', 'artprev.stack': 'Bowl stack and free spot',
+    'artprev.counter': 'Counter: worktop with shelves, freezer, riser', 'artprev.scoops': 'What a drag from a container carries',
   },
 });
 
@@ -145,7 +146,7 @@ function render() {
   h += section('artprev.scoops', INGREDIENTS.filter((i) => i.layer !== 'base').map((i) =>
     el(`${art.scoopSVG(i.id, 84)}${ingName(i.id, true)}`)).join(''));
   h += section('artprev.counter', el(art.counterSVG(1280, 462), 'cell wide') +
-    el(`<div class="row">${art.freezerSVG('well', 284, 186)}</div>well`) + el(art.riserSVG(420, 49)));
+    el(`<div class="row">${art.freezerSVG('well', 284, 186)}</div>well`) + el(art.riserSVG(420, 70)));
 
   h += section('artprev.stack', el(`<div class="row">${art.cupStackSVG(122)}${art.cupSpotSVG(140)}${art.bowlSVG(null, 140)}</div>`));
 
@@ -222,17 +223,19 @@ function render() {
   m += `<div style="left:16px;top:556px">${art.freezerSVG('well', 284, 186)}</div>`;
   ['acai', 'pitaya', 'spirulina'].forEach((id, i) => { m += `<div style="left:${28 + i * 88}px;top:648px">${art.packIcon(id, 84)}</div>`; });
   m += `<div style="left:16px;top:556px">${art.freezerSVG('rim', 284, 186)}</div>`;
-  m += `<div style="left:340px;top:352px">${art.cupStackSVG(105)}</div>`;
+  m += `<div style="left:340px;top:340px">${art.cupStackSVG(105)}</div>`;
   const slotBowls = [{ base: 'acai', mid: ['banana'], top: [] }, null, { base: 'pitaya', mid: ['strawberry', 'granola'], top: ['honey'] }, { base: null, mid: [], top: [] }];
-  slotBowls.forEach((b, i) => { m += `<div style="left:${451 + i * 120}px;top:392px">${b ? art.bowlSVG(b, 120) : art.cupSpotSVG(120)}</div>`; });
-  const mids = INGREDIENTS.filter((i) => i.layer === 'mid');
+  slotBowls.forEach((b, i) => { m += `<div style="left:${451 + i * 120}px;top:380px">${b ? art.bowlSVG(b, 120) : art.cupSpotSVG(120)}</div>`; });
+  // the fruit trays first, then the jar of granola (sorted like js/game-view.js)
+  const mids = INGREDIENTS.filter((i) => i.layer === 'mid').sort((a, b) => (pantryKind(b.id) === 'tray') - (pantryKind(a.id) === 'tray'));
   const tops = INGREDIENTS.filter((i) => i.layer === 'top');
-  // rows of 96 px bowls, centred under the cups (x 330–940) while they fit, else from x 330 on
+  // rows of 96 px containers, centred under the cups (x 330–940) while they fit, else from x 330 on; a
+  // container's art box starts 28 px above its row
   const row = (list, top) => {
     const w = list.length * 96 + (list.length - 1) * 6;
     const x0 = w <= 610 ? 330 + (610 - w) / 2 : 330;
-    let r = `<div style="left:${x0 - 14}px;top:${top + 54}px">${art.riserSVG(w + 28, 49)}</div>`;
-    list.forEach((ing, i) => { r += `<div style="left:${x0 + i * 102}px;top:${top}px">${art.binSVG(ing.id, 96)}</div>`; });
+    let r = `<div style="left:${x0 - 14}px;top:${top + 33}px">${art.riserSVG(w + 28, 70)}</div>`;
+    list.forEach((ing, i) => { r += `<div style="left:${x0 + i * 102}px;top:${top - 28}px">${art.binSVG(ing.id, 96)}</div>`; });
     return r;
   };
   m += row(mids, 542) + row(tops, 642);

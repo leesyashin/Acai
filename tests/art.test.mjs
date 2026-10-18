@@ -38,6 +38,7 @@ test('every shared gradient or clip path a picture uses is defined in artDefsSVG
   const pictures = [
     ...ALL_IDS.map((id) => art.ingredientIcon(id, 64)),
     ...ALL_IDS.filter((id) => INGREDIENTS.find((i) => i.id === id).layer !== 'base').map((id) => art.binSVG(id, 84)),
+    ...ALL_IDS.filter((id) => INGREDIENTS.find((i) => i.id === id).layer !== 'base').map((id) => art.binFillSVG(id, 96)),
     ...['acai', 'pitaya', 'spirulina'].map((id) => art.packIcon(id, 72)),
     art.bowlSVG(null, 140), art.bowlSVG({ base: 'acai', mid: ['banana', 'granola', 'kiwi'], top: ['honey', 'chia', 'mint'] }, 140),
     art.cupStackSVG(84), art.cupSpotSVG(140), art.cupSVG('mango', 'ready', 70), art.cupSVG('kiwi', 'mixing', 70),

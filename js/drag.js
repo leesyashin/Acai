@@ -110,7 +110,7 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
 
   // The pointer (not the lifted ghost) still rests on its source: it has not left the tap slop yet,
   // or it is back over the source rect. Holding an item or putting it back must never drop it into a
-  // target next to the source (in the game a bowl sits 2 px above the fruit bins, within the lift).
+  // target next to the source (in the game a bowl sits 2 px above the fruit bins' hit area, within the lift).
   function onSource(d) {
     if (d.moved <= TAP_SLOP) return true;
     const s = d.src;

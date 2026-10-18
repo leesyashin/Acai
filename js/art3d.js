@@ -3,6 +3,9 @@
 //   createView(kind)          live picture of a station: a 2D canvas redrawn when its state
 //                             changes or while it animates
 //   pictureMarkup(kind, o, size, fallback)   <img> (data URL, cached) for menu markup
+//   still(kind, o)            a static picture at the view's size (the ingredient containers):
+//                             drawn once per state and pixel ratio, every call gets a copy;
+//                             prepareStills() draws them ahead in idle time
 // Without WebGL (or after a lost context that does not come back) has3D() is false and the
 // callers keep the drawn SVG art of js/art.js.
 
@@ -16,7 +19,7 @@ export function has3D() {
 }
 
 // Device pixels per stage pixel (the stage is scaled to the window), capped for big screens.
-function pixelRatio() {
+export function pixelRatio() {
   const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
   return Math.max(1, Math.min(3, dpr * getScale()));
 }
@@ -86,6 +89,66 @@ export function snapshot(view, scale = 1, box = null) {
   c.style.height = `${Math.round((c.height / k) * scale)}px`;
   c.style.display = 'block';
   return c;
+}
+
+// A picture that never changes (an ingredient container): the view drawn in state o once per
+// pixel ratio into a cached canvas, copied (drawImage only) into `target` or a new canvas of the
+// view's CSS size. null without WebGL. The cache holds the pictures of the current pixel ratio only
+// (a resized window draws them again; the old ones are not needed any more).
+const stills = new Map();
+let stillsPr = 0;
+function stillSource(kind, o) {
+  const r = getRenderer();
+  if (!r || r.lost || !SCENES[kind]) return null;
+  const pr = pixelRatio();
+  if (pr !== stillsPr) {
+    stills.clear();
+    stillsPr = pr;
+  }
+  const key = `${kind}|${JSON.stringify(o)}`;
+  let src = stills.get(key);
+  if (!src) {
+    const frame = VIEWS[kind];
+    src = document.createElement('canvas');
+    if (!r.drawTo(src, SCENES[kind](o, 0, frame), Math.round(frame.w * pr), Math.round(frame.h * pr))) return null;
+    stills.set(key, src);
+  }
+  return src;
+}
+export function still(kind, o, target = null) {
+  const src = stillSource(kind, o);
+  if (!src) return null;
+  const frame = VIEWS[kind];
+  const c = target || document.createElement('canvas');
+  if (!target) {
+    c.className = `g-3d g-3d-${kind}`;
+    c.setAttribute('aria-hidden', 'true');
+  }
+  c.width = src.width; // also clears it
+  c.height = src.height;
+  c.getContext('2d').drawImage(src, 0, 0);
+  c.style.width = `${frame.w}px`;
+  c.style.height = `${frame.h}px`;
+  return c;
+}
+
+// Draws the still pictures of `states` into the cache ahead, one per idle moment, so the first level
+// does not have to (software WebGL takes ~10 ms a picture). Harmless without WebGL.
+export function prepareStills(kind, states) {
+  const idle = (typeof window !== 'undefined' && window.requestIdleCallback) || ((fn) => setTimeout(fn, 16));
+  const list = states.slice();
+  const next = () => {
+    const o = list.shift();
+    if (!o) return;
+    try {
+      if (!stillSource(kind, o)) return;
+    } catch (err) {
+      console.warn('[art3d] preparing a picture failed', err);
+      return;
+    }
+    idle(next);
+  };
+  idle(next);
 }
 
 const pictures = new Map();
