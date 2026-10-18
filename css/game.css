@@ -185,20 +185,21 @@
 .screen-game .g-lnum-mid { background: var(--l-mid); }
 .screen-game .g-lnum-top { background: var(--l-top); }
 
-/* ------------------------------------------------------------ pass (y 295–358): the customers' counter, a white marble
-   top (y 295–334) with a rounded edge and a fluted oak front facing the player; the work counter lies below it */
+/* ------------------------------------------------------------ pass (y 294–338): the customers' counter, a white marble
+   top (y 294–318) with a rounded edge and a fluted oak front facing the player; the work counter lies below it and the
+   tall appliances at its back stand in front of the pass */
 .screen-game .g-counter {
   position: absolute;
   left: 0;
-  top: 295px;
+  top: 294px;
   width: 1280px;
-  height: 63px;
-  z-index: 3;
+  height: 44px;
+  z-index: 2;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0 2px, transparent 2px),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='48' viewBox='0 0 640 48'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M-10 34C60 18 110 44 180 26S300 6 360 22S470 40 520 20S600 6 650 30' stroke='%23a99e91' stroke-opacity='.3' stroke-width='1.3'/%3E%3Cpath d='M120 50C160 34 200 38 250 18S330 2 400 9' stroke='%23b9b0a5' stroke-opacity='.35' stroke-width='.8'/%3E%3Cpath d='M440 -2C462 14 494 20 536 46' stroke='%23b4aa9e' stroke-opacity='.3' stroke-width='.7'/%3E%3Cpath d='M30 -2C50 10 70 12 96 6S140 4 170 16' stroke='%23c2b9ae' stroke-opacity='.3' stroke-width='.6'/%3E%3C/g%3E%3C/svg%3E") 0 2px / 640px 40px repeat-x,
     radial-gradient(ellipse 45% 160% at 26% 0%, rgba(255, 255, 255, 0.8), transparent 70%),
-    linear-gradient(180deg, #ece8e2 0%, #f6f4f0 55%, #fdfcfa 64%);
+    linear-gradient(180deg, #ece8e2 0%, #f6f4f0 40%, #fdfcfa 52%);
   border-top: 1px solid #a99f92;
   pointer-events: none;
 }
@@ -209,48 +210,64 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: 24px;
+  height: 20px;
   background:
     linear-gradient(180deg, #ffffff 0, #ebe6df 2px, #cfc6ba 5px, #a99f92 6px, transparent 6px),
-    linear-gradient(180deg, rgba(40, 24, 16, 0.35) 6px, rgba(40, 24, 16, 0.08) 11px, rgba(40, 24, 16, 0.3) 100%),
+    linear-gradient(180deg, rgba(40, 24, 16, 0.35) 6px, rgba(40, 24, 16, 0.08) 10px, rgba(40, 24, 16, 0.3) 100%),
     repeating-linear-gradient(90deg, #a77a46 0 2px, #d2a874 2px 7px, #ecc896 7px 9px, #d2a874 9px 14px);
   box-shadow: 0 1px 0 rgba(59, 42, 34, 0.45);
 }
 
-/* ------------------------------------------------------------ work area (y 350–800): the counter in perspective
-   – terrazzo worktop up to y 704, its rounded front edge, open oak shelves with stock below (counterSVG) */
+/* ------------------------------------------------------------ work area (y 338–800): the counter in perspective
+   – terrazzo worktop up to y 742, its rounded front edge, a strip of open oak shelves with stock below (counterSVG).
+   Above the pass: the appliances at the back of the worktop reach up over its oak front. */
 .screen-game .g-work {
   position: absolute;
   left: 0;
-  top: 350px;
+  top: 338px;
   width: 1280px;
-  height: 450px;
-  z-index: 2;
+  height: 462px;
+  z-index: 3;
 }
 .screen-game .g-worktop { position: absolute; inset: 0; pointer-events: none; }
 .screen-game .g-worktop svg { width: 100%; height: 100%; }
 .screen-game .g-art { position: relative; }
 
-/* blenders (x 25–291), standing at the back of the worktop */
+/* blenders (x 10–320, y 338–548), standing at the back of the worktop: the front of the motor base on the box's
+   bottom edge, a big jug's lid (and an overflowing blender's foam) reaches up over the pass. The art is wider and
+   taller than the hit box and lets the pointer through. */
 .screen-game .g-blender {
   position: absolute;
-  top: 6px;
-  width: 126px;
-  height: 150px;
+  top: 0;
+  width: 150px;
+  height: 210px;
   border-radius: 22px;
   transition: box-shadow 0.12s ease, background-color 0.12s ease;
 }
-.screen-game .g-blender .g-art { width: 126px; height: 126px; transform-origin: 50% 90%; }
+.screen-game .g-blender .g-art {
+  position: absolute;
+  left: -50px;
+  top: -4px;
+  width: 220px;
+  height: 220px;
+  transform-origin: 50% 90%;
+  pointer-events: none;
+}
+.screen-game .g-blender .g-badge { position: absolute; width: 36px; height: 38px; translate: -50% -50%; }
 .screen-game .g-blender[data-state="blending"] .g-art { animation: g-rattle 0.16s linear infinite; }
 .screen-game .g-blender[data-state="overflowing"] .g-art { animation: g-overflow 0.55s ease-in-out infinite; }
 .screen-game .g-blender[data-state="ruined"] .g-art { filter: saturate(0.6); }
 
+/* progress bar: a blender's lies on the worktop under its feet (centred under the motor base, over the freezer's
+   back rim), so it hides no dial or portion LED; the pointer goes through it */
 .screen-game .g-timer {
   position: absolute;
   left: 22px;
-  right: 22px;
-  top: 133px;
-  height: 11px;
+  right: 40px;
+  top: 213px;
+  height: 10px;
+  z-index: 1;
+  pointer-events: none;
   border-radius: 999px;
   background: rgba(43, 45, 51, 0.82);
   box-shadow: 0 2px 5px rgba(40, 24, 50, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -273,12 +290,12 @@
 .screen-game [data-state="overflowing"] > .g-timer { animation: g-red-pulse 0.55s ease-in-out infinite; }
 .screen-game [data-state="overflowing"] > .g-timer i { background: linear-gradient(180deg, #ff9a9a, var(--danger)); }
 
-/* chest freezer built into the counter (x 16–300, opening y 518–704, front panel below the edge):
+/* chest freezer built into the counter (x 16–300, opening y 556–742, front panel below the edge):
    the packs stand in the well, the frame's front edge (rim) covers their feet, names sit on top */
 .screen-game .g-freezer {
   position: absolute;
   left: 16px;
-  top: 168px;
+  top: 218px;
   width: 284px;
   height: 186px;
   isolation: isolate;
@@ -298,7 +315,7 @@
 .screen-game .g-freezer-label {
   position: absolute;
   left: 50%;
-  top: 216px;
+  top: 206px;
   translate: -50% 0;
   z-index: 3;
   padding: 3px 14px 2px;
@@ -335,7 +352,7 @@
 .screen-game .g-bin .g-name,
 .screen-game .g-stack .g-name {
   box-sizing: border-box;
-  max-width: 84px;
+  max-width: 100%;
   padding: 2px 7px 1px;
   border-radius: 6px;
   background: var(--g-label);
@@ -352,33 +369,34 @@
 .screen-game .g-pack .g-quality,
 .screen-game .g-pack .g-new { z-index: 3; }
 
-/* cup stack + bowl spots (x 316–964, y 354–515) */
+/* cup stack + bowl spots (x 330–940, y 352–540): the cups stand on the line of the stack's bottom cup, their content
+   chips below them */
 .screen-game .g-stack {
   position: absolute;
-  top: 6px;
-  width: 76px;
-  height: 156px;
+  top: 14px;
+  width: 105px;
+  height: 182px;
   display: flex;
   flex-direction: column;
   align-items: center;
   border-radius: 18px;
 }
-.screen-game .g-stack .g-art { width: 76px; height: 127px; transform-origin: 50% 100%; }
-.screen-game .g-stack .g-name { margin-top: 6px; }
+.screen-game .g-stack .g-art { width: 105px; height: 162px; transform-origin: 50% 100%; }
+.screen-game .g-stack .g-name { margin-top: 2px; }
 .screen-game .g-bowl {
   position: absolute;
-  top: 4px;
-  width: 126px;
-  height: 160px;
+  top: 54px;
+  width: 120px;
+  height: 148px;
   border-radius: 22px;
   transition: box-shadow 0.12s ease, background-color 0.12s ease;
 }
-.screen-game .g-bowl .g-art { position: absolute; left: 0; top: 2px; width: 126px; height: 126px; transform-origin: 50% 90%; }
+.screen-game .g-bowl .g-art { position: absolute; left: 0; top: 0; width: 120px; height: 120px; transform-origin: 50% 90%; }
 .screen-game .g-bowl .g-chips {
   position: absolute;
   left: -8px;
   right: -8px;
-  top: 134px;
+  top: 122px;
   display: flex;
   justify-content: center;
   padding-left: 4px;
@@ -410,18 +428,17 @@
 }
 .screen-game .g-bowl.is-match .g-match { display: block; animation: pop-in 0.3s ease-out both; }
 
-/* ingredient bowls on two oak trays (x 316–964): fruits & crunch y 516–608, toppings & sauces y 610–702 */
+/* ingredient bowls in two rows on slim oak risers (x from 330, left and width set by the view): fruits & crunch
+   y 542–642 behind toppings & sauces y 642–742; a row's bowls (y +0–84) stand on its riser, whose front edge
+   (y +84–100) carries the layer name */
 .screen-game .g-shelf {
   position: absolute;
-  left: 316px;
-  width: 648px;
-  height: 92px;
+  height: 100px;
   display: flex;
   justify-content: center;
 }
-.screen-game .g-shelf-mid { top: 166px; }
-.screen-game .g-shelf-top { top: 260px; }
-.screen-game .g-shelf-in { position: relative; min-width: 272px; display: flex; justify-content: center; }
+.screen-game .g-shelf-mid { top: 204px; }
+.screen-game .g-shelf-top { top: 304px; }
 .screen-game .g-shelf-row {
   position: relative;
   z-index: 1;
@@ -429,21 +446,15 @@
   gap: 6px;
   height: 84px;
 }
-/* the oak tray the bowls stand on (width set by the view, art from traySVG) */
-.screen-game .g-board {
-  position: absolute;
-  left: 50%;
-  top: 14px;
-  height: 74px;
-  translate: -50% 0;
-  pointer-events: none;
-}
-/* layer name on the tray's front edge ("2 · Früchte & Crunch"), in the layer colour like the number badges.
-   z-index 1 (not more): the next tray's bowls still paint over it, so their badges stay visible */
+/* the riser (art from riserSVG, as wide as the row box, RISER_H in js/game-view.js): its front edge is y +84–100 */
+.screen-game .g-riser { position: absolute; left: 0; right: 0; top: 54px; height: 49px; pointer-events: none; }
+/* layer name on the riser's front edge ("2 · Früchte & Crunch"), in the layer colour like the number badges. It
+   ends at y +100, where the next row begins, so no bowl covers it; z-index 1 like the rows: the next row (later
+   in the DOM) still paints over it, so a "NEU" badge sticking up from that row stays visible */
 .screen-game .g-shelf-label {
   position: absolute;
   left: 50%;
-  top: 70px;
+  top: 82px;
   transform: translateX(-50%);
   z-index: 1;
   padding: 2px 10px 1px;
@@ -461,7 +472,7 @@
 .screen-game .g-shelf-label-top { background: var(--l-top); }
 .screen-game .g-bin {
   position: relative;
-  width: 86px;
+  width: 96px;
   height: 84px;
   box-sizing: border-box;
   display: flex;
@@ -470,8 +481,8 @@
   justify-content: flex-start;
   border-radius: 14px;
 }
-.screen-game .g-bin .g-art { width: 86px; height: 62px; }
-.screen-game .g-bin .g-name { margin-top: -6px; position: relative; }
+.screen-game .g-bin .g-art { width: 96px; height: 69px; }
+.screen-game .g-bin .g-name { margin-top: -4px; position: relative; }
 .screen-game .g-bin > .g-lnum { position: absolute; left: -2px; top: 0; width: 20px; height: 20px; font-size: 12px; }
 .screen-game .g-quality { position: absolute; right: 2px; top: 2px; display: flex; z-index: 1; }
 .screen-game .g-pack .g-quality { top: 3px; }
@@ -499,40 +510,43 @@
 .screen-game .g-bin:active,
 .screen-game .g-stack:active { translate: 0 2px; }
 
-/* smoothie machine (x 1000–1236) */
+/* smoothie machine (x 952–1264): a square box (its canvas, y 265–577) with the machine standing at its bottom, the
+   front feet on the line of the blenders' (y 548), the top over the pass; only the cup slots take the pointer */
 .screen-game .g-machine {
   position: absolute;
-  left: 1002px;
-  top: 0;
-  width: 236px;
-  height: 236px;
+  left: 952px;
+  top: -73px;
+  width: 312px;
+  height: 312px;
+  pointer-events: none;
 }
 .screen-game .g-slot {
   position: absolute;
-  width: 92px;
-  height: calc(var(--cup) + 32px);
+  width: 116px;
+  height: calc(var(--cup) + 34px);
   border-radius: 20px;
+  pointer-events: auto;
 }
 .screen-game .g-slot .g-art {
   position: absolute;
   left: calc(50% - var(--cup) / 2);
-  top: 14px;
+  top: 16px;
   width: var(--cup);
   height: var(--cup);
   transform-origin: 50% 100%;
 }
-.screen-game .g-slot .g-timer { left: 14px; right: 14px; top: auto; bottom: -6px; height: 10px; }
+.screen-game .g-slot .g-timer { left: 16px; right: 16px; top: auto; bottom: 4px; height: 10px; }
 .screen-game .g-slot[data-state="mixing"] .g-art { animation: g-rattle 0.22s linear infinite; }
 .screen-game .g-slot[data-state="ready"] .g-art { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95)); }
 
 .screen-game .g-machine.is-locked { pointer-events: none; }
 .screen-game.has-tutorial .g-machine.is-locked { visibility: hidden; }
 .screen-game .g-machine.is-locked .g-art { opacity: 0.45; filter: grayscale(0.85); }
-.screen-game .g-lock { position: absolute; left: 50%; top: 104px; translate: -50% 0; }
+.screen-game .g-lock { position: absolute; left: 50%; top: 132px; translate: -50% 0; }
 .screen-game .g-lock-label {
   position: absolute;
   left: 50%;
-  top: 168px;
+  top: 196px;
   translate: -50% 0;
   padding: 5px 12px 4px;
   border-radius: 10px;
@@ -544,26 +558,24 @@
   box-shadow: var(--g-soft-shadow);
 }
 
-/* trash can: on the floor in front of the cabinet, bottom right */
+/* trash can: on the floor in front of the cabinet, bottom right (y 664–800) */
 .screen-game .g-trash {
   position: absolute;
-  left: 1146px;
+  left: 1136px;
   top: 326px;
-  width: 124px;
-  height: 124px;
+  width: 136px;
+  height: 136px;
   display: grid;
   place-items: center;
   border-radius: 28px;
 }
-.screen-game .g-trash .g-art { width: 120px; height: 120px; transform-origin: 50% 100%; }
+.screen-game .g-trash .g-art { width: 134px; height: 134px; transform-origin: 50% 100%; }
 
 /* ------------------------------------------------------------ 3D appliances (js/art3d.js, WebGL)
    Each station holds a canvas drawn by the shared renderer; its size and the world origin inside it
    come from VIEWS in js/kitchen3d.js. The status badge, timers and hit areas stay DOM. */
 .screen-game .g-3d { position: absolute; left: 0; top: 0; display: block; pointer-events: none; }
-.screen-game.is-3d .g-blender .g-art { width: 126px; height: 134px; }
-.screen-game.is-3d .g-blender .g-badge { position: absolute; left: 92px; top: 4px; width: 30px; height: 32px; }
-.screen-game.is-3d .g-blender .g-badge svg { display: block; }
+.screen-game.is-3d .g-blender .g-art { left: -6px; top: -62px; width: 164px; height: 292px; transform-origin: 72px 260px; }
 /* the 3D jug shakes itself while blending; overflowing keeps the red warning glow */
 .screen-game.is-3d .g-blender[data-state="blending"] .g-art { animation: none; }
 .screen-game.is-3d .g-blender[data-state="overflowing"] .g-art { animation: g-warn-glow 0.55s ease-in-out infinite; }
@@ -576,7 +588,7 @@
 .screen-game .g-machine .g-slot { z-index: 1; }
 .screen-game.is-3d .g-slot[data-state="mixing"] .g-art { animation: none; }
 /* pedal bin: the canvas reaches above the hit area so the lid can open */
-.screen-game.is-3d .g-trash .g-art { position: absolute; left: -6px; top: -62px; width: 136px; height: 186px; transform-origin: 68px 170px; }
+.screen-game.is-3d .g-trash .g-art { position: absolute; left: -9px; top: -72px; width: 153px; height: 209px; transform-origin: 76px 191px; }
 
 /* ------------------------------------------------------------ drag & drop feedback (js/drag.js) */
 .screen-game [data-dnd-source] { cursor: grab; }
@@ -790,7 +802,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  top: 291px;
+  top: 290px;
   display: flex;
   justify-content: center;
   z-index: 35;

@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ELEV, FREEZER_ELEV, VIEWS, fitFrame, blenderScene, machineScene, trashScene, freezerScene, blenderLook, blenderJug,
-  jugLevel, isAnimated, slushPhase, pourFill, MACHINE_SLOT_X, CUP_Z, TRAY_Y, BLENDER_MODELS, SCENES,
+  blenderBadgeAt, blenderBox, jugLevel, isAnimated, slushPhase, pourFill, MACHINE_SLOT_X, CUP_Z, TRAY_Y, BLENDER_MODELS, SCENES,
 } from '../js/kitchen3d.js';
 import { screenOf, viewProjection, transformPoint } from '../js/geo3d.js';
 import { SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE } from '../js/art.js';
@@ -74,21 +74,24 @@ test('views: the world origin is inside each canvas, pictures keep their proport
     assert.ok(f.ax > 0 && f.ax < f.w && f.ay > 0 && f.ay < f.h, `${kind} anchor`);
     const sq = fitFrame(f, 100);
     assert.equal(sq.w, 100);
-    assert.ok(Math.abs(sq.zoom / (f.zoom || 1) - 100 / Math.max(f.w, f.h)) < 1e-9, `${kind} zoom`);
+    const ph = f.pic ? f.pic.h : f.h;
+    assert.ok(Math.abs(sq.zoom / (f.zoom || 1) - 100 / Math.max(f.w, ph)) < 1e-9, `${kind} zoom`);
+    if (f.pic) assert.ok(f.pic.y >= 0 && f.pic.y + f.pic.h <= f.h, `${kind}: the picture rows lie in the canvas`);
   }
   assert.deepEqual(Object.keys(SCENES).sort(), Object.keys(VIEWS).sort());
 });
 
 test('smoothie machine: taps above the cups the game puts on the drip trays', () => {
   const f = VIEWS.machine;
-  const size = 236; // MACHINE_SIZE in js/game-view.js: the machine element is the canvas
+  const size = 312; // MACHINE_SIZE in js/game-view.js: the machine element is the canvas
   assert.equal(f.w, size);
+  assert.equal(f.h, size, 'a square box like the drawn machine');
   const cup = size * SMOOTHIE_CUP_SIZE;
   for (const n of [1, 2]) {
     MACHINE_SLOT_X[n].forEach((x, i) => {
-      assert.ok(Math.abs((f.ax + x) / size - SMOOTHIE_SLOT_X[n][i]) < 0.002, `slot ${i} of ${n}: x`);
+      assert.ok(Math.abs((f.ax + x * f.zoom) / size - SMOOTHIE_SLOT_X[n][i]) < 0.002, `slot ${i} of ${n}: x`);
       // the cup art's bottom (y = 95 of 100) stands on the tray
-      const [, up] = screenOf([x, TRAY_Y, CUP_Z], ELEV);
+      const [, up] = screenOf([x, TRAY_Y, CUP_Z], ELEV, f.zoom);
       const cupBottom = SMOOTHIE_SLOT_Y * size - cup * 0.05;
       assert.ok(Math.abs(f.ay - up - cupBottom) < 1.5, `slot ${i} of ${n}: tray at ${f.ay - up}, cup bottom ${cupBottom}`);
     });
@@ -138,6 +141,47 @@ function canvasBox(scene, it) {
   }
   return box;
 }
+
+test('blender: every model in every state fits its canvas and its drag-ghost box, the badge sits on it', () => {
+  const { w, h } = VIEWS.blender;
+  for (let tier = 0; tier < 4; tier++) {
+    for (const big of [false, true]) {
+      for (const state of BLENDER_STATES) {
+        const ghost = blenderBox(tier, big, state);
+        assert.ok(ghost[0] >= 0 && ghost[1] >= 0 && ghost[2] <= w && ghost[3] <= h && ghost[2] - ghost[0] > 100 && ghost[3] - ghost[1] > 180, `ghost box ${ghost}`);
+        // the lid an overflowing blender lifts, its foam and drips, the flies of a spoiled one
+        for (let t = 0; t < 3; t += 0.1) {
+          const scene = blenderScene({ tier, big, state, base: 'acai', progress: 0.5, remaining: 3, portions: 1, maxPortions: big ? 3 : 2 }, t);
+          for (const it of scene.items) {
+            const [x0, y0, x1, y1] = canvasBox(scene, it);
+            const at = `model ${tier}/${big}/${state} at ${t.toFixed(1)}: ${[x0, y0, x1, y1].map((v) => v.toFixed(1))}`;
+            // the drag ghost copies all of it that is on the canvas, the soft shadow too
+            assert.ok(Math.max(x0, 0) >= ghost[0] && Math.max(y0, 0) >= ghost[1] && Math.min(x1, w) <= ghost[2] && Math.min(y1, h) <= ghost[3], `${at} outside the ghost box ${ghost}`);
+            if (it.pass === 'shadow') continue; // a soft blob on a bigger plane
+            assert.ok(x0 >= 0 && y0 >= 0 && x1 <= w && y1 <= h, `${at} outside ${w}×${h}`);
+          }
+        }
+      }
+      const b = blenderBadgeAt(tier, big);
+      assert.ok(b.x > w / 2 && b.x < w && b.y > 0 && b.y < h / 2, `badge of ${tier}/${big} at ${b.x},${b.y}`);
+    }
+  }
+});
+
+test('blender: every model stands equally tall, the big jug taller', () => {
+  // top of the lid above the floor centre, in CSS px of the game's canvas
+  const top = (tier, big) => {
+    const scene = blenderScene({ tier, big, state: 'empty' }, 0);
+    return VIEWS.blender.ay - Math.min(...scene.items.filter((it) => it.pass !== 'shadow').map((it) => canvasBox(scene, it)[1]));
+  };
+  for (const big of [false, true]) {
+    const tops = [0, 1, 2, 3].map((tier) => top(tier, big));
+    for (const v of tops) assert.ok(Math.abs(v - tops[0]) < 0.5, `${big ? 'big' : 'small'} jugs: lids at ${tops.map((x) => x.toFixed(1))}`);
+  }
+  // a cup is a 120 px box: about 2× (small) and 2.25× (big) as tall as one, the big jug clearly bigger
+  const [small, big] = [top(0, false), top(0, true)];
+  assert.ok(small >= 180 && small <= 196 && big >= small + 14 && big <= 216, `lids ${small.toFixed(1)} / ${big.toFixed(1)} px above the floor`);
+});
 
 test('chest freezer: seen from above, its frame fills the freezer opening of the counter', () => {
   const back = freezerScene({ layer: 'back' });

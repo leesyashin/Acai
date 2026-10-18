@@ -42,8 +42,8 @@ test('every shared gradient or clip path a picture uses is defined in artDefsSVG
     art.bowlSVG(null, 140), art.bowlSVG({ base: 'acai', mid: ['banana', 'granola', 'kiwi'], top: ['honey', 'chia', 'mint'] }, 140),
     art.cupStackSVG(84), art.cupSpotSVG(140), art.cupSVG('mango', 'ready', 70), art.cupSVG('kiwi', 'mixing', 70),
     ...['empty', 'blending', 'ready', 'overflowing', 'ruined'].map((state) => art.blenderSVG({ state, base: 'pitaya', portions: 1, maxPortions: 2 }, 140)),
-    art.smoothieMachineSVG(2, 236), art.trashSVG(96), art.shopSceneSVG(1280, 330), art.customerSVG(7, 'happy', 160),
-    art.counterSVG(1280, 450), art.freezerSVG('well', 284, 186), art.freezerSVG('rim', 284, 186), art.traySVG(400, 74),
+    art.smoothieMachineSVG(2, 312), art.trashSVG(96), art.shopSceneSVG(1280, 330), art.customerSVG(7, 'happy', 160),
+    art.counterSVG(1280, 462), art.freezerSVG('well', 284, 186), art.freezerSVG('rim', 284, 186), art.riserSVG(400, 62),
     ...ALL_IDS.filter((id) => INGREDIENTS.find((i) => i.id === id).layer !== 'base').map((id) => art.scoopSVG(id, 84)),
     ...['plants', 'jukebox', 'seating', 'neon'].map((id) => art.decorSVG(id, 118)),
   ];

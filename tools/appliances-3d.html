@@ -146,7 +146,7 @@ if (!r) {
             el.style.position = 'absolute';
             box.append(el);
           }
-          el.style.left = `${Math.round(VIEWS.machine.ax * zoom + MACHINE_SLOT_X[n][i] * zoom - cup / 2)}px`;
+          el.style.left = `${Math.round(frame.ax + MACHINE_SLOT_X[n][i] * frame.zoom - cup / 2)}px`;
           el.style.top = `${Math.round(SMOOTHIE_SLOT_Y * size - cup)}px`;
           const fill = s.state === 'mixing' ? Math.round(pourFill(s.progress) * 12) / 12 : null;
           const key = `${s.state}|${fill}`;

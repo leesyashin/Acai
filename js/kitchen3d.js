@@ -7,7 +7,7 @@
 
 import {
   MODE, material, lathe, roundedBox, tube, sphere, cylinder, plane, polarSurface, updateSurface, merge, section,
-  spline, compose, translation, scaling, rotationX, rotationY, rotationZ, rotationAbout, identity,
+  spline, compose, translation, scaling, rotationX, rotationY, rotationZ, rotationAbout, identity, screenOf, transformPoint,
 } from './geo3d.js';
 import { ING } from './data.js';
 import { mix, rngFor } from './svg.js';
@@ -18,23 +18,31 @@ export const ELEV = (17 * Math.PI) / 180;
 
 // Canvas of each view in CSS px (stage px) and where the world origin (floor centre under the
 // appliance) sits in it. The game places the canvases with the same numbers (css/game.css).
+// The appliances are about twice as tall as a cup on the counter (cups are 120 px boxes).
+// pic (optional): the rows of the canvas a menu picture shows (fitFrame).
 export const VIEWS = {
-  blender: { w: 126, h: 134, ax: 63, ay: 124, zoom: 0.9 },
-  machine: { w: 236, h: 236, ax: 118, ay: 202.7 },
-  trash: { w: 136, h: 186, ax: 68, ay: 170, zoom: 1.2 },
+  // no zoom of its own: each model gets the one that makes it as tall as the others (blenderZoom);
+  // headroom above the jug for the lid an overflowing blender lifts and its foam, room on the left
+  // for the tilted lid and on the right for the handle; the menu pictures leave most of the
+  // headroom out, so their blender stays as big as the square allows
+  blender: { w: 164, h: 292, ax: 72, ay: 260, pic: { y: 26, h: 266 } },
+  machine: { w: 312, h: 312, ax: 156, ay: 268, zoom: 312 / 236 },
+  trash: { w: 153, h: 209, ax: 76.5, ay: 191, zoom: 1.35 },
   // the freezer's origin is the floor of its well (FREEZER_ELEV, a gentle perspective)
   // (the canvas ends at the worktop's front edge, the frame's front face reaches past it)
   freezer: { w: 284, h: 194, ax: 142, ay: 142, zoom: 0.99 },
 };
 
-// The frame of a view scaled to fit a size×size square (shop and menu pictures).
+// The frame of a view (its pic rows) scaled to fit a size×size square (shop and menu pictures).
 export function fitFrame(frame, size) {
-  const k = size / Math.max(frame.w, frame.h);
+  const h = frame.pic ? frame.pic.h : frame.h;
+  const ay = frame.pic ? frame.ay - frame.pic.y : frame.ay;
+  const k = size / Math.max(frame.w, h);
   return {
     w: size,
     h: size,
     ax: frame.ax * k + (size - frame.w * k) / 2,
-    ay: frame.ay * k + (size - frame.h * k) / 2,
+    ay: ay * k + (size - h * k) / 2,
     zoom: (frame.zoom || 1) * k,
   };
 }
@@ -294,6 +302,83 @@ export function jugLevel(J, portions, maxPortions) {
   const k = clamp(portions ?? n, 1, n);
   const full = J.top - 13;
   return J.floor + (full - J.floor) * (0.24 + (0.76 * k) / n);
+}
+
+// Every blender stands equally tall whatever its motor base: the lid of a 2-bowl jug ends
+// BLENDER_TOP[0] px above the floor in the game, the bigger 3-bowl jug's BLENDER_TOP[1] (about 2× and
+// 2.25× a cup; the small lids end clearly below the pass, the big ones clearly over its oak front).
+const BLENDER_TOP = [188, 208];
+
+// The zoom of a model (times the frame's), measured once from its jug and lid.
+export function blenderZoom(tier = 0, big = false) {
+  const tr = clamp(Math.floor(Number(tier) || 0), 0, 3);
+  return once(`bl-zoom|${tr}|${!!big}`, () => {
+    const P = jugMeshes(tr, !!big);
+    let top = 0;
+    for (const mesh of [P.glass, P.handle, P.lid, P.cap]) {
+      for (let i = 0; i < mesh.pos.length; i += 3) top = Math.max(top, screenOf([mesh.pos[i], mesh.pos[i + 1], mesh.pos[i + 2]], ELEV)[1]);
+    }
+    return BLENDER_TOP[big ? 1 : 0] / top;
+  });
+}
+
+// Where the game pins a blender's status badge: just above the right end of the lid, in CSS px
+// from the top left of the VIEWS.blender canvas.
+export function blenderBadgeAt(tier = 0, big = false) {
+  const J = jugOf(clamp(Math.floor(Number(tier) || 0), 0, 3), !!big);
+  const { ax, ay } = VIEWS.blender;
+  const [x, y] = screenOf([J.rt + 8, J.top + 12, 0], ELEV, blenderZoom(tier, big));
+  return { x: ax + x, y: ay - y };
+}
+
+// The part of the VIEWS.blender canvas a model in a state covers at any time of its animation, its
+// contact shadow included: [x0, y0, x1, y1] in CSS px. Drag ghosts copy just this part of the
+// canvas (the canvas itself is never read back). Measured once per model and state from the
+// corners of each part's bounding box, a few px generous.
+export function blenderBox(tier = 0, big = false, state = 'empty') {
+  const tr = clamp(Math.floor(Number(tier) || 0), 0, 3);
+  const s = BLENDER_STATES.includes(state) ? state : 'empty';
+  return once(`bl-box|${tr}|${!!big}|${s}`, () => {
+    const { w, h, ax, ay } = VIEWS.blender;
+    const zoom = blenderZoom(tr, big);
+    let [x0, y0, x1, y1] = [w, h, 0, 0];
+    const o = { tier: tr, big, state: s, base: 'acai', progress: 0.5, remaining: 3, portions: 1, maxPortions: big ? 3 : 2 };
+    for (let t = 0; t < 3; t += isAnimated('blender', o) ? 0.25 : 3) {
+      for (const it of blenderScene(o, t).items) {
+        for (const c of corners(it.mesh)) {
+          const [x, y] = screenOf(transformPoint(it.m, c), ELEV, zoom);
+          x0 = Math.min(x0, ax + x);
+          x1 = Math.max(x1, ax + x);
+          y0 = Math.min(y0, ay - y);
+          y1 = Math.max(y1, ay - y);
+        }
+      }
+    }
+    // a little margin for the frames between the samples
+    return [Math.max(0, Math.floor(x0 - 2)), Math.max(0, Math.floor(y0 - 2)), Math.min(w, Math.ceil(x1 + 2)), Math.min(h, Math.ceil(y1 + 2))];
+  });
+}
+
+// The 8 corners of a mesh's bounding box (cached until the mesh changes).
+const bounds = new WeakMap();
+function corners(mesh) {
+  let b = bounds.get(mesh);
+  if (!b || b.version !== mesh.version) {
+    const lo = [Infinity, Infinity, Infinity];
+    const hi = [-Infinity, -Infinity, -Infinity];
+    const p = mesh.pos;
+    for (let i = 0; i < p.length; i += 3) {
+      for (let k = 0; k < 3; k++) {
+        lo[k] = Math.min(lo[k], p[i + k]);
+        hi[k] = Math.max(hi[k], p[i + k]);
+      }
+    }
+    const pts = [];
+    for (const x of [lo[0], hi[0]]) for (const y of [lo[1], hi[1]]) for (const z of [lo[2], hi[2]]) pts.push([x, y, z]);
+    b = { version: mesh.version, pts };
+    bounds.set(mesh, b);
+  }
+  return b.pts;
 }
 
 function baseMesh(T) {
@@ -562,7 +647,7 @@ export function blenderScene(o = {}, t = 0, frame = VIEWS.blender) {
 
   if (s === 'overflowing') items.push(...overflowFoam(J, base, t));
   if (s === 'ruined') items.push(...flies(J, t));
-  return { frame, elev: ELEV, time: t, items };
+  return { frame: { ...frame, zoom: (frame.zoom || 1) * blenderZoom(tier, big) }, elev: ELEV, time: t, items };
 }
 
 function overflowFoam(J, base, t) {

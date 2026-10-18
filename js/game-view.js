@@ -13,10 +13,10 @@ import {
 import {
   ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, scoopSVG, cupStackSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
   blenderBadgeSVG, smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
-  trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG, counterSVG, freezerSVG, traySVG,
+  trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG, counterSVG, freezerSVG, riserSVG,
 } from './art.js';
 import { has3D, createView, snapshot } from './art3d.js';
-import { blenderLook, pourFill } from './kitchen3d.js';
+import { blenderLook, blenderBadgeAt, blenderBox, pourFill } from './kitchen3d.js';
 import { createDragManager } from './drag.js';
 import defaultAudio from './audio.js';
 import {
@@ -235,27 +235,35 @@ registerStrings({
 
 // ------------------------------------------------------------------ layout (stage px)
 const STAGE_W = 1280;
-const WORK_Y = 350; // work area top; station coordinates below are relative to it
-const WORK_H = 450;
+const WORK_Y = 338; // work area top (the pass ends here); station coordinates below are relative to it
+const WORK_H = 462;
 const SEAT_X = [null, [640], [420, 860], [270, 640, 1010], [200, 493, 787, 1080]];
-const BLENDER_X = [null, [95], [25, 165]];
-const BLENDER_SIZE = 126;
-// The cup stack stands at the left end of the bowl row; stack + spots are centred in the row.
-const BOWL_SLOT_W = 126;
-const BOWL_SIZE = 126;
-const BOWLS_X0 = 316;
-const BOWLS_W = 648;
-const STACK_W = 76;
-const STACK_GAP = 8;
-const BIN_ART = 86; // also the width of a bin
+// Blenders stand at the back of the left column, about twice as tall as a cup: a 150 × 210 hit box
+// (css/game.css) with the front of the motor base on its bottom edge (stage y 548); two of them
+// keep a gap, so two big jugs do not touch.
+const BLENDER_X = [null, [89], [10, 170]];
+const BLENDER_ART = 220; // the drawn blender without WebGL (wider than the box, transparent)
+const BLENDER_BADGE = 36;
+// The cup stack stands at the left end of the cup row; stack + spots are centred in the middle column.
+const MID_X0 = 330;
+const MID_W = 610;
+const BOWL_SLOT_W = 120;
+const BOWL_SIZE = 120;
+const GHOST_BOWL = Math.round(BOWL_SIZE * 1.05); // a carried cup is a little bigger (drag.js adds 1.12)
+const STACK_W = 105; // its cups are the cups of bowlSVG(BOWL_SIZE) (see cupStackSVG)
+const STACK_GAP = 6;
+// Ingredient rows on slim oak risers, centred under the cups while they fit into the middle column,
+// else from its left edge on to the right (7 toppings reach in front of the machine).
+const BIN_W = 96; // also the width of the bin art
 const BIN_GAP = 6;
-const TRAY_PAD = 14;
-const TRAY_H = 74;
-const TRAY_MIN = 300;
+const RISER_PAD = 14;
+const RISER_MIN = 260;
+const RISER_H = 49;
 const FREEZER_W = 284;
 const FREEZER_H = 186;
 const PACK_ART = 84;
-const MACHINE_SIZE = 236;
+const MACHINE_SIZE = 312; // the machine box is its square canvas (VIEWS.machine) or drawn art
+const SLOT_W = 116;
 const DECOR_IDS = ['plants', 'jukebox', 'seating', 'neon'];
 const DECOR_SIZE = { plants: 118, jukebox: 118, seating: 124, neon: 104 };
 const LAYER_NUM = { base: 1, mid: 2, top: 3 };
@@ -455,25 +463,36 @@ class GameView {
     top.innerHTML = counterSVG(STAGE_W, WORK_H);
     work.append(top);
 
-    // blenders
+    // blenders; the status badge (ring while blending, ✓, !, spoiled) sits over the right end of the
+    // lid: placed on the 3D model's lid, or where blenderSVG would draw it (127, 22 of 150), a little
+    // further left so it stays inside the blender's box
     const bx = BLENDER_X[g.blenders.length] || BLENDER_X[2];
+    const badgeAt = this.k3d ? blenderBadgeAt(this.look.tier, this.look.big) : { x: (125 * BLENDER_ART) / 150, y: (22 * BLENDER_ART) / 150 };
     this.blenderViews = g.blenders.map((b, i) => {
       const node = el('div', 'g-blender', { 'data-blender': i, 'data-state': b.state, 'data-model': this.look.tier });
       node.style.left = `${bx[i]}px`;
       const art = el('div', 'g-art');
+      const badge = el('div', 'g-badge');
+      badge.style.left = `${Math.round(badgeAt.x)}px`;
+      badge.style.top = `${Math.round(badgeAt.y)}px`;
       const timer = el('div', 'g-timer');
       const fill = el('i');
       timer.append(fill);
       node.append(art, timer);
       work.append(node);
-      const v = { el: node, art, timer, fill, state: null, ring: null, ringP: -1 };
+      const v = { el: node, art, badge, timer, fill, state: null, ring: null, ringP: -1 };
       if (this.k3d) {
         v.view = createView('blender');
-        v.badge = el('div', 'g-badge');
-        art.append(v.view.el, v.badge);
+        art.append(v.view.el);
+      } else {
+        v.pic = el('div', 'g-pic');
+        art.append(v.pic);
       }
+      art.append(badge);
       return v;
     });
+    // the crop boxes of the drag ghosts: measured now rather than at the first pickup
+    if (this.k3d) for (const s of POURABLE) blenderBox(this.look.tier, this.look.big, s);
 
     // chest freezer built into the counter, the base packs (owned bases only) standing in it: the
     // frame's front edge is drawn over the packs, their names over the frame
@@ -505,7 +524,7 @@ class GameView {
 
     // cup stack + bowl spots: a cup goes down from the stack before anything goes into it
     const n = g.bowls.length;
-    const x0 = BOWLS_X0 + (BOWLS_W - (STACK_W + STACK_GAP + n * BOWL_SLOT_W)) / 2;
+    const x0 = MID_X0 + (MID_W - (STACK_W + STACK_GAP + n * BOWL_SLOT_W)) / 2;
     this.stackEl = el('div', 'g-stack', { 'data-cup-stack': '', role: 'img' });
     this.stackEl.style.left = `${Math.round(x0)}px`;
     this.stackEl.innerHTML = `<div class="g-art">${cupStackSVG(STACK_W)}</div><span class="g-name"></span>`;
@@ -523,9 +542,9 @@ class GameView {
       return { el: node, art, chips, match, isMatch: false };
     });
 
-    // ingredient bowls (owned only) on two oak trays, fruits & crunch behind toppings & sauces; each
-    // tray names its layer ("2 · Früchte & Crunch") like the freezer, so the layer-rule toasts point
-    // at visible words
+    // ingredient bowls (owned only) in two rows on slim oak risers, fruits & crunch behind toppings &
+    // sauces; each riser names its layer on its front edge ("2 · Früchte & Crunch") like the freezer,
+    // so the layer-rule toasts point at visible words
     this.binEls = {};
     this.shelfLabels = {};
     for (const layer of ['mid', 'top']) {
@@ -535,20 +554,21 @@ class GameView {
       for (const ing of INGREDIENTS) {
         if (ing.layer !== layer || !g.owned.includes(ing.id)) continue;
         const node = el('div', 'g-bin', { 'data-bin': ing.id, 'data-layer': layer });
-        node.innerHTML = `<span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span><div class="g-art">${binSVG(ing.id, BIN_ART)}</div><span class="g-name"></span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`;
+        node.innerHTML = `<span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span><div class="g-art">${binSVG(ing.id, BIN_W)}</div><span class="g-name"></span>${this.qualityMarkup(ing.id)}${this.badgeMarkup(ing.id)}`;
         row.append(node);
         this.binEls[ing.id] = node;
         n++;
       }
-      const inner = el('div', 'g-shelf-in');
-      const board = el('div', 'g-board');
-      const w = Math.max(TRAY_MIN, n * BIN_ART + Math.max(0, n - 1) * BIN_GAP + TRAY_PAD * 2);
-      board.style.width = `${w}px`;
-      board.innerHTML = traySVG(w, TRAY_H);
+      const rowW = n * BIN_W + Math.max(0, n - 1) * BIN_GAP;
+      const x = rowW <= MID_W ? MID_X0 + (MID_W - rowW) / 2 : MID_X0;
+      const w = Math.max(RISER_MIN, rowW + RISER_PAD * 2);
+      shelf.style.left = `${Math.round(x + rowW / 2 - w / 2)}px`;
+      shelf.style.width = `${w}px`;
+      const riser = el('div', 'g-riser');
+      riser.innerHTML = riserSVG(w, RISER_H);
       const label = el('span', `g-shelf-label g-shelf-label-${layer}`);
-      inner.append(board, row, label);
+      shelf.append(riser, row, label);
       this.shelfLabels[layer] = label;
-      shelf.append(inner);
       work.append(shelf);
     }
 
@@ -567,9 +587,8 @@ class GameView {
       const xs = SMOOTHIE_SLOT_X[count] || SMOOTHIE_SLOT_X[2];
       g.smoothie.slots.forEach((s, i) => {
         const node = el('div', 'g-slot', { 'data-smoothie-slot': i, 'data-state': s.state });
-        const w = 92;
-        node.style.left = `${Math.round(xs[i] * MACHINE_SIZE - w / 2)}px`;
-        node.style.top = `${Math.round(SMOOTHIE_SLOT_Y * MACHINE_SIZE - cup - 14)}px`;
+        node.style.left = `${Math.round(xs[i] * MACHINE_SIZE - SLOT_W / 2)}px`;
+        node.style.top = `${Math.round(SMOOTHIE_SLOT_Y * MACHINE_SIZE - cup - 16)}px`;
         node.style.setProperty('--cup', `${cup}px`);
         const art = el('div', 'g-art');
         const timer = el('div', 'g-timer');
@@ -602,7 +621,7 @@ class GameView {
       art.append(this.trashView.el);
       this.trashEl.append(art);
     } else {
-      this.trashEl.innerHTML = `<div class="g-art">${trashSVG(120)}</div>`;
+      this.trashEl.innerHTML = `<div class="g-art">${trashSVG(134)}</div>`;
     }
     work.append(this.trashEl);
     return work;
@@ -801,10 +820,11 @@ class GameView {
           const b = g.blenders[i];
           return this.canAct() && POURABLE.has(b.state) ? { kind: 'blender', idx: i } : null;
         },
+        // carried at about its size on the counter (drag.js enlarges ghosts by 1.12)
         ghost: () => {
           const b = g.blenders[i];
-          if (v.view?.el.width) return snapshot(v.view, 124);
-          return blenderSVG({ state: b.state, base: b.base, progress: b.progress, portions: b.portions, maxPortions: b.maxPortions }, 124);
+          if (v.view?.el.width) return snapshot(v.view, 0.9, blenderBox(this.look.tier, this.look.big, b.state));
+          return blenderSVG({ state: b.state, base: b.base, progress: b.progress, portions: b.portions, maxPortions: b.maxPortions, badge: false }, Math.round(BLENDER_ART * 0.9));
         },
         onTap: () => this.hint(v.el, g.blenders[i].state === 'ruined' ? 'game.hint.blenderRuined' : 'game.hint.blender'),
       });
@@ -822,7 +842,7 @@ class GameView {
 
     dnd.source(this.stackEl, {
       payload: () => (this.canAct() ? { kind: 'newcup' } : null),
-      ghost: () => bowlSVG(null, 132),
+      ghost: () => bowlSVG(null, GHOST_BOWL),
       onTap: () => this.hint(this.stackEl, 'game.hint.stack'),
     });
 
@@ -837,7 +857,7 @@ class GameView {
     this.bowlViews.forEach((v, i) => {
       dnd.source(v.el, {
         payload: () => (this.canAct() && g.bowls[i].base ? { kind: 'bowl', idx: i } : null),
-        ghost: () => bowlSVG(g.bowls[i], 132),
+        ghost: () => bowlSVG(g.bowls[i], GHOST_BOWL),
         onTap: () => this.hint(v.el, 'game.hint.bowl'),
       });
       dnd.target(v.el, {
@@ -856,7 +876,7 @@ class GameView {
         payload: () => (this.canAct() && g.smoothie.slots[i].state !== 'empty' ? { kind: 'cup', idx: i } : null),
         ghost: () => {
           const s = g.smoothie.slots[i];
-          return cupSVG(s.fruit, s.state, 84);
+          return cupSVG(s.fruit, s.state, v.cup);
         },
         onTap: () => this.hint(v.el, 'game.hint.cup'),
       });
@@ -1358,14 +1378,15 @@ class GameView {
   updateBlenders() {
     this.game.blenders.forEach((b, i) => {
       const v = this.blenderViews[i];
-      // the art is re-rendered only on state changes; the badge ring follows the blend in place
-      // (3D: the badge alone, the appliance is drawn in update3D)
-      const changed = v.view
-        ? patch(v.badge, b.state, () => blenderBadgeSVG(b.state, 30))
-        : patch(v.art, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}`,
-          () => blenderSVG({ state: b.state, base: b.base, progress: 0, portions: b.portions, maxPortions: b.maxPortions }, BLENDER_SIZE));
-      if (changed) {
-        v.ring = (v.badge || v.art).querySelector('[data-ring]');
+      // the art is re-rendered only on state changes (3D: drawn in update3D); the badge ring follows
+      // the blend in place
+      if (v.pic) {
+        patch(v.pic, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}`, () => blenderSVG({
+          state: b.state, base: b.base, progress: 0, portions: b.portions, maxPortions: b.maxPortions, badge: false,
+        }, BLENDER_ART));
+      }
+      if (patch(v.badge, b.state, () => blenderBadgeSVG(b.state, BLENDER_BADGE))) {
+        v.ring = v.badge.querySelector('[data-ring]');
         v.ringP = -1;
       }
       const rp = b.state === 'blending' ? Math.round(b.progress * 48) / 48 : 0;

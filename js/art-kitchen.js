@@ -1,5 +1,5 @@
 // Kitchen art for Açaí Fever: the commercial blender, the smoothie machine, the trash can, the work
-// counter in perspective with its freezer and trays, and the back wall of the café. Same realistic
+// counter in perspective with its freezer and risers, and the back wall of the café. Same realistic
 // look as art-food.js (shared gradients from svg.js). Pure module.
 
 import { ING } from './data.js';
@@ -203,7 +203,7 @@ export function blenderBadgeSVG(state, size = 30) {
 // ======================================================================
 export const SMOOTHIE_SLOT_X = [[0.5], [0.5], [0.3, 0.7]];
 export const SMOOTHIE_SLOT_Y = 0.885;
-export const SMOOTHIE_CUP_SIZE = 0.36;
+export const SMOOTHIE_CUP_SIZE = 0.33;
 
 export function smoothieMachineSVG(slotCount = 1, size = 200) {
   const n = slotCount >= 2 ? 2 : 1;
@@ -267,14 +267,20 @@ export function trashSVG(size = 64) {
 }
 
 // ======================================================================
-// Work counter (1280×450 stage px under the pass, stage y 350–800): a terrazzo worktop seen from
+// Work counter (1280×462 stage px under the pass, stage y 338–800): a terrazzo worktop seen from
 // above at an angle – far edge in the pass's shadow, chips shrinking toward the back – its
-// rounded front edge and the cabinet below it: the freezer's front panel on the left, open oak
-// shelves with the café's stock under an LED strip
+// rounded front edge and a strip of the cabinet below it: the freezer's front panel on the left,
+// the tops of open oak shelves with the café's stock under an LED strip
 // ======================================================================
-const COUNTER_EDGE_Y = 354; // front edge of the worktop (stage y 704)
-const COUNTER_LIP = 18; // the rounded front edge; the cabinet front starts below it
+const COUNTER_W = 1280;
+const COUNTER_H = 462;
+const COUNTER_EDGE_Y = 404; // front edge of the worktop (stage y 742)
+const COUNTER_LIP = 14; // the rounded front edge; the cabinet strip starts below it (stage y 756)
 const SHELF_POSTS = [300, 516, 732, 948, 1150];
+// The stock is drawn for a shelf whose top is at y 372 and moved down into the cabinet strip, where
+// only its upper part shows above the bottom of the screen; STOCK_LIFT keeps the tops of the crates in view.
+const STOCK_TOP = 372;
+const STOCK_LIFT = 16;
 
 // Terrazzo chips on the worktop, in perspective: sampled evenly on the slab, projected toward a
 // horizon far above the screen, so they get smaller and flatter toward the back.
@@ -342,15 +348,9 @@ function kraftBag(x, base, w, h, label) {
   return s;
 }
 
-function underCounter(W, C, H) {
-  let s = rect(0, C, W, H - C, 0, '#5a4334') + rect(0, C, W, H - C, 0, paint('down-dark'), op(0.6));
-  // LED strip under the apron: warm light falling on the stock
-  for (let i = 0; i < SHELF_POSTS.length - 1; i++) {
-    const cx = (SHELF_POSTS[i] + SHELF_POSTS[i + 1]) / 2;
-    s += ellipse(cx, C + 14, (SHELF_POSTS[i + 1] - SHELF_POSTS[i]) * 0.55, 44, paint('warm-glow'), op(0.9));
-  }
-  const base = H + 6;
-  s += g('translate(318 386) scale(0.42)', cupStackShape()) + g('translate(368 380) scale(0.46)', cupStackShape());
+function stock() {
+  const base = 456;
+  let s = g('translate(318 386) scale(0.42)', cupStackShape()) + g('translate(368 380) scale(0.46)', cupStackShape());
   s += bowlStack(460, base);
   s += stockCrate(530, base, 110, 40,
     stockIcon('banana', 516, 368, 0.7) + stockIcon('banana', 564, 364, 0.68) + stockIcon('banana', 540, 380, 0.64));
@@ -361,6 +361,17 @@ function underCounter(W, C, H) {
   s += stockIcon('coconut', 958, 398, 0.62) + stockIcon('coconut', 1004, 404, 0.56);
   s += stockCrate(1060, base, 82, 34, stockIcon('strawberry', 1052, 398, 0.5) + stockIcon('strawberry', 1090, 396, 0.5) + stockIcon('blueberry', 1072, 404, 0.42));
   s += kraftBag(1164, base, 70, 52, 'AÇAÍ');
+  return s;
+}
+
+function underCounter(W, C, H) {
+  let s = rect(0, C, W, H - C, 0, '#5a4334') + rect(0, C, W, H - C, 0, paint('down-dark'), op(0.6));
+  // LED strip under the apron: warm light falling on the stock
+  for (let i = 0; i < SHELF_POSTS.length - 1; i++) {
+    const cx = (SHELF_POSTS[i] + SHELF_POSTS[i + 1]) / 2;
+    s += ellipse(cx, C + 14, (SHELF_POSTS[i + 1] - SHELF_POSTS[i]) * 0.55, 44, paint('warm-glow'), op(0.9));
+  }
+  s += g(`translate(0 ${C - STOCK_TOP - STOCK_LIFT})`, stock());
   // oak posts between the compartments, the apron under the worktop edge
   for (const x of SHELF_POSTS) {
     s += rect(x - 5, C, 10, H - C, 0, '#c99b63') + rect(x - 5, C, 10, H - C, 0, paint('cyl')) + line(`M${x - 4.4} ${C}V${H}`, '#8f6331', 1, op(0.6));
@@ -370,7 +381,10 @@ function underCounter(W, C, H) {
   return s;
 }
 
-// Fruit basket and a jar of paper straws on the free worktop right of the trays.
+// Fruit basket and a jar of paper straws on the free worktop in front of the machine (drawn at
+// 1:1 around the basket's foot at (1046, 334), then scaled into place by counterSVG).
+const DECOR_AT = { x: 1098, y: 300, scale: 0.72 };
+
 function worktopDecor() {
   let s = softShadow(1046, 330, 70, 11) + softShadow(1124, 318, 22, 5);
   // wicker basket: belly in front of the heaped fruit, woven texture, rim
@@ -392,9 +406,9 @@ function worktopDecor() {
 }
 registerDefs('<clipPath id="af-clip-basket"><path d="M984 292C986 318 1010 334 1046 334C1082 334 1106 318 1108 292Z"/></clipPath>');
 
-export function counterSVG(width = 1280, height = 450) {
-  const W = 1280;
-  const H = 450;
+export function counterSVG(width = COUNTER_W, height = COUNTER_H) {
+  const W = COUNTER_W;
+  const H = COUNTER_H;
   const E = COUNTER_EDGE_Y;
   const C = E + COUNTER_LIP;
   const topId = uid('ctr');
@@ -407,14 +421,14 @@ export function counterSVG(width = 1280, height = 450) {
   // the pendant lamps reflected in the polished stone, the pass's shadow along the far edge
   for (const [x, rx] of [[150, 150], [380, 170], [900, 170], [1160, 150]]) s += ellipse(x, 84, rx, 32, paint('glow'), op(0.38));
   s += rect(0, 0, W, 40, 0, paint('up-dark'), op(0.55)) + rect(0, 0, W, 8, 0, '#3b2a22', op(0.18));
-  s += worktopDecor();
+  s += g(`translate(${DECOR_AT.x} ${DECOR_AT.y}) scale(${DECOR_AT.scale}) translate(-1046 -334)`, worktopDecor());
   // cabinet: open shelves with the stock, the freezer's front panel on the left
   s += underCounter(W, C, H);
   const fp = `M18 ${C}H298V${H + 4}H18Z`;
   s += path(fp, '#eef0f1') + path(fp, paint('steel-v'), op(0.5)) + path(fp, 'none', stroke(1, '#8f99a4'));
   s += rect(18, C, 280, 12, 0, paint('up-dark'), op(0.8));
   let vents = '';
-  for (let x = 40; x < 280; x += 10) vents += `M${x} ${H - 18}V${H - 10}`;
+  for (let x = 40; x < 280; x += 10) vents += `M${x} ${H - 9}V${H - 3}`;
   s += line(vents, '#5b6570', 2.2, op(0.55));
   // rounded front edge of the worktop, casting its shadow on the cabinet
   s += rect(0, E, W, COUNTER_LIP, 0, `url(#${lipId})`);
@@ -489,28 +503,35 @@ export function freezerSVG(part = 'well', width = 284, height = 186) {
 }
 
 // ======================================================================
-// Oak tray an ingredient row stands on (w × h px, drawn 1:1): top face narrowing toward the
-// back, a front edge for the layer label, a soft shadow on the worktop
+// Slim oak riser an ingredient row stands on (w × h px, drawn 1:1): a top face narrowing toward the
+// back, its front edge (RISER_FRONT px tall, from h − RISER_FRONT − 3; the layer label sits on it,
+// css/game.css places it there) and a soft shadow on the worktop below it
 // ======================================================================
-export function traySVG(w, h) {
-  return memo(`tray|${w}|${h}`, () => {
-    const t = h - 18; // front edge of the top face
-    const inset = 7;
-    const top = `M${inset + 8} 2H${w - inset - 8}Q${w - inset} 2 ${w - inset + 0.6} 9L${w - 0.6} ${t - 6}Q${w} ${t} ${w - 8} ${t}H8Q0 ${t} 0.6 ${t - 6}L${inset - 0.6} 9Q${inset} 2 ${inset + 8} 2Z`;
-    const front = `M0.6 ${t - 4}Q1 ${t} 8 ${t}H${w - 8}Q${w - 1} ${t} ${w - 0.6} ${t - 4}L${w} ${t + 3}Q${w} ${t + 9} ${w - 8} ${t + 9}H8Q0 ${t + 9} 0 ${t + 3}Z`;
-    let s = path(rrect(4, t + 2, w - 8, 12, 6), '#3b2a22', op(0.16)) + path(rrect(10, t + 6, w - 20, 10, 5), '#3b2a22', op(0.12));
+const RISER_FRONT = 16;
+
+export function riserSVG(w, h) {
+  return memo(`riser|${w}|${h}`, () => {
+    const F = RISER_FRONT;
+    const t = h - F - 3; // front edge of the top face
+    const inset = 6;
+    const top = `M${inset + 6} 1H${w - inset - 6}Q${w - inset} 1 ${w - inset + 0.6} 6L${w - 0.6} ${t - 4}Q${w} ${t} ${w - 6} ${t}H6Q0 ${t} 0.6 ${t - 4}L${inset - 0.6} 6Q${inset} 1 ${inset + 6} 1Z`;
+    const front = `M0.6 ${t - 3}Q1 ${t} 6 ${t}H${w - 6}Q${w - 1} ${t} ${w - 0.6} ${t - 3}L${w} ${t + F - 4}Q${w} ${t + F} ${w - 6} ${t + F}H6Q0 ${t + F} 0 ${t + F - 4}Z`;
+    let s = path(rrect(3, t + F - 5, w - 6, 8, 4), '#3b2a22', op(0.22)) + path(rrect(10, t + F - 2, w - 20, 5, 2.5), '#3b2a22', op(0.14));
     s += path(top, '#dcb27c', stroke(1, '#a8743f'));
-    const rng = rngFor(`tray-${w}`);
+    const rng = rngFor(`riser-${w}`);
     let grain = '';
-    for (let i = 0; i < Math.round(w / 24); i++) {
-      const y = 6 + rng.next() * (t - 12);
+    for (let i = 0; i < Math.round(w / 30); i++) {
+      const y = 5 + rng.next() * (t - 9);
       const x = 6 + rng.next() * (w - 60);
-      grain += `M${f(x)} ${f(y)}q${f(18 + rng.next() * 20)} ${f(rng.next() * 3 - 1.5)} ${f(40 + rng.next() * 40)} ${f(rng.next() * 2 - 1)}`;
+      grain += `M${f(x)} ${f(y)}q${f(18 + rng.next() * 20)} ${f(rng.next() * 2 - 1)} ${f(40 + rng.next() * 40)} ${f(rng.next() * 1.6 - 0.8)}`;
     }
-    s += line(grain, '#b98446', 1.1, op(0.4));
+    s += line(grain, '#b98446', 1, op(0.4));
     s += path(top, paint('glow'), op(0.3)) + path(top, paint('down'), op(0.5));
-    s += path(front, '#b98146', stroke(1, '#7d5226')) + path(front, paint('down-dark'), op(0.6));
-    s += line(`M8 ${t + 0.8}H${w - 8}`, '#f6d9a8', 1.2, op(0.9));
+    s += path(front, '#b98146', stroke(1, '#7d5226')) + path(front, paint('down-dark'), op(0.55));
+    let planks = '';
+    for (let x = 90 + rng.next() * 60; x < w - 40; x += 140 + rng.next() * 90) planks += `M${f(x)} ${t + 2}V${t + F - 2}`;
+    s += line(planks, '#7d5226', 1, op(0.35));
+    s += line(`M6 ${t + 0.8}H${w - 6}`, '#f6d9a8', 1.2, op(0.9));
     return svgWrap(w, h, w, h, s);
   });
 }

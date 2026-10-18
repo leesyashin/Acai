@@ -144,17 +144,31 @@ async function main() {
         await page.screenshot({ path: path.join(OUT, 'ready.png') });
       });
 
-      await check('dragging the blender carries a 3D snapshot', async () => {
+      await check('dragging the blender carries a 3D snapshot, copied without reading the canvas back', async () => {
+        // a pixel readback of the live canvas would stall the GPU on every pickup
+        await page.evaluate(() => {
+          const read = CanvasRenderingContext2D.prototype.getImageData;
+          window.__readbacks = 0;
+          CanvasRenderingContext2D.prototype.getImageData = function getImageData(...args) {
+            window.__readbacks++;
+            return read.apply(this, args);
+          };
+          window.__restoreReadbacks = () => { CanvasRenderingContext2D.prototype.getImageData = read; };
+        });
         const box = await page.locator('[data-blender="0"]').boundingBox();
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
         await page.mouse.down();
         await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2 - 30, { steps: 5 });
         await sleep(150);
-        const ghost = await page.locator('.drag-ghost canvas').count();
+        const ghost = await page.locator('.drag-ghost canvas').evaluate((c) => ({ w: c.getBoundingClientRect().width, h: c.getBoundingClientRect().height })).catch(() => null);
         await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 });
         await page.mouse.up();
         await sleep(400);
-        assert(ghost === 1, 'the drag ghost is not the 3D picture');
+        const readbacks = await page.evaluate(() => { window.__restoreReadbacks(); return window.__readbacks; });
+        assert(ghost, 'the drag ghost is not the 3D picture');
+        // cropped to the blender (the canvas is 164 × 292 with headroom), carried at about its size
+        assert(ghost.w > 100 && ghost.w < 200 && ghost.h > 180 && ghost.h < 290, `ghost ${ghost.w}×${ghost.h}`);
+        assert(readbacks === 0, `${readbacks} getImageData call(s) while picking up the blender`);
       });
 
       await check('the bin opens while a bowl is carried over it and falls shut after the drop', async () => {

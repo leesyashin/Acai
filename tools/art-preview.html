@@ -53,7 +53,7 @@
   .bubble { background: var(--white); border: 3px solid var(--ink); border-radius: 18px; padding: 4px; }
   .mock { position: relative; width: 1280px; height: 800px; overflow: hidden; border-radius: 14px; background: var(--cream); flex: none; }
   .mock > * { position: absolute; }
-  .mock .counter { left: 0; top: 295px; width: 1280px; height: 63px; z-index: 1; background: linear-gradient(180deg, #ece8e2 0, #fdfcfa 39px, #cfc6ba 45px, #b08458 46px, #8a6236 100%); }
+  .mock .counter { left: 0; top: 294px; width: 1280px; height: 44px; background: linear-gradient(180deg, #ece8e2 0, #fdfcfa 22px, #cfc6ba 23px, #b08458 24px, #8a6236 100%); }
   .mock .order { background: var(--white); border: 3px solid var(--ink); border-radius: 18px; padding: 4px 6px; display: flex; align-items: center; gap: 2px; box-shadow: 0 4px 0 rgba(42, 18, 54, 0.3); }
   .mock .bin { width: 86px; height: 100px; background: var(--paper); border: 3px solid var(--ink); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 4px 0 var(--ink); }
   .mock .hud { left: 12px; top: 10px; display: flex; gap: 12px; align-items: center; }
@@ -85,8 +85,8 @@ registerStrings({
     'artprev.ok': 'Keine doppelten IDs ({n} SVGs)', 'artprev.dup': 'Doppelte IDs: {list}',
     'artprev.empty': 'leer', 'artprev.baseOnly': 'nur Basis', 'artprev.mock': 'Im Spiel (Attrappe, 1280 × 800)',
     'artprev.pours': 'Füllstand nach jedem Ausgießen (Portionen übrig)',
-    'artprev.bins': 'Zutaten-Schalen (86 px wie im Spiel)', 'artprev.stack': 'Bowl-Stapel und freier Platz',
-    'artprev.counter': 'Theke: Arbeitsplatte mit Regal, Gefriertruhe, Tablett', 'artprev.scoops': 'Was man aus den Schalen zieht',
+    'artprev.bins': 'Zutaten-Schalen (96 px wie im Spiel)', 'artprev.stack': 'Bowl-Stapel und freier Platz',
+    'artprev.counter': 'Theke: Arbeitsplatte mit Regal, Gefriertruhe, Podest', 'artprev.scoops': 'Was man aus den Schalen zieht',
   },
   en: {
     'artprev.title': 'Açaí Fever – art preview', 'artprev.lang': 'Deutsch',
@@ -97,8 +97,8 @@ registerStrings({
     'artprev.ok': 'No duplicate ids ({n} SVGs)', 'artprev.dup': 'Duplicate ids: {list}',
     'artprev.empty': 'empty', 'artprev.baseOnly': 'base only', 'artprev.mock': 'In game (mock-up, 1280 × 800)',
     'artprev.pours': 'Fill level after each pour (portions left)',
-    'artprev.bins': 'Ingredient bowls (86 px as in game)', 'artprev.stack': 'Bowl stack and free spot',
-    'artprev.counter': 'Counter: worktop with shelves, freezer, tray', 'artprev.scoops': 'What a drag from a bowl carries',
+    'artprev.bins': 'Ingredient bowls (96 px as in game)', 'artprev.stack': 'Bowl stack and free spot',
+    'artprev.counter': 'Counter: worktop with shelves, freezer, riser', 'artprev.scoops': 'What a drag from a bowl carries',
   },
 });
 
@@ -141,13 +141,13 @@ function render() {
     el(`<div class="row">${art.packIcon(id, 72)}${art.packIcon(id, 48)}</div>${ingName(id, true)}`)).join(''));
 
   h += section('artprev.bins', INGREDIENTS.filter((i) => i.layer !== 'base').map((i) =>
-    el(`<div class="row">${art.binSVG(i.id, 120)}${art.binSVG(i.id, 86)}</div>${ingName(i.id, true)}`)).join(''));
+    el(`<div class="row">${art.binSVG(i.id, 120)}${art.binSVG(i.id, 96)}</div>${ingName(i.id, true)}`)).join(''));
   h += section('artprev.scoops', INGREDIENTS.filter((i) => i.layer !== 'base').map((i) =>
     el(`${art.scoopSVG(i.id, 84)}${ingName(i.id, true)}`)).join(''));
-  h += section('artprev.counter', el(art.counterSVG(1280, 450), 'cell wide') +
-    el(`<div class="row">${art.freezerSVG('well', 284, 186)}</div>well`) + el(art.traySVG(420, 74)));
+  h += section('artprev.counter', el(art.counterSVG(1280, 462), 'cell wide') +
+    el(`<div class="row">${art.freezerSVG('well', 284, 186)}</div>well`) + el(art.riserSVG(420, 49)));
 
-  h += section('artprev.stack', el(`<div class="row">${art.cupStackSVG(84)}${art.cupSpotSVG(140)}${art.bowlSVG(null, 140)}</div>`));
+  h += section('artprev.stack', el(`<div class="row">${art.cupStackSVG(122)}${art.cupSpotSVG(140)}${art.bowlSVG(null, 140)}</div>`));
 
   h += section('artprev.bowls', BOWLS.map((b) => el(`${art.bowlSVG(b, 150)}${bowlLabel(b)}`)).join(''));
   h += section('artprev.bowlsSmall', BOWLS.slice(0, 14).map((b) => el(`<div class="bubble">${art.bowlSVG(b, 64)}</div>`)).join(''));
@@ -214,30 +214,32 @@ function render() {
     const items = [...o.bowl.mid, ...o.bowl.top].map((id) => art.ingredientIcon(id, 30)).join('');
     m += `<div class="order" style="left:${x - 20}px;top:78px">${art.bowlSVG(o.bowl, 64)}<div style="display:grid;grid-template-columns:repeat(2,30px)">${items}</div>${o.smoothie ? art.cupSVG(o.smoothie, 'ready', 48) : ''}</div>`;
   });
-  m += `<div class="counter"></div><div style="left:0;top:350px">${art.counterSVG(1280, 450)}</div>`;
+  // the game's layout (js/game-view.js, css/game.css): the work counter from y 338, the appliances in front of the pass
+  m += `<div class="counter"></div><div style="left:0;top:338px">${art.counterSVG(1280, 462)}</div>`;
   m += `<div class="hud"><div class="pill">${art.heartSVG(true, 30)}${art.heartSVG(true, 30)}${art.heartSVG(false, 30)}</div><div class="pill">${art.coinSVG(32)} 128</div><div class="pill">${art.clockSVG(32)} 1:12</div><div class="pill">${art.starSVG(true, 30)}${art.starSVG(false, 30)}</div></div>`;
-  m += `<div style="left:25px;top:356px">${art.blenderSVG({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 126)}</div>`;
-  m += `<div style="left:165px;top:356px">${art.blenderSVG({ state: 'blending', base: 'pitaya', progress: 0.4 }, 126)}</div>`;
-  m += `<div style="left:16px;top:518px">${art.freezerSVG('well', 284, 186)}</div>`;
-  ['acai', 'pitaya', 'spirulina'].forEach((id, i) => { m += `<div style="left:${30 + i * 88}px;top:610px">${art.packIcon(id, 84)}</div>`; });
-  m += `<div style="left:16px;top:518px">${art.freezerSVG('rim', 284, 186)}</div>`;
-  m += `<div style="left:346px;top:356px">${art.cupStackSVG(76)}</div>`;
+  m += `<div style="left:-40px;top:334px">${art.blenderSVG({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 220)}</div>`;
+  m += `<div style="left:120px;top:334px">${art.blenderSVG({ state: 'blending', base: 'pitaya', progress: 0.4 }, 220)}</div>`;
+  m += `<div style="left:16px;top:556px">${art.freezerSVG('well', 284, 186)}</div>`;
+  ['acai', 'pitaya', 'spirulina'].forEach((id, i) => { m += `<div style="left:${28 + i * 88}px;top:648px">${art.packIcon(id, 84)}</div>`; });
+  m += `<div style="left:16px;top:556px">${art.freezerSVG('rim', 284, 186)}</div>`;
+  m += `<div style="left:340px;top:352px">${art.cupStackSVG(105)}</div>`;
   const slotBowls = [{ base: 'acai', mid: ['banana'], top: [] }, null, { base: 'pitaya', mid: ['strawberry', 'granola'], top: ['honey'] }, { base: null, mid: [], top: [] }];
-  slotBowls.forEach((b, i) => { m += `<div style="left:${430 + i * 126}px;top:356px">${b ? art.bowlSVG(b, 126) : art.cupSpotSVG(126)}</div>`; });
+  slotBowls.forEach((b, i) => { m += `<div style="left:${451 + i * 120}px;top:392px">${b ? art.bowlSVG(b, 120) : art.cupSpotSVG(120)}</div>`; });
   const mids = INGREDIENTS.filter((i) => i.layer === 'mid');
   const tops = INGREDIENTS.filter((i) => i.layer === 'top');
+  // rows of 96 px bowls, centred under the cups (x 330–940) while they fit, else from x 330 on
   const row = (list, top) => {
-    const w = list.length * 86 + (list.length - 1) * 6 + 28;
-    const x0 = 640 - w / 2;
-    let r = `<div style="left:${x0}px;top:${top + 14}px">${art.traySVG(w, 74)}</div>`;
-    list.forEach((ing, i) => { r += `<div style="left:${x0 + 14 + i * 92}px;top:${top}px">${art.binSVG(ing.id, 86)}</div>`; });
+    const w = list.length * 96 + (list.length - 1) * 6;
+    const x0 = w <= 610 ? 330 + (610 - w) / 2 : 330;
+    let r = `<div style="left:${x0 - 14}px;top:${top + 54}px">${art.riserSVG(w + 28, 49)}</div>`;
+    list.forEach((ing, i) => { r += `<div style="left:${x0 + i * 102}px;top:${top}px">${art.binSVG(ing.id, 96)}</div>`; });
     return r;
   };
-  m += row(mids, 516) + row(tops, 610);
-  const ms = 236;
+  m += row(mids, 542) + row(tops, 642);
+  const ms = 312;
   const cs = Math.round(ms * art.SMOOTHIE_CUP_SIZE);
-  m += `<div style="left:1002px;top:350px;width:${ms}px;height:${ms}px">${art.smoothieMachineSVG(2, ms)}${art.SMOOTHIE_SLOT_X[2].map((fx, i) => `<div style="position:absolute;left:${fx * ms - cs / 2}px;top:${art.SMOOTHIE_SLOT_Y * ms - cs}px">${art.cupSVG(i ? 'kiwi' : 'mango', i ? 'mixing' : 'ready', cs)}</div>`).join('')}</div>`;
-  m += `<div style="left:1148px;top:678px">${art.trashSVG(120)}</div>`;
+  m += `<div style="left:952px;top:265px;width:${ms}px;height:${ms}px">${art.smoothieMachineSVG(2, ms)}${art.SMOOTHIE_SLOT_X[2].map((fx, i) => `<div style="position:absolute;left:${fx * ms - cs / 2}px;top:${art.SMOOTHIE_SLOT_Y * ms - cs}px">${art.cupSVG(i ? 'kiwi' : 'mango', i ? 'mixing' : 'ready', cs)}</div>`).join('')}</div>`;
+  m += `<div style="left:1137px;top:665px">${art.trashSVG(134)}</div>`;
   h += section('artprev.mock', `<div class="mock">${m}</div>`);
 
   h += section('artprev.decor', ['plants', 'jukebox', 'seating', 'neon'].map((id) => el(`${art.decorSVG(id, 140)}${id}`, 'cell wall')).join(''));

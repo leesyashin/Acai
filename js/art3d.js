@@ -64,16 +64,26 @@ export function createView(kind, className = '') {
   };
 }
 
-// A copy of a view's current picture (drag ghosts), cssWidth wide.
-export function snapshot(view, cssWidth) {
+// A copy of a view's current picture (drag ghosts) at scale × its size on the counter, cropped to
+// box = [x0, y0, x1, y1] (CSS px of the canvas, default the whole canvas): a canvas keeps headroom
+// (an overflowing blender's lid) the ghost does not need, and the ghost is centred on the pointer.
+// Only drawImage: reading a live canvas's pixels back would stall the GPU, and Chromium may then
+// keep that canvas on the CPU, which makes every later frame drawn into it slow.
+export function snapshot(view, scale = 1, box = null) {
   const src = view.el;
+  const css = parseFloat(src.style.width) || src.width;
+  const k = (src.width / css) || 1; // canvas px per CSS px
+  const b = box || [0, 0, css, src.height / k];
+  const x0 = Math.max(0, Math.floor(b[0] * k));
+  const y0 = Math.max(0, Math.floor(b[1] * k));
+  const x1 = Math.min(src.width, Math.ceil(b[2] * k));
+  const y1 = Math.min(src.height, Math.ceil(b[3] * k));
   const c = document.createElement('canvas');
-  c.width = src.width;
-  c.height = src.height;
-  c.getContext('2d').drawImage(src, 0, 0);
-  const k = cssWidth / parseFloat(src.style.width || src.width);
-  c.style.width = `${Math.round(parseFloat(src.style.width) * k)}px`;
-  c.style.height = `${Math.round(parseFloat(src.style.height) * k)}px`;
+  c.width = Math.max(1, x1 - x0);
+  c.height = Math.max(1, y1 - y0);
+  c.getContext('2d').drawImage(src, x0, y0, c.width, c.height, 0, 0, c.width, c.height);
+  c.style.width = `${Math.round((c.width / k) * scale)}px`;
+  c.style.height = `${Math.round((c.height / k) * scale)}px`;
   c.style.display = 'block';
   return c;
 }

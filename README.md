@@ -57,7 +57,8 @@ und Honig – insgesamt gibt es 16), bessere Qualität (mehr Münzen pro Zutat),
 (schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Doppel-Smoothie) und Deko,
 die Gäste geduldiger macht.
 
-**Küchengeräte in 3D:** Jede Stufe des Turbo-Mixers ist ein neues Modell – vom weißen *Classic* mit Drehknopf über den
+**Küchengeräte in 3D:** Mixer und Smoothie-Maschine stehen hinten auf der Arbeitsplatte vor der Theke und sind etwa
+doppelt so hoch wie ein Becher. Jede Stufe des Turbo-Mixers ist ein neues Modell – vom weißen *Classic* mit Drehknopf über den
 *Turbo* aus gebürstetem Edelstahl und den açaí-lila *Pro* mit LED-Ring bis zum schwarzen *Pro Max* mit Countdown-Display
 und Lichtleiste. Der große Mixkrug ist sichtbar höher und breiter, die Smoothie-Maschine wächst vom kompakten Ein-Tank-
 zum Edelstahl-Zwei-Tank-Gerät. Beim Mixen dreht sich ein Strudel im Krug und gefrorene Stücke zerfallen, beim Überlaufen
@@ -103,7 +104,9 @@ E2E-Skripte legen Screenshots in `$E2E_OUT_DIR` ab (Standard: Temp-Ordner), nie 
 dann mit Touch auf 1024×768, testet den Endlos-Modus und die englische Oberfläche, prüft, dass ein
 Zwei-Finger-Pinch im Rand um die Bühne die Seite nicht zoomt, und dass zwei offene Tabs sich den Spielstand
 nicht gegenseitig überschreiben. `appliances.e2e.mjs` prüft die 3D-Geräte (Modelle je Upgrade, Animationen, Deckel,
-Kaltluft der Truhe, Zapfhahn, Shop-Bilder) und die gezeichneten Geräte ohne WebGL. `build.e2e.mjs` baut das
+Kaltluft der Truhe, Zapfhahn, Shop-Bilder) und die gezeichneten Geräte ohne WebGL. `layout.e2e.mjs` prüft das
+Spielfeld: Jede Station liegt ganz auf der Bühne, ist mindestens 64 px groß und überdeckt keine andere – auch in der
+vollsten Küche mit 4 Gästen, 2 Mixern, 4 Bechern und allen 16 Zutaten. `build.e2e.mjs` baut das
 Spiel und startet es per `file://`. Alle 3D-Geräte in allen Zuständen zeigt `tools/appliances-3d.html`
 (`npm start`, dann `http://localhost:8080/tools/appliances-3d.html?anim=1`). Für eine Sichtprüfung erzeugt `node tools/shots.mjs <ordner>` Screenshots
 aller Bildschirme in mehreren Größen.
@@ -126,7 +129,7 @@ js/engine.js          Spiel-Simulation ohne DOM
 js/drag.js            Drag & Drop für Touch und Maus
 js/svg.js             gemeinsame SVG-Helfer + Farbverläufe (eine versteckte <svg> pro Seite)
 js/art-food.js        Becher mit Schichten, Zutaten, Zutaten-Schalen, Packungen, Smoothies
-js/art-kitchen.js     Theke in Perspektive (Arbeitsplatte, Regal), Gefriertruhe, Tabletts, Café-Rückwand, Deko;
+js/art-kitchen.js     Theke in Perspektive (Arbeitsplatte, Regal), Gefriertruhe, Podeste, Café-Rückwand, Deko;
                       Mixer, Smoothie-Maschine, Mülleimer als Ersatz ohne WebGL
 js/art.js             Gäste, HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
 js/geo3d.js           3D-Mathematik, Geometrie (Drehkörper, abgerundete Boxen, Rohre, Flüssigkeitsoberflächen), Materialien
@@ -156,7 +159,8 @@ patience runs out. Made for landscape tablets, also playable with a mouse and on
 <https://leesyashin.github.io/Acai/> (every push to `main` deploys there).
 The kitchen appliances are real-time 3D models (WebGL, no library) with animations – a vortex in the blender jug,
 churning slush and a pouring tap in the smoothie machine, a pedal bin lid and cold air from the chest freezer – and every kitchen upgrade
-brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-tank → two-tank smoothie machine).
+brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-tank → two-tank smoothie machine). Blenders and
+machine stand at the back of the worktop in front of the pass, about twice as tall as a cup.
 
 **How to play:** drag a frozen pack into the blender, put an empty bowl (a clear cup) from the stack on a
 free spot, drag the ready blender onto it, add *Fruits & Crunch*, then *Toppings & Sauces* (fixed layer order –

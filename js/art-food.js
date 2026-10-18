@@ -1018,21 +1018,22 @@ function drawPack(id, size) {
 }
 
 // ======================================================================
-// Cup stack (viewBox 120×200) and the free spot on the counter (viewBox 200×200)
+// Cup stack (viewBox 120×185) and the free spot on the counter (viewBox 200×200). The stacked cups
+// are the cups of bowlSVG at 44/64 of its scale, so cupStackSVG(w) stacks the cups of bowlSVG(1.146 w).
 // ======================================================================
 export function cupStackSVG(w = 90) {
-  const h = Math.round((w * 200) / 120);
+  const h = Math.round((w * 185) / 120);
   return memo(`stack|${w}`, () => {
     const cx = 60;
     const rim = { rx: 44, ry: 13 };
-    const bot = { y: 186, rx: 30, ry: 9.5 };
+    const bot = { y: 171, rx: 29, ry: 9.6 };
     const n = 7;
     const step = 9;
     const topY = 80 - (n - 1) * step; // rim of the top cup
     const lowRimY = 80;
     const wallX = (y) => rim.rx + ((y - lowRimY) / (bot.y - lowRimY)) * (bot.rx - rim.rx);
     const body = `M${cx - rim.rx} ${topY}V${lowRimY}L${f(cx - bot.rx)} ${bot.y}A${bot.rx} ${bot.ry} 0 0 0 ${f(cx + bot.rx)} ${bot.y}L${cx + rim.rx} ${lowRimY}V${topY}A${rim.rx} ${rim.ry} 0 0 0 ${cx - rim.rx} ${topY}Z`;
-    let s = softShadow(62, 190, 46, 9);
+    let s = softShadow(62, 175, 46, 9);
     s += path(body, paint('plastic-in', '#eaf6fa'));
     s += ellipse(cx, bot.y - 2, bot.rx - 2, bot.ry - 2, '#dcecf1', op(0.8));
     // the top cup's opening
@@ -1052,7 +1053,7 @@ export function cupStackSVG(w = 90) {
     s += path(body, 'none', stroke(1, '#8fb0bd') + op(0.6));
     s += path(`M${f(cx - bot.rx)} ${bot.y}A${bot.rx} ${bot.ry} 0 0 0 ${f(cx + bot.rx)} ${bot.y}`, 'none', stroke(2.6, '#ffffff') + op(0.7));
     void wallX;
-    return svgWrap(w, h, 120, 200, s);
+    return svgWrap(w, h, 120, 185, s);
   });
 }
 
