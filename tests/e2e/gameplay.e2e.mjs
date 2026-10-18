@@ -517,6 +517,12 @@ async function matchaTouch(srv) {
       const s = await snap(page);
       const bowl = s.bowls.findIndex((b) => !b.base);
       await pour(page, bi, bowl, true);
+      // The leftover portion would start to overflow during the slow touch drags below (KITCHEN_BASE.readyHold), a
+      // state change the reject check catches: trash it, so only the rejected drop could change the kitchen.
+      if ((await snap(page)).blenders[bi].state !== 'empty') {
+        await drag(page, `[data-blender="${bi}"]`, '[data-trash]', true);
+        await until(page, (i) => window.__acaiGame.blenders[i].state === 'empty', bi, 3000);
+      }
       for (const id of ['banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi']) {
         await drag(page, `[data-bin="${id}"]`, `[data-bowl="${bowl}"]`, true);
       }

@@ -54,7 +54,28 @@
   .mock { position: relative; width: 1280px; height: 800px; overflow: hidden; border-radius: 14px; background: var(--cream); flex: none; }
   .mock > * { position: absolute; }
   .mock .counter { left: 0; top: 294px; width: 1280px; height: 44px; background: linear-gradient(180deg, #ece8e2 0, #fdfcfa 22px, #cfc6ba 23px, #b08458 24px, #8a6236 100%); }
-  .mock .order { background: var(--white); border: 3px solid var(--ink); border-radius: 18px; padding: 4px 6px; display: flex; align-items: center; gap: 2px; box-shadow: 0 4px 0 rgba(42, 18, 54, 0.3); }
+  /* the order bubbles like css/game.css .g-bubble (js/game-view.js bubbleMarkup): their bottom at stage y 179, pushed
+     by --dx, the tail on the head; the bowl part (the base cup and its rows, each item on a 40 px circle in its layer's
+     tint, the layer badges in front), the divider, the glass with its fruit badge, the patience bar. Block SVGs (no
+     baseline gap under them), so an item is 40 × 40 and a row 40 high, like in the game */
+  .mock .order { --dx: 0px; top: auto; bottom: 621px; translate: calc(-50% + var(--dx)) 0; background: var(--white); border: 2px solid #ddd2e3; border-radius: 18px; padding: 4px 6px; box-shadow: 0 8px 18px rgba(40, 20, 50, 0.2); line-height: 1; }
+  .mock .order svg { display: block; position: relative; }
+  .mock .order::after { content: ""; position: absolute; z-index: -1; left: calc(50% - var(--dx)); bottom: -11px; width: 16px; height: 16px; translate: -50% 0; rotate: 45deg; background: var(--white); border: solid #ddd2e3; border-width: 0 2px 2px 0; }
+  .mock .order .o { display: flex; align-items: stretch; }
+  .mock .order .part { position: relative; display: flex; align-items: center; padding: 2px 3px; }
+  .mock .order .bowl { gap: 4px; }
+  .mock .order .base, .mock .order .i { position: relative; display: block; flex: none; }
+  .mock .order .base::before, .mock .order .i::before { content: ""; position: absolute; inset: 1px; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #fff 0, var(--t) 72%); box-shadow: inset 0 0 0 1.5px var(--e); }
+  .mock .order .rows { display: flex; flex-direction: column; }
+  .mock .order .r { display: flex; align-items: center; gap: 2px; height: 40px; }
+  .mock .order .n { position: relative; z-index: 1; display: inline-grid; place-items: center; flex: none; width: 18px; height: 18px; margin-right: 1px; box-sizing: border-box; border: 1.5px solid var(--white); border-radius: 50%; box-shadow: 0 1px 2px rgba(40, 20, 50, 0.35); background: var(--c); color: var(--white); font-family: var(--font-display); font-size: 12px; }
+  .mock .order .base .n { position: absolute; left: -4px; top: -3px; }
+  .mock .order .drink { margin-left: 13px; }
+  .mock .order .drink::before { content: ""; position: absolute; left: -9px; top: 6px; bottom: 6px; width: 2px; border-radius: 1px; background: rgba(42, 18, 54, 0.16); }
+  .mock .order .glass { position: relative; display: block; margin: 0 14px 0 -12px; }
+  .mock .order .fruit { position: absolute; left: 47px; top: 16px; width: 26px; height: 26px; box-sizing: border-box; display: grid; place-items: center; background: var(--white); border: 1.5px solid #cfc3d6; border-radius: 50%; box-shadow: 0 1px 3px rgba(40, 20, 50, 0.25); }
+  .mock .order .bar { height: 12px; margin: 4px 1px 0; border-radius: 6px; background: #e6deeb; overflow: hidden; }
+  .mock .order .bar i { display: block; height: 100%; background: var(--c); }
   .mock .bin { width: 86px; height: 100px; background: var(--paper); border: 3px solid var(--ink); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 4px 0 var(--ink); }
   .mock .hud { left: 12px; top: 10px; display: flex; gap: 12px; align-items: center; }
   .mock .pill { display: flex; align-items: center; gap: 6px; background: var(--paper); border: 3px solid var(--ink); border-radius: 999px; padding: 4px 14px 4px 6px; font-family: var(--font-display); font-size: 24px; }
@@ -208,15 +229,25 @@ function render() {
     { bowl: { base: 'acai', mid: ['mango', 'banana', 'blueberry'], top: ['chocolate', 'chia'] }, matcha: 'strawberry', mood: 'angry' },
   ];
   let m = art.shopSceneSVG(1280, 330).replace('<svg', '<svg style="position:absolute;left:0;top:0"');
-  // decor where js/game-view.js puts it with 4 seats: plants at the left edge, the neon high in the window between the
-  // middle two bubbles (x 640)
-  m += `<div style="left:-1px;top:180px">${art.decorSVG('plants', 118)}</div><div style="left:588px;top:80px">${art.decorSVG('neon', 104)}</div>`;
+  // decor where js/game-view.js puts it with 4 seats: plants at the left edge, the neon hanging from the wainscot's rail
+  // between the two right guests' shoulders (x 934), under the faces
+  m += `<div style="left:-1px;top:180px">${art.decorSVG('plants', 118)}</div><div style="left:889px;top:214px">${art.decorSVG('neon', 90)}</div>`;
+  // each layer's tint and edge (css/game.css --l-*-tint / --l-*-edge) and its badge
+  const tint = { base: ['#efe3f7', 'rgba(108, 42, 143, 0.2)'], mid: ['#dcf5e6', 'rgba(47, 191, 113, 0.3)'], top: ['#ffe3ee', 'rgba(255, 61, 139, 0.26)'] };
+  const badge = { base: [1, 'var(--acai-2)'], mid: [2, 'var(--leaf)'], top: [3, 'var(--pitaya)'] };
+  const tinted = (layer) => `--t:${tint[layer][0]};--e:${tint[layer][1]}`;
+  const num = (layer) => `<span class="n" style="--c:${badge[layer][1]}">${badge[layer][0]}</span>`;
+  const mood = { happy: 'var(--leaf)', neutral: 'var(--mango)', impatient: '#ff8a3d', angry: 'var(--danger)' };
   seats.forEach((x, i) => {
     // the guest's bust: its viewBox y 131 on the pass's top edge (stage y 294)
     m += `<div style="left:${x - 80}px;top:163px">${art.customerSVG(looks[i + 2], orders[i].mood, 160)}</div>`;
     const o = orders[i];
-    const items = [...o.bowl.mid, ...o.bowl.top].map((id) => art.ingredientIcon(id, 30)).join('');
-    m += `<div class="order" style="left:${x}px;top:78px;translate:-50% 0">${art.bowlSVG(o.bowl, 64)}<div style="display:grid;grid-template-columns:repeat(2,30px)">${items}</div>${o.matcha ? art.matchaGlassSVG(o.matcha, 'ready', 48) : ''}</div>`;
+    // the order bubble (js/game-view.js bubbleMarkup): the base cup, rows 2 and 3 of 40 px items on tinted circles,
+    // the matcha glass with its fruit behind a divider, the patience bar
+    const row = (layer) => (o.bowl[layer].length ? `<div class="r">${num(layer)}${o.bowl[layer].map((id) => `<span class="i" style="${tinted(layer)}">${art.ingredientIcon(id, 40)}</span>`).join('')}</div>` : '');
+    const base = `<span class="base" style="${tinted('base')}">${num('base')}${art.bowlSVG({ base: o.bowl.base, mid: [], top: [] }, 50)}</span>`;
+    const drink = o.matcha ? `<div class="part drink"><span class="glass">${art.matchaGlassSVG(o.matcha, 'ready', 64)}<span class="fruit">${art.ingredientIcon(o.matcha, 22)}</span></span></div>` : '';
+    m += `<div class="order" data-seat="${i}" style="left:${x}px"><div class="o"><div class="part bowl">${base}<div class="rows">${row('mid')}${row('top')}</div></div>${drink}</div><div class="bar"><i style="--c:${mood[o.mood]};width:${[90, 60, 35, 12][i]}%"></i></div></div>`;
   });
   // the game's layout (js/game-view.js, css/game.css): the work counter from y 338, the appliances in front of the pass
   m += `<div class="counter"></div><div style="left:0;top:338px">${art.counterSVG(1280, 462)}</div>`;
@@ -254,6 +285,14 @@ function render() {
   h += section('artprev.map', el(art.mapBackgroundSVG(1280, 800), 'cell wide'));
 
   document.getElementById('out').innerHTML = h;
+  // the mock's bubbles pushed into their seats' slots like js/game-view.js bubbleShift (4 seats: the widest bubbles,
+  // 306 px, spread evenly over x 6–1274)
+  for (const b of document.querySelectorAll('.mock .order')) {
+    const i = Number(b.dataset.seat);
+    const mid = 6 + 153 + i * (306 + (1268 - 4 * 306) / 3);
+    const w = b.offsetWidth;
+    b.style.setProperty('--dx', `${Math.round(Math.min(mid + 153 - w / 2, Math.max(mid - 153 + w / 2, seats[i])) - seats[i])}px`);
+  }
   checkIds();
 }
 

@@ -9,6 +9,13 @@
   --l-base: var(--acai-2);
   --l-mid: var(--leaf);
   --l-top: var(--pitaya);
+  /* the layers' light tints (and a slightly deeper edge) behind the items in the order bubbles and the chips */
+  --l-base-tint: #efe3f7;
+  --l-base-edge: rgba(108, 42, 143, 0.2);
+  --l-mid-tint: #dcf5e6;
+  --l-mid-edge: rgba(47, 191, 113, 0.3);
+  --l-top-tint: #ffe3ee;
+  --l-top-edge: rgba(255, 61, 139, 0.26);
   background: var(--cream);
   font-family: var(--font-ui);
   color: var(--ink);
@@ -32,9 +39,11 @@
 .screen-game .g-decor-plants { top: 180px; }
 .screen-game .g-decor-jukebox { top: 182px; }
 .screen-game .g-decor-seating { top: 180px; }
-/* the neon hangs above the heads, between two bubbles (its x: layoutDecor in js/game-view.js), its sign y≈106–160;
-   a soft, low glow, so it reads as lit without pulling the eye from the guests */
-.screen-game .g-decor-neon { top: 80px; }
+/* the neon hangs from the wainscot's rail (its hook y≈222, just above the rail at y 226), its sign on the oak reeds
+   below (y≈237–283): under the faces, between two guests' shoulders or beside the jukebox (its x: layoutDecor in
+   js/game-view.js) – the bubbles of long orders fill the wall above the heads, the window is glass. A soft, low glow,
+   so it reads as lit without pulling the eye from the guests */
+.screen-game .g-decor-neon { top: 214px; }
 .screen-game .g-decor-neon svg { filter: drop-shadow(0 0 6px rgba(236, 112, 160, 0.3)); }
 .screen-game .g-seats { position: absolute; inset: 0; }
 
@@ -93,54 +102,108 @@
 /* hovering a guest who will refuse it (glass still brewing, nothing ordered): muted red, no grow */
 .screen-game .g-cust.drop-bad .g-bubble { box-shadow: 0 0 0 4px var(--glow-bad); }
 
-/* order bubble */
+/* order bubble (docs/DESIGN.md §4.7): a light frosted panel over the guest's head, its bottom at stage y 179 where the
+   tallest hair begins (the tip of a bun or an afro, an angry guest's steam tuck a few px under it), only the tail
+   reaching down to the crown – the faces stay clear. It is centred on the seat or, too wide for the seat's slot
+   (4 seats, long orders), pushed into it by --dx (js/game-view.js bubbleShift) – the tail stays on the head. Left the
+   bowl (the base cup, rows 2 and 3), right behind a divider the matcha glass, across the bottom the patience bar. */
 .screen-game .g-bubble {
+  --dx: 0px;
   position: absolute;
   left: 50%;
-  bottom: 152px;
-  translate: -50% 0;
-  min-width: 96px;
+  bottom: 149px;
+  translate: calc(-50% + var(--dx)) 0;
+  transform-origin: calc(50% - var(--dx)) 100%;
   background: var(--white);
   border: 2px solid #ddd2e3;
   border-radius: 18px;
-  padding: 6px 9px 7px;
-  box-shadow: 0 8px 18px rgba(40, 20, 50, 0.2);
+  padding: 4px 6px;
+  box-shadow: 0 8px 18px rgba(40, 20, 50, 0.2), inset 0 -2px 0 rgba(43, 45, 51, 0.05);
   animation: g-bubble-in 0.35s 0.35s ease-out backwards;
-  transition: box-shadow 0.12s ease;
+  transition: box-shadow 0.12s ease, border-color 0.3s ease, translate 0.6s ease;
 }
+/* the tail: under the bubble's content (the bubble is a stacking context), so its top corner never covers the bar */
 .screen-game .g-bubble::after {
   content: "";
   position: absolute;
-  left: 50%;
-  bottom: -13px;
-  width: 18px;
-  height: 18px;
+  z-index: -1;
+  left: calc(50% - var(--dx));
+  bottom: -11px;
+  width: 16px;
+  height: 16px;
   translate: -50% 0;
   rotate: 45deg;
   background: var(--white);
   border-right: 2px solid #ddd2e3;
   border-bottom: 2px solid #ddd2e3;
   border-bottom-right-radius: 4px;
+  transition: border-color 0.3s ease, left 0.6s ease;
 }
-.screen-game .g-order { display: flex; align-items: center; gap: 6px; }
-.screen-game .g-order-part { position: relative; display: flex; align-items: center; }
-.screen-game .g-order-bowl { gap: 3px; }
+/* a guest moving to another seat (endless: one more seat) takes its bubble along, the new --dx sliding with it; an
+   arriving guest's bubble is put in its place at once */
+.screen-game .g-cust.is-arriving .g-bubble { transition: box-shadow 0.12s ease, border-color 0.3s ease; }
+.screen-game .g-cust.is-arriving .g-bubble::after { transition: border-color 0.3s ease; }
+.screen-game .g-order { display: flex; align-items: stretch; }
+/* a part of the order: its own field, green with a big tick once it was handed over */
+.screen-game .g-order-part {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 2px 3px;
+  border-radius: 14px;
+  transition: background-color 0.25s ease, box-shadow 0.25s ease;
+}
+.screen-game .g-order-bowl { gap: 4px; }
+/* the base: a cup of it on a soft circle in layer 1's tint, its badge on the rim */
 .screen-game .g-order-base { position: relative; flex: none; }
-.screen-game .g-order-base .g-lnum { position: absolute; left: -5px; top: -3px; }
-.screen-game .g-rows { display: flex; flex-direction: column; gap: 1px; }
-.screen-game .g-row { display: flex; align-items: center; height: 33px; }
-.screen-game .g-row .g-lnum { margin-right: 1px; }
-.screen-game .g-ico { display: block; flex: none; }
-.screen-game .g-order-drink {
-  padding-left: 6px;
-  border-left: 2px dotted rgba(42, 18, 54, 0.2);
+.screen-game .g-order-base::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #fff 0, var(--l-base-tint) 70%);
+  box-shadow: inset 0 0 0 1.5px var(--l-base-edge);
 }
-.screen-game .g-drink-wrap { position: relative; display: block; }
-/* which fruit: the bin's icon, on the glass's lower right in the bubble padding (the purée layer stays visible) */
+.screen-game .g-order-base svg { position: relative; }
+.screen-game .g-order-base .g-lnum { position: absolute; left: -4px; top: -3px; width: 18px; height: 18px; font-size: 12px; }
+.screen-game .g-rows { display: flex; flex-direction: column; }
+.screen-game .g-row { display: flex; align-items: center; gap: 2px; height: 40px; }
+.screen-game .g-row .g-lnum { width: 18px; height: 18px; font-size: 12px; margin-right: 1px; }
+/* an item: its icon on a circle in its layer's tint (the chips under the cups speak the same language) */
+.screen-game .g-ico {
+  position: relative;
+  display: block;
+  flex: none;
+}
+.screen-game .g-ico::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #fff 0, var(--tint) 72%);
+  box-shadow: inset 0 0 0 1.5px var(--edge);
+}
+.screen-game .g-ico svg { position: relative; }
+.screen-game .g-ico-mid { --tint: var(--l-mid-tint); --edge: var(--l-mid-edge); }
+.screen-game .g-ico-top { --tint: var(--l-top-tint); --edge: var(--l-top-edge); }
+/* the drink, behind a divider: the glass (its transparent sides tucked in) with the fruit beside it, level with the
+   milk and the matcha – the purée at the bottom stays in sight */
+.screen-game .g-order-drink { margin-left: 13px; }
+.screen-game .g-order-drink::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: rgba(42, 18, 54, 0.16);
+}
+.screen-game .g-drink-wrap { position: relative; display: block; margin: 0 14px 0 -12px; }
 .screen-game .g-drink-fruit {
   position: absolute;
-  right: -7px;
-  bottom: -2px;
+  left: 47px;
+  top: 16px;
   width: 26px;
   height: 26px;
   box-sizing: border-box;
@@ -152,36 +215,47 @@
   box-shadow: 0 1px 3px rgba(40, 20, 50, 0.25);
   pointer-events: none;
 }
+/* the big tick of a delivered part, on its lower right corner, down to the patience bar and drawn over the next
+   part's edge: the bowl's centred on the divider (without a matcha it overhangs the bubble's edge), where it hides
+   only the corners of the last icons; the drink ends at the bubble's edge, its tick tucked into the bubble beside the
+   glass, under the fruit badge – the contents stay recognisable */
 .screen-game .g-check {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  translate: -50% -50%;
+  z-index: 2;
+  right: -23px;
+  bottom: -4px;
   display: none;
+  filter: drop-shadow(0 2px 3px rgba(20, 90, 50, 0.35));
 }
-.screen-game .g-order-part.is-done > :not(.g-check) { opacity: 0.28; filter: grayscale(0.7); }
+.screen-game .g-order-drink .g-check { right: -8px; }
+.screen-game .g-order-part.is-done {
+  background: rgba(47, 191, 113, 0.17);
+  box-shadow: inset 0 0 0 2px rgba(47, 191, 113, 0.55);
+}
+.screen-game .g-order-part.is-done > :not(.g-check) { opacity: 0.5; filter: grayscale(0.35); }
 .screen-game .g-order-part.is-done .g-check { display: block; animation: pop-in 0.35s ease-out both; }
 
+/* patience: a thick bar across the bottom on a sunken track, its colour following the guest's mood */
 .screen-game .g-patience {
-  margin-top: 6px;
-  height: 8px;
-  border-radius: 999px;
-  background: #ebe4ef;
-  box-shadow: inset 0 1px 2px rgba(40, 20, 50, 0.25);
+  margin: 4px 1px 0;
+  height: 12px;
+  border-radius: 6px;
+  background: #e6deeb;
+  box-shadow: inset 0 1px 2px rgba(40, 20, 50, 0.3), 0 1px 0 rgba(255, 255, 255, 0.9);
   overflow: hidden;
 }
 .screen-game .g-patience i {
   display: block;
   height: 100%;
-  border-radius: 999px;
-  background: var(--leaf);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0, rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.1) 100%), var(--leaf);
   transform-origin: 0 50%;
   transition: background-color 0.3s ease;
 }
-.screen-game .g-bubble[data-mood="neutral"] .g-patience i { background: var(--mango); }
-.screen-game .g-bubble[data-mood="impatient"] .g-patience i { background: var(--g-orange); }
-.screen-game .g-bubble[data-mood="angry"] .g-patience i { background: var(--danger); }
-.screen-game .g-bubble[data-mood="angry"] { border-color: var(--danger); }
+.screen-game .g-bubble[data-mood="neutral"] .g-patience i { background-color: var(--mango); }
+.screen-game .g-bubble[data-mood="impatient"] .g-patience i { background-color: var(--g-orange); }
+.screen-game .g-bubble[data-mood="angry"] .g-patience i { background-color: var(--danger); }
+.screen-game .g-bubble[data-mood="angry"],
+.screen-game .g-bubble[data-mood="angry"]::after { border-color: var(--danger); }
 
 /* layer number badges (1 base · 2 fruits & crunch · 3 toppings & sauces) */
 .screen-game .g-lnum {
@@ -411,34 +485,44 @@
   transition: box-shadow 0.12s ease, background-color 0.12s ease;
 }
 .screen-game .g-bowl .g-art { position: absolute; left: 0; top: 0; width: 120px; height: 120px; transform-origin: 50% 90%; }
+/* what is in a cup, under it in the order bubbles' language and layout: the base chip, beside it a row of layer 2's
+   items and under that one of layer 3's – each item's icon on a circle in its layer's tint, in a white ring, every
+   chip whole. The block (≤ 103 × 50 px) is centred under the cup and stands on its box's bottom edge (stage y 528):
+   one row under the cup's foot (y 503–528), with toppings the first row in front of the foot (y 478–503) – inside
+   the box, so the drop glow and the tutorial's ring hold it, and the row of containers in front keeps its reach */
 .screen-game .g-bowl .g-chips {
   position: absolute;
   z-index: 1; /* over the lid of a jar standing tall in the row in front */
-  left: -8px;
-  right: -8px;
-  top: 122px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none; /* between the chips a press lifts what lies under it */
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding-left: 4px;
+  gap: 3px;
 }
+.screen-game .g-chip-rows { display: flex; flex-direction: column; }
+.screen-game .g-chip-row { display: flex; gap: 2px; }
 .screen-game .g-chip {
+  --tint: var(--l-base-tint);
+  --edge: var(--l-base-edge);
+  pointer-events: auto; /* a press on a chip lifts its cup */
   display: grid;
   place-items: center;
   width: 25px;
   height: 25px;
-  margin-left: -4px;
   border-radius: 50%;
-  background: var(--white);
-  border: 1.5px solid rgba(43, 45, 51, 0.35);
+  background: radial-gradient(circle at 50% 40%, #fff 0, var(--tint) 72%);
+  border: 1.5px solid var(--white);
   box-sizing: border-box;
-  box-shadow: 0 1px 3px rgba(40, 24, 50, 0.25);
+  box-shadow: 0 0 0 1px var(--edge), 0 1px 3px rgba(40, 24, 50, 0.3);
   overflow: hidden;
   flex: none;
 }
-.screen-game .g-chip svg { width: 21px; height: 21px; }
-.screen-game .g-chip-base { background: #efe3f7; }
-.screen-game .g-chip-mid { background: #e2f7ea; }
-.screen-game .g-chip-top { background: #ffe6f0; }
+.screen-game .g-chip svg { width: 22px; height: 22px; }
+.screen-game .g-chip-mid { --tint: var(--l-mid-tint); --edge: var(--l-mid-edge); }
+.screen-game .g-chip-top { --tint: var(--l-top-tint); --edge: var(--l-top-edge); }
 .screen-game .g-match {
   position: absolute;
   right: 4px;
@@ -1011,7 +1095,8 @@
 /* ------------------------------------------------------------ keyframes */
 @keyframes g-idle { 0%, 100% { translate: 0 0; } 50% { translate: 0 -3px; } }
 @keyframes g-step { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
-@keyframes g-nag { 0%, 100% { rotate: 0deg; } 25% { rotate: -2deg; } 75% { rotate: 2deg; } }
+/* the angry bubble's nag: a small shake from side to side – a tilt would lift a wide bubble's far corner into the HUD */
+@keyframes g-nag { 0%, 100% { transform: none; } 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 @keyframes g-walk-in-l { from { translate: -280px 0; opacity: 0; } 30% { opacity: 1; } to { translate: 0 0; opacity: 1; } }
 @keyframes g-walk-in-r { from { translate: 280px 0; opacity: 0; } 30% { opacity: 1; } to { translate: 0 0; opacity: 1; } }
 @keyframes g-walk-out-l { 0% { translate: 0 0; opacity: 1; } 20% { translate: 0 -12px; } 75% { opacity: 1; } 100% { translate: -300px 0; opacity: 0; } }
@@ -1048,6 +1133,8 @@
 @media (prefers-reduced-motion: reduce) {
   .screen-game .g-cust,
   .screen-game .g-figure,
+  .screen-game .g-bubble,
+  .screen-game .g-check,
   .screen-game .g-art,
   .screen-game .g-led,
   .screen-game .g-new,
@@ -1058,5 +1145,7 @@
   .screen-game .g-cust.is-leavingHappy,
   .screen-game .g-cust.is-leavingAngry { opacity: 0.4; transition: opacity 0.3s linear; }
   .screen-game .g-decor-item,
-  .screen-game .g-cust { transition: none; }
+  .screen-game .g-cust,
+  .screen-game .g-bubble,
+  .screen-game .g-bubble::after { transition: none; }
 }

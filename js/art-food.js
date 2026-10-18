@@ -1524,7 +1524,7 @@ export function cupSpotSVG(size = 150) {
 // then the matcha with a little foam on top, ice cubes, a paper straw and the fruit on the rim.
 // ======================================================================
 // (the kiwi's a vivid green with big black seeds, clearly apart from the olive matcha over it, even at
-// the order bubble's 50 px)
+// the order bubble's 64 px, BUBBLE_GLASS in js/game-view.js)
 const MATCHA_FRUIT_COLORS = { banana: '#f3d35c', strawberry: '#e5384f', blueberry: '#5d3f9e', mango: '#ffa623', kiwi: '#4fbf3f' };
 const fruitColor = (id) => MATCHA_FRUIT_COLORS[id] || MATCHA_FRUIT_COLORS.strawberry;
 // the seeds in a kiwi or strawberry purée (the others: lighter fibres): colour, size

@@ -46,6 +46,12 @@ Bananen-, Erdbeer-, Blaubeer-, Mango- oder Kiwi-Matcha. Zieh die passende Frucht
 Matcha-Maschine: Das Püree liegt unten im Glas, die Teemühle mahlt, der Wassertank dampft, dann gießt die Düse Milch und
 Matcha darüber. Ist der Matcha fertig, zieh das Glas auf den Gast.
 
+**Bestellblase:** Über jedem Gast steht, was er möchte. Links die Bowl: der Becher mit der Basis (1), daneben die
+Reihe Früchte & Crunch (2) und darunter Toppings & Soßen (3) – große Symbole auf Kreisen in der Farbe ihrer Schicht, wie
+die Zahlen an den Behältern. Rechts, hinter einem Trennstrich, der Matcha mit seiner Frucht. Unten zeigt ein dicker
+Balken die Geduld (grün → gelb → orange → rot). Was du schon übergeben hast, wird grün hinterlegt und groß abgehakt. Die
+Chips unter jedem Becher zeigen in derselben Sprache, was schon drin ist.
+
 **Herzen:** Jeder Gast hat eine Geduldsanzeige. Läuft sie ab, geht er ohne zu bezahlen und du verlierst
 ein **Herz**. Bei 0 Herzen ist das Level verloren. Ab Level 12 (vier Plätze) hast du vier statt drei Herzen.
 
@@ -210,6 +216,10 @@ free spot, drag the ready blender onto it, add *Fruits & Crunch*, then *Toppings
 wrong drops bounce back), and drag the finished bowl onto the customer. From level 3 a ready blender **overflows** if you leave it too long and has to
 go into the trash. Fruit matcha (an iced matcha latte on banana, strawberry, blueberry, mango or kiwi purée): drag the
 fruit onto the glass in the matcha machine, wait until it is brewed, then drag the glass onto the customer.
+The order bubble over each guest shows the bowl on the left – the cup with its base (1), then a row of fruits & crunch
+(2) and one of toppings & sauces (3), big icons on circles in their layer's colour – and, behind a divider, the matcha with
+its fruit; a thick bar along the bottom shows the guest's patience (green → yellow → orange → red), and whatever you have
+handed over turns green with a big tick. The chips under each cup show what is in it in the same way.
 A customer who runs out of patience leaves and costs you a **heart** – 0 hearts loses the level.
 20 campaign levels with 1–3 **stars** (money goals); coins are kept even when you lose and buy new ingredients
 (4 at start, 16 total), quality, kitchen upgrades and decor in the **shop**. **Endless mode** unlocks after

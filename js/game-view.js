@@ -273,8 +273,31 @@ const PACK_ART = 84;
 const MACHINE_SIZE = 312; // the machine box is its square canvas (VIEWS.machine) or drawn art
 const SLOT_W = 96; // a slot: the glass on a drip tray (two of them keep a gap)
 const DECOR_IDS = ['plants', 'jukebox', 'seating', 'neon'];
-const DECOR_SIZE = { plants: 118, jukebox: 118, seating: 124, neon: 104 };
+// the neon is small: its sign fits on the wainscot under the rail, between two guests' shoulders
+const DECOR_SIZE = { plants: 118, jukebox: 118, seating: 124, neon: 90 };
+const JUKEBOX_X = 1222;
 const FIG_CHIN_Y = 98; // just under a guest's chin, in its figure's box (customerSVG, 160 px: the chin at y≈93)
+// Order bubbles (css/game.css .g-bubble): the base cup, the items of rows 2 and 3 (each on a tinted circle), the
+// matcha glass and its fruit badge. A bubble's width follows from its order (bubbleWidth, no layout read): its frame
+// (border 2 + padding 6 a side), the bowl part (padding 3 a side, the cup, a 4 px gap, then its longer row: the 18 px
+// layer badge + 1, then a 2 px gap and an icon per item), the drink part (13 px for the divider, padding 3 a side, the
+// glass with its transparent sides tucked in by 12 px on the left and its fruit badge reaching 14 px past it).
+// BUBBLE_W is the widest one (3 + 3 items and a matcha, 306 px): each seat owns a slot that wide, BUBBLE_EDGE inside
+// the stage and at least BUBBLE_GAP from its neighbour's, and a bubble stays in its slot (bubbleShift).
+const BUBBLE_CUP = 50;
+const BUBBLE_ICON = 40;
+const BUBBLE_GLASS = 64;
+const BUBBLE_FRUIT = 22;
+const BUBBLE_FRAME = 2 * (2 + 6);
+const BUBBLE_BOWL = 2 * 3 + BUBBLE_CUP + 4;
+const BUBBLE_DRINK = 13 + 2 * 3 + BUBBLE_GLASS - 12 + 14;
+const bubbleRow = (n) => (n > 0 ? 18 + 1 + n * (2 + BUBBLE_ICON) : 0);
+const bubbleWidth = (o) => BUBBLE_FRAME + BUBBLE_BOWL + Math.max(bubbleRow(o.bowl.mid.length), bubbleRow(o.bowl.top.length))
+  + (o.matcha ? BUBBLE_DRINK : 0);
+const BUBBLE_W = BUBBLE_FRAME + BUBBLE_BOWL + bubbleRow(3) + BUBBLE_DRINK;
+const BUBBLE_EDGE = 6;
+const BUBBLE_GAP = 8;
+const CHIP_ICON = 22; // an item's icon in its chip under a cup (css/game.css .g-chip)
 const LAYER_NUM = { base: 1, mid: 2, top: 3 };
 const MOODS = ['happy', 'neutral', 'impatient', 'angry'];
 const STAMP_MS = 1700;
@@ -297,6 +320,8 @@ const TUT_DOTS = ['pack', 'cup', 'wait', 'pour', 'add', 'serve', 'done'];
 const TUT_DOT_OF = { welcome: -1, pack: 0, clean: 0, cup: 1, cupWait: 1, wait: 2, waitWrong: 2, pour: 3, add: 4, trash: 4, serve: 5, done: 6 };
 
 const CHECK_SVG = '<svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#2fbf71" stroke="#2a1236" stroke-width="3"/><path d="M11.5 20.5l6 6 11-12" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+// the big tick over a delivered part of an order bubble: a glossy green disc in a white ring
+const DONE_SVG = '<svg viewBox="0 0 40 40" width="38" height="38" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#2fbf71" stroke="#fff" stroke-width="2.5"/><path d="M4.5 22a15.5 15.5 0 0 0 31 0Z" fill="#127a44" opacity="0.22"/><ellipse cx="17" cy="11" rx="9" ry="4.5" fill="#fff" opacity="0.28"/><path d="M11.5 20.5l6 6 11-12" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const POINT_SVG = '<svg viewBox="0 0 46 58" width="46" height="58" aria-hidden="true"><path d="M14 4H32V30H43L23 54L3 30H14Z" fill="#ffb627" stroke="#2a1236" stroke-width="4" stroke-linejoin="round"/><path d="M19 9V32" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity="0.6"/></svg>';
 const PAUSE_ICON = '<svg viewBox="0 0 40 40" width="30" height="30" aria-hidden="true"><rect x="9" y="7" width="8" height="26" rx="3" fill="#fff" stroke="#2a1236" stroke-width="3"/><rect x="23" y="7" width="8" height="26" rx="3" fill="#fff" stroke="#2a1236" stroke-width="3"/></svg>';
 
@@ -836,11 +861,18 @@ class GameView {
     return { x, y, w: node.offsetWidth, h: node.offsetHeight, cx: x + node.offsetWidth / 2, cy: y + node.offsetHeight / 2 };
   }
 
-  // Rect of an element as drawn (transforms included) in stage px – the way drag.js hit-tests it.
-  stageRect(node) {
+  // Rect of an element as drawn (transforms included) in stage px – the way drag.js hit-tests it; with more elements
+  // the rect around all of them (a target's element and its hitEls).
+  stageRect(node, ...more) {
     const r = node.getBoundingClientRect();
-    const a = this.toStage(r.left, r.top);
-    const b = this.toStage(r.right, r.bottom);
+    let [x1, y1, x2, y2] = [r.left, r.top, r.right, r.bottom];
+    for (const m of more) {
+      const q = m.getBoundingClientRect();
+      if (!(q.width > 0 || q.height > 0)) continue;
+      [x1, y1, x2, y2] = [Math.min(x1, q.left), Math.min(y1, q.top), Math.max(x2, q.right), Math.max(y2, q.bottom)];
+    }
+    const a = this.toStage(x1, y1);
+    const b = this.toStage(x2, y2);
     return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
   }
 
@@ -969,11 +1001,14 @@ class GameView {
     this.listen(this.trashEl, 'pointerdown', () => this.hint(this.trashEl, 'game.hint.trash'));
   }
 
-  // Customer elements come and go – they register as drop targets while they exist.
-  // A wrong order still glows: reading the order bubble is the player's job.
+  // Customer elements come and go – they register as drop targets while they exist: the guest and its order bubble
+  // (wider than the guest, a drink is dropped on its icon); what they take shrinks into the guest, not into the middle
+  // of guest and (pushed aside) bubble. A wrong order still glows: reading the order bubble is the player's job.
   wireCustomer(v) {
     const g = this.game;
     v.offTarget = this.dnd.target(v.el, {
+      hitEls: [v.bubble],
+      land: v.fig,
       accepts: (p) => (p.kind === 'bowl' || p.kind === 'glass') && ACTIVE.has(v.c.state),
       valid: (p) => {
         const r = p.kind === 'bowl' ? serveBowlError(g, p.idx, v.id) : serveMatchaError(g, p.idx, v.id);
@@ -1038,25 +1073,26 @@ class GameView {
     }[p.kind];
     if (!wrong) return null;
     const source = { blender: this.blenderViews, bowl: this.bowlViews, glass: this.slotViews }[p.kind]?.[p.idx]?.el;
+    // each station's element with the elements its hit rect spans, as drag.js hit-tests it (a guest: its order bubble)
     const stations = {
-      blender: this.blenderViews.map((v) => v.el),
-      bowl: this.bowlViews.map((v) => v.el),
-      slot: this.slotViews.map((v) => v.el),
-      trash: [this.trashEl],
-      cust: [...this.custViews.values()].filter((v) => ACTIVE.has(v.c.state)).map((v) => v.el),
+      blender: this.blenderViews.map((v) => [v.el]),
+      bowl: this.bowlViews.map((v) => [v.el]),
+      slot: this.slotViews.map((v) => [v.el]),
+      trash: [[this.trashEl]],
+      cust: [...this.custViews.values()].filter((v) => ACTIVE.has(v.c.state)).map((v) => [v.el, v.bubble]),
     };
     const { x, y } = r.pos;
     let best = null;
     let bestDist = Infinity;
     for (const [type, key] of Object.entries(wrong)) {
       if (!key) continue;
-      for (const node of stations[type]) {
-        if (node === source) continue;
-        const b = this.stageRect(node);
+      for (const nodes of stations[type]) {
+        if (nodes[0] === source) continue;
+        const b = this.stageRect(...nodes);
         if (x < b.x1 - HIT_PAD || x > b.x2 + HIT_PAD || y < b.y1 - HIT_PAD || y > b.y2 + HIT_PAD) continue;
         const dist = Math.hypot(x - b.cx, y - b.cy);
         if (dist < bestDist) {
-          best = { el: node, key };
+          best = { el: nodes[0], key };
           bestDist = dist;
         }
       }
@@ -1358,26 +1394,47 @@ class GameView {
     this.seatsEl.append(node);
     const v = {
       id: c.id, c, el: node, bubble, fig, look: lookFromSeed(c.look?.seed ?? c.id),
-      state: '', x, mood: '', delivered: '', fill: bubble.querySelector('.g-patience i'),
-      ratio: -1,
+      // x: -1 – the first update places the bubble on its seat (bubbleShift)
+      state: '', x: -1, mood: '', delivered: '', fill: bubble.querySelector('.g-patience i'),
+      ratio: -1, bw: bubbleWidth(c.order), dx: 0,
     };
     this.custViews.set(c.id, v);
     this.wireCustomer(v);
     return v;
   }
 
+  // The order bubble, built once per guest (updateCustomer only ticks parts off and moves the patience bar).
+  // Left the bowl: its base cup (layer badge 1), then a row of fruits & crunch (2) and one of toppings &
+  // sauces (3, left out when there are none), each item on a circle in its layer's tint; right, behind a
+  // divider, the matcha glass with its fruit beside it (the badge leaves the purée at the bottom visible).
   bubbleMarkup(c) {
     const o = c.order;
-    const row = (layer, icons) => (icons ? `<div class="g-row g-row-${layer}"><span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span>${icons}</div>` : '');
-    const mid = o.bowl.mid.map((id) => `<span class="g-ico">${ingredientIcon(id, 32)}</span>`).join('');
-    const top = o.bowl.top.map((id) => `<span class="g-ico">${ingredientIcon(id, 32)}</span>`).join('');
-    const base = `<div class="g-order-base"><span class="g-lnum g-lnum-base">1</span>${bowlSVG({ base: o.bowl.base, mid: [], top: [] }, 50)}</div>`;
-    const bowl = `<div class="g-order-part g-order-bowl" data-part="bowl">${base}<div class="g-rows">${row('mid', mid)}${row('top', top)}</div><span class="g-check">${CHECK_SVG}</span></div>`;
+    const icons = (layer, ids) => ids.map((id) => `<span class="g-ico g-ico-${layer}">${ingredientIcon(id, BUBBLE_ICON)}</span>`).join('');
+    const row = (layer, ids) => (ids.length ? `<div class="g-row g-row-${layer}"><span class="g-lnum g-lnum-${layer}">${LAYER_NUM[layer]}</span>${icons(layer, ids)}</div>` : '');
+    const check = `<span class="g-check">${DONE_SVG}</span>`;
+    const base = `<div class="g-order-base"><span class="g-lnum g-lnum-base">1</span>${bowlSVG({ base: o.bowl.base, mid: [], top: [] }, BUBBLE_CUP)}</div>`;
+    const bowl = `<div class="g-order-part g-order-bowl" data-part="bowl">${base}<div class="g-rows">${row('mid', o.bowl.mid)}${row('top', o.bowl.top)}</div>${check}</div>`;
     // the fruit badge names the matcha like the bowl rows name their items (colour alone is too little)
     const drink = o.matcha
-      ? `<div class="g-order-part g-order-drink" data-part="matcha"><span class="g-drink-wrap">${matchaGlassSVG(o.matcha, 'ready', 50)}<span class="g-drink-fruit">${ingredientIcon(o.matcha, 22)}</span></span><span class="g-check">${CHECK_SVG}</span></div>`
+      ? `<div class="g-order-part g-order-drink" data-part="matcha"><span class="g-drink-wrap">${matchaGlassSVG(o.matcha, 'ready', BUBBLE_GLASS)}<span class="g-drink-fruit">${ingredientIcon(o.matcha, BUBBLE_FRUIT)}</span></span>${check}</div>`
       : '';
     return `<div class="g-order">${bowl}${drink}</div><div class="g-patience"><i></i></div>`;
+  }
+
+  // How far a bubble of width w moves off the centre of its seat to stay in the seat's slot; its tail stays on the
+  // guest's head (css/game.css --dx). The slots are where the widest bubbles go: on their guests while all of them
+  // fit side by side (2 and 3 seats), else spread evenly over the stage, the same gap between each two (4 seats:
+  // the outer ones pushed out further than the middle ones). A narrower bubble is centred on its guest while that
+  // keeps it in its slot.
+  bubbleShift(seat, w) {
+    const xs = SEAT_X[this.seatCount] || SEAT_X[4];
+    const half = BUBBLE_W / 2;
+    const fits = xs.every((sx, i) => sx - half >= BUBBLE_EDGE && sx + half <= STAGE_W - BUBBLE_EDGE
+      && (i === 0 || sx - xs[i - 1] >= BUBBLE_W + BUBBLE_GAP));
+    const gap = xs.length > 1 ? (STAGE_W - 2 * BUBBLE_EDGE - xs.length * BUBBLE_W) / (xs.length - 1) : 0;
+    const x = this.seatX(seat);
+    const mid = fits ? x : BUBBLE_EDGE + half + seat * (BUBBLE_W + gap);
+    return Math.round(Math.min(mid + half - w / 2, Math.max(mid - half + w / 2, x)) - x);
   }
 
   // Accessible name of the order bubble (it is role="img"), with what was already handed over.
@@ -1395,6 +1452,11 @@ class GameView {
     if (x !== v.x) {
       v.x = x;
       v.el.style.left = `${x}px`;
+      const dx = this.bubbleShift(seat, v.bw);
+      if (dx !== v.dx) {
+        v.dx = dx;
+        v.bubble.style.setProperty('--dx', `${dx}px`);
+      }
     }
     if (c.state !== v.state) {
       if (v.state) v.el.classList.remove(`is-${v.state}`);
@@ -1436,12 +1498,12 @@ class GameView {
       if (d) d.style.left = `${Math.round(cx - DECOR_SIZE[id] / 2)}px`;
     };
     place('plants', 58);
-    place('jukebox', 1222);
+    place('jukebox', JUKEBOX_X);
     place('seating', xs.length > 1 ? gapMid(0) : 330);
-    // the neon hangs high (css/game.css), above the heads, in a gap between two bubbles that even two wide
-    // bubbles leave mostly open: 2 and 4 seats in the window's right half (x 640; tools/art-preview.html
-    // places a copy there for its 4-seat scene), 1 and 3 seats on the wall between the window and the shelf
-    place('neon', xs.length > 1 ? gapMid(Math.min(1, xs.length - 2)) : 825);
+    // the neon hangs from the wainscot's rail, under the faces (css/game.css): with 3 and 4 seats between the two
+    // right guests' shoulders (x 825, 934; tools/art-preview.html places a copy there for its 4-seat scene), with 1
+    // and 2 seats – the chair stands in their gap – between the last guest and the jukebox
+    place('neon', xs.length > 2 ? gapMid(xs.length - 2) : (xs[xs.length - 1] + JUKEBOX_X) / 2);
     for (const v of this.custViews.values()) v.x = -1; // re-position on next update
   }
 
@@ -1520,10 +1582,14 @@ class GameView {
     });
   }
 
+  // What is in a cup, laid out like its order bubble: the base chip, beside it a row of the fruits & crunch and under
+  // that one of the toppings & sauces – every chip whole, at most four side by side (css/game.css .g-chips).
   chipsMarkup(b) {
     if (!b.base) return '';
-    const chip = (id, layer) => `<span class="g-chip g-chip-${layer}">${ingredientIcon(id, 24)}</span>`;
-    return chip(b.base, 'base') + b.mid.map((id) => chip(id, 'mid')).join('') + b.top.map((id) => chip(id, 'top')).join('');
+    const chip = (id, layer) => `<span class="g-chip g-chip-${layer}">${ingredientIcon(id, CHIP_ICON)}</span>`;
+    const row = (layer, ids) => (ids.length ? `<span class="g-chip-row">${ids.map((id) => chip(id, layer)).join('')}</span>` : '');
+    const rows = b.mid.length || b.top.length ? `<span class="g-chip-rows">${row('mid', b.mid)}${row('top', b.top)}</span>` : '';
+    return chip(b.base, 'base') + rows;
   }
 
   updateSlots() {
