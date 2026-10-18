@@ -191,7 +191,7 @@ export const CUTS = {
     scenes: [
       ['follow', 8, { seg: [SEG.pov], title: [0, 'pov', 100, 3.6], logo: [4, 8], keys: [[0, 2.4, null, 400], [3.3, 2.4, null, 400], [4.6, 0.84, 640, 400], [8, 0.84, 640, 400]], enter: null }],
       ['follow', 32, { seg: [SEG.play], captions: SEG.playCaptions, keys: SEG.playKeys }],
-      ['follow', 8, { seg: [SEG.wide], keys: [[0, 1.6, null, 400], [1.5, 0.84, 640, 400]], chips: [[1, 'chipLevels', 'mango', 300, 420, -4], [1.5, 'chipIngredients', 'pink', 760, 470, 4], [2, 'chipUpgrades', 'lagoon', 320, 1470, 3], [2.5, 'chipEndless', 'leaf', 760, 1520, -3]] }],
+      ['follow', 8, { seg: [SEG.wide], keys: [[0, 1.6, null, 400], [1.5, 0.84, 640, 400]], chips: [[1, 'chipLevels', 'mango', 320, 400, -4], [1.5, 'chipIngredients', 'pink', 750, 530, 4], [2, 'chipUpgrades', 'lagoon', 330, 1395, 3], [2.5, 'chipEndless', 'leaf', 750, 1525, -3]] }],
       ['end', 8, { enter: ['softIn', 0.35] }],
     ],
     music: [
@@ -1336,7 +1336,7 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
         }
         chips.forEach((c) => {
           const p = popIn(lt - b(c.at), { f: 2.4, d: 8 });
-          c.sp.set({ x: c.x, y: c.y + p.dy, s: p.s * 1.45, r: c.r, o: p.o });
+          c.sp.set({ x: c.x, y: c.y + p.dy, s: p.s * 1.3, r: c.r, o: p.o });
         });
         return wait;
       },
