@@ -288,6 +288,8 @@ const HIT_PAD = 18; // stage px around a station, as in drag.js
 
 const ACTIVE = new Set(['arriving', 'waiting']);
 const POURABLE = new Set(['ready', 'overflowing', 'ruined']);
+// whole seconds a blender has left to blend (its display counts them down)
+const secsLeft = (b) => (b.state === 'blending' ? Math.ceil((1 - b.progress) * (b.duration || 0)) : 0);
 const TUT_DOTS = ['pack', 'cup', 'wait', 'pour', 'add', 'serve', 'done'];
 const TUT_DOT_OF = { welcome: -1, pack: 0, clean: 0, cup: 1, cupWait: 1, wait: 2, waitWrong: 2, pour: 3, add: 4, trash: 4, serve: 5, done: 6 };
 
@@ -877,7 +879,7 @@ class GameView {
         ghost: () => {
           const b = g.blenders[i];
           if (v.view?.el.width) return snapshot(v.view, 0.9, blenderBox(this.look.tier, this.look.big, b.state));
-          return blenderSVG({ state: b.state, base: b.base, progress: b.progress, portions: b.portions, maxPortions: b.maxPortions, badge: false }, Math.round(BLENDER_ART * 0.9));
+          return blenderSVG({ state: b.state, base: b.base, progress: b.progress, remaining: secsLeft(b), portions: b.portions, maxPortions: b.maxPortions, badge: false }, Math.round(BLENDER_ART * 0.9));
         },
         onTap: () => this.hint(v.el, g.blenders[i].state === 'ruined' ? 'game.hint.blenderRuined' : 'game.hint.blender'),
       });
@@ -1431,11 +1433,12 @@ class GameView {
   updateBlenders() {
     this.game.blenders.forEach((b, i) => {
       const v = this.blenderViews[i];
-      // the art is re-rendered only on state changes (3D: drawn in update3D); the badge ring follows
-      // the blend in place
+      // the art is re-rendered only on state changes and once a second for the display's countdown
+      // (3D: drawn in update3D); the badge ring follows the blend in place
       if (v.pic) {
-        patch(v.pic, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}`, () => blenderSVG({
-          state: b.state, base: b.base, progress: 0, portions: b.portions, maxPortions: b.maxPortions, badge: false,
+        const secs = secsLeft(b);
+        patch(v.pic, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}|${secs}`, () => blenderSVG({
+          state: b.state, base: b.base, progress: 0, remaining: secs, portions: b.portions, maxPortions: b.maxPortions, badge: false,
         }, BLENDER_ART));
       }
       if (patch(v.badge, b.state, () => blenderBadgeSVG(b.state, BLENDER_BADGE))) {
@@ -1540,7 +1543,7 @@ class GameView {
       v.view?.draw({
         ...this.look, state: b.state, base: b.base,
         progress: blending ? Math.round(b.progress * 48) / 48 : 0,
-        remaining: blending ? Math.ceil((1 - b.progress) * (b.duration || 0)) : 0,
+        remaining: secsLeft(b),
         portions: b.portions, maxPortions: b.maxPortions,
       }, t);
     });

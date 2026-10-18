@@ -236,10 +236,81 @@ export function section(a, sq = 0, depth = 1) {
   return [Math.sign(c) * Math.abs(c) ** e, Math.sign(s) * Math.abs(s) ** e * depth];
 }
 
+// Where a point lies along the outline of a section (see section()), as a share of the way round:
+// toU(a) for an angle (whole turns count on), toA(u) the angle at a share. Fluted lathes space their
+// columns and panels evenly along it, so the flat sides of a rounded square get as many panels as
+// its corners.
+const arcs = new Map();
+export function sectionArc(sq = 0, depth = 1) {
+  const key = `${sq}|${depth}`;
+  let arc = arcs.get(key);
+  if (!arc) {
+    // samples per quarter turn, packed toward the axes where a rounded square's flat sides pass by
+    // within a sliver of angle: a = (q + w(t)) · π/2 moves evenly along them (w⁻¹ in closed form)
+    const p = sq > 0 ? 1 + 4 * sq : 1;
+    const w = (t) => (t <= 0 ? 0 : t >= 1 ? 1 : t ** p / (t ** p + (1 - t) ** p));
+    const wInv = (r) => {
+      if (r <= 0) return 0;
+      if (r >= 1) return 1;
+      const k = (r / (1 - r)) ** (1 / p);
+      return k / (1 + k);
+    };
+    const K = 256;
+    const N = 4 * K;
+    const L = new Float64Array(N + 1);
+    let [px, pz] = section(0, sq, depth);
+    for (let i = 1; i <= N; i++) {
+      const q = Math.floor(i / K);
+      const [x, z] = section((q + w(i / K - q)) * (TAU / 4), sq, depth);
+      L[i] = L[i - 1] + Math.hypot(x - px, z - pz);
+      [px, pz] = [x, z];
+    }
+    for (let i = 1; i <= N; i++) L[i] /= L[N];
+    const toU = (a) => {
+      const turns = Math.floor(a / TAU);
+      const r = ((a - turns * TAU) / TAU) * 4;
+      const q = Math.min(3, Math.floor(r));
+      const f = (q + wInv(r - q)) * K;
+      const i = Math.min(N - 1, Math.floor(f));
+      return turns + L[i] + (L[i + 1] - L[i]) * (f - i);
+    };
+    const toA = (u) => {
+      const turns = Math.floor(u);
+      const v = u - turns;
+      let lo = 0;
+      let hi = N;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (L[mid] <= v) lo = mid;
+        else hi = mid;
+      }
+      const f = (lo + (v - L[lo]) / (L[hi] - L[lo] || 1)) / K;
+      const q = Math.min(3, Math.floor(f));
+      return (turns + (q + w(f - q)) / 4) * TAU;
+    };
+    arc = { toU, toA };
+    arcs.set(key, arc);
+  }
+  return arc;
+}
+
+// Radius factor of a fluted section at k panels along its outline (lathe option flutes: k = the
+// share of the way round × the number of panels; the creases between panels at whole k). Each
+// panel bulges out between grooves (depth > 0) or curves in between sharp ridges (depth < 0); the
+// factor is 1 at the outermost line of a panel or ridge.
+export function flute(k, depth) {
+  if (!depth) return 1;
+  const s = Math.sin(Math.PI * (((k % 1) + 1) % 1));
+  return depth > 0 ? 1 - depth * (1 - s) : 1 + depth * s;
+}
+
 // Surface of revolution. profile: [[r, y], …] from bottom to top (r ≥ 0, r = 0 closes the shape);
 // a third entry 1 marks a sharp crease at that point. Options: segs around, sq/depth for the
-// cross-section (see section()), a0/a1 for a partial turn, inside: normals point inwards.
-export function lathe(profile, { segs = 40, sq = 0, depth = 1, a0 = 0, a1 = TAU, inside = false } = {}) {
+// cross-section (see section()), a0/a1 for a partial turn, inside: normals point inwards;
+// flutes/flute: n fluted panels of that depth (see flute(); the columns are spaced evenly along the
+// section's outline, segs is rounded to a multiple of n and the panels meet with a sharp edge),
+// warp(a, y): a further radius factor (a jug's pouring spout).
+export function lathe(profile, { segs = 40, sq = 0, depth = 1, a0 = 0, a1 = TAU, inside = false, flutes = 0, flute: fd = 0, warp = null } = {}) {
   const segDir = (i) => {
     const [r0, y0] = profile[i];
     const [r1, y1] = profile[i + 1];
@@ -263,31 +334,58 @@ export function lathe(profile, { segs = 40, sq = 0, depth = 1, a0 = 0, a1 = TAU,
       rings.push({ r, y, t, v: len, dup: false });
     }
   }
+  // columns around: a crease between two flutes gets two columns, each with the normal of its own
+  // panel (side −1: the panel before it, +1: the one after it); the strip between them is empty
+  const fluted = flutes > 0 && fd !== 0;
+  const n = fluted ? Math.max(1, Math.round(segs / flutes)) * flutes : segs;
+  const arc = fluted ? sectionArc(sq, depth) : null;
+  const [u0, u1] = arc ? [arc.toU(a0), arc.toU(a1)] : [0, 1];
+  const columns = [];
+  for (let j = 0; j <= n; j++) {
+    const a = arc ? arc.toA(u0 + ((u1 - u0) * j) / n) : a0 + ((a1 - a0) * j) / n;
+    const k = arc ? (u0 + ((u1 - u0) * j) / n) * flutes : 0;
+    const crease = fluted && Math.abs(k - Math.round(k)) < 1e-6;
+    if (!crease) columns.push({ a, u: j / n, side: 0, dup: false });
+    else {
+      if (j > 0) columns.push({ a, u: j / n, side: -1, dup: false });
+      if (j < n) columns.push({ a, u: j / n, side: 1, dup: j > 0 });
+    }
+  }
+  const g = (a, y) => (fluted ? flute(arc.toU(a) * flutes, fd) : 1) * (warp ? warp(a, y) : 1);
   const pos = [];
   const nor = [];
   const uv = [];
   const idx = [];
   const h = 1e-3;
-  const cols = segs + 1;
+  const cols = columns.length;
   for (const ring of rings) {
     const [tr, ty] = ring.t;
-    for (let j = 0; j <= segs; j++) {
-      const a = a0 + ((a1 - a0) * j) / segs;
+    for (const col of columns) {
+      const a = col.a;
       const [X, Z] = section(a, sq, depth);
-      const p1 = section(a + h, sq, depth);
-      const p0 = section(a - h, sq, depth);
-      const dX = p1[0] - p0[0];
-      const dZ = p1[1] - p0[1];
-      let n = normalize([ty * dZ, tr * (Z * dX - X * dZ), -ty * dX]);
-      if (inside) n = [-n[0], -n[1], -n[2]];
-      pos.push(ring.r * X, ring.y, ring.r * Z);
-      nor.push(n[0], n[1], n[2]);
-      uv.push(j / segs, len > 0 ? ring.v / len : 0);
+      const w = g(a, ring.y);
+      // the section's tangent around (radius factor included) and how the factor changes with y
+      const pa = col.side < 0 ? a : a + h;
+      const pb = col.side > 0 ? a : a - h;
+      const p1 = section(pa, sq, depth);
+      const p0 = section(pb, sq, depth);
+      const w1 = g(pa, ring.y);
+      const w0 = g(pb, ring.y);
+      const dX = p1[0] * w1 - p0[0] * w0;
+      const dZ = p1[1] * w1 - p0[1] * w0;
+      const wy = warp ? (g(a, ring.y + h) - g(a, ring.y - h)) / (2 * h) : 0;
+      const k = tr * w + ring.r * wy * ty;
+      let nn = normalize([ty * dZ, k * (Z * dX - X * dZ), -ty * dX]);
+      if (inside) nn = [-nn[0], -nn[1], -nn[2]];
+      pos.push(ring.r * w * X, ring.y, ring.r * w * Z);
+      nor.push(nn[0], nn[1], nn[2]);
+      uv.push(col.u, len > 0 ? ring.v / len : 0);
     }
   }
   for (let i = 0; i < rings.length - 1; i++) {
     if (rings[i + 1].dup) continue; // the zero-height strip of a crease
-    for (let j = 0; j < segs; j++) {
+    for (let j = 0; j < cols - 1; j++) {
+      if (columns[j + 1].dup) continue; // the zero-width strip of a flute's edge
       const A = i * cols + j;
       const B = A + 1;
       const D = A + cols;
@@ -549,7 +647,7 @@ export const MODE = {
   PLAIN: 0, // glass only: p.w the share of its reflections that adds light (clear jars over bright contents)
   BRUSHED: 1, // brushed metal; p.x line density, p.y 1 = vertical lines, 2 = lines along x (flat trays), p.z more contrast
   PUREE: 2, // blended fruit; colour2 streaks, p.x arms, p.y twist, p.z speed (rad/s), p.w amount
-  GLASS: 3, // printed scale on clear plastic; p.x marks, p.y first mark (object y), p.z spacing, p.w side (angle)
+  GLASS: 3, // printed scale on clear plastic (fine ticks right of a thin spine); p.x marks, p.y first mark (object y), p.z spacing, p.w the spine's angle
   FROST: 4, // frosted surface; p.x amount, p.y frost along the uv edges, p.z light streaks (glass panes)
   SHADOW: 5, // soft contact shadow of a rounded rect: p.x half width, p.y half depth, p.z radius, p.w blur
   TEX: 6, // texture (labels, displays); p.x glow of the texture

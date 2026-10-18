@@ -58,9 +58,12 @@ und Honig – insgesamt gibt es 16), bessere Qualität (mehr Münzen pro Zutat),
 die Gäste geduldiger macht.
 
 **Küchengeräte in 3D:** Mixer und Smoothie-Maschine stehen hinten auf der Arbeitsplatte vor der Theke und sind etwa
-doppelt so hoch wie ein Becher. Jede Stufe des Turbo-Mixers ist ein neues Modell – vom weißen *Classic* mit Drehknopf über den
-*Turbo* aus gebürstetem Edelstahl und den açaí-lila *Pro* mit LED-Ring bis zum schwarzen *Pro Max* mit Countdown-Display
-und Lichtleiste. Der große Mixkrug ist sichtbar höher und breiter, die Smoothie-Maschine wächst vom kompakten Ein-Tank-
+doppelt so hoch wie ein Becher. Der Mixer ist einem echten Standmixer nachempfunden: gerippter Glaskrug mit Skala, klarem
+Griff rechts und Ausgießer links, schwarzer Deckel mit Messbecher, darunter ein hoher Motorsockel mit schwarzem Glasband,
+das vorn in ein V mit Display ausläuft, und großem Start/Stopp-Drehknopf. Jede Stufe des Turbo-Mixers ist ein neues Modell
+in dieser Form – vom weißen *Classic* mit einfachem Drehknopf und Lämpchen über den *Turbo* aus gebürstetem Edelstahl mit
+Countdown-Display und Chromring und den açaí-lila *Pro* mit LED-Ring bis zum graphitschwarzen *Pro Max* mit großem Display,
+Chromzierleiste und Lichtleiste. Der große Mixkrug ist sichtbar höher und breiter, die Smoothie-Maschine wächst vom kompakten Ein-Tank-
 zum Edelstahl-Zwei-Tank-Gerät. Beim Mixen dreht sich ein Strudel im Krug und gefrorene Stücke zerfallen, beim Überlaufen
 quillt Schaum unter dem Deckel hervor, in der Smoothie-Maschine wirbelt die Förderschnecke das Slush, dann öffnet der
 Zapfhahn und der Becher füllt sich. Der Mülleimer öffnet den Deckel, wenn du etwas Wegwerfbares darüber hältst, und aus der
@@ -171,7 +174,11 @@ patience runs out. Made for landscape tablets, also playable with a mouse and on
 <https://leesyashin.github.io/Acai/> (every push to `main` deploys there).
 The kitchen appliances are real-time 3D models (WebGL, no library) with animations – a vortex in the blender jug,
 churning slush and a pouring tap in the smoothie machine, a pedal bin lid and cold air from the chest freezer – and every kitchen upgrade
-brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-tank → two-tank smoothie machine). Blenders and
+brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-tank → two-tank smoothie machine). The blender
+is modelled on a real stand blender: a fluted glass jug with a scale, a clear handle and a pouring spout, a black lid with a
+measuring cap, and a tall motor base with a black glass band that dips into a V display and a big start/stop dial – white
+with a plain knob (Classic), brushed stainless with a countdown display (Turbo), açaí purple with an LED ring (Pro) or
+graphite with a big display, chrome trim and a light bar (Pro Max). Blenders and
 machine stand at the back of the worktop in front of the pass, about twice as tall as a cup. The ingredients stand in real
 containers on oak risers: fruit in brushed stainless pans, granola in a clip-top jar, honey with its dipper, chia in a
 Weck glass with a measuring spoon, peanut butter with a spoon, chocolate sauce in a squeeze bottle, shredded coconut in

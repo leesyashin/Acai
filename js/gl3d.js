@@ -217,14 +217,15 @@ void main() {
     }
   } else if (isMode(${MODE.GLASS}.0)) {
     if (uP.x > 0.5) {
-      float side = abs(ang - uP.w);
-      float k = (vObj.y - uP.y) / uP.z;
+      // a thin spine with fine ticks to its right (d: along the wall from the spine), a long one at
+      // each of the p.x marks and a short one halfway between them
+      float d = (uP.w - ang) * rad;
+      float k = (vObj.y - uP.y) / uP.z * 2.0;
       float i = floor(k + 0.5);
-      float lineY = abs(k - i) * uP.z;
-      float markLen = mod(i, 2.0) < 0.5 ? 0.26 : 0.15;
-      if (i >= 0.0 && i < uP.x && side < markLen) print = 1.0 - smoothstep(0.35, 0.75, lineY);
-      float sideBar = abs(side - 0.02);
-      if (vObj.y > uP.y - 1.0 && vObj.y < uP.y + uP.z * (uP.x - 1.0) + 1.0 && sideBar < 0.012) print = max(print, 0.9);
+      float lineY = abs(k - i) * uP.z * 0.5;
+      float markLen = mod(i, 2.0) < 0.5 ? 4.4 : 2.4;
+      if (i >= 0.0 && i <= 2.0 * (uP.x - 1.0) && d > 0.0 && d < markLen) print = 1.0 - smoothstep(0.2, 0.5, lineY);
+      if (vObj.y > uP.y - 0.3 && vObj.y < uP.y + uP.z * (uP.x - 1.0) + 0.3) print = max(print, 0.8 * (1.0 - smoothstep(0.12, 0.42, abs(d))));
     }
   } else if (isMode(${MODE.FROST}.0)) {
     float f = noise(vObj.xy * 0.45 + vObj.z * 0.2) * 0.6 + noise(vObj.xy * 1.9) * 0.4;
@@ -238,9 +239,11 @@ void main() {
     base += vec3(0.6) * step(0.93, noise(vObj.xy * 3.1 + vObj.z)) * frost;
     rough = mix(rough, 0.75, frost);
   } else if (isMode(${MODE.TEX}.0)) {
+    // textures are stored premultiplied (their mipmaps average print and clear parts correctly)
     vec4 tx = texture2D(uTex, vUv);
-    vec3 tc = pow(tx.rgb, vec3(2.2));
-    base = mix(base, tc, tx.a);
+    vec3 tc = tx.a > 0.0 ? pow(min(tx.rgb / tx.a, vec3(1.0)), vec3(2.2)) : vec3(0.0);
+    // a decal (p.y) is only its print: the print's colour, its coverage in the alpha
+    base = uP.y > 0.5 ? tc : mix(base, tc, tx.a);
     emit += tc * tx.a * uP.x;
     if (uP.y > 0.5) alpha *= tx.a;
   } else if (isMode(${MODE.STREAM}.0)) {
@@ -317,8 +320,9 @@ void main() {
     // thin clear glass over bright contents (jars): p.w of the reflection adds light instead of covering
     if (isMode(${MODE.PLAIN}.0)) al = mix(al, (1.0 - aR) * absorb, uP.w);
     if (isMode(${MODE.GLASS}.0) && uP.x > 0.5) {
-      c = mix(c, display(vec3(0.82, 0.86, 0.9) * diffLight * 0.55) * 0.88, print);
-      al = mix(al, 0.88, print);
+      // the scale's light ink covers about half of what is behind it (the purée shows through)
+      c = mix(c, display(vec3(0.84, 0.88, 0.92) * diffLight * 0.55) * 0.9, print * 0.5);
+      al = mix(al, 0.9, print * 0.5);
     } else if (isMode(${MODE.FROST}.0)) {
       c = mix(c, display(vec3(0.86, 0.92, 0.98) * diffLight * 0.62) * 0.82, frost * 0.85);
       al = mix(al, 0.82, frost * 0.85);
@@ -432,7 +436,9 @@ class Renderer {
     return b;
   }
 
-  // Texture from a spec { key, w, h, draw(ctx, w, h) } drawn on a 2D canvas once per key.
+  // Texture from a spec { key, w, h, draw(ctx, w, h) } drawn on a 2D canvas once per key. A
+  // power-of-two texture gets mipmaps (WebGL 1 allows them only there), so a big print shrunk to a few
+  // px stays smooth instead of breaking up; it is stored premultiplied so they keep the print's colour.
   texture(spec) {
     const gl = this.gl;
     let t = this.textures.get(spec.key);
@@ -444,10 +450,17 @@ class Renderer {
       t = gl.createTexture();
       gl.bindTexture(gl.TEXTURE_2D, t);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      const pot = (n) => n > 0 && (n & (n - 1)) === 0;
+      if (pot(spec.w) && pot(spec.h)) {
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      } else {
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      }
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);

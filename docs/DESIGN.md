@@ -30,7 +30,7 @@ player decisions listed in §1.
 | 14 | Sound | **SFX + music**, each mutable, remembered. |
 | 15 | Name | **Açaí Fever** |
 | 16 | Cups | A bowl is a **clear plastic cup**. An empty cup is **put down from the stack** on a free spot before anything goes into it; serving or trashing takes it off the counter. |
-| 17 | Appliances | The kitchen machines are **3D** (real-time WebGL) and **animated** (blending vortex, churning slush, pouring tap, lids and doors), modelled on **real household appliances**, with **a new model per upgrade level** (blender: Classic → Turbo → Pro → Pro Max, normal or big jug; smoothie machine: one tank → two tanks). The ingredient containers are 3D pictures too (drawn once, what lies in them is SVG). Without WebGL the drawn SVG art is used. |
+| 17 | Appliances | The kitchen machines are **3D** (real-time WebGL) and **animated** (blending vortex, churning slush, pouring tap, lids and doors), modelled on **real household appliances** (the blender on a stand blender: fluted glass jug with a clear handle, spout and measuring cap, tall tapered motor base with a black glass V display band and a big start/stop dial), with **a new model per upgrade level** (blender: Classic → Turbo → Pro → Pro Max, all of that shape, normal or big jug; smoothie machine: one tank → two tanks). The ingredient containers are 3D pictures too (drawn once, what lies in them is SVG). Without WebGL the drawn SVG art is used. |
 
 ---
 
@@ -148,7 +148,7 @@ js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, wh
 js/art-kitchen.js     realistic kitchen art: work counter, freezer, risers, café back wall, decor; blender, smoothie machine,
                       trash and freezer as the SVG fallback of the 3D models
 js/art.js             people, HUD icons, logo, map; re-exports the food + kitchen art (screens import from here)
-js/geo3d.js           3D math, mesh builders (lathe, rounded box, tube, liquid surface) and materials – pure
+js/geo3d.js           3D math, mesh builders (lathe – also fluted or warped –, rounded box, tube, liquid surface) and materials – pure
 js/kitchen3d.js       3D models of the appliances as scene descriptions (blender tiers, smoothie machine, bin, freezer) – pure
 js/pantry3d.js        3D models of the ingredient containers (stainless pans, jars, squeeze bottle, coconut, wood) – pure
 js/gl3d.js            WebGL renderer: one shared offscreen context, studio lighting, glass, patterns
@@ -319,7 +319,8 @@ artDefsSVG() / ART_DEFS_ID           // the hidden <svg> with the shared gradien
 cupSVG(fruitId|null, state, size=70) // smoothie cup: state 'empty'|'mixing'|'ready'
 customerSVG(look, mood, size = 160)  // mood: 'happy'|'neutral'|'impatient'|'angry'
 randomLook(rng)                       // → look object (skin, hair colour/style, shirt, accessory) – diverse
-blenderSVG({state, base, progress, portions, maxPortions, badge?}, size = 150)  // badge:false hides the status badge
+blenderSVG({state, base, progress, remaining?, portions, maxPortions, badge?}, size = 150)  // badge:false hides the status badge;
+                                      // remaining: whole seconds the display counts down while blending
 smoothieMachineSVG(slotCount, size)   // machine body without cups (cups drawn separately)
 trashSVG(size), coinSVG(size), heartSVG(filled, size), starSVG(filled, size)
 decorSVG(id, size)                    // 'plants' | 'jukebox' | 'seating' | 'neon'
@@ -336,9 +337,9 @@ logoSVG(width)                        // "Açaí Fever" logo with bowl
 Look: shapes are filled with their colour and shaded with the shared overlay gradients (`url(#af-sph)`,
 `af-cyl`, `af-plastic`, `af-steel` …, light from the top left), thin outlines in a darker shade of the fill.
 Everything on the counter is seen from the player's side, from above at an angle (Cooking Fever's view): round
-things are ellipses, boxes show their top face and the side that faces the middle of the screen (blender: right
-side, smoothie machine: left side), and every object casts a soft shadow on the worktop. The ingredient containers
-in the two front rows are seen more steeply (`PANTRY_ELEV` 38°, the tilt the fruit pieces are drawn with): the
+things are ellipses, boxes show their top face and the side that faces the middle of the screen (smoothie machine:
+left side; the blender is drawn from the front like its 3D model), and every object casts a soft shadow on the
+worktop. The ingredient containers in the two front rows are seen more steeply (`PANTRY_ELEV` 38°, the tilt the fruit pieces are drawn with): the
 rows are nearer to the player and lower than the appliances, and the pans' tops and the jars' mouths must read.
 The fruit lies in neat staggered rows like a deli counter, each piece with a little contact shadow away from the
 light.
@@ -360,7 +361,7 @@ VIEWS[kind] = { w, h, ax, ay, zoom?, pic? } // canvas size (stage px), where the
                                             // (the blender's is per model), pic = { y, h }: the rows a menu picture shows
 blenderLook(save.upgrades) → { tier, big }  // tier = Turbo-Mixer level, big = big jug bought
 BLENDER_MODELS = ['Classic', 'Turbo', 'Pro', 'Pro Max'];  MACHINE_SLOT_X; pourFill(progress); isAnimated(kind, o)
-blenderZoom(tier, big)                      // a model's zoom: every model equally tall (measured once from its jug)
+blenderZoom(tier, big)                      // a model's zoom: every model equally tall (measured once from its jug, lid and cap)
 blenderBadgeAt(tier, big) → { x, y }        // canvas point above the right end of the model's lid (status badge)
 blenderBox(tier, big, state) → [x0, y0, x1, y1]  // the canvas part a model in a state covers (drag ghost), measured once
 fitFrame(frame, size)                       // a view (its pic rows, if set) fitted into a size×size menu picture
@@ -391,9 +392,9 @@ pixelRatio()                                 // device px per stage px, 1–3
   chest freezer built into the worktop is seen from above like the worktop itself: `FREEZER_ELEV` 60° and a gentle
   perspective (`scene.persp`, a camera 1100 px from the middle of its opening), so its frame tapers toward the back like
   the worktop and the inner side walls show. The ingredient containers: `PANTRY_ELEV` 38°, orthographic.
-- **Sizes (`VIEWS`, CSS px):** blender 164 × 292 (no zoom of its own: `blenderZoom` scales each model so the lid of a
-  2-bowl jug ends 188 px above the floor, the 3-bowl jug's 208 px – ≈200 / ≈220 px tall in all, about 2× / 2.25× a cup,
-  whatever the motor base; the canvas keeps headroom for the lid an overflowing blender lifts, menu pictures crop most of
+- **Sizes (`VIEWS`, CSS px):** blender 164 × 292 (no zoom of its own: `blenderZoom` scales each model so the lid (its
+  measuring cap) of a 2-bowl jug ends 188 px above the floor, the 3-bowl jug's 208 px – ≈200 / ≈220 px tall in all,
+  about 2× / 2.25× a cup, whatever the motor base; the canvas keeps headroom for the lid an overflowing blender lifts, menu pictures crop most of
   it with `pic`), smoothie machine 312 × 312 (zoom 312/236, the machine box of the game; the cups' slots line up with its
   taps and drip trays), pedal bin 153 × 209 (zoom 1.35), chest freezer 284 × 194, ingredient container 96 × 112
   (`PANTRY_VIEW`, origin at ax 48 / ay 96). Every part of every blender state stays inside its canvas and its `blenderBox`
@@ -430,14 +431,35 @@ pixelRatio()                                 // device px per stage px, 1–3
   change the game draws them again one picture per frame, the old pictures (scaled by the browser) staying until then.
   Drawing them into one atlas would save the per-picture readback only by growing the one shared WebGL canvas, which makes
   every later frame of the appliances slower (its whole buffer is resolved on each copy), so they are drawn one by one.
-- **Models per upgrade:** Turbo-Mixer level 0–3 picks the motor base (white Classic with a knob, brushed-steel Turbo with speed
-  LEDs, açaí-purple Pro with an LED ring that fills while blending, black Pro Max with a countdown display and light bar);
-  the big jug is taller and wider; the smoothie machine is a compact white one-tank machine or the stainless two-tank
-  machine, both with the café's açaí purple on the head with the taps.
-  Green LEDs on every base show the portions left. The shop's Turbo-Mixer card shows the next model ("New model: Pro").
+- **Blender:** a stylised stand blender after a household model (the overhaul's reference photo; the brand line reads
+  "AÇAÍ FEVER"). Jug: glass with 20 fluted panels (`lathe` `flutes`, spaced evenly along its rounded-square outline, so
+  the flat sides show them; the purée inside follows them and stays inside the glass – tests/kitchen3d.test.mjs),
+  widening toward the top, a printed scale on the front left (fine ticks right of a thin spine, half see-through so the
+  purée shows through), a clear D-shaped handle on the right, the pouring spout on the left (`lathe` `warp`; the glass lip
+  with a clear bead along it reaches out past the lid, which follows the spout only a little), a black lid over the rim
+  with a tab over the handle and a clear measuring cap, a black collar, a 4-wing blade. Motor base (≈40 % of the
+  height): tapered rounded square on a black plinth, a black glass band around its top, over the shoulder and the top
+  face, which dips into a V on the front (a decal with a bevelled edge and programme icons; the display and the portion
+  LEDs in it), the big dial in the middle of the front with ticks and
+  programme icons printed around it (all inside the dial's decal), "AÇAÍ FEVER" under it. Textures are drawn at ≈10–20 px
+  per world unit on power-of-two canvases (stretched to fit), which the renderer gives mipmaps (stored premultiplied, so
+  shrunk prints keep their colour; a decal's colour is its print's), sharp in the shop and smooth instead of broken up at
+  the game's size. The display shows `00:00` when idle, the seconds left while blending (e.g. `00:05` … `00:01`; the drawn
+  blender without WebGL too, drawn again once a second), a green ✓ when ready, a blinking red `!` when overflowing, a red
+  `Err` when spoiled.
+- **Models per upgrade:** Turbo-Mixer level 0–3 picks the motor base, all of the shape above: white Classic (a plain
+  black knob on a grey ring with 0 / 1 / 2 / P, a red lamp that is on while blending, no display), brushed-stainless
+  Turbo like the photo (white countdown digits, a chrome dial ring with a black Start/Stop cap and a ramp of ticks),
+  açaí-purple Pro (cyan digits, an LED ring around the dial that fills clockwise while blending), graphite Pro Max with a
+  chrome trim along the band and its V, a bigger display and a thin light line just over the plinth with a soft halo on
+  the body, not on the floor where the game's timer bar runs (white idle, cyan blending, green ready, red blinking when it
+  overflows). The dial turns to the top of its ramp while blending. The big jug is
+  taller and wider. The smoothie machine is a compact white one-tank machine or the stainless two-tank machine, both
+  with the café's açaí purple on the head with the taps. Green LEDs at the tip of every base's V show the portions left.
+  The shop's Turbo-Mixer card shows the next model ("New model: Pro").
 - **Animations** are functions of state and time: vortex, swirl and frozen chunks that melt away while blending, jug
-  vibration, foam, drips and a lifted lid when overflowing, mould and flies when spoiled; fruit tumbling into the tank,
-  auger and slush churning, then the lever opens and a stream fills the cup (the cup art fills with `pourFill`); the bin lid
+  vibration, the countdown and the filling LED ring, foam, drips, a puddle and the lifted lid (with its cap) when
+  overflowing, mould and flies when spoiled; fruit tumbling into the tank, auger and slush churning, then the lever opens and a stream fills the cup (the cup art fills with `pourFill`); the bin lid
   opens while something trashable is carried (wide over the bin) and falls shut with a bounce; cold air spills out of the
   chest freezer while a pack is taken.
 - **Rendering:** one shared offscreen WebGL context draws each view into the view's own 2D canvas (passes: contact shadow,
@@ -560,7 +582,8 @@ slots, with and without WebGL, at 1280×800 and 1024×768) and in small ones (le
   lamps, menu boards) seen like Cooking Fever from behind the counter: a marble pass with an oak front, a terrazzo
   worktop in perspective with a rounded front edge and open shelves of stock below, the ingredients in real
   containers on oak risers (brushed stainless pans of fruit in neat rows, glass jars, a squeeze bottle, a coconut
-  shell, a walnut bowl, a board – 3D, light from the top left like everything else), 3D appliances about twice as tall as a cup (black pro blender, white smoothie
+  shell, a walnut bowl, a board – 3D, light from the top left like everything else), 3D appliances about twice as tall as a cup (a stand
+  blender after a household model – fluted glass jug, tall stainless base with a black glass V display band and a big chrome dial –, white smoothie
   machine with an açaí-purple head, stainless freezer and pedal bin) – clean and modern rather than cluttered.
   Bubbles, HUD pills, toasts and cards in the café are light frosted panels with soft shadows. Menus keep the chunky
   cartoon UI (thick ink outline buttons and panels) around the same realistic food art.

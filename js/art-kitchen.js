@@ -1,4 +1,4 @@
-// Kitchen art for Açaí Fever: the commercial blender, the smoothie machine, the trash can, the work
+// Kitchen art for Açaí Fever: the stand blender, the smoothie machine, the trash can, the work
 // counter in perspective with its freezer and risers, and the back wall of the café. Same realistic
 // look as art-food.js (shared gradients from svg.js). Pure module.
 
@@ -17,14 +17,24 @@ const BAD = '#ff4d4d';
 const LAGOON = '#18c2c9';
 
 // ======================================================================
-// Blender (viewBox 150×150), seen from above and from the right like everything on the counter:
-// black motor base (top face, right side, front with the controls), clear jug, round black lid
+// Blender (viewBox 150×150), the drawn version of the 3D stand blender (js/kitchen3d.js) for
+// browsers without WebGL: brushed stainless motor base with a black glass band that dips into a V
+// (display, portion LEDs), the big start/stop dial and the brand line; a fluted glass jug with the
+// scale on the left, the spout on the left and a clear handle on the right; black lid, clear cap.
 // ======================================================================
-const JUG_TOP = 34;
-const JUG_BOT = 102;
-const jugL = (y) => 36 + ((y - JUG_TOP) * 12) / (JUG_BOT - JUG_TOP);
-const jugR = (y) => 114 - ((y - JUG_TOP) * 12) / (JUG_BOT - JUG_TOP);
-const JUG = `M36 ${JUG_TOP}L48 ${JUG_BOT - 3}A27 4.5 0 0 0 102 ${JUG_BOT - 3}L114 ${JUG_TOP}Z`;
+const BX = 74; // centre line of jug and base
+const JUG_TOP = 32;
+const JUG_BOT = 89;
+// half width of the jug at height y (wider at the top)
+const jugW = (y) => 19 + ((JUG_BOT - y) * 7) / (JUG_BOT - JUG_TOP);
+const jugL = (y) => BX - jugW(y);
+const jugR = (y) => BX + jugW(y);
+const JUG = `M${f(jugL(JUG_TOP))} ${JUG_TOP}L${f(jugL(JUG_BOT) + 1)} ${JUG_BOT - 2}Q${f(jugL(JUG_BOT) + 1.4)} ${JUG_BOT} ${f(jugL(JUG_BOT) + 4)} ${JUG_BOT}H${f(jugR(JUG_BOT) - 4)}Q${f(jugR(JUG_BOT) - 1.4)} ${JUG_BOT} ${f(jugR(JUG_BOT) - 1)} ${JUG_BOT - 2}L${f(jugR(JUG_TOP))} ${JUG_TOP}Z`;
+// the motor base: a trapezoid from the shoulder (y 95) to the plinth (y 142)
+const BASE_T = 95;
+const BASE_B = 142;
+const baseW = (y) => 25.5 + ((y - BASE_T) * 4) / (BASE_B - BASE_T);
+const BAND = 104; // lower edge of the black band at the sides; its V reaches y 113 in the middle
 
 // Contents from yTop down to the jug floor, inset from the plastic. data-fill names the level for tests.
 function jugFill(yTop, col, inset = 3) {
@@ -36,19 +46,19 @@ function jugFill(yTop, col, inset = 3) {
 // portions/maxPortions: bowls left in a ready jug – the level drops with every pour (the lamps
 // on the base repeat the count). Callers without portions get a full jug.
 function blenderContents(state, p, progress, portions, maxPortions) {
-  const surf = (y, c, dip = 0) => path(`M${f(jugL(y) + 3)} ${y}Q75 ${y + 4 + dip} ${f(jugR(y) - 3)} ${y}Q75 ${y - 4} ${f(jugL(y) + 3)} ${y}Z`, c);
+  const surf = (y, c, dip = 0) => path(`M${f(jugL(y) + 3)} ${y}Q${BX} ${y + 4 + dip} ${f(jugR(y) - 3)} ${y}Q${BX} ${y - 4} ${f(jugL(y) + 3)} ${y}Z`, c);
   if (state === 'blending') {
     const y = 52;
     const turn = (progress || 0) * Math.PI * 6;
     let s = jugFill(y, p.main) + surf(y, p.light, 10);
     // vortex and swirling streaks
     for (let i = 0; i < 3; i++) {
-      const yy = 64 + i * 11;
-      const w = Math.sin(turn + i) * 4;
-      s += line(`M${f(jugL(yy) + 6 + w)} ${yy}Q75 ${yy + 7} ${f(jugR(yy) - 6 + w)} ${yy - 2}`, p.light, 3, op(0.55));
+      const yy = 63 + i * 8;
+      const w = Math.sin(turn + i) * 3;
+      s += line(`M${f(jugL(yy) + 5 + w)} ${yy}Q${BX} ${yy + 6} ${f(jugR(yy) - 5 + w)} ${yy - 2}`, p.light, 2.6, op(0.55));
     }
-    s += path(`M68 ${y + 1}Q75 ${y + 16} 82 ${y + 1}Z`, p.dark, op(0.6));
-    for (const [x, yy, r] of [[60, 70, 1.8], [88, 80, 1.5], [70, 90, 1.3], [92, 64, 1.2]]) s += circle(x, yy, r, WHITE, op(0.7));
+    s += path(`M${BX - 6} ${y + 1}Q${BX} ${y + 14} ${BX + 6} ${y + 1}Z`, p.dark, op(0.6));
+    for (const [x, yy, r] of [[BX - 13, 68, 1.7], [BX + 12, 77, 1.4], [BX - 4, 83, 1.2], [BX + 15, 62, 1.1]]) s += circle(x, yy, r, WHITE, op(0.7));
     return s;
   }
   if (state === 'ready') {
@@ -56,65 +66,98 @@ function blenderContents(state, p, progress, portions, maxPortions) {
     const n = Math.max(1, maxPortions || 1);
     const k = Math.max(1, Math.min(n, portions ?? n));
     const y = Math.round(50 + (1 - k / n) * 32);
-    return jugFill(y, p.main) + surf(y, mix(p.main, p.light, 0.5)) + ellipse(62, y - 0.5, 10, 1.6, WHITE, op(0.5)) +
-      line(`M56 ${y + 12}Q60 ${Math.min(92, y + 28)} 58 96`, p.light, 2.6, op(0.4));
+    return jugFill(y, p.main) + surf(y, mix(p.main, p.light, 0.5)) + ellipse(BX - 10, y - 0.5, 8, 1.4, WHITE, op(0.5)) +
+      line(`M${BX - 15} ${y + 10}Q${BX - 12} ${Math.min(84, y + 24)} ${BX - 14} 86`, p.light, 2.2, op(0.4));
   }
   if (state === 'overflowing') {
-    return jugFill(37, p.main, 2.5) + line('M56 52Q60 74 58 96', p.light, 2.6, op(0.4));
+    return jugFill(35, p.main, 2.5) + line(`M${BX - 15} 50Q${BX - 12} 70 ${BX - 14} 86`, p.light, 2.2, op(0.4));
   }
   if (state === 'ruined') {
     const sl = '#7d6f5c';
     let s = jugFill(58, sl);
-    s += path(`M${f(jugL(58) + 3)} 58Q52 50 62 57Q70 50 78 57Q88 49 96 57Q102 52 ${f(jugR(58) - 3)} 58Z`, '#8f826d');
-    for (const [x, y, r] of [[58, 74, 4], [84, 82, 5], [70, 92, 3.2], [92, 68, 2.5]]) s += circle(x, y, r, '#5d5446', op(0.9));
-    s += circle(66, 56, 3, '#a7c070', op(0.8)) + circle(88, 54, 2.2, '#a7c070', op(0.8));
+    s += path(`M${f(jugL(58) + 3)} 58Q${BX - 20} 51 ${BX - 11} 57Q${BX - 4} 51 ${BX + 3} 57Q${BX + 11} 50 ${BX + 17} 57Q${BX + 21} 53 ${f(jugR(58) - 3)} 58Z`, '#8f826d');
+    for (const [x, y, r] of [[BX - 13, 72, 3.6], [BX + 9, 79, 4.4], [BX - 3, 84, 2.8], [BX + 15, 66, 2.3]]) s += circle(x, y, r, '#5d5446', op(0.9));
+    s += circle(BX - 7, 56, 2.7, '#a7c070', op(0.8)) + circle(BX + 13, 54, 2, '#a7c070', op(0.8));
     return s;
   }
   return '';
 }
 
+// The trapezoid of the base between two heights (its sides lean in toward the top).
+function baseShape(y0, y1, r = 0) {
+  const L = (y) => BX - baseW(y);
+  const R = (y) => BX + baseW(y);
+  if (!r) return `M${f(L(y0))} ${y0}H${f(R(y0))}L${f(R(y1))} ${y1}H${f(L(y1))}Z`;
+  return `M${f(L(y0) + r)} ${y0}H${f(R(y0) - r)}Q${f(R(y0))} ${y0} ${f(R(y0 + r))} ${y0 + r}L${f(R(y1 - r))} ${y1 - r}Q${f(R(y1))} ${y1} ${f(R(y1) - r)} ${y1}` +
+    `H${f(L(y1) + r)}Q${f(L(y1))} ${y1} ${f(L(y1 - r))} ${y1 - r}L${f(L(y0 + r))} ${y0 + r}Q${f(L(y0))} ${y0} ${f(L(y0) + r)} ${y0}Z`;
+}
+
 function motorBase(state, o) {
-  const side = 'M112 112.6L118.4 105.4V136.6Q118.4 139 117 140.8L112 146Z';
-  const top = 'M40.6 112L46 105.8Q47.2 104.6 49 104.6H115.6Q119.6 104.6 117.6 107.4L113.4 112Z';
-  const front = rrect(35, 112, 78, 34, 6.5);
-  let s = path(side, '#09090c', stroke(1, '#000000')) + line('M114 113V142', WHITE, 1, op(0.12));
-  s += path(front, paint('black', '#1d1d22'), stroke(1, '#000000'));
-  s += path(top, '#3d3d46', stroke(1, '#000000')) + path(top, paint('gloss'), op(0.18));
-  s += line('M41 113.4H109', '#b9c2ca', 1.3, op(0.7)) + line('M40 118L38.6 140', WHITE, 1.4, op(0.18));
-  // control panel
-  s += path(rrect(45, 118.5, 58, 22, 6), '#26262d', stroke(1, '#4a4a54'));
-  s += path(rrect(45, 118.5, 58, 22, 6), paint('down'), op(0.8));
-  const ang = { empty: -150, blending: 20, ready: -90, overflowing: -30, ruined: -150 }[state] ?? -150;
-  const a = (ang * Math.PI) / 180;
-  s += circle(57.5, 129.5, 7.5, paint('steel', '#cfd6dc'), stroke(1, '#0e0e12')) + litCircle(57.5, 129.5, 7.5, 'sph');
-  s += line(`M57.5 129.5L${f(57.5 + Math.cos(a) * 5.5)} ${f(129.5 + Math.sin(a) * 5.5)}`, '#1d1d22', 2);
+  let s = path(rrect(BX - 27.5, BASE_B - 3, 55, 7, 2.6), '#141418', stroke(0.8, '#000000'));
+  const body = baseShape(BASE_T, BASE_B, 4);
+  s += path(body, paint('steel', '#c9d0d6'), stroke(1, '#6c7680')) + path(body, paint('down-dark'), op(0.3));
+  for (const x of [-18, -9, 6, 15]) s += line(`M${BX + x} 112V140`, WHITE, 0.7, op(0.18));
+  // black glass band with the V on the front
+  const v = (dy = 0) => `M${f(BX - baseW(BAND))} ${BAND + dy}L${BX - 4} ${111.6 + dy}Q${BX} ${113.6 + dy} ${BX + 4} ${111.6 + dy}L${f(BX + baseW(BAND))} ${BAND + dy}`;
+  const bandPath = `M${f(BX - baseW(BASE_T) + 4)} ${BASE_T}H${f(BX + baseW(BASE_T) - 4)}Q${f(BX + baseW(BASE_T))} ${BASE_T} ${f(BX + baseW(BASE_T + 4))} ${BASE_T + 4}L${f(BX + baseW(BAND))} ${BAND}` +
+    `L${BX + 4} 111.6Q${BX} 113.6 ${BX - 4} 111.6L${f(BX - baseW(BAND))} ${BAND}L${f(BX - baseW(BASE_T + 4))} ${BASE_T + 4}Q${f(BX - baseW(BASE_T))} ${BASE_T} ${f(BX - baseW(BASE_T) + 4)} ${BASE_T}Z`;
+  s += line(v(0.9), '#000000', 1.4, op(0.25));
+  s += path(bandPath, '#15161b', stroke(0.9, '#000000')) + path(bandPath, paint('down'), op(0.35));
+  s += line(v(-0.5), '#c6d0da', 0.8, op(0.55)) + line(`M${f(BX - baseW(BASE_T) + 4)} ${BASE_T + 1}H${f(BX + baseW(BASE_T) - 4)}`, WHITE, 0.8, op(0.3));
+  // display: 00:00 idle, the seconds left while blending (00:05 … 00:01), ✓, a red ! or Err
+  const disp = (txt, col) => `<text x="${BX}" y="102.2" text-anchor="middle" font-family="'Courier New', monospace" font-weight="700" font-size="6.6" letter-spacing="0.2" fill="${col}">${txt}</text>`;
+  if (state === 'ready') s += line(`M${BX - 3} 99.6L${BX - 0.8} 101.8L${BX + 3.4} 97.2`, '#58ff9c', 1.4);
+  else if (state === 'overflowing') s += disp('!', '#ff5a5a');
+  else if (state === 'ruined') s += disp('Err', '#ff5a5a');
+  else {
+    const secs = secsLeft(state, o);
+    s += disp(`00:${secs < 10 ? '0' : ''}${secs}`, state === 'blending' ? '#5ff2ff' : '#e8f0f8');
+  }
+  s += circle(BX - 15.5, 100, 1, '#dfe6ee', op(0.8)) + `<text x="${BX + 15.5}" y="102" text-anchor="middle" font-family="${FONT}" font-size="4.4" fill="#dfe6ee" opacity="0.85">P</text>`;
+  // portion LEDs in the V
   const n = Math.max(1, Math.min(4, o.maxPortions || 2));
   const left = state === 'ready' || state === 'overflowing' ? Math.max(0, Math.min(n, o.portions ?? n)) : 0;
-  const gap = Math.min(10, 26 / Math.max(1, n - 1));
-  const r = Math.min(3.4, gap * 0.36);
   for (let i = 0; i < n; i++) {
-    const x = 84 + (i - (n - 1) / 2) * gap;
+    const x = BX + (i - (n - 1) / 2) * 4.6;
     const on = i < left;
-    if (on) s += circle(x, 129.5, r * 2.2, OK, op(0.3));
-    s += circle(x, 129.5, r, on ? '#5df09a' : '#4a4a52', stroke(0.8, on ? '#1f8a4c' : '#202026'));
+    if (on) s += circle(x, 107.4, 3.2, OK, op(0.3));
+    s += circle(x, 107.4, 1.5, on ? '#5df09a' : '#3c3d44', stroke(0.5, on ? '#1f8a4c' : '#202026'));
   }
-  if (state === 'blending') s += circle(97, 122, 1.6, '#ffcf3a') + circle(97, 122, 3.4, '#ffcf3a', op(0.3));
+  // the dial: ticks on the right, chrome ring, black cap with Start / Stop (two tiny lines and a thin
+  // divider like the 3D knob's print), pointer
+  const K = [BX, 124.5];
+  for (let i = 0; i <= 10; i++) {
+    const a = ((-90 + i * 13) * Math.PI) / 180;
+    const r1 = 12.2 + i * 0.12;
+    s += line(`M${f(K[0] + Math.cos(a) * 11.4)} ${f(K[1] + Math.sin(a) * 11.4)}L${f(K[0] + Math.cos(a) * r1)} ${f(K[1] + Math.sin(a) * r1)}`, '#2a2d33', 0.55);
+  }
+  for (const a of [150, 185, 220]) s += circle(K[0] + Math.cos((a * Math.PI) / 180) * 13, K[1] + Math.sin((a * Math.PI) / 180) * 13, 0.9, '#2a2d33');
+  s += circle(K[0], K[1] + 0.8, 10.6, '#000000', op(0.25));
+  s += circle(K[0], K[1], 10.2, paint('steel', '#cfd6dc'), stroke(0.8, '#5c6670')) + litCircle(K[0], K[1], 10.2, 'sph');
+  s += circle(K[0], K[1], 7.4, paint('black-v', '#1d1d22'), stroke(0.6, '#000000'));
+  const knobText = (txt, y) => `<text x="${K[0]}" y="${y}" text-anchor="middle" font-family="Nunito, 'Trebuchet MS', Arial, sans-serif" font-weight="800" font-size="2.4" fill="${WHITE}" opacity="0.85">${txt}</text>`;
+  s += knobText('Start', K[1] - 1) + rect(K[0] - 3.2, K[1] - 0.2, 6.4, 0.35, 0.15, WHITE, op(0.6)) + knobText('Stop', K[1] + 2.6);
+  const ang = ((state === 'blending' ? 30 : -90) * Math.PI) / 180;
+  s += line(`M${f(K[0] + Math.cos(ang) * 8)} ${f(K[1] + Math.sin(ang) * 8)}L${f(K[0] + Math.cos(ang) * 9.9)} ${f(K[1] + Math.sin(ang) * 9.9)}`, WHITE, 1.4);
+  s += `<text x="${BX}" y="139.2" text-anchor="middle" font-family="${FONT}" font-size="3.6" letter-spacing="0.7" fill="#25272c">AÇAÍ FEVER</text>`;
   return s;
 }
 
-// Round collar on the base the jug sits in.
+// The jug's black collar on top of the base.
 function collar() {
-  return path('M46 99V105A29 4.4 0 0 0 104 105V99Z', paint('black', '#1d1d22'), stroke(1, '#000000')) +
-    ellipse(75, 99, 29, 4.4, '#33333b', stroke(1, '#000000')) + line('M50 104Q60 107.6 75 107.8', WHITE, 1, op(0.25));
+  return path(rrect(BX - 21, 86.5, 42, 9.5, 2.6), paint('black-v', '#1d1d22'), stroke(0.9, '#000000')) + line(`M${BX - 18} 88.4H${BX + 18}`, WHITE, 0.9, op(0.25));
 }
 
-// Round lid seen from above: its rim band, the top and the plug in the middle.
+// Black lid seen a little from above (top face, front edge), the spout cover on the left, the tab
+// on the right and the clear measuring cap in the middle.
 function lid() {
-  let s = path('M33 27.5V32A42 6.5 0 0 0 117 32V27.5Z', paint('black', '#2a2a31'), stroke(1, '#000000'));
-  s += ellipse(75, 27.5, 42, 6.5, '#383840', stroke(1, '#000000')) + ellipse(75, 27.5, 42, 6.5, paint('down'), op(0.45));
-  s += ellipse(75, 28, 31, 4.2, '#25252c') + line('M38 30.4Q54 35 75 35', WHITE, 1, op(0.3));
-  s += path('M65 19V25.5A10 2.6 0 0 0 85 25.5V19Z', paint('black', '#2a2a31'), stroke(1, '#000000'));
-  s += ellipse(75, 19, 10, 2.6, '#4a4a54', stroke(0.8, '#000000')) + path('M45 25.4A41 6 0 0 1 72 21.4', 'none', stroke(1.2, '#ffffff') + op(0.3));
+  const outline = `M${BX - 33} 31.2Q${BX - 31} 27.6 ${BX - 27} 26.2Q${BX - 26} 24 ${BX - 22} 24H${BX + 25}Q${BX + 29} 24 ${BX + 29.6} 26.6H${BX + 33.4}Q${BX + 35} 26.6 ${BX + 35} 28.2V29.4Q${BX + 35} 30.6 ${BX + 33.4} 30.6H${BX + 29.8}V31.6Q${BX + 29.6} 34 ${BX + 26} 34H${BX - 24}Q${BX - 28} 34 ${BX - 29} 32.6Z`;
+  let s = path(outline, '#1b1c21', stroke(1, '#000000'));
+  s += path(`M${BX - 27} 26.2Q${BX - 26} 24 ${BX - 22} 24H${BX + 25}Q${BX + 29} 24 ${BX + 29.6} 26.6Q${BX + 29} 28.6 ${BX + 25} 28.8H${BX - 22}Q${BX - 26} 28.6 ${BX - 27} 26.2Z`, '#3a3b43');
+  s += line(`M${BX - 22} 25H${BX + 22}`, WHITE, 0.8, op(0.3)) + line(`M${BX - 26} 32.6H${BX + 24}`, WHITE, 0.7, op(0.12));
+  // clear measuring cap
+  s += path(`M${BX - 11} 26V22Q${BX - 11} 19 ${BX - 7} 19H${BX + 7}Q${BX + 11} 19 ${BX + 11} 22V26Z`, '#dcecf2', op(0.45) + stroke(0.8, '#8aa9b4'));
+  s += ellipse(BX, 19.8, 9, 1.3, WHITE, op(0.45)) + line(`M${BX - 8.6} 22V25.2`, WHITE, 1, op(0.6));
   return s;
 }
 
@@ -122,47 +165,59 @@ function badge(cx, cy, fill, inner) {
   return circle(cx, cy + 2, 13.5, '#000000', op(0.22)) + circle(cx, cy, 13.5, WHITE) + circle(cx, cy, 11, fill) + litCircle(cx, cy, 11, 'sph-soft') + inner;
 }
 
+// Whole seconds left on the display while blending (o.remaining, like the 3D model's countdown).
+const secsLeft = (state, o) => (state === 'blending' ? Math.max(0, Math.min(59, Math.ceil(Number(o.remaining) || 0))) : 0);
+
 export function blenderSVG(opts = {}, size = 150) {
   const o = opts || {};
   const state = ['empty', 'blending', 'ready', 'overflowing', 'ruined'].includes(o.state) ? o.state : 'empty';
   // progress is quantised so the cache stays small while the ring still moves smoothly
   const p = state === 'blending' ? Math.round(Math.max(0, Math.min(1, Number(o.progress) || 0)) * 48) / 48 : 0;
-  const key = `x|${state}|${o.base}|${p}|${o.portions}|${o.maxPortions}|${o.badge !== false}|${size}`;
+  const key = `x|${state}|${o.base}|${p}|${secsLeft(state, o)}|${o.portions}|${o.maxPortions}|${o.badge !== false}|${size}`;
   return memo(key, () => drawBlender(state, o, p, size));
 }
 
 function drawBlender(state, o, prog, size) {
   const p = pureeOf(ING[o.base]?.layer === 'base' ? o.base : 'acai');
-  let s = softShadow(80, 146, 56, 6.5);
-  if (state === 'blending') s += line('M22 52Q16 64 22 76M14 58Q10 64 14 70M134 104Q140 96 138 86', '#5b4b66', 2.4, op(0.5));
+  let s = softShadow(BX, 145, 38, 5.5);
+  if (state === 'blending') s += line(`M${BX - 40} 52Q${BX - 46} 64 ${BX - 40} 76M${BX - 48} 58Q${BX - 52} 64 ${BX - 48} 70M${BX + 48} 104Q${BX + 54} 96 ${BX + 52} 86`, '#5b4b66', 2.2, op(0.5));
   s += motorBase(state, o);
-  // handle (behind the jug's right edge)
-  s += path('M108 42H124Q132 42 131 50L128 84Q127 92 119 92H104', 'none', stroke(9, '#141418'));
-  s += path('M108 42H124Q132 42 131 50L128 84Q127 92 119 92H104', 'none', stroke(3, '#3c3c44') + op(0.8));
-  // jug: far wall tint, contents, blade, near wall
+  // clear handle (behind the jug's right wall)
+  const handle = `M${f(jugR(42) - 2)} 41H${BX + 37}Q${BX + 42} 41 ${BX + 41.6} 46L${BX + 39.6} 70Q${BX + 39.2} 75 ${BX + 34} 75H${f(jugR(75) - 2)}`;
+  s += path(handle, 'none', stroke(7.4, '#9fbac4') + op(0.55)) + path(handle, 'none', stroke(5.6, '#eef7fa') + op(0.7)) + path(handle, 'none', stroke(1.4, WHITE) + op(0.8));
+  // jug: far wall tint, contents, blade, near wall with its flutes and scale
   s += path(JUG, paint('plastic-in', '#eaf6fa'));
   s += blenderContents(state, p, prog, o.portions, o.maxPortions);
-  s += path(`M62 ${JUG_BOT - 5}L88 ${JUG_BOT - 9}M62 ${JUG_BOT - 9}L88 ${JUG_BOT - 5}`, 'none', stroke(2.6, '#aeb7c1'));
-  s += circle(75, JUG_BOT - 7, 2.6, '#7f8a95');
+  s += path(`M${BX - 11} ${JUG_BOT - 6}L${BX + 11} ${JUG_BOT - 9}M${BX - 11} ${JUG_BOT - 9}L${BX + 11} ${JUG_BOT - 6}`, 'none', stroke(2.2, '#aeb7c1'));
+  s += circle(BX, JUG_BOT - 7.5, 2.2, '#7f8a95');
   s += path(JUG, paint('plastic', '#ffffff'));
-  s += line('M43 42L52 96', WHITE, 3.4, op(0.6)) + line('M52 42L53.5 56', WHITE, 1.6, op(0.5)) + line('M108 42L99 96', WHITE, 1.4, op(0.45));
-  for (const y of [50, 62, 74, 86]) s += line(`M${f(jugL(y) + 4)} ${y}H${f(jugL(y) + 10)}`, WHITE, 1.3, op(0.75));
-  s += path(JUG, 'none', stroke(1.2, '#6f909c') + op(0.7));
+  for (let i = 1; i < 8; i++) {
+    const k = i / 8;
+    const x0 = jugL(JUG_TOP + 3) + (jugR(JUG_TOP + 3) - jugL(JUG_TOP + 3)) * k;
+    const x1 = jugL(JUG_BOT - 4) + (jugR(JUG_BOT - 4) - jugL(JUG_BOT - 4)) * k;
+    s += line(`M${f(x0)} ${JUG_TOP + 3}L${f(x1)} ${JUG_BOT - 4}`, WHITE, 0.9, op(i % 2 ? 0.28 : 0.16)) + line(`M${f(x0 + 1.1)} ${JUG_TOP + 3}L${f(x1 + 0.8)} ${JUG_BOT - 4}`, '#5d7f8b', 0.5, op(0.12));
+  }
+  s += line(`M${f(jugL(40) + 3)} 40L${f(jugL(84) + 2.5)} 84`, WHITE, 2.6, op(0.5));
+  s += line(`M${f(jugL(44) + 5)} 44V80`, WHITE, 0.8, op(0.75));
+  for (const y of [46, 54, 62, 70, 78]) s += line(`M${f(jugL(y) + 5)} ${y}H${f(jugL(y) + (y % 16 === 14 ? 12 : 9))}`, WHITE, 1.1, op(0.75));
+  // the spout: the rim reaches out on the left under the lid
+  s += path(`M${f(jugL(JUG_TOP))} ${JUG_TOP}L${BX - 31} ${JUG_TOP - 1}Q${BX - 30} ${JUG_TOP + 3} ${f(jugL(JUG_TOP + 7))} ${JUG_TOP + 7}Z`, '#e3f1f5', op(0.6) + stroke(0.8, '#7f9faa'));
+  s += path(JUG, 'none', stroke(1.1, '#6f909c') + op(0.7));
   s += collar();
   if (state === 'overflowing') {
-    const foam = 'M30 37C20 35 22 19 36 21C38 7 58 5 64 15C72 3 96 5 98 17C114 13 124 27 114 37Z';
-    s += path(foam, p.main, stroke(1.2, edge(p.main))) + lit(foam, 'sph-soft') + ellipse(48, 21, 8, 3, WHITE, op(0.45));
-    for (const [x, y1, y2, w] of [[36, 34, 64, 6], [112, 34, 54, 5], [72, 37, 46, 4.5]]) {
+    const foam = `M${BX - 38} 37C${BX - 48} 35 ${BX - 46} 19 ${BX - 32} 21C${BX - 30} 8 ${BX - 10} 6 ${BX - 4} 15C${BX + 4} 4 ${BX + 26} 6 ${BX + 28} 17C${BX + 42} 14 ${BX + 50} 27 ${BX + 40} 37Z`;
+    s += path(foam, p.main, stroke(1.2, edge(p.main))) + lit(foam, 'sph-soft') + ellipse(BX - 22, 21, 8, 3, WHITE, op(0.45));
+    for (const [x, y1, y2, w] of [[BX - 31, 34, 66, 5.6], [BX + 30, 34, 52, 4.6], [BX - 2, 37, 46, 4.2]]) {
       s += path(`M${x - w / 2} ${y1}V${y2 - w / 2}A${w / 2} ${w / 2} 0 0 0 ${x + w / 2} ${y2 - w / 2}V${y1}Z`, p.main, stroke(1, edge(p.main))) + line(`M${x - w * 0.15} ${y1 + 2}V${y2 - w}`, p.light, 1, op(0.7));
     }
-    s += ellipse(46, 108.6, 11, 2.6, p.main, stroke(1, edge(p.main)));
-    s += g('translate(-20 -3) rotate(-22 75 32)', lid());
+    s += ellipse(BX - 36, 145.5, 10, 2.4, p.main, stroke(1, edge(p.main)));
+    s += g(`translate(-14 -6) rotate(-20 ${BX} 30)`, lid());
   } else {
     s += lid();
   }
   if (state === 'ruined') {
-    s += line('M52 18Q46 12 52 6Q58 0 52 -6M98 18Q92 12 98 6Q104 0 98 -6M75 14Q69 8 75 2', '#8fa86a', 2.6, op(0.9));
-    s += circle(26, 40, 2.2, '#1d1d22') + ellipse(24.2, 37.4, 2.4, 1.4, WHITE, op(0.85)) + ellipse(28, 37.4, 2.4, 1.4, WHITE, op(0.85));
+    s += line(`M${BX - 18} 16Q${BX - 24} 10 ${BX - 18} 4Q${BX - 12} -2 ${BX - 18} -8M${BX + 22} 16Q${BX + 16} 10 ${BX + 22} 4Q${BX + 28} -2 ${BX + 22} -8M${BX + 2} 12Q${BX - 4} 6 ${BX + 2} 0`, '#8fa86a', 2.4, op(0.9));
+    s += circle(BX - 46, 42, 2.2, '#1d1d22') + ellipse(BX - 47.8, 39.4, 2.4, 1.4, WHITE, op(0.85)) + ellipse(BX - 44, 39.4, 2.4, 1.4, WHITE, op(0.85));
   }
   // decorative use (shop cards, badge:false): no status badge, so a ✓ never reads as "already bought"
   if (o.badge !== false) s += statusBadge(state, prog);

@@ -7,7 +7,7 @@ import {
   ELEV, FREEZER_ELEV, VIEWS, fitFrame, blenderScene, machineScene, trashScene, freezerScene, blenderLook, blenderJug,
   blenderBadgeAt, blenderBox, jugLevel, isAnimated, slushPhase, pourFill, MACHINE_SLOT_X, CUP_Z, TRAY_Y, BLENDER_MODELS, SCENES,
 } from '../js/kitchen3d.js';
-import { screenOf, viewProjection, transformPoint } from '../js/geo3d.js';
+import { screenOf, viewProjection, transformPoint, MODE } from '../js/geo3d.js';
 import { SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE } from '../js/art.js';
 import { getKitchenStats, UPG } from '../js/data.js';
 
@@ -66,6 +66,37 @@ test('ready jug: the purée level drops with every pour and never runs dry', () 
     for (let i = 1; i < levels.length; i++) assert.ok(levels[i - 1] - levels[i] >= 8, `${big}: ${levels.join(' → ')}`);
     assert.ok(levels.at(-1) > J.floor + 8, 'the last portion is still a clear layer');
     assert.ok(levels[0] < J.top - 6, 'a full jug stays under the lid');
+  }
+});
+
+test('fluted jug: the purée follows the panels and stays inside the glass', () => {
+  for (const big of [false, true]) {
+    const scene = blenderScene({ tier: 1, big, state: 'ready', base: 'acai', portions: big ? 3 : 2, maxPortions: big ? 3 : 2 }, 0);
+    const glass = scene.items.find((it) => it.mat.mode === MODE.GLASS).mesh;
+    const body = scene.items.find((it) => it.mat.mode === MODE.PUREE && !it.mesh.dynamic).mesh;
+    // the glass wall per direction: [y, distance from the axis] up its height
+    const walls = new Map();
+    const dir = (x, z) => Math.atan2(z, x).toFixed(3);
+    for (let i = 0; i < glass.pos.length; i += 3) {
+      const key = dir(glass.pos[i], glass.pos[i + 2]);
+      if (!walls.has(key)) walls.set(key, []);
+      walls.get(key).push([glass.pos[i + 1], Math.hypot(glass.pos[i], glass.pos[i + 2])]);
+    }
+    let checked = 0;
+    for (let i = 0; i < body.pos.length; i += 3) {
+      const [x, y, z] = [body.pos[i], body.pos[i + 1], body.pos[i + 2]];
+      const r = Math.hypot(x, z);
+      if (r < 1) continue;
+      const wall = walls.get(dir(x, z));
+      assert.ok(wall, `the purée's columns are the glass's columns (${dir(x, z)})`);
+      const k = wall.findIndex(([wy]) => wy >= y);
+      const [y0, r0] = wall[Math.max(0, k - 1)];
+      const [y1, r1] = wall[Math.max(0, k)];
+      const rw = y1 > y0 ? r0 + ((r1 - r0) * (y - y0)) / (y1 - y0) : r1;
+      assert.ok(r < rw - 0.8, `${big ? 'big' : 'small'} jug: purée at ${r.toFixed(2)} of the wall's ${rw.toFixed(2)} (y ${y.toFixed(1)})`);
+      checked++;
+    }
+    assert.ok(checked > 200, `${checked} points checked`);
   }
 });
 
