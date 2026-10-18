@@ -119,6 +119,21 @@ const COPY = {
 };
 
 // ------------------------------------------------------------------ the cuts
+// Where in the recorded gameplay (tools/promo/footage/main, seconds) the calm cuts look: picked
+// from the moves capture.mjs logged (level 10, seed 4). Captions: [beat, until, text, number, colour].
+const SEG = {
+  open: 20,
+  mix: 4,
+  top: 10,
+  serve: 14,
+  rush: 30,
+  pov: 3,
+  play: 8,
+  playCaptions: [],
+  playKeys: [[0, 2.4, null, 400]],
+  wide: 40,
+};
+
 // scenes: [name, beats, options] in order; music: one entry per bar (see score.js); energy scales
 // shakes, flashes and punches (speed lines only at 1); bounce: beats in which the camera bounces.
 export const CUTS = {
@@ -131,6 +146,46 @@ export const CUTS = {
       { style: 'hook' }, { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 }, { style: 'groove', g: 3 },
       { style: 'groove', g: 4, fill: true }, { style: 'tension', chords: ['Am', 'E7'], mel: null }, { style: 'drop', g: 12, harmony: true },
       { style: 'groove', g: 13, harmony: true }, { style: 'groove', g: 10, harmony: true }, { style: 'groove', g: 11, harmony: true, fill: true },
+      { style: 'groove', chords: ['Dm7', 'G7'], mel: 15, harmony: true, fill: true }, { style: 'end' },
+    ],
+  },
+  // calmer: a cut every two bars, soft transitions, and the three steps in real gameplay
+  mix: {
+    energy: 0.35,
+    footage: true,
+    scenes: [
+      ['cafeGame', 8, { seg: [SEG.open], titles: [[0, 'openA', 'white', 128, 4], [4, 'openB', 'mango', 128]], keys: [[0, 0.78125, 640, 400], [8, 0.95, 640, 430]], enter: null }],
+      ['logo', 4, { enter: ['softIn', 0.3], leave: ['softOut', 0.25] }],
+      ['stepGame', 8, { num: '1', word: 'mix', sub: 'mixSub', color: 'pink', seg: [SEG.mix], zoom: 1.45 }],
+      ['stepGame', 8, { num: '2', word: 'top', sub: 'topSub', color: 'lagoon', seg: [SEG.top], zoom: 1.45 }],
+      ['stepGame', 8, { num: '3', word: 'serve', sub: 'serveSub', color: 'mango', size: 140, seg: [SEG.serve], zoom: 1.3 }],
+      ['cafeGame', 8, { seg: [SEG.rush], titles: [[0, 'rush', 'white', 112]], sub: 'rushSub', subAt: 1, h: 760, keys: [[0, 0.78125, 640, 400], [3.5, 0.78125, 640, 400], [5.5, 1.45, null, 230]] }],
+      ['ingredients', 4, { enter: ['softIn', 0.3], leave: ['softOut', 0.25] }],
+      ['upgrades', 4, { enter: ['softIn', 0.3], leave: ['softOut', 0.25] }],
+      ['end', 8, { enter: ['softIn', 0.35] }],
+    ],
+    music: [
+      { style: 'intro', g: 12 }, { style: 'intro', g: 13 }, { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 },
+      { style: 'groove', g: 3 }, { style: 'groove', g: 4 }, { style: 'groove', g: 5 }, { style: 'groove', g: 6, fill: true },
+      { style: 'groove', g: 8, harmony: true }, { style: 'groove', g: 9, harmony: true }, { style: 'groove', g: 10, harmony: true },
+      { style: 'groove', g: 11, harmony: true, fill: true }, { style: 'groove', chords: ['Dm7', 'G7'], mel: 15, harmony: true, fill: true },
+      { style: 'end' },
+    ],
+  },
+  // mostly real gameplay: full screen, the camera follows the finger, short captions
+  gameplay: {
+    energy: 0.35,
+    footage: true,
+    scenes: [
+      ['follow', 8, { seg: [SEG.pov], title: [0, 'pov', 100, 3.6], logo: [4, 8], keys: [[0, 2.4, null, 400], [3.3, 2.4, null, 400], [4.6, 0.84, 640, 400], [8, 0.84, 640, 400]], enter: null }],
+      ['follow', 32, { seg: [SEG.play], captions: SEG.playCaptions, keys: SEG.playKeys }],
+      ['follow', 8, { seg: [SEG.wide], keys: [[0, 1.6, null, 400], [1.5, 0.84, 640, 400]], chips: [[1, 'chipLevels', 'mango', 300, 420, -4], [1.5, 'chipIngredients', 'pink', 760, 470, 4], [2, 'chipUpgrades', 'lagoon', 320, 1470, 3], [2.5, 'chipEndless', 'leaf', 760, 1520, -3]] }],
+      ['end', 8, { enter: ['softIn', 0.35] }],
+    ],
+    music: [
+      { style: 'intro', g: 0 }, { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 }, { style: 'groove', g: 3 },
+      { style: 'groove', g: 4 }, { style: 'groove', g: 5 }, { style: 'groove', g: 6 }, { style: 'groove', g: 7, fill: true },
+      { style: 'groove', g: 8, harmony: true }, { style: 'groove', g: 10, harmony: true }, { style: 'groove', g: 11, harmony: true, fill: true },
       { style: 'groove', chords: ['Dm7', 'G7'], mel: 15, harmony: true, fill: true }, { style: 'end' },
     ],
   },

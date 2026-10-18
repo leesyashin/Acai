@@ -194,18 +194,28 @@ export async function captureGameplay({
   const b = await launchBrowser({ viewport: VIEW, deviceScaleFactor: dsf, fonts: 'real', locale: lang === 'en' ? 'en-US' : 'de-DE' });
   const { page } = b;
   const T0 = Date.parse('2026-05-01T10:00:00Z');
+  // the fake clock only moves when told to (runFor), from the first moment of the page on: a jump
+  // would leave the game's frame clock and the animation frames out of step
+  const until = async (fn, arg) => {
+    for (let i = 0; i < 400; i++) {
+      if (await page.evaluate(fn, arg)) return;
+      await page.clock.runFor(50);
+    }
+    throw new Error(`capture: timed out waiting for ${fn}`);
+  };
   try {
     await page.clock.install({ time: T0 });
+    await page.clock.pauseAt(T0);
     await page.goto(`${url}index.html`);
     await page.evaluate(([k, s]) => localStorage.setItem(k, JSON.stringify(s)), [SAVE_KEY, saveFor(lang, level)]);
     await page.reload();
-    await page.waitForFunction(() => window.__acaiScreen?.() === 'title');
+    await until(() => window.__acaiScreen?.() === 'title');
     await page.evaluate(() => document.fonts.ready);
     await page.addStyleTag({ content: '#stage-wrap{border-radius:0!important;box-shadow:none!important}' });
     await page.evaluate(hookAudio);
     await page.evaluate(([lv, sd]) => window.__acaiGo('game', { mode: 'campaign', levelId: lv, seed: sd }), [level, seed]);
+    await until(() => !!window.__acaiGame);
     await page.clock.runFor(300);
-    await page.clock.pauseAt(T0 + 120000);
     // the footage's time 0: sound times are counted from here
     const start = await page.evaluate(() => performance.now() / 1000);
 
@@ -286,6 +296,8 @@ export async function captureGameplay({
     const sounds = await page.evaluate(() => window.__soundLog);
     clip.sounds = sounds.map((e) => ({ ...e, t: Math.round((e.t - start) * 1000) / 1000 })).filter((e) => e.t >= 0 && e.t <= clip.frames / fps);
     clip.money = await page.evaluate(() => window.__acaiGame?.money ?? 0);
+    const played = await page.evaluate(() => window.__acaiGame?.time ?? 0);
+    if (played < seconds * 0.8) throw new Error(`capture: the game only ran ${played.toFixed(1)} s of ${seconds} s`);
     writeFileSync(path.join(out, 'clip.json'), JSON.stringify(clip));
     return clip;
   } finally {
