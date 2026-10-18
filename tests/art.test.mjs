@@ -27,6 +27,7 @@ test('ready blender without portions (shop/intro art) draws a full jug', () => {
 
 // ------------------------------------------------------------------ shared paint servers
 import * as art from '../js/art.js';
+import { memoTable } from '../js/svg.js';
 import { INGREDIENTS } from '../js/data.js';
 
 const ALL_IDS = INGREDIENTS.map((i) => i.id);
@@ -44,6 +45,8 @@ test('every shared gradient or clip path a picture uses is defined in artDefsSVG
     art.cupStackSVG(84), art.cupSpotSVG(140), art.matchaGlassSVG('mango', 'ready', 70), art.matchaGlassSVG('kiwi', 'mixing', 70),
     ...['empty', 'blending', 'ready', 'overflowing', 'ruined'].map((state) => art.blenderSVG({ state, base: 'pitaya', portions: 1, maxPortions: 2 }, 140)),
     art.matchaMachineSVG(2, 312), art.trashSVG(96), art.shopSceneSVG(1280, 330), art.customerSVG(7, 'happy', 160),
+    ...['happy', 'neutral', 'impatient', 'angry'].map((mood) => art.customerSVG({ hairStyle: 'afro', top: 'hoodie', pattern: 'stripes', accessory: 'cap' }, mood, 160)),
+    art.customerSVG({ hairStyle: 'braids', top: 'shirt', pattern: 'hawaii', accessory: 'beard' }, 'neutral', 40),
     art.counterSVG(1280, 462), art.freezerSVG('well', 284, 186), art.freezerSVG('rim', 284, 186), art.riserSVG(400, 62),
     ...ALL_IDS.filter((id) => INGREDIENTS.find((i) => i.id === id).layer !== 'base').map((id) => art.scoopSVG(id, 84)),
     ...['plants', 'jukebox', 'seating', 'neon'].map((id) => art.decorSVG(id, 118)),
@@ -51,7 +54,7 @@ test('every shared gradient or clip path a picture uses is defined in artDefsSVG
   const used = new Set(pictures.flatMap(refs));
   assert.ok(used.size > 10, 'the art uses the shared paints');
   // ids made per picture (uid) live in the picture's own <defs>
-  const local = (id) => /^af-(wall|glow|sky|sea|win|torso|logoA|logoB|ctr)-/.test(id);
+  const local = (id) => /^af-(wall|glow|sky|sea|win|logoA|logoB|ctr)-/.test(id);
   for (const id of used) if (!local(id)) assert.ok(defined.has(id), `url(#${id}) is not in artDefsSVG()`);
   assert.equal(new Set([...defs.matchAll(/id="([^"]+)"/g)].map((m) => m[1])).size, [...defs.matchAll(/id="/g)].length, 'duplicate ids in the defs');
 });
@@ -86,4 +89,93 @@ test('the matcha glass: the purée first, then milk and matcha run in, a ready o
   assert.equal(streams(start), 0, 'no stream before the pour');
   assert.ok(streams(both) > 0, 'the drawn machine pours into the glass');
   assert.equal(streams(art.matchaGlassSVG('mango', 'mixing', 100, { fill: 0.8, stream: false })), 0);
+});
+
+// ------------------------------------------------------------------ guests
+const MOODS = ['happy', 'neutral', 'impatient', 'angry'];
+
+test('seeded guests keep the skin, hair and colours they had before the garment and eye colour existed', () => {
+  // values of lookFromSeed() before `top` and `iris` were added (they are picked last)
+  const before = {
+    1: { skin: '#8d5634', hair: '#d9a24a', hairStyle: 'spiky', shirt: '#f7e14f', shirt2: '#ff4d4d', pattern: 'stripes', accessory: 'glasses', accent: '#2a1236' },
+    23: { skin: '#8d5634', hair: '#2fbf71', hairStyle: 'long', shirt: '#7b3a96', shirt2: '#ff3d8b', pattern: 'hawaii', accessory: 'none', accent: '#2fbf71' },
+    31: { skin: '#ffe3cc', hair: '#2b1a12', hairStyle: 'braids', shirt: '#ff9ec7', shirt2: '#2fbf71', pattern: 'stripes', accessory: 'sunglasses', accent: '#4656c9' },
+  };
+  for (const [seed, look] of Object.entries(before)) {
+    const now = art.lookFromSeed(Number(seed));
+    for (const [k, v] of Object.entries(look)) assert.equal(now[k], v, `seed ${seed}: ${k}`);
+    assert.ok(art.LOOK_OPTIONS.tops.includes(now.top), `seed ${seed}: a garment`);
+    assert.match(now.iris, /^#[0-9a-f]{6}$/, `seed ${seed}: an eye colour`);
+  }
+});
+
+test('the guests vary: every garment, hair style and accessory turns up among seeded looks', () => {
+  const looks = Array.from({ length: 400 }, (_, i) => art.lookFromSeed(i + 1));
+  for (const [key, list] of [['top', art.LOOK_OPTIONS.tops], ['hairStyle', art.LOOK_OPTIONS.hairStyles], ['accessory', art.LOOK_OPTIONS.accessories]]) {
+    for (const v of list) assert.ok(looks.some((l) => l[key] === v), `no guest with ${key} ${v}`);
+  }
+});
+
+test('a guest is drawn from any look: old look objects without a garment, every style, every mood', () => {
+  const old = { skin: '#d39668', hair: '#a8652f', hairStyle: 'ponytail', shirt: '#ff3d8b', shirt2: '#ffffff', pattern: 'plain', accessory: 'glasses', accent: '#2fbf71' };
+  assert.equal(art.customerSVG(old, 'happy', 160), art.customerSVG({ ...old }, 'happy', 160), 'the missing fields are derived from the look itself');
+  for (const hairStyle of art.LOOK_OPTIONS.hairStyles) {
+    for (const top of art.LOOK_OPTIONS.tops) {
+      const svg = art.customerSVG({ ...old, hairStyle, top }, 'neutral', 160);
+      assert.ok(!/NaN|undefined/.test(svg), `${hairStyle} / ${top}`);
+    }
+  }
+  const moods = MOODS.map((m) => art.customerSVG(old, m, 160));
+  assert.equal(new Set(moods).size, 4, 'every mood shows');
+  assert.equal(art.customerSVG(old, 'bored', 160), moods[1], 'an unknown mood is neutral');
+});
+
+test('guest pictures are memoised and free of ids (the same picture can be in the page several times)', () => {
+  for (const size of [160, 40]) {
+    for (const mood of MOODS) {
+      const svg = art.customerSVG(12345, mood, size);
+      assert.ok(!/\sid="/.test(svg), 'no ids of its own');
+      assert.equal(art.customerSVG(12345, mood, size), svg);
+    }
+  }
+  // small pictures show head and shoulders only
+  assert.match(art.customerSVG(5, 'happy', 40), /viewBox="0 0 100 100"/);
+  assert.match(art.customerSVG(5, 'happy', 160), /viewBox="0 0 160 160"/);
+});
+
+test('guest pictures keep their numbers short (no float noise in the memoised strings)', () => {
+  const looks = [1, 2, 3, 23, 42, { hairStyle: 'curly', accessory: 'glasses' }, { hairStyle: 'long', accessory: 'sunglasses' },
+    { hairStyle: 'bob', accessory: 'earrings' }, { hairStyle: 'bald', accessory: 'cap', skin: '#64391f' }];
+  for (const look of looks) {
+    for (const mood of MOODS) {
+      for (const size of [160, 40]) {
+        const long = art.customerSVG(look, mood, size).match(/\d\.\d{4,}/);
+        assert.equal(long, null, `${JSON.stringify(look)} ${mood} ${size}: ${long}`);
+      }
+    }
+  }
+});
+
+test('a memo table drops the picture used longest ago, not the oldest one', () => {
+  const memo = memoTable(2);
+  let draws = 0;
+  const draw = (v) => () => { draws++; return v; };
+  memo('a', draw(1));
+  memo('b', draw(2));
+  assert.equal(memo('a', draw(1)), 1, 'a hit');
+  memo('c', draw(3)); // full: b goes, a was used after it
+  assert.equal(draws, 3);
+  memo('a', draw(1));
+  assert.equal(draws, 3, 'a is still cached');
+  memo('b', draw(2));
+  assert.equal(draws, 4, 'b was dropped');
+});
+
+test('decor casts its shadow on the café wall only, not on a shop card', () => {
+  for (const id of ['plants', 'jukebox', 'seating', 'neon']) {
+    const wall = art.decorSVG(id, 118);
+    const card = art.decorSVG(id, 118, { wall: false });
+    assert.ok(wall.includes('#3a2414'), `${id}: a shadow on the wall`);
+    assert.ok(!card.includes('#3a2414') && card.length < wall.length, `${id}: no wall shadow on its own`);
+  }
 });

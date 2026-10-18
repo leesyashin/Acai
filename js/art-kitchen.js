@@ -8,7 +8,7 @@ import {
   WHITE, f, rngFor, memo, mix, lighten, esc, uid, svgWrap, stroke, op, tf, circle, ellipse, path, rect, g, line,
   rrect, paint, lit, litCircle, softShadow, edge, registerDefs,
 } from './svg.js';
-import { cupArt, pureeOf, ingredientArt, packIcon } from './art-food.js';
+import { pureeOf, ingredientArt, packIcon } from './art-food.js';
 import { MATCHA_GEO, MACHINE_SLOT_X, GLASS_Z, VIEWS, ELEV, machinePoint } from './kitchen3d.js';
 
 const FONT = `'Lilita One', 'Trebuchet MS', system-ui, sans-serif`;
@@ -711,153 +711,243 @@ export function riserSVG(w, h) {
 }
 
 // ======================================================================
-// Café back wall (1280×330 stage px; the lower part stays calm behind the customers)
+// Café back wall (1280×330 stage px). Deliberately calm – mid-light, slightly muted colours, soft
+// contrasts – so the guests and their bubbles stay in front: the bubbles cover y≈68–190 and the heads
+// sit at y≈193–257 (seat x ± 27, ears ± 33), so nothing busy or saturated lies there. Depth from light: the
+// room is lit from the top left like the counter, the window glows, the lamps throw warm halos, things on
+// the wall cast soft shadows to the lower right and the corners fall off into a vignette.
 // ======================================================================
-function pendant(x, cordLen, glowId) {
-  const y = cordLen;
-  let s = line(`M${x} 0V${y}`, '#1d1d22', 1.6);
-  s += ellipse(x, y + 26, 70, 46, `url(#${glowId})`);
-  s += path(`M${x - 22} ${y + 20}Q${x - 20} ${y} ${x} ${y}Q${x + 20} ${y} ${x + 22} ${y + 20}Z`, paint('black-v', '#2a2a31'), stroke(1, '#000000'));
-  s += line(`M${x - 14} ${y + 8}Q${x - 6} ${y + 3} ${x + 4} ${y + 3}`, WHITE, 1.4, op(0.35));
-  s += ellipse(x, y + 20, 22, 3.6, '#2a2a31');
-  s += ellipse(x, y + 21, 9, 5, '#fff3c8') + circle(x, y + 22, 3, WHITE);
+// The window: one wide pane, its jambs only where no head stands with 2, 3 or 4 seats (seat x in js/game-view.js
+// SEAT_X; each frame line keeps ≥ 30 px from a head, so no line grazes a face): the left jambs between the
+// first heads of 3 and 2 seats (x 297 … 393), the right ones between the middle heads of 3 and 4 seats (667 … 760).
+// No mullion: the pane's middle (x 540) is only 20 px from the second head with 4 seats.
+const WIN = { x0: 351, x1: 729, y0: 78, y1: 232 }; // the opening in the wall
+const WIN_IN = { x0: 363, x1: 717, y0: 89, y1: 232 }; // the frame, set back in the reveal
+const WIN_CX = (WIN.x0 + WIN.x1) / 2; // 540
+const RAIL_Y = 226; // top of the wainscot's rail
+// x, cord length: a pair hung evenly about the window's middle, only in the HUD's gap (the hearts end by
+// x≈457 even in endless mode, the money pill starts at x 678), so no shade hides behind a pill and no light
+// seems to come out of one
+const LAMPS = [[WIN_CX - 50, 30], [WIN_CX + 50, 30]];
+
+// A soft shadow cast on the wall by a thing hanging or standing in front of it (offset to the lower right).
+const wallShadow = (d, dx = 5, dy = 7) => g(`translate(${dx} ${dy})`, path(d, '#4a3018', op(0.08)) + g('translate(2 2)', path(d, '#4a3018', op(0.06))));
+
+function pendant(x, len, ids) {
+  const y = len;
+  let s = path(`M${x - 20} ${y + 24}L${x - 96} 236H${x + 96}L${x + 20} ${y + 24}Z`, `url(#${ids.cone})`); // light falling on the wall
+  s += ellipse(x, y + 26, 84, 62, `url(#${ids.glow})`);
+  s += line(`M${x} 0V${y}`, '#2c2622', 1.4) + rect(x - 3, y - 3, 6, 5, 1.5, '#3c352f');
+  const shade = `M${x - 23} ${y + 24}C${x - 22} ${y + 8} ${x - 12} ${y + 1} ${x} ${y + 1}C${x + 12} ${y + 1} ${x + 22} ${y + 8} ${x + 23} ${y + 24}Z`;
+  s += path(shade, '#35302b', stroke(0.8, '#14110f')) + path(shade, paint('sph-soft'));
+  s += line(`M${x - 15} ${y + 9}Q${x - 8} ${y + 3.6} ${x + 2} ${y + 3.4}`, WHITE, 1.3, op(0.3));
+  s += ellipse(x, y + 24, 23, 3.6, '#1c1814') + ellipse(x, y + 24.6, 19, 2.6, '#ffe2a6') + ellipse(x, y + 25.4, 8, 2.6, '#fff8e4');
   return s;
 }
 
 function plantPot(x, y, k = 1) {
-  let s = softShadow(x, y + 30 * k, 26 * k, 5 * k);
   const rng = rngFor(`plant-${x}`);
-  const leafCol = ['#2f8a4a', '#3aa35a', '#277a40'];
+  const leafCol = ['#5f8a5e', '#6d9a68', '#557d55'];
+  let leaves = '';
+  let stems = '';
   for (let i = 0; i < 9; i++) {
     const a = -Math.PI / 2 + (i - 4) * 0.34 + (rng.next() - 0.5) * 0.2;
     const len = (30 + rng.next() * 18) * k;
     const ex = x + Math.cos(a) * len;
     const ey = y + Math.sin(a) * len;
-    s += line(`M${x} ${y}Q${f(x + Math.cos(a) * len * 0.4)} ${f(y + Math.sin(a) * len * 0.6)} ${f(ex)} ${f(ey)}`, '#2a6b36', 1.6 * k);
+    stems += `M${x} ${y}Q${f(x + Math.cos(a) * len * 0.4)} ${f(y + Math.sin(a) * len * 0.6)} ${f(ex)} ${f(ey)}`;
     const L = 18 * k;
     const W = 9 * k;
     const deg = (a * 180) / Math.PI;
-    s += g(`translate(${f(ex)} ${f(ey)}) rotate(${f(deg)})`, path(`M0 0C${f(L * 0.3)} ${f(-W)} ${f(L * 0.8)} ${f(-W * 0.6)} ${f(L)} 0C${f(L * 0.8)} ${f(W * 0.6)} ${f(L * 0.3)} ${f(W)} 0 0Z`, leafCol[i % 3], stroke(0.8, '#1d5a2c')) + line(`M2 0H${f(L * 0.85)}`, '#7fd398', 0.8, op(0.7)));
+    leaves += g(`translate(${f(ex)} ${f(ey)}) rotate(${f(deg)})`, path(`M0 0C${f(L * 0.3)} ${f(-W)} ${f(L * 0.8)} ${f(-W * 0.6)} ${f(L)} 0C${f(L * 0.8)} ${f(W * 0.6)} ${f(L * 0.3)} ${f(W)} 0 0Z`, leafCol[i % 3], stroke(0.8, '#3b5a3a')) + line(`M2 0H${f(L * 0.85)}`, '#a9c9a0', 0.8, op(0.6)));
   }
   const pot = `M${x - 18 * k} ${y}H${x + 18 * k}L${x + 14 * k} ${y + 30 * k}H${x - 14 * k}Z`;
-  s += path(pot, '#e9e2d6', stroke(1, '#b3a894')) + path(pot, paint('cyl-soft')) + rect(x - 19 * k, y - 3 * k, 38 * k, 6 * k, 2 * k, '#f4efe6', stroke(1, '#b3a894'));
-  return s;
-}
-
-function hangingPlant(x, y, len) {
-  const rng = rngFor(`vine-${x}`);
-  let s = '';
-  for (let v = -1; v <= 1; v++) {
-    const vx = x + v * 9;
-    const l = len * (0.7 + rng.next() * 0.4);
-    s += line(`M${vx} ${y}Q${vx + v * 6} ${y + l * 0.5} ${vx + v * 3} ${y + l}`, '#2a6b36', 1.2);
-    for (let k = 0.15; k < 1; k += 0.14) {
-      const lx = vx + v * 6 * k + (rng.next() - 0.5) * 6;
-      const ly = y + l * k;
-      s += ellipse(lx + 4, ly, 5.2, 3.4, rng.next() < 0.5 ? '#3aa35a' : '#2f8a4a', stroke(0.6, '#1d5a2c') + tf(`rotate(${f(rng.next() * 60 - 30)} ${f(lx + 4)} ${f(ly)})`));
-    }
-  }
+  let s = g(`translate(${f(6 * k)} ${f(6 * k)})`, path(pot, '#4a3018', op(0.1)) + line(stems, '#4a3018', 1.6 * k, op(0.06)));
+  s += softShadow(x + 2, y + 30 * k, 24 * k, 4 * k, 0.8);
+  s += line(stems, '#46694a', 1.6 * k) + leaves;
+  s += path(pot, '#e6dfd3', stroke(1, '#b0a592')) + path(pot, paint('cyl-soft')) + rect(x - 19 * k, y - 3 * k, 38 * k, 6 * k, 2 * k, '#f0ebe2', stroke(1, '#b0a592'));
   return s;
 }
 
 function jar(x, y, w, h, fill, dots) {
-  let s = softShadow(x + w / 2, y + h, w * 0.6, 3);
-  s += path(rrect(x, y, w, h, 6), '#eef7f9', stroke(1, '#9fb6bf'));
+  let s = path(rrect(x + 5, y + 4, w, h, 6), '#4a3018', op(0.1)); // its shadow on the wall
+  s += softShadow(x + w / 2 + 1, y + h, w * 0.6, 3);
+  s += path(rrect(x, y, w, h, 6), '#e9f0ee', stroke(1, '#a7b6b6'));
   s += path(rrect(x + 3, y + h * 0.3, w - 6, h * 0.7 - 3, 4), fill);
   const rng = rngFor(`jar-${x}`);
-  for (let i = 0; i < 10; i++) s += circle(x + 5 + rng.next() * (w - 10), y + h * 0.35 + rng.next() * (h * 0.6 - 6), 1.8 + rng.next() * 1.2, dots);
+  let grain = '';
+  for (let i = 0; i < 10; i++) {
+    const r = 1.8 + rng.next() * 1.2;
+    grain += `M${f(x + 5 + rng.next() * (w - 10) - r)} ${f(y + h * 0.35 + rng.next() * (h * 0.6 - 6))}a${f(r)} ${f(r)} 0 1 0 ${f(r * 2)} 0a${f(r)} ${f(r)} 0 1 0 ${f(-r * 2)} 0`;
+  }
+  s += path(grain, dots);
   s += path(rrect(x, y, w, h, 6), paint('glass'));
-  s += line(`M${x + 6} ${y + 6}V${y + h - 8}`, WHITE, 2.4, op(0.6));
-  s += path(rrect(x - 2, y - 6, w + 4, 8, 3), '#c99a63', stroke(1, '#8f6331')) + path(rrect(x - 2, y - 6, w + 4, 8, 3), paint('cyl-soft'));
+  s += line(`M${x + 6} ${y + 6}V${y + h - 8}`, WHITE, 2.4, op(0.55));
+  s += path(rrect(x - 2, y - 6, w + 4, 8, 3), '#b99168', stroke(1, '#86603a')) + path(rrect(x - 2, y - 6, w + 4, 8, 3), paint('cyl-soft'));
   return s;
 }
 
-function miniCup(x, y, k, base) {
-  return g(`translate(${f(x - 100 * k)} ${f(y - 100 * k)}) scale(${k})`, cupArt({ base, mid: [], top: [] }));
+// A cup drawn in chalk on the menu board: a tapered cup, its purée heaped over the rim.
+function chalkCup(x, y, col) {
+  const cup = `M${x - 5} ${y - 3}L${x - 3.6} ${y + 6.4}H${x + 3.6}L${x + 5} ${y - 3}`;
+  return path(`M${x - 5} ${y - 3}Q${x - 4.6} ${y - 7.6} ${x} ${y - 7.6}Q${x + 4.6} ${y - 7.6} ${x + 5} ${y - 3}Z`, col, op(0.75)) +
+    path(`${cup}Z`, col, op(0.32)) + line(cup, '#f1eee6', 1.1, op(0.8)) + line(`M${x - 6} ${y - 3}H${x + 6}`, '#f1eee6', 1.1, op(0.8));
+}
+
+// The menu board hangs at the far left, so its title stays clear of the first bubble with 2 or 3 seats (it
+// is decoration: with 4 seats the bubble covers most of it); its nail sits below the HUD.
+function chalkBoard() {
+  const [x, y, w, h] = [24, 76, 128, 112];
+  const frame = rrect(x, y, w, h, 5);
+  let s = line(`M${x + 22} ${y + 1}L${x + w / 2} 64L${x + w - 22} ${y + 1}`, '#3a322b', 1.1) + circle(x + w / 2, 64, 1.8, '#6b5a4a');
+  s += wallShadow(frame, 6, 8);
+  s += path(frame, '#a07a55', stroke(1, '#6b4c30')) + path(frame, paint('down'));
+  const slate = rrect(x + 7, y + 7, w - 14, h - 14, 2);
+  s += path(slate, '#3e4541') + path(slate, paint('sph-soft'));
+  // chalk dust: wiped-out traces
+  const rng = rngFor('chalk-dust');
+  let dust = '';
+  for (let i = 0; i < 10; i++) dust += ellipse(x + 16 + rng.next() * (w - 32), y + 20 + rng.next() * (h - 40), 8 + rng.next() * 16, 3 + rng.next() * 5, '#e8e6df', op((0.035 + rng.next() * 0.04).toFixed(3)) + tf(`rotate(${f(rng.next() * 30 - 15)} ${f(x + w / 2)} ${f(y + h / 2)})`));
+  s += dust;
+  s += `<text x="${x + w / 2}" y="${y + 33}" text-anchor="middle" font-family="${FONT}" font-size="21" fill="#f1eee6" opacity="0.85" letter-spacing="2">${esc(t('art.menu'))}</text>`;
+  s += line(`M${x + 24} ${y + 41}Q${x + w / 2} ${y + 43.5} ${x + w - 24} ${y + 40.6}`, '#f1eee6', 1.1, op(0.5));
+  // tiny cups of the three bases with their prices (no words: the same board in both languages)
+  [['#a58fc8', '5'], ['#e59ab9', '7'], ['#8fc4d8', '9']].forEach(([col, price], i) => {
+    const ry = y + 59 + i * 18;
+    s += chalkCup(x + 24, ry + 1, col);
+    s += line(`M${x + 38} ${ry + 3}H${x + w - 50}`, '#f1eee6', 1, op(0.35) + ' stroke-dasharray="1.5 4"');
+    s += circle(x + w - 38, ry, 5.2, '#e9c46a', op(0.7)) + circle(x + w - 38, ry, 5.2, 'none', stroke(0.9, '#f1eee6') + op(0.55));
+    s += `<text x="${x + w - 28}" y="${ry + 5.6}" font-family="${FONT}" font-size="15" fill="#f1eee6" opacity="0.85">${price}</text>`;
+  });
+  s += line(`M${x + 8} ${y + 7.6}H${x + w - 8}`, WHITE, 1, op(0.12));
+  return s;
+}
+
+function windowView(clipId, ids) {
+  const { x0, x1, y0, y1 } = WIN_IN;
+  const w = x1 - x0;
+  const X = (k) => f(x0 + w * k); // a point across the pane (0 = left frame, 1 = right frame)
+  // a bright day outside: hazy, pale and low in contrast, like a view against the light
+  let v = rect(x0, y0, w, y1 - y0, 0, `url(#${ids.sky})`);
+  v += circle(X(0.8), 120, 46, '#fffbea', op(0.5)) + circle(X(0.8), 120, 20, '#fffdf4');
+  for (const [k, cy, q] of [[0.2, 116, 1], [0.54, 106, 0.8]]) {
+    const cx = x0 + w * k;
+    v += ellipse(cx, cy, 28 * q, 7 * q, WHITE, op(0.7)) + ellipse(cx + 12 * q, cy - 5 * q, 16 * q, 7 * q, WHITE, op(0.7)) + ellipse(cx - 12 * q, cy - 3 * q, 12 * q, 5 * q, WHITE, op(0.65));
+  }
+  v += rect(x0, 172, w, y1 - 172, 0, `url(#${ids.sea})`) + rect(x0, 172, w, 2, 0, '#7fb2ba', op(0.5));
+  v += line([[0.06, 190], [0.34, 200], [0.63, 186], [0.76, 206], [0.18, 210]].map(([k, y]) => `M${X(k)} ${y}q10 -3 20 0`).join(''), WHITE, 1.4, op(0.5));
+  v += path(`M${x0} 214Q${X(0.25)} 202 ${X(0.5)} 210T${x1} 206V232H${x0}Z`, '#e8dbbf');
+  // palm, soft against the light
+  const px = x0 + w * 0.88;
+  v += line(`M${f(px - 6)} 232Q${f(px - 12)} 192 ${f(px)} 150`, '#9a8a74', 5);
+  for (const deg of [-160, -120, -70, -30, 10]) {
+    const a = (deg * Math.PI) / 180;
+    v += path(`M${f(px)} 150Q${f(px + Math.cos(a) * 30)} ${f(150 + Math.sin(a) * 30 - 10)} ${f(px + Math.cos(a) * 54)} ${f(150 + Math.sin(a) * 54 + 6)}Q${f(px + Math.cos(a) * 28)} ${f(150 + Math.sin(a) * 28 + 2)} ${f(px)} 150Z`, '#7f9a80', op(0.9));
+  }
+  v += rect(x0, y0, w, y1 - y0, 0, '#ffffff', op(0.16)); // haze
+  v += line(`M${X(0.12)} 94L${X(0.25)} 228M${X(0.34)} 94L${X(0.41)} 160M${X(0.69)} 94L${X(0.81)} 228`, WHITE, 9, op(0.12)); // reflections on the glass
+  return `<g clip-path="url(#${clipId})">${v}</g>`;
+}
+
+function cafeWindow(clipId, ids) {
+  const { x0, x1, y0, y1 } = WIN;
+  const I = WIN_IN;
+  let s = ellipse(WIN_CX, 160, 300, 130, `url(#${ids.bloom})`); // daylight spilling around the opening
+  // the reveal: its top in shadow, the left jamb turned away from the light, the right one lit
+  s += path(`M${x0} ${y0}H${x1}L${I.x1} ${I.y0}H${I.x0}Z`, '#c4b39c');
+  s += path(`M${x0} ${y0}L${I.x0} ${I.y0}V${I.y1}H${x0}Z`, '#d0c0a9');
+  s += path(`M${x1} ${y0}L${I.x1} ${I.y0}V${I.y1}H${x1}Z`, '#f0e7da');
+  s += path(`M${x0} ${y0}L${I.x0} ${I.y0}V${I.y1}H${x0}Z`, `url(#${ids.jamb})`) + path(`M${x1} ${y0}L${I.x1} ${I.y0}V${I.y1}H${x1}Z`, `url(#${ids.jamb})`);
+  s += windowView(clipId, ids);
+  // slim frame
+  s += path(`${rrect(I.x0, I.y0, I.x1 - I.x0, I.y1 - I.y0, 2)}${rrect(I.x0 + 5, I.y0 + 5, I.x1 - I.x0 - 10, I.y1 - I.y0 - 10, 1)}`, '#544c45', ' fill-rule="evenodd"');
+  s += line(`M${I.x0 + 5} ${I.y0 + 5.6}H${I.x1 - 5}`, '#2e2925', 1, op(0.5));
+  s += line(`M${I.x1 - 1} ${I.y0 + 2}V${I.y1}`, '#8a8076', 1, op(0.7));
+  s += path(`M${x0} ${y0}H${x1}V${y1}H${x0}Z`, 'none', stroke(1, '#b3a088') + op(0.8));
+  return s;
+}
+
+// The window's sill: a light stone board lying on the wainscot's rail, its shadow on the reeds.
+function windowSill() {
+  const y = WIN.y1;
+  const [a, b] = [WIN.x0 - 12, WIN.x1 + 12];
+  return rect(a - 2, y + 5, b - a + 4, 7, 0, '#4a3018', op(0.14)) +
+    path(rrect(a, y - 6, b - a, 11, 2.5), '#ece4d6', stroke(0.8, '#b3a691')) + rect(a + 0.5, y + 0.4, b - a - 1, 4, 0, '#d6cab6') + line(`M${a + 3} ${y - 5.2}H${b - 3}`, WHITE, 1, op(0.8));
+}
+
+function wainscot(W, H, ids) {
+  // fluted oak: each reed lit on its left, shaded on its right; dimmer at the bottom near the pass
+  let s = rect(0, RAIL_Y + 10, W, H - RAIL_Y - 10, 0, '#c4a27b');
+  let hi = '';
+  let lo = '';
+  for (let x = 0; x < W; x += 12) {
+    hi += `M${x + 3} ${RAIL_Y + 10}V${H}`;
+    lo += `M${x + 10.5} ${RAIL_Y + 10}V${H}`;
+  }
+  s += line(hi, '#dcc29d', 2.6, op(0.55)) + line(lo, '#987650', 1.6, op(0.45));
+  s += rect(0, RAIL_Y + 10, W, H - RAIL_Y - 10, 0, `url(#${ids.panel})`);
+  // the rail, and the soft shadow it casts on the reeds
+  s += rect(0, RAIL_Y, W, 10, 0, '#8d6a4b') + rect(0, RAIL_Y, W, 2.4, 0, '#c29a72') + rect(0, RAIL_Y + 7.6, W, 2.4, 0, '#5e4330');
+  return s;
+}
+
+function shelf(ids) {
+  // one floating oak shelf with a few jars, a plant and a stack of cups (low-key: the bubbles of the
+  // right seats lie over it); everything throws a soft shadow down to the right
+  const [x, y, w] = [950, 150, 276];
+  let s = rect(x + 6, y + 9, w, 9, 0, `url(#${ids.under})`);
+  for (const bx of [x + 26, x + w - 26]) s += path(`M${bx - 3} ${y + 8}H${bx + 3}L${bx + 1} ${y + 22}H${bx - 1}Z`, '#5a4636') + rect(bx + 3, y + 12, 3, 12, 1, '#4a3018', op(0.08));
+  s += jar(966, 110, 32, 40, '#bf9258', '#8c6538') + jar(1006, 114, 28, 36, '#6b4c74', '#8a6a92');
+  s += plantPot(1080, 122, 0.82);
+  // the cup stack (its foot on the board, y 150), its shadow on the wall and on the board
+  s += path('M1126.4 100.4H1156.4V115.7L1151.6 150H1131.2L1126.4 115.7Z', '#4a3018', op(0.1) + tf('translate(5 4)')) + softShadow(1142.4, 150, 18, 3);
+  s += g('translate(1121 86.8) scale(0.34)', cupStackShape());
+  s += jar(1170, 114, 30, 36, '#eee4cf', '#d2c19f');
+  s += path(rrect(x, y, w, 9, 2), '#b58c63', stroke(1, '#7a5636')) + rect(x + 1, y + 0.6, w - 2, 1.6, 0, '#dcbb92', op(0.8)) + rect(x, y + 6, w, 3, 2, '#7a5636', op(0.5));
+  return s;
 }
 
 export function shopSceneSVG(width = 1280, height = 330) {
   const W = 1280;
   const H = 330;
-  const wallId = uid('wall');
-  const glowId = uid('glow');
-  const skyId = uid('sky');
-  const seaId = uid('sea');
+  // ids local to this picture (one wall per screen); all named af-wall-… / af-glow-… / af-sky-… / af-sea-… / af-win-…
+  const ids = { wall: uid('wall'), shaft: uid('wall'), vig: uid('wall'), panel: uid('wall'), under: uid('wall'), jamb: uid('wall'), cone: uid('glow'), glow: uid('glow'), bloom: uid('glow'), sky: uid('sky'), sea: uid('sea') };
   const winClip = uid('win');
-  let s = `<defs><linearGradient id="${wallId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4ece2"/><stop offset="1" stop-color="#e9dccb"/></linearGradient>` +
-    `<radialGradient id="${glowId}" cx="0.5" cy="0.3" r="0.6"><stop offset="0" stop-color="#ffdca0" stop-opacity="0.55"/><stop offset="0.5" stop-color="#ffd58c" stop-opacity="0.18"/><stop offset="1" stop-color="#ffd58c" stop-opacity="0"/></radialGradient>` +
-    `<linearGradient id="${skyId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fd0f2"/><stop offset="1" stop-color="#d6f1fb"/></linearGradient>` +
-    `<linearGradient id="${seaId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1fa2c4"/><stop offset="1" stop-color="#5fd2d8"/></linearGradient>` +
-    `<clipPath id="${winClip}"><rect x="478" y="86" width="324" height="140" rx="6"/></clipPath></defs>`;
-  s += rect(0, 0, W, H, 0, `url(#${wallId})`);
-  // soft plaster texture
+  const st = (list) => list.map(([o, c, a = 1]) => `<stop offset="${o}" stop-color="${c}"${a < 1 ? ` stop-opacity="${a}"` : ''}/>`).join('');
+  let s = '<defs>' +
+    `<linearGradient id="${ids.wall}" x1="0" y1="0" x2="0" y2="1">${st([[0, '#ddd0be'], [0.3, '#e6dac9'], [1, '#dccbb5']])}</linearGradient>` +
+    `<radialGradient id="${ids.shaft}" cx="0.5" cy="0.5" r="0.5">${st([[0, '#fff6e2', 0.55], [0.55, '#fff3dc', 0.2], [1, '#fff3dc', 0]])}</radialGradient>` +
+    `<radialGradient id="${ids.vig}" cx="0.5" cy="0.42" r="0.72">${st([[0, '#5a4430', 0], [0.62, '#5a4430', 0], [1, '#4a3420', 0.3]])}</radialGradient>` +
+    `<linearGradient id="${ids.panel}" x1="0" y1="0" x2="0" y2="1">${st([[0, '#3a2414', 0.32], [0.12, '#3a2414', 0.06], [0.55, '#3a2414', 0], [1, '#3a2414', 0.3]])}</linearGradient>` +
+    `<linearGradient id="${ids.under}" x1="0" y1="0" x2="0" y2="1">${st([[0, '#4a3018', 0.2], [1, '#4a3018', 0]])}</linearGradient>` +
+    `<linearGradient id="${ids.jamb}" x1="0" y1="0" x2="0" y2="1">${st([[0, '#4a3018', 0.12], [0.5, '#ffffff', 0], [1, '#ffffff', 0.12]])}</linearGradient>` +
+    `<linearGradient id="${ids.cone}" x1="0" y1="0" x2="0" y2="1">${st([[0, '#ffe7b8', 0.3], [0.6, '#ffe7b8', 0.08], [1, '#ffe7b8', 0]])}</linearGradient>` +
+    `<radialGradient id="${ids.glow}" cx="0.5" cy="0.35" r="0.6">${st([[0, '#ffdca0', 0.55], [0.5, '#ffd58c', 0.16], [1, '#ffd58c', 0]])}</radialGradient>` +
+    `<radialGradient id="${ids.bloom}" cx="0.5" cy="0.5" r="0.5">${st([[0, '#fffaf0', 0.65], [0.6, '#fff8ec', 0.22], [1, '#fff8ec', 0]])}</radialGradient>` +
+    `<linearGradient id="${ids.sky}" x1="0" y1="0" x2="0" y2="1">${st([[0, '#b9dcea'], [1, '#e6f2f1']])}</linearGradient>` +
+    `<linearGradient id="${ids.sea}" x1="0" y1="0" x2="0" y2="1">${st([[0, '#7fbcc4'], [1, '#a9d4d1']])}</linearGradient>` +
+    `<clipPath id="${winClip}"><rect x="${WIN_IN.x0}" y="${WIN_IN.y0}" width="${WIN_IN.x1 - WIN_IN.x0}" height="${WIN_IN.y1 - WIN_IN.y0}"/></clipPath></defs>`;
+  // plaster: warm greige, soft trowel marks and fine grain, a slanted patch of light from the top left
+  s += rect(0, 0, W, H, 0, `url(#${ids.wall})`);
   const rng = rngFor('wall-texture');
-  let tex = '';
-  for (let i = 0; i < 70; i++) tex += ellipse(rng.next() * W, 20 + rng.next() * 210, 20 + rng.next() * 50, 6 + rng.next() * 12, '#ffffff', op(0.12));
-  s += tex;
-  // fluted oak panel along the bottom of the wall
-  s += rect(0, 232, W, 98, 0, '#d2a874');
-  let flutes = '';
-  for (let x = 0; x < W; x += 14) flutes += `M${x + 0.5} 236V330`;
-  s += line(flutes, '#a77a46', 2, op(0.7));
-  let shine = '';
-  for (let x = 6; x < W; x += 14) shine += `M${x} 236V330`;
-  s += line(shine, '#ecc896', 2.4, op(0.6));
-  s += rect(0, 232, W, 98, 0, paint('down-dark'));
-  s += rect(0, 226, W, 8, 0, '#6b4a33') + rect(0, 226, W, 3, 0, '#8d6649');
-
-  // window with a beach view
-  let view = rect(478, 86, 324, 140, 0, `url(#${skyId})`);
-  view += circle(740, 120, 30, '#fff6c4', op(0.5)) + circle(740, 120, 18, '#fffbe2');
-  for (const [cx, cy, k] of [[540, 116, 1], [650, 104, 0.8]]) {
-    view += ellipse(cx, cy, 28 * k, 8 * k, WHITE, op(0.85)) + ellipse(cx + 12 * k, cy - 5 * k, 16 * k, 8 * k, WHITE, op(0.85)) + ellipse(cx - 12 * k, cy - 3 * k, 12 * k, 6 * k, WHITE, op(0.8));
+  let marks = '';
+  for (let i = 0; i < 46; i++) marks += ellipse(rng.next() * W, 20 + rng.next() * 206, 24 + rng.next() * 54, 6 + rng.next() * 12, rng.next() < 0.6 ? '#ffffff' : '#b49c80', op(0.07) + tf(`rotate(${f(rng.next() * 16 - 8)})`));
+  s += marks;
+  let grain = '';
+  for (let i = 0; i < 260; i++) {
+    const r = 0.5 + rng.next() * 0.7;
+    grain += `M${f(rng.next() * W)} ${f(16 + rng.next() * 210)}a${f(r)} ${f(r)} 0 1 0 ${f(r * 2)} 0a${f(r)} ${f(r)} 0 1 0 ${f(-r * 2)} 0`;
   }
-  view += rect(478, 168, 324, 58, 0, `url(#${seaId})`) + rect(478, 168, 324, 3, 0, '#178fb0', op(0.6));
-  view += line('M500 190q10 -4 20 0M590 202q10 -4 20 0M680 186q10 -4 20 0M720 210q10 -4 20 0M540 214q10 -4 20 0', WHITE, 1.6, op(0.6));
-  view += path('M478 214Q560 200 640 210T802 206V226H478Z', '#f2d7a2');
-  // palm silhouette
-  view += line('M770 226Q764 190 776 150', '#8a6a4a', 5);
-  for (const deg of [-160, -120, -70, -30, 10]) {
-    const a = (deg * Math.PI) / 180;
-    view += path(`M776 150Q${f(776 + Math.cos(a) * 30)} ${f(150 + Math.sin(a) * 30 - 10)} ${f(776 + Math.cos(a) * 54)} ${f(150 + Math.sin(a) * 54 + 6)}Q${f(776 + Math.cos(a) * 28)} ${f(150 + Math.sin(a) * 28 + 2)} 776 150Z`, '#2f8a4a', op(0.92));
-  }
-  s += path(rrect(470, 78, 340, 156, 10), '#2a2a31');
-  s += `<g clip-path="url(#${winClip})">${view}</g>`;
-  s += rect(638, 86, 4, 140, 0, '#2a2a31');
-  s += line('M500 92L540 222M560 92L580 150', WHITE, 8, op(0.16));
-  s += path(rrect(462, 230, 356, 10, 3), '#e9e2d6', stroke(1, '#b3a894'));
-
-  // menu boards (left): two black boards with the bowls and prices
-  const board = (x, y, w, h) => path(rrect(x, y, w, h, 6), '#23252b', stroke(2, '#121317')) + path(rrect(x, y, w, h, 6), paint('down')) + line(`M${x + 8} ${y + 6}H${x + w - 8}`, WHITE, 1, op(0.15));
-  s += line('M96 60V78M260 60V78', '#1d1d22', 1.6) + board(70, 76, 216, 140);
-  s += `<text x="178" y="104" text-anchor="middle" font-family="${FONT}" font-size="22" fill="#ffffff" letter-spacing="2">${esc(t('art.menu'))}</text>`;
-  s += line('M100 112H256', '#ffffff', 1, op(0.3));
-  // tiny cups on the board: just the purée (the toppings would not be visible at this size)
-  const items = [['acai', '5'], ['pitaya', '7'], ['spirulina', '9']];
-  items.forEach(([base, price], i) => {
-    const y = 136 + i * 28;
-    s += miniCup(102, y + 4, 0.15, base);
-    s += line(`M122 ${y + 2}H226`, '#ffffff', 1.2, op(0.25) + ' stroke-dasharray="2 4"');
-    s += circle(240, y, 7, '#ffcf3a', stroke(1, '#a8690a')) + `<text x="254" y="${y + 6}" font-family="${FONT}" font-size="17" fill="#ffffff">${price}</text>`;
-  });
-
-  // shelves (right) with jars, a stack of cups and plants
-  const shelf = (x, y, w) => path(rrect(x, y, w, 8, 2), '#c49465', stroke(1, '#7d5531')) + rect(x, y + 8, w, 3, 0, '#000000', op(0.12));
-  s += shelf(950, 150, 270) + shelf(980, 212, 230);
-  s += jar(966, 108, 34, 42, '#c98a3f', '#8f5a22') + jar(1008, 112, 30, 38, '#3a1446', '#6a3a80');
-  s += plantPot(1080, 120, 0.85);
-  s += g('translate(1118 98) scale(0.36)', cupStackShape());
-  s += jar(1170, 112, 32, 38, '#f2e7cf', '#d6c49f');
-  s += hangingPlant(1010, 220, 70) + plantPot(1180, 182, 0.9);
-  // little light box standing on the shelf
-  s += softShadow(1095, 212, 46, 4) + path(rrect(1052, 176, 86, 36, 6), '#23252b', stroke(1, '#121317')) + path(rrect(1052, 176, 86, 36, 6), paint('down'));
-  s += `<text x="1095" y="201" text-anchor="middle" font-family="${FONT}" font-size="19" fill="#ffffff" letter-spacing="1.5">açaí</text>`;
-  s += circle(1062, 186, 2.6, '#2fbf71') + circle(1128, 186, 2.6, '#ff3d8b');
-
-  // pendant lamps with a warm glow
-  for (const [x, len] of [[150, 30], [380, 24], [900, 24], [1160, 30]]) s += pendant(x, len, glowId);
-  // ceiling beam
-  s += rect(0, 0, W, 10, 0, '#4e3626') + rect(0, 10, W, 4, 0, '#000000', op(0.12));
+  s += path(grain, '#9e8668', op(0.16));
+  s += ellipse(300, 110, 430, 120, `url(#${ids.shaft})`, tf('rotate(24 300 110)'));
+  s += cafeWindow(winClip, ids);
+  s += chalkBoard();
+  s += shelf(ids);
+  s += wainscot(W, H, ids) + windowSill();
+  // ceiling: a dark oak cornice, its shadow on the wall
+  s += rect(0, 12, W, 18, 0, `url(#${ids.under})`) + rect(0, 0, W, 12, 0, '#5a4232') + rect(0, 10, W, 2, 0, '#7d604a');
+  for (const [x, len] of LAMPS) s += pendant(x, len, ids);
+  s += rect(0, 0, W, H, 0, `url(#${ids.vig})`);
   return svgWrap(width, height, W, H, s, ' preserveAspectRatio="xMidYMid slice"');
 }
 
@@ -875,13 +965,19 @@ function cupStackShape() {
 }
 
 // ======================================================================
-// Decor (viewBox 120×120): bought in the shop, stands in the café
+// Decor (viewBox 120×120): bought in the shop, stands in the café in front of the back wall – in its
+// light (top left) and its muted colours. In the café (wall: true) each piece casts a soft shadow on the
+// wall to the lower right; on the shop's cards only its contact shadow on the floor shows.
 // ======================================================================
+const decorShadow = (d, dx = 7, dy = 5) => g(`translate(${dx} ${dy})`, path(d, '#3a2414', op(0.1)) + g('translate(3 2)', path(d, '#3a2414', op(0.06))));
+// heart-shaped monstera leaf along +x
+const monsteraPath = (L, W = L * 0.82) => `M0 0C${f(L * 0.05)} ${f(-W * 0.55)} ${f(L * 0.55)} ${f(-W * 0.62)} ${f(L)} ${f(-W * 0.05)}C${f(L * 0.6)} ${f(W * 0.6)} ${f(L * 0.08)} ${f(W * 0.58)} 0 0Z`;
+const PLANT_LEAVES = [[38, 58, 34, -150, '#43784e'], [86, 56, 32, -30, '#4c8858'], [62, 40, 36, -92, '#52905d'], [30, 80, 24, 172, '#3d6d47']];
 function monsteraLeaf(x, y, len, deg, col) {
   const L = len;
   const W = len * 0.82;
   // heart-shaped leaf with the typical slits
-  let d = `M0 0C${f(L * 0.05)} ${f(-W * 0.55)} ${f(L * 0.55)} ${f(-W * 0.62)} ${f(L)} ${f(-W * 0.05)}C${f(L * 0.6)} ${f(W * 0.6)} ${f(L * 0.08)} ${f(W * 0.58)} 0 0Z`;
+  const d = monsteraPath(L, W);
   let slits = '';
   for (const k of [0.3, 0.52, 0.72]) {
     slits += `M${f(L * k)} ${f(-W * 0.04)}L${f(L * (k + 0.08))} ${f(-W * 0.42 * (1.1 - k * 0.6))}`;
@@ -895,24 +991,26 @@ function monsteraLeaf(x, y, len, deg, col) {
 }
 
 const DECOR = {
-  plants() {
-    let s = softShadow(60, 116, 30, 4);
-    const stems = 'M60 86Q52 70 38 58M60 86Q60 62 62 38M60 86Q70 70 86 56M60 86Q50 82 30 80';
-    s += line(stems, '#2a6b36', 2.2);
-    s += monsteraLeaf(38, 58, 34, -150, '#2f8a4a') + monsteraLeaf(86, 56, 32, -30, '#37a257');
-    s += monsteraLeaf(62, 40, 36, -92, '#3aa35a') + monsteraLeaf(30, 80, 24, 172, '#2a7d43');
-    // ceramic pot
+  plants(wall) {
     const pot = 'M38 86H82L78 113Q77.5 116 74 116H46Q42.5 116 42 113Z';
+    const stems = 'M60 86Q52 70 38 58M60 86Q60 62 62 38M60 86Q70 70 86 56M60 86Q50 82 30 80';
+    let s = '';
+    // the leaves, stems and pot cast their own shapes on the wall (one group, so overlaps do not darken)
+    if (wall) s += g('translate(7 5)', PLANT_LEAVES.map(([x, y, len, deg]) => g(`translate(${x} ${y}) rotate(${deg})`, path(monsteraPath(len), '#3a2414'))).join('') + line(stems, '#3a2414', 2.2) + path(pot, '#3a2414'), op(0.12));
+    s += softShadow(60, 116, 30, 4);
+    s += line(stems, '#3d6a44', 2.2);
+    s += PLANT_LEAVES.map(([x, y, len, deg, col]) => monsteraLeaf(x, y, len, deg, col)).join('');
+    // ceramic pot
     s += path(pot, '#efe9e0', stroke(1, '#a99f92')) + path(pot, paint('cyl'));
     s += path('M43 100H77', 'none', stroke(3, '#c97d43') + op(0.85));
     s += path(rrect(35, 81, 50, 7, 3), '#f7f3ec', stroke(1, '#a99f92')) + path(rrect(35, 81, 50, 7, 3), paint('cyl-soft'));
     return s;
   },
 
-  jukebox() {
-    let s = softShadow(60, 116, 42, 4);
+  jukebox(wall) {
     const body = 'M24 112V56A36 36 0 0 1 96 56V112Z';
-    s += path(body, '#7a3a24', stroke(1, '#3d1a0f')) + path(body, paint('cyl'));
+    let s = (wall ? decorShadow(body) : '') + softShadow(60, 116, 42, 4);
+    s += path(body, '#6e3a28', stroke(1, '#3d1a0f')) + path(body, paint('cyl'));
     // glowing tubes in the arch
     for (const [inset, col] of [[6, '#ffb627'], [11, '#ff3d8b'], [16, '#18c2c9']]) {
       const r = 36 - inset;
@@ -937,14 +1035,16 @@ const DECOR = {
     return s;
   },
 
-  seating() {
-    let s = softShadow(56, 114, 54, 5);
-    // velvet armchair
+  seating(wall) {
+    // velvet armchair in a dusty rose
     const back = 'M10 102C6 70 14 50 40 48C64 46 74 60 72 100Z';
-    s += path(back, '#d9467f', stroke(1, '#7a1a42')) + path(back, paint('sph'));
-    s += line('M28 54V96M44 51V96M58 54V96', '#a8285c', 1.4, op(0.6));
     const seat = 'M6 96Q6 86 18 86H64Q76 86 76 96V104Q76 110 68 110H14Q6 110 6 104Z';
-    s += path(seat, '#e65a91', stroke(1, '#7a1a42')) + path(seat, paint('down'));
+    // on the wall: the chair's back, the side table's round top, its leg and foot
+    let s = wall ? decorShadow(back) + decorShadow('M80 94a16 4.6 0 1 0 32 0a16 4.6 0 1 0 -32 0ZM94.7 97h2.6v18h-2.6ZM88 114.7h16v2.6h-16Z') : '';
+    s += softShadow(56, 114, 54, 5);
+    s += path(back, '#c0607f', stroke(1, '#6a2440')) + path(back, paint('sph'));
+    s += line('M28 54V96M44 51V96M58 54V96', '#93405e', 1.4, op(0.6));
+    s += path(seat, '#cc6c8c', stroke(1, '#6a2440')) + path(seat, paint('down'));
     s += line('M14 116L16 110M68 116L66 110', '#6b4a33', 3);
     // side table with an iced matcha
     s += line('M96 96V116M88 116H104', '#1d1d22', 2.6);
@@ -958,22 +1058,26 @@ const DECOR = {
     return s;
   },
 
-  neon() {
+  neon(wall) {
     const word = esc(t('art.neon'));
     const txt = (a) => `<text x="60" y="72" text-anchor="middle" font-family="${FONT}" font-size="34" textLength="76" lengthAdjust="spacingAndGlyphs"${a}>${word}</text>`;
     let s = line('M24 32L60 10L96 32', '#3b2a33', 1.2) + circle(60, 10, 2.4, paint('steel', '#cfd6dc'), stroke(0.8, '#5f6a75'));
-    s += path(rrect(8, 30, 104, 62, 10), '#241732', stroke(1, '#0f0a16'));
+    if (wall) s += decorShadow(rrect(8, 30, 104, 62, 10), 5, 4);
+    // a smoky dark acrylic backing; the tubes in a soft rose and a muted teal with a faint halo – lit, but calm
+    // next to the guests
+    s += path(rrect(8, 30, 104, 62, 10), '#32283a', stroke(1, '#1a141f'));
     s += path(rrect(8, 30, 104, 62, 10), paint('glass'));
     for (const [x, y] of [[16, 38], [104, 38], [16, 84], [104, 84]]) s += circle(x, y, 2.2, paint('steel', '#cfd6dc'), stroke(0.6, '#5f6a75'));
-    s += txt(` fill="none" stroke="#ff3d8b" stroke-width="10" stroke-linejoin="round" opacity="0.22"`);
-    s += txt(` fill="none" stroke="#ff5fa2" stroke-width="4" stroke-linejoin="round"`);
-    s += txt(` fill="none" stroke="#ffe3f1" stroke-width="1.3" stroke-linejoin="round"`);
-    s += line('M28 82Q60 90 92 80', '#18c2c9', 7, op(0.22)) + line('M28 82Q60 90 92 80', '#5ee6ea', 2.6) + line('M28 82Q60 90 92 80', '#e6feff', 0.9);
+    s += txt(` fill="none" stroke="#e8689c" stroke-width="9" stroke-linejoin="round" opacity="0.16"`);
+    s += txt(` fill="none" stroke="#ef86b2" stroke-width="3.6" stroke-linejoin="round"`);
+    s += txt(` fill="none" stroke="#fde6f0" stroke-width="1.2" stroke-linejoin="round"`);
+    s += line('M28 82Q60 90 92 80', '#4fb4b8', 6, op(0.16)) + line('M28 82Q60 90 92 80', '#7fcfd2', 2.4) + line('M28 82Q60 90 92 80', '#e6fbfb', 0.8);
     return s;
   },
 };
 
-export function decorSVG(id, size = 120) {
+// wall: false for a piece shown on its own (shop card, gallery) – no shadow on a wall that is not there
+export function decorSVG(id, size = 120, { wall = true } = {}) {
   const draw = DECOR[id];
-  return svgWrap(size, size, 120, 120, draw ? draw() : '');
+  return svgWrap(size, size, 120, 120, draw ? draw(wall) : '');
 }

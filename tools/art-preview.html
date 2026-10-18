@@ -162,7 +162,7 @@ function render() {
   for (let i = 0; i < 6; i++) looks.push(art.randomLook(rng));
   for (let i = 0; i < 6; i++) looks.push(art.lookFromSeed(i * 7 + 3));
   h += section('artprev.customers', looks.map((look) =>
-    el(`<div class="row">${MOODS.map((m) => art.customerSVG(look, m, 110)).join('')}</div>${look.hairStyle} · ${look.accessory} · ${look.pattern}`, 'cell wall')).join(''));
+    el(`<div class="row">${MOODS.map((m) => art.customerSVG(look, m, 110)).join('')}</div>${look.hairStyle} · ${look.accessory} · ${look.top} · ${look.pattern}`, 'cell wall')).join(''));
   h += `<div class="grid" style="margin-top:12px">${MOODS.map((m) => el(art.customerSVG(looks[1], m, 160) + m, 'cell wall')).join('')}</div>`;
 
   const blenders = [
@@ -208,12 +208,15 @@ function render() {
     { bowl: { base: 'acai', mid: ['mango', 'banana', 'blueberry'], top: ['chocolate', 'chia'] }, matcha: 'strawberry', mood: 'angry' },
   ];
   let m = art.shopSceneSVG(1280, 330).replace('<svg', '<svg style="position:absolute;left:0;top:0"');
-  m += `<div style="left:300px;top:150px">${art.decorSVG('plants', 130)}</div><div style="left:868px;top:96px">${art.decorSVG('neon', 100)}</div>`;
+  // decor where js/game-view.js puts it with 4 seats: plants at the left edge, the neon high in the window between the
+  // middle two bubbles (x 640)
+  m += `<div style="left:-1px;top:180px">${art.decorSVG('plants', 118)}</div><div style="left:588px;top:80px">${art.decorSVG('neon', 104)}</div>`;
   seats.forEach((x, i) => {
-    m += `<div style="left:${x - 80}px;top:160px">${art.customerSVG(looks[i + 2], orders[i].mood, 160)}</div>`;
+    // the guest's bust: its viewBox y 131 on the pass's top edge (stage y 294)
+    m += `<div style="left:${x - 80}px;top:163px">${art.customerSVG(looks[i + 2], orders[i].mood, 160)}</div>`;
     const o = orders[i];
     const items = [...o.bowl.mid, ...o.bowl.top].map((id) => art.ingredientIcon(id, 30)).join('');
-    m += `<div class="order" style="left:${x - 20}px;top:78px">${art.bowlSVG(o.bowl, 64)}<div style="display:grid;grid-template-columns:repeat(2,30px)">${items}</div>${o.matcha ? art.matchaGlassSVG(o.matcha, 'ready', 48) : ''}</div>`;
+    m += `<div class="order" style="left:${x}px;top:78px;translate:-50% 0">${art.bowlSVG(o.bowl, 64)}<div style="display:grid;grid-template-columns:repeat(2,30px)">${items}</div>${o.matcha ? art.matchaGlassSVG(o.matcha, 'ready', 48) : ''}</div>`;
   });
   // the game's layout (js/game-view.js, css/game.css): the work counter from y 338, the appliances in front of the pass
   m += `<div class="counter"></div><div style="left:0;top:338px">${art.counterSVG(1280, 462)}</div>`;
@@ -245,7 +248,7 @@ function render() {
   m += `<div style="left:1137px;top:665px">${art.trashSVG(134)}</div>`;
   h += section('artprev.mock', `<div class="mock">${m}</div>`);
 
-  h += section('artprev.decor', ['plants', 'jukebox', 'seating', 'neon'].map((id) => el(`${art.decorSVG(id, 140)}${id}`, 'cell wall')).join(''));
+  h += section('artprev.decor', ['plants', 'jukebox', 'seating', 'neon'].map((id) => el(`${art.decorSVG(id, 140, { wall: false })}${id}`, 'cell wall')).join(''));
   h += section('artprev.scene', el(art.shopSceneSVG(1280, 330), 'cell wide'));
   h += section('artprev.logo', el(art.logoSVG(560), 'cell dark wide') + el(art.logoSVG(280), 'cell dark'));
   h += section('artprev.map', el(art.mapBackgroundSVG(1280, 800), 'cell wide'));

@@ -12,8 +12,8 @@ import {
   upgradeLevel, ingLevel, upgradeLocked, buyIngredient, upgradeIngredient, buyUpgrade, setSetting, resetSave,
 } from './save.js';
 import {
-  logoSVG, bowlSVG, ingredientIcon, packIcon, matchaGlassSVG, customerSVG, blenderSVG, matchaMachineSVG, decorSVG,
-  coinSVG, starSVG, heartSVG, clockSVG, lockSVG, mapBackgroundSVG,
+  logoSVG, bowlSVG, ingredientIcon, packIcon, matchaGlassSVG, customerSVG, lookFromSeed, blenderSVG, matchaMachineSVG,
+  decorSVG, coinSVG, starSVG, heartSVG, clockSVG, lockSVG, mapBackgroundSVG,
   MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE,
 } from './art.js';
 import { pictureMarkup } from './art3d.js';
@@ -525,6 +525,8 @@ const FLOATERS = [
   { id: 'mint', x: 300, y: 120, s: 50, r: 20 },
   { id: 'honey', x: 932, y: 132, s: 52, r: -14 },
 ];
+// the guest at the counter: a warm mango top that stands out against the purple sunburst
+const TITLE_GUEST = { ...lookFromSeed(23), shirt: '#ffb627' };
 
 function soundIsOn() {
   const s = getSave().settings;
@@ -545,7 +547,7 @@ const title = {
         `<span class="title-floater" style="left:${f.x}px;top:${f.y}px;--r:${f.r}deg;--d:${(i * 0.37).toFixed(2)}s">${ingredientIcon(f.id, f.s)}</span>`).join('')}</div>
       <div class="title-guest" aria-hidden="true">
         <div class="title-bubble">${esc(t('screen.order'))}</div>
-        <div class="title-guest-body">${customerSVG(23, 'happy', 250)}</div>
+        <div class="title-guest-body">${customerSVG(TITLE_GUEST, 'happy', 250)}</div>
       </div>
       <div class="title-counter" aria-hidden="true"></div>
       <div class="title-bowl" aria-hidden="true"><div class="title-bowl-inner">${bowlSVG({ base: 'acai', mid: ['banana', 'strawberry', 'blueberry'], top: ['coconut', 'honey'] }, 240)}</div></div>
@@ -915,7 +917,7 @@ const LAYER_NUM = { base: 1, mid: 2, top: 3 };
 function tabIcon(tab) {
   if (tab === 'ingredients') return ingredientIcon('strawberry', 40);
   if (tab === 'kitchen') return blenderArt({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 44);
-  return decorSVG('plants', 44);
+  return decorSVG('plants', 44, { wall: false });
 }
 
 function priceButton({ kind, id, price, label, upgrade = false }) {
@@ -1018,7 +1020,7 @@ function upgradeArt(id) {
     case 'matchaSlots':
       return matchaMachineArt(172);
     default:
-      return decorSVG(id, 230);
+      return decorSVG(id, 230, { wall: false });
   }
 }
 

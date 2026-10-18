@@ -83,6 +83,14 @@ frische Minze auf einem Brettchen – in glaubwürdigen Größen neben den Beche
 WebGL sind auch die Behälter gezeichnet. Gezogen wird, was du in der Hand hättest: eine Handvoll Obst, der Honiglöffel,
 der Messlöffel Chia – und die Schokosoße als ganze Flasche.
 
+**Gäste und Café:** Die Gäste haben natürliche Proportionen – über der Theke sieht man Kopf, Hals, breite Schultern und
+Oberarme. Die Haut hat weiches Licht von links oben, die Haare Strähnen und Glanz, die Kleidung Kragen, Nähte, Knöpfe und
+Falten (T-Shirt, Hemd, Polo, Hoodie mit Kordeln, offene Strickjacke über einem Shirt). Die Laune erkennt man auf einen
+Blick: fröhlich (lachende Augen, breites Lächeln, rote Wangen), entspannt, ungeduldig (schwere Lider, Blick zur Seite,
+gerunzelte Stirn, Schweißtropfen) und wütend (rotes Gesicht, V-Brauen, Zähne, Dampfwolken). Die Rückwand des Cafés hat mehr Tiefe – ein
+Fenster mit tiefer Laibung und hellem Tageslicht, eine Kreidetafel, ein Wandregal, Pendelleuchten mit warmem Schein,
+weiche Schatten – und bleibt bewusst ruhig, damit Gäste und Bestellblasen davor gut lesbar sind.
+
 **Endlos-Modus:** Nach Level 10 wird der Endlos-Modus freigeschaltet: kein Zeitlimit, alle 30 Sekunden
 wird es schwerer (mehr Plätze, mehr Gäste, größere Bestellungen). Gespielt wird, bis alle Herzen weg sind
 oder du im Pausenmenü die Schicht beendest – deine Münzen und dein Highscore werden gespeichert.
@@ -149,7 +157,8 @@ js/svg.js             gemeinsame SVG-Helfer + Farbverläufe (eine versteckte <sv
 js/art-food.js        Becher mit Schichten, Zutaten, Inhalt der Zutaten-Behälter (und die Behälter ohne WebGL), Packungen, Matcha-Gläser
 js/art-kitchen.js     Theke in Perspektive (Arbeitsplatte, Regal), Gefriertruhe, Podeste, Café-Rückwand, Deko;
                       Mixer, Matcha-Maschine, Mülleimer als Ersatz ohne WebGL
-js/art.js             Gäste, HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
+js/art-guests.js      die Gäste: Aussehen und Büsten in vier Launen
+js/art.js             HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
 js/geo3d.js           3D-Mathematik, Geometrie (Drehkörper, abgerundete Boxen, Rohre, Flüssigkeitsoberflächen), Materialien
 js/kitchen3d.js       3D-Modelle der Küchengeräte mit allen Ausbaustufen und Animationen
 js/pantry3d.js        3D-Modelle der Zutaten-Behälter (Edelstahl-Schalen, Gläser, Quetschflasche, Kokosnuss, Holz)
@@ -190,6 +199,11 @@ machine stand at the back of the worktop in front of the pass, about twice as ta
 containers on oak risers: fruit in brushed stainless pans, granola in a clip-top jar, honey with its dipper, chia in a
 Weck glass with a measuring spoon, peanut butter with a spoon, chocolate sauce in a squeeze bottle, shredded coconut in
 its shell, cacao nibs in a walnut bowl and mint on a board (3D pictures drawn once; drawn in SVG without WebGL).
+The guests have natural proportions (head, neck, broad shoulders and upper arms above the pass; soft light on the skin, hair
+with strands and shine, clothes with collars, seams, buttons and folds) and show their mood at a glance – happy, relaxed,
+impatient (heavy lids, a sideways look, a frown, a sweat drop) or angry (red face, gritted teeth, steam). The café's back wall has
+depth (a window with a deep reveal and bright daylight, a chalkboard, a shelf, pendant lamps with warm halos, soft
+shadows) and stays calm, so the guests and their order bubbles stand out.
 
 **How to play:** drag a frozen pack into the blender, put an empty bowl (a clear cup) from the stack on a
 free spot, drag the ready blender onto it, add *Fruits & Crunch*, then *Toppings & Sauces* (fixed layer order –

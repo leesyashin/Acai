@@ -149,7 +149,8 @@ js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, wh
                       containers drawn, without WebGL), packs, the glasses of fruit matcha
 js/art-kitchen.js     realistic kitchen art: work counter, freezer, risers, café back wall, decor; blender, matcha machine,
                       trash and freezer as the SVG fallback of the 3D models
-js/art.js             people, HUD icons, logo, map; re-exports the food + kitchen art (screens import from here)
+js/art-guests.js      the guests: looks (randomLook, lookFromSeed) and realistic busts in four moods (customerSVG)
+js/art.js             HUD icons, logo, map; re-exports the food, kitchen + guest art (screens import from here)
 js/geo3d.js           3D math, mesh builders (lathe – also fluted or warped –, rounded box, tube, liquid surface) and materials – pure
 js/kitchen3d.js       3D models of the appliances as scene descriptions (blender tiers, matcha machine, bin, freezer) – pure
 js/pantry3d.js        3D models of the ingredient containers (stainless pans, jars, squeeze bottle, coconut, wood) – pure
@@ -326,8 +327,18 @@ matchaFruitColorOf(id), MATCHA_COLORS, MATCHA_MILK // the purée's colour, milk 
                                       // is milk (derived from the glass's layer heights; the 3D nozzle's stream takes the same colours);
                                       // every purée stays clearly apart from the olive matcha at 50 px (kiwi: vivid green, big black seeds)
 MATCHA_STRAW = { x0, y0, x1, y1, w }  // the ready glass's straw (viewBox), short enough to clear the machine's collar and nozzle
-customerSVG(look, mood, size = 160)  // mood: 'happy'|'neutral'|'impatient'|'angry'
-randomLook(rng)                       // → look object (skin, hair colour/style, shirt, accessory) – diverse
+customerSVG(look, mood, size = 160)  // mood: 'happy'|'neutral'|'impatient'|'angry'. A bust (viewBox 160): the head (drawn 46
+                                      // wide and scaled 1.1 about the chin: ≈51 wide, crown y≈30, chin y 93), neck, shoulders
+                                      // ≈2.2 heads wide and the upper arms, the torso down to the box's bottom (the game's pass
+                                      // covers y > 131). Under 100 px it crops to head and shoulders (x 30–130, y 12–112;
+                                      // viewBox 0 0 100 100). Memoised in a cache of its own (64 pictures, least recently
+                                      // used out first, so guests never push the small icons out of svg.js memo()) and
+                                      // free of ids: only shared paints and the af-clip-guest-* clip paths
+randomLook(rng)                       // → look {skin, hair, hairStyle, shirt, shirt2, pattern, accessory, accent, top, iris} –
+                                      // diverse; top ('tee'|'shirt'|'polo'|'hoodie'|'cardigan') and the eye colour are picked
+                                      // last, so a seeded guest keeps the colours it had before; a look object missing them
+                                      // (or with unknown values) gets them derived from the object itself
+lookFromSeed(seed), LOOK_OPTIONS      // the look of a seeded guest (engine customer.look.seed); the lists of styles
 blenderSVG({state, base, progress, remaining?, portions, maxPortions, badge?}, size = 150)  // badge:false hides the status badge;
                                       // remaining: whole seconds the display counts down while blending
 matchaMachineSVG(slotCount, size)     // the machine without glasses (drawn separately at MATCHA_SLOT_X/Y, MATCHA_CUP_SIZE),
@@ -335,8 +346,15 @@ matchaMachineSVG(slotCount, size)     // the machine without glasses (drawn sepa
                                       // glass's y at the nozzle tip (its stream's start); matchaLedAt(slotCount, i): a slot's
                                       // status LED in the 312 px canvas (the game lights it over the drawing)
 trashSVG(size), coinSVG(size), heartSVG(filled, size), starSVG(filled, size)
-decorSVG(id, size)                    // 'plants' | 'jukebox' | 'seating' | 'neon'
-shopSceneSVG(width, height)           // back wall / window / sign for the gameplay scene
+decorSVG(id, size, {wall = true})     // 'plants' | 'jukebox' | 'seating' | 'neon' – in the wall's light; wall: its own shape as
+                                      // a soft shadow on the wall (the café), wall: false only the contact shadow (shop cards)
+shopSceneSVG(width, height)           // the café's back wall (1280×330): plaster, one wide window pane (x 351–729, no mullion)
+                                      // with a deep reveal and hazy daylight – its frame lines keep ≥ 30 px from every head
+                                      // with 2, 3 and 4 seats, so none grazes a face –, chalkboard menu at the far left
+                                      // (x 24–152, on a nail below the HUD; t('art.menu'), so it is redrawn on a language
+                                      // switch), one oak shelf, a pair of pendant lamps with warm halos (x 490 / 590, evenly
+                                      // about the window's middle, at one height, only in the HUD's gap between the hearts and
+                                      // the money pill), fluted oak wainscot, soft shadows, a vignette
 counterSVG(width, height)             // the work counter under the pass (1280×462): terrazzo worktop in perspective, rounded
                                       // front edge (COUNTER_EDGE_Y), a strip of open oak shelves with stock, the freezer's
                                       // front panel, a fruit basket and a jar of straws in front of the machine
@@ -357,8 +375,24 @@ The fruit lies in neat staggered rows like a deli counter, each piece with a lit
 light.
 Memoised pictures never contain their own ids (they reference the shared defs); a picture that needs a local
 gradient (café wall, work counter, logo, map) builds unique ids with `uid()`. Paint references name a fallback colour
-(`url(#af-steel) #cfd6dc`), so a page without the defs still shows plain fills. Guests are drawn with a thin warm
-outline (`withInk`), the HUD icons, logo and map keep the cartoon ink line of the menus.
+(`url(#af-steel) #cfd6dc`), so a page without the defs still shows plain fills. Guests have thin outlines in a darker
+shade of each part (skin, hair, cloth) and soft volume from the shared paints (`af-skin`: light top left, warm
+reddish-brown edges on any skin tone; `af-blush`, `af-flush`): a shadow under the jaw on the neck, nose and ear
+shading, hair with strands and a broken shine band, clothes with collars, seams, buttons, a hood with drawstrings,
+folds and creases at the arms. Curly hair is one bumpy mass with open curl strokes (like the afro, no rings), the curls
+behind the head in one darker shade of the same hue (golden hair stays golden in the shade); curls and afro are outlined
+in the hair's own line colour like every hair style, and light hair (blonde, grey) gets a deeper outline of its hue so it
+stands off the light plaster. Bald guests keep a short horseshoe fringe: hair over the temples down to the ears that
+runs on round the back of the head (it shows past the outline above and behind the ears). A cap is
+a baseball cap seen from the front (low crown, curved bill with its dark underside and its shadow on the brows); beards
+stay natural brown under dyed hair; earrings under long hair and afros peek out as small drops between the jaw and the
+hair, under a bob (which lies close over the ears) a stud on the earlobe holds a short drop over the hair.
+The four moods read at a glance – also at 1024×768 and in the 40 px menu chips:
+*happy* (closed laughing eyes, open smile with teeth, strong blush), *neutral* (open eyes with iris and catchlight, a
+calm slight smile), *impatient* (heavy lids, a look to the side, a frown with two creases, lips pressed and pulled to
+one side, a big blue sweat drop with a light rim that reads on dark hair too),
+*angry* (red face, V brows, narrowed eyes, gritted teeth, steam puffs and a vein mark). The HUD icons, logo and map
+keep the cartoon ink line of the menus.
 
 ### 4.4.1 3D appliances (`js/geo3d.js`, `js/kitchen3d.js`, `js/gl3d.js`, `js/art3d.js`)
 The blender, matcha machine, pedal bin and chest freezer are real 3D models rendered with WebGL (no library), and so are
@@ -551,9 +585,19 @@ ctx = { go, audio, t, screen /* current name */, rerender /* true on a language 
 ### 4.7 Gameplay screen layout (stage px, 1280 × 800)
 ```
 y   0– 64  HUD: [pause] [Level n / Endless stage] [hearts]   [money bar with ★ marks]   [clock]
-y  64–330  shop scene: back wall, window, sign, decor; customers stand behind the pass at seat centers
+y  64–330  shop scene: back wall (window, chalkboard, shelf, pendant lamps), decor; customers stand behind the pass at
+           seat centers
            seat x-centers: 2 → [420, 860]; 3 → [270, 640, 1010]; 4 → [200, 493, 787, 1080]
-           order bubble above/next to each customer; patience ring/bar on the bubble
+           a guest is a 160 px bust (y 163–323, the pass hides it from y 294): head, neck, shoulders (≈122 wide) and upper
+           arms show, the crown at y≈193, the face y≈205–257; a soft shadow on the wall behind, to the lower right, and
+           a faint darker rim right round the head (fair skin and light hair stand off the plaster)
+           order bubble above/next to each customer; patience ring/bar on the bubble; a toast about a guest hangs from
+           just under the chin (top y≈261) and grows down over the collar and the pass (up to 560 px wide, so every
+           reason fits on one line), so it never covers the face
+           decor (bought): plants (centre x 58) and jukebox (x 1222) at the edges, the chair between seats 1 and 2, the
+           neon high above the heads in a gap between two bubbles that even two wide bubbles leave mostly open (sign
+           y≈106–160; 2 and 4 seats: x 640, in the window's right half; 1 and 3 seats: x 825, on the wall between the
+           window and the shelf), with a soft, low glow so it reads as lit without pulling the eye from the guests
 y 294–338  the pass: white marble top (y 294–318, overlaps customers' bodies) with a fluted oak front facing the
            player; level/closing/stage banners (non-blocking) sit on it (y≈290–345) so faces and bubbles stay visible.
            The work area is drawn over it: tall appliances at the back of the worktop stand in front of the pass and
@@ -618,10 +662,17 @@ slots, with and without WebGL, at 1280×800 and 1024×768) and in small ones (le
 ### 4.8 Visual language
 - Fonts: **Lilita One** (display: logo, headings, numbers) + **Nunito** 600/800/900 (UI text), fallbacks
   `"Trebuchet MS", system-ui, sans-serif`. Loaded from Google Fonts.
-- Gameplay: a modern café in a realistic, glossy illustration style (warm plaster wall with fluted oak, pendant
-  lamps, menu boards) seen like Cooking Fever from behind the counter: a marble pass with an oak front, a terrazzo
-  worktop in perspective with a rounded front edge and open shelves of stock below, the ingredients in real
-  containers on oak risers (brushed stainless pans of fruit in neat rows, glass jars, a squeeze bottle, a coconut
+- Gameplay: a modern café in a realistic, glossy illustration style seen like Cooking Fever from behind the counter.
+  Its back wall is deliberately calm – mid-light, slightly muted, soft contrasts – so the guests and their bubbles stay
+  in front: warm greige plaster with a soft texture and a slanted patch of light from the top left, a window with a deep
+  reveal (its top in shadow, the right jamb lit) and a hazy, bright beach view – its frame lines never graze a guest's
+  head –, a chalkboard menu, one oak shelf with jars, a plant and cups, a matched pair of pendant lamps over the window
+  (clear of the HUD's pills) with warm halos and light falling on the wall, a fluted oak wainscot with the
+  rail's shadow on it, soft shadows to the lower right and a vignette toward the corners; nothing busy or saturated
+  behind the bubbles (y≈68–200) or the faces. The guests are drawn with natural proportions (busts: head, neck, broad
+  shoulders) in the same light, their clothes in clear colours that stand out against the wall. In front of them: a
+  marble pass with an oak front, a terrazzo worktop in perspective with a rounded front edge and open shelves of
+  stock below, the ingredients in real containers on oak risers (brushed stainless pans of fruit in neat rows, glass jars, a squeeze bottle, a coconut
   shell, a walnut bowl, a board – 3D, light from the top left like everything else), 3D appliances about twice as tall as a cup (a stand
   blender after a household model – fluted glass jug, tall stainless base with a black glass V display band and a big chrome dial –, a matcha
   machine after a household tea-latte machine – muted olive shell, black front, smoked water tank, a glass tea mill –,

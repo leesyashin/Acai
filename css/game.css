@@ -32,8 +32,10 @@
 .screen-game .g-decor-plants { top: 180px; }
 .screen-game .g-decor-jukebox { top: 182px; }
 .screen-game .g-decor-seating { top: 180px; }
-.screen-game .g-decor-neon { top: 92px; }
-.screen-game .g-decor-neon svg { filter: drop-shadow(0 0 10px rgba(255, 61, 139, 0.55)); }
+/* the neon hangs above the heads, between two bubbles (its x: layoutDecor in js/game-view.js), its sign y≈106–160;
+   a soft, low glow, so it reads as lit without pulling the eye from the guests */
+.screen-game .g-decor-neon { top: 80px; }
+.screen-game .g-decor-neon svg { filter: drop-shadow(0 0 6px rgba(236, 112, 160, 0.3)); }
 .screen-game .g-seats { position: absolute; inset: 0; }
 
 /* ------------------------------------------------------------ customers */
@@ -45,13 +47,30 @@
   margin-left: -100px;
   transition: left 0.6s ease;
 }
+/* the guest's bust (customerSVG, 160 px): its viewBox y 131 meets the pass's top (stage y 294), so head, neck,
+   shoulders and upper arms show above it; the face (y≈205–257) stays clear of the bubble, tall hair, caps and
+   steam may tuck under its tail */
 .screen-game .g-figure {
   position: absolute;
   left: 20px;
-  top: 108px;
+  top: 101px;
   width: 160px;
   height: 160px;
   transform-origin: 50% 100%;
+  isolation: isolate;
+}
+/* the guest's soft shadow on the wall behind, down to the right (light from the top left), and a faint darker rim
+   right round the head, so fair skin and blonde or grey hair still stand off the light plaster */
+.screen-game .g-figure::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(30px 38px at 94px 66px, rgba(74, 44, 20, 0.2), rgba(74, 44, 20, 0) 100%),
+    radial-gradient(38px 42px at 82px 60px, rgba(66, 40, 20, 0.24) 64%, rgba(66, 40, 20, 0) 100%),
+    radial-gradient(70px 32px at 91px 128px, rgba(74, 44, 20, 0.2), rgba(74, 44, 20, 0) 100%);
+  pointer-events: none;
 }
 .screen-game .g-cust.is-waiting .g-figure { animation: g-idle 2.8s ease-in-out infinite; }
 .screen-game .g-cust.is-waiting[data-state="waiting"] .g-bubble[data-mood="angry"] { animation: g-nag 0.7s ease-in-out infinite; }
@@ -820,6 +839,9 @@
   line-height: 1.15;
   animation: pop-in 0.25s ease-out both, g-fade-out 0.35s ease-in 1.35s forwards;
 }
+/* a toast about a guest hangs from just under the chin and grows down over the collar and the pass (one line for
+   every reason; two lines still end above the worktop), so it never covers the face */
+.screen-game .g-toast.at-guest { translate: -50% 0; max-width: 560px; transform-origin: 50% 0; }
 .screen-game .g-float {
   position: absolute;
   translate: -50% -50%;

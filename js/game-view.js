@@ -274,6 +274,7 @@ const MACHINE_SIZE = 312; // the machine box is its square canvas (VIEWS.machine
 const SLOT_W = 96; // a slot: the glass on a drip tray (two of them keep a gap)
 const DECOR_IDS = ['plants', 'jukebox', 'seating', 'neon'];
 const DECOR_SIZE = { plants: 118, jukebox: 118, seating: 124, neon: 104 };
+const FIG_CHIN_Y = 98; // just under a guest's chin, in its figure's box (customerSVG, 160 px: the chin at y≈93)
 const LAYER_NUM = { base: 1, mid: 2, top: 3 };
 const MOODS = ['happy', 'neutral', 'impatient', 'angry'];
 const STAMP_MS = 1700;
@@ -1437,7 +1438,10 @@ class GameView {
     place('plants', 58);
     place('jukebox', 1222);
     place('seating', xs.length > 1 ? gapMid(0) : 330);
-    place('neon', xs.length > 1 ? gapMid(xs.length - 2) : 950);
+    // the neon hangs high (css/game.css), above the heads, in a gap between two bubbles that even two wide
+    // bubbles leave mostly open: 2 and 4 seats in the window's right half (x 640; tools/art-preview.html
+    // places a copy there for its 4-seat scene), 1 and 3 seats on the wall between the window and the shelf
+    place('neon', xs.length > 1 ? gapMid(Math.min(1, xs.length - 2)) : 825);
     for (const v of this.custViews.values()) v.x = -1; // re-position on next update
   }
 
@@ -1724,12 +1728,14 @@ class GameView {
   // ---------------------------------------------------------------- effects
   toast(text, anchor, kind = 'bad') {
     this.toastEl?.remove();
-    // customers: over the face (below the bubble); stations: just above the element
+    // customers: its top just under the chin, growing down over the collar and the pass (css/game.css
+    // .g-toast.at-guest), so it never covers the face; stations: just above the element (the toast's bottom
+    // edge sits at y)
     const fig = anchor.querySelector?.('.g-figure');
     const p = this.posOf(fig || anchor);
-    const node = el('div', `toast g-toast ${kind === 'info' ? '' : kind}`, { role: 'status' });
+    const node = el('div', `toast g-toast ${kind === 'info' ? '' : kind}${fig ? ' at-guest' : ''}`, { role: 'status' });
     node.textContent = text;
-    const y = fig ? p.y + 70 : Math.max(84, p.y + 6);
+    const y = fig ? p.y + FIG_CHIN_Y : Math.max(84, p.y + 6);
     node.style.top = `${y}px`;
     this.fxEl.append(node);
     // centre on the anchor, clamped with the real width (it wraps by its own max-width, not by left)
