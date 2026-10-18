@@ -2,3 +2,6 @@ node_modules/
 test-results/
 screenshots/
 .DS_Store
+
+# promo film footage (tools/promo/capture.mjs)
+tools/promo/footage/

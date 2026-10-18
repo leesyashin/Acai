@@ -1079,3 +1079,8 @@ export async function renderLoopOffline(id, seconds = 2, opts = {}) {
   LOOPS[id](c, m.sfx, WARMUP).stop(Math.max(WARMUP + 0.05, seconds - 0.4));
   return { id, ...bufferStats(await c.startRendering()) };
 }
+
+// ------------------------------------------------------------------ synth kit (promo video)
+// The game's instruments, effects and tracks for tools/promo, which arranges them into the
+// soundtrack of the promo video (an offline score). Not used by the game itself.
+export const synthKit = { tone, noise, chime, brass, mtof, INST, SFX, LOOPS, TRACKS, harmonyBelow };

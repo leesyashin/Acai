@@ -174,7 +174,8 @@ Rules:
   `data.js` may call `registerStrings` (pure). So are **geo3d.js / kitchen3d.js / pantry3d.js** (scene descriptions only);
   `gl3d.js` and `art3d.js` touch the DOM only when called, never at import time.
 - Only `save.js` touches `localStorage` (always inside try/catch).
-- Only `audio.js` touches WebAudio.
+- Only `audio.js` touches WebAudio (in the game; the promo video tool `tools/promo/score.js` renders its soundtrack
+  offline from `audio.js`'s `synthKit` export).
 - Every module that shows text registers its own strings via `registerStrings({de:{…}, en:{…}})` with a
   module prefix (`game.*`, `screen.*`, `shop.*`, …). Ingredient/upgrade names live in data.js (`ing.<id>`,
   `upg.<id>`, `upgdesc.<id>`, `layer.<layer>`). Language switches must update visible text
@@ -583,6 +584,7 @@ audio.suspend(); audio.resume()  // for pause / tab hidden
 ```
 SFX names: `click, pickup, drop, reject, blenderStart, blenderReady, overflow, ruined, matchaReady, pour,
 plop, coin, bell, angry, happy, trash, purchase, star, win, lose, closing, heart, tick, cup` (`cup`: a cup set down).
+`synthKit` (instruments, effects, tracks) is exported for `tools/promo` only; the game does not use it.
 
 ### 4.6 Screens & router (`js/main.js`, `js/screens.js`, `js/game-view.js`)
 ```js
