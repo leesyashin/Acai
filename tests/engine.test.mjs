@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 
 import {
   createGame, tick, drainEvents, loadBlender, pourBlender, addIngredient, trashBowl, cleanBlender,
-  loadSmoothie, trashSmoothie, serveBowl, serveSmoothie, setPaused, releaseTutorialHold, endRun, placeCup,
-  loadBlenderError, pourError, addIngredientError, loadSmoothieError, serveBowlError, serveSmoothieError, placeCupError,
+  loadMatcha, trashMatcha, serveBowl, serveMatcha, setPaused, releaseTutorialHold, endRun, placeCup,
+  loadBlenderError, pourError, addIngredientError, loadMatchaError, serveBowlError, serveMatchaError, placeCupError,
   bowlMatchesOrder, moodFor, starsFor, MAX_DT, ARRIVE_TIME, LEAVE_TIME, SEAT_REUSE_DELAY,
 } from '../js/engine.js';
 import {
-  INGREDIENTS, LEVELS, START_OWNED, KITCHEN_BASE, ENDLESS_STAGE_SECONDS, SMOOTHIE_PATIENCE_BONUS,
-  TIP_RATE, MAX_BOWL_ITEMS, getKitchenStats, endlessConfig, ingredientValue, smoothieValue,
+  INGREDIENTS, LEVELS, START_OWNED, KITCHEN_BASE, ENDLESS_STAGE_SECONDS, MATCHA_PATIENCE_BONUS,
+  TIP_RATE, MAX_BOWL_ITEMS, getKitchenStats, endlessConfig, ingredientValue, matchaValue,
 } from '../js/data.js';
 
 const ALL = INGREDIENTS.map((i) => i.id);
@@ -17,7 +17,7 @@ const ALL = INGREDIENTS.map((i) => i.id);
 function testLevel(over = {}) {
   return {
     id: 99, duration: 60, seats: 2, spawnGap: [5, 5], patience: 20, mid: [1, 1], top: [0, 0],
-    smoothieChance: 0, goals: [10, 20, 30], overflow: true, hearts: 3, intro: null, ...over,
+    matchaChance: 0, goals: [10, 20, 30], overflow: true, hearts: 3, intro: null, ...over,
   };
 }
 
@@ -46,8 +46,8 @@ function waitForCustomer(game) {
   return customers(game)[0];
 }
 
-function setOrder(c, bowl, smoothie = null) {
-  c.order = { bowl: { mid: [], top: [], ...bowl }, smoothie };
+function setOrder(c, bowl, matcha = null) {
+  c.order = { bowl: { mid: [], top: [], ...bowl }, matcha };
 }
 
 function readyBlender(game, idx = 0, base = 'acai') {
@@ -74,8 +74,8 @@ const types = (events) => events.map((e) => e.type);
 
 describe('createGame', () => {
   test('campaign game uses the level as config and sizes everything from the kitchen', () => {
-    const kitchen = getKitchenStats({ bowlSlots: 2, blender2: 1, smoothieSlots: 1 });
-    const g = createGame({ mode: 'campaign', level: LEVELS[11], owned: START_OWNED, kitchen, smoothies: true, seed: 3 });
+    const kitchen = getKitchenStats({ bowlSlots: 2, blender2: 1, matchaSlots: 1 });
+    const g = createGame({ mode: 'campaign', level: LEVELS[11], owned: START_OWNED, kitchen, matcha: true, seed: 3 });
     assert.equal(g.config, LEVELS[11]);
     assert.equal(g.status, 'playing');
     assert.equal(g.time, 0);
@@ -89,8 +89,8 @@ describe('createGame', () => {
     assert.equal(g.blenders.length, 2);
     assert.equal(g.blenders[0].state, 'empty');
     assert.equal(g.blenders[0].maxPortions, kitchen.portions);
-    assert.equal(g.smoothie.slots.length, 2);
-    assert.equal(g.smoothie.slots[0].state, 'empty');
+    assert.equal(g.matcha.slots.length, 2);
+    assert.equal(g.matcha.slots[0].state, 'empty');
     assert.equal(LEVELS[11].hearts, 4, '4-seat levels give an extra heart');
     assert.equal(g.hearts, LEVELS[11].hearts);
     assert.equal(g.maxHearts, LEVELS[11].hearts);
@@ -98,19 +98,19 @@ describe('createGame', () => {
     assert.deepEqual(g.events, []);
   });
 
-  test('defaults: start ingredients, base kitchen, no smoothie machine', () => {
+  test('defaults: start ingredients, base kitchen, no matcha machine', () => {
     const g = createGame({ level: LEVELS[0] });
     assert.equal(g.mode, 'campaign');
     assert.deepEqual(g.owned, START_OWNED);
     assert.equal(g.bowls.length, KITCHEN_BASE.bowlSlots);
     assert.equal(g.blenders.length, KITCHEN_BASE.blenders);
-    assert.equal(g.smoothie, null);
+    assert.equal(g.matcha, null);
     assert.deepEqual(g.featured, []);
     assert.equal(g.tutorialHold, false);
   });
 
   test('endless game starts at stage 0 without a time limit', () => {
-    const g = createGame({ mode: 'endless', owned: START_OWNED, smoothies: true, seed: 1 });
+    const g = createGame({ mode: 'endless', owned: START_OWNED, matcha: true, seed: 1 });
     assert.equal(g.level, null);
     assert.equal(g.duration, null);
     assert.equal(g.stage, 0);
@@ -400,7 +400,7 @@ describe('customers', () => {
     assert.ok(c, 'customer at 1 s');
     assert.equal(c.state, 'arriving');
     assert.equal(c.mood, 'happy');
-    assert.deepEqual(c.delivered, { bowl: false, smoothie: false });
+    assert.deepEqual(c.delivered, { bowl: false, matcha: false });
     assert.equal(typeof c.look.seed, 'number');
     assert.equal(c.paid, 0);
     const ev = drainEvents(g).find((e) => e.type === 'customerArrive');
@@ -426,16 +426,16 @@ describe('customers', () => {
     assert.ok(seats.size >= 3, `seats used: ${[...seats]}`);
   });
 
-  test('maxPatience = patience × patienceMult (+ bonus with smoothie)', () => {
+  test('maxPatience = patience × patienceMult (+ bonus with a matcha)', () => {
     const kitchen = getKitchenStats({ plants: 1, jukebox: 1 });
     const g = newGame({ kitchen, level: { patience: 40 } });
     const c = waitForCustomer(g);
     assert.ok(Math.abs(c.maxPatience - 40 * kitchen.patienceMult) < 1e-9);
 
-    const g2 = newGame({ kitchen, smoothies: true, level: { patience: 40, smoothieChance: 1 } });
+    const g2 = newGame({ kitchen, matcha: true, level: { patience: 40, matchaChance: 1 } });
     const c2 = waitForCustomer(g2);
-    assert.ok(c2.order.smoothie);
-    assert.ok(Math.abs(c2.maxPatience - (40 * kitchen.patienceMult + SMOOTHIE_PATIENCE_BONUS)) < 1e-9);
+    assert.ok(c2.order.matcha);
+    assert.ok(Math.abs(c2.maxPatience - (40 * kitchen.patienceMult + MATCHA_PATIENCE_BONUS)) < 1e-9);
   });
 
   test('patience drains 1/s while waiting and mood follows the ratio', () => {
@@ -540,7 +540,7 @@ describe('serving bowls', () => {
   });
 
   test('partial delivery adds 15% patience (capped) and the second part completes the order', () => {
-    const g = newGame({ smoothies: true, level: { spawnGap: [99, 99], patience: 40 } });
+    const g = newGame({ matcha: true, level: { spawnGap: [99, 99], patience: 40 } });
     const c = waitForCustomer(g);
     setOrder(c, { base: 'acai', mid: ['banana'] }, 'banana');
     run(g, 12);
@@ -555,18 +555,18 @@ describe('serving bowls', () => {
     buildBowl(g, 1, { mid: ['banana'] });
     assert.deepEqual(serveBowl(g, 1, c.id), { ok: false, reason: 'alreadyDelivered' });
 
-    assert.equal(loadSmoothie(g, 0, 'banana').ok, true);
-    run(g, g.kitchen.smoothieTime + 0.1);
+    assert.equal(loadMatcha(g, 0, 'banana').ok, true);
+    run(g, g.kitchen.matchaTime + 0.1);
     const ratio = c.patience / c.maxPatience;
-    assert.deepEqual(serveSmoothie(g, 0, c.id), { ok: true });
-    const value = ingredientValue('acai') + ingredientValue('banana') + smoothieValue('banana');
+    assert.deepEqual(serveMatcha(g, 0, c.id), { ok: true });
+    const value = ingredientValue('acai') + ingredientValue('banana') + matchaValue('banana');
     assert.equal(g.money, Math.round(value) + Math.round(value * TIP_RATE * ratio));
     assert.equal(c.state, 'leavingHappy');
-    assert.equal(g.smoothie.slots[0].state, 'empty');
+    assert.equal(g.matcha.slots[0].state, 'empty');
   });
 
   test('partial delivery bonus never exceeds max patience', () => {
-    const g = newGame({ smoothies: true, level: { spawnGap: [99, 99], patience: 40 } });
+    const g = newGame({ matcha: true, level: { spawnGap: [99, 99], patience: 40 } });
     const c = waitForCustomer(g);
     setOrder(c, { base: 'acai', mid: ['banana'] }, 'banana');
     buildBowl(g, 0, { mid: ['banana'] });
@@ -575,63 +575,63 @@ describe('serving bowls', () => {
   });
 });
 
-// ------------------------------------------------------------------ smoothies
+// ------------------------------------------------------------------ matcha
 
-describe('smoothies', () => {
+describe('matcha', () => {
   test('load → mixing → ready with events; rejects', () => {
-    const g = newGame({ smoothies: true, owned: [...START_OWNED, 'strawberry'] });
-    assert.deepEqual(loadSmoothie(g, 0, 'granola'), { ok: false, reason: 'notSmoothieFruit' });
-    assert.deepEqual(loadSmoothie(g, 0, 'kiwi'), { ok: false, reason: 'notOwned' });
-    assert.deepEqual(loadSmoothie(g, 0, 'strawberry'), { ok: true });
-    const s = g.smoothie.slots[0];
+    const g = newGame({ matcha: true, owned: [...START_OWNED, 'strawberry'] });
+    assert.deepEqual(loadMatcha(g, 0, 'granola'), { ok: false, reason: 'notMatchaFruit' });
+    assert.deepEqual(loadMatcha(g, 0, 'kiwi'), { ok: false, reason: 'notOwned' });
+    assert.deepEqual(loadMatcha(g, 0, 'strawberry'), { ok: true });
+    const s = g.matcha.slots[0];
     assert.equal(s.state, 'mixing');
     assert.equal(s.fruit, 'strawberry');
-    assert.equal(s.duration, g.kitchen.smoothieTime);
-    assert.deepEqual(loadSmoothie(g, 0, 'banana'), { ok: false, reason: 'slotBusy' });
-    assert.deepEqual(drainEvents(g), [{ type: 'smoothieStart', idx: 0 }]);
-    run(g, g.kitchen.smoothieTime - 0.1);
-    assert.equal(g.smoothie.slots[0].state, 'mixing');
+    assert.equal(s.duration, g.kitchen.matchaTime);
+    assert.deepEqual(loadMatcha(g, 0, 'banana'), { ok: false, reason: 'slotBusy' });
+    assert.deepEqual(drainEvents(g), [{ type: 'matchaStart', idx: 0 }]);
+    run(g, g.kitchen.matchaTime - 0.1);
+    assert.equal(g.matcha.slots[0].state, 'mixing');
     run(g, 0.15);
-    assert.equal(g.smoothie.slots[0].state, 'ready');
-    assert.ok(drainEvents(g).some((e) => e.type === 'smoothieReady' && e.idx === 0));
-    assert.deepEqual(loadSmoothie(g, 0, 'banana'), { ok: false, reason: 'slotBusy' });
+    assert.equal(g.matcha.slots[0].state, 'ready');
+    assert.ok(drainEvents(g).some((e) => e.type === 'matchaReady' && e.idx === 0));
+    assert.deepEqual(loadMatcha(g, 0, 'banana'), { ok: false, reason: 'slotBusy' });
   });
 
-  test('no machine → loadSmoothie fails', () => {
-    const g = newGame({ smoothies: false });
-    assert.equal(g.smoothie, null);
-    assert.equal(loadSmoothie(g, 0, 'banana').ok, false);
+  test('no machine → loadMatcha fails', () => {
+    const g = newGame({ matcha: false });
+    assert.equal(g.matcha, null);
+    assert.equal(loadMatcha(g, 0, 'banana').ok, false);
   });
 
-  test('serveSmoothie checks readiness, wish and flavour', () => {
-    const g = newGame({ smoothies: true, level: { seats: 2, spawnGap: [1.5, 1.5] } });
+  test('serveMatcha checks readiness, wish and flavour', () => {
+    const g = newGame({ matcha: true, level: { seats: 2, spawnGap: [1.5, 1.5] } });
     assert.ok(runUntil(g, () => customers(g).length === 2));
     const [a, b] = customers(g);
     setOrder(a, { base: 'acai', mid: ['banana'] }, 'banana');
     setOrder(b, { base: 'acai', mid: ['banana'] }, null);
-    loadSmoothie(g, 0, 'banana');
-    assert.deepEqual(serveSmoothie(g, 0, a.id), { ok: false, reason: 'notReady' });
-    run(g, g.kitchen.smoothieTime + 0.1);
-    assert.deepEqual(serveSmoothie(g, 0, b.id), { ok: false, reason: 'noSmoothieWanted' });
-    a.order.smoothie = 'strawberry';
-    assert.deepEqual(serveSmoothie(g, 0, a.id), { ok: false, reason: 'wrongOrder' });
-    a.order.smoothie = 'banana';
-    assert.deepEqual(serveSmoothie(g, 0, a.id), { ok: true });
-    assert.equal(a.delivered.smoothie, true);
-    loadSmoothie(g, 0, 'banana');
-    run(g, g.kitchen.smoothieTime + 0.1);
-    assert.deepEqual(serveSmoothie(g, 0, a.id), { ok: false, reason: 'alreadyDelivered' });
+    loadMatcha(g, 0, 'banana');
+    assert.deepEqual(serveMatcha(g, 0, a.id), { ok: false, reason: 'notReady' });
+    run(g, g.kitchen.matchaTime + 0.1);
+    assert.deepEqual(serveMatcha(g, 0, b.id), { ok: false, reason: 'noMatchaWanted' });
+    a.order.matcha = 'strawberry';
+    assert.deepEqual(serveMatcha(g, 0, a.id), { ok: false, reason: 'wrongOrder' });
+    a.order.matcha = 'banana';
+    assert.deepEqual(serveMatcha(g, 0, a.id), { ok: true });
+    assert.equal(a.delivered.matcha, true);
+    loadMatcha(g, 0, 'banana');
+    run(g, g.kitchen.matchaTime + 0.1);
+    assert.deepEqual(serveMatcha(g, 0, a.id), { ok: false, reason: 'alreadyDelivered' });
   });
 
-  test('trashSmoothie empties a slot', () => {
-    const g = newGame({ smoothies: true });
-    loadSmoothie(g, 0, 'banana');
+  test('trashMatcha empties a slot', () => {
+    const g = newGame({ matcha: true });
+    loadMatcha(g, 0, 'banana');
     drainEvents(g);
-    assert.deepEqual(trashSmoothie(g, 0), { ok: true });
-    assert.equal(g.smoothie.slots[0].state, 'empty');
-    assert.equal(g.smoothie.slots[0].fruit, null);
-    assert.deepEqual(drainEvents(g), [{ type: 'trash', what: 'smoothie', idx: 0 }]);
-    assert.deepEqual(trashSmoothie(g, 0), { ok: true });
+    assert.deepEqual(trashMatcha(g, 0), { ok: true });
+    assert.equal(g.matcha.slots[0].state, 'empty');
+    assert.equal(g.matcha.slots[0].fruit, null);
+    assert.deepEqual(drainEvents(g), [{ type: 'trash', what: 'matcha', idx: 0 }]);
+    assert.deepEqual(trashMatcha(g, 0), { ok: true });
     assert.deepEqual(drainEvents(g), []);
   });
 });
@@ -711,7 +711,7 @@ describe('level end', () => {
 
 describe('endless', () => {
   test('stage rises every ENDLESS_STAGE_SECONDS, config updates and seats grow', () => {
-    const g = createGame({ mode: 'endless', owned: ALL, smoothies: true, seed: 5 });
+    const g = createGame({ mode: 'endless', owned: ALL, matcha: true, seed: 5 });
     g.config = { ...g.config, patience: 1e6 };
     // keep customers from leaving: huge patience for the first stage
     run(g, ENDLESS_STAGE_SECONDS - 0.2);
@@ -886,18 +886,18 @@ describe('action checks (*Error)', () => {
     assert.equal(chk(1, 'coconut'), 'bowlFull');
   });
 
-  test('smoothie + serving: loadSmoothieError / serveBowlError / serveSmoothieError mirror their actions', () => {
-    const g = newGame({ owned: ALL, smoothies: true });
-    assert.equal(same(() => loadSmoothieError(g, 3, 'banana'), () => loadSmoothie(g, 3, 'banana')), 'invalid');
-    assert.equal(same(() => loadSmoothieError(g, 0, 'granola'), () => loadSmoothie(g, 0, 'granola')), 'notSmoothieFruit');
-    assert.equal(same(() => loadSmoothieError(g, 0, 'banana'), () => loadSmoothie(g, 0, 'banana')), null);
-    assert.equal(same(() => loadSmoothieError(g, 0, 'mango'), () => loadSmoothie(g, 0, 'mango')), 'slotBusy');
+  test('matcha + serving: loadMatchaError / serveBowlError / serveMatchaError mirror their actions', () => {
+    const g = newGame({ owned: ALL, matcha: true });
+    assert.equal(same(() => loadMatchaError(g, 3, 'banana'), () => loadMatcha(g, 3, 'banana')), 'invalid');
+    assert.equal(same(() => loadMatchaError(g, 0, 'granola'), () => loadMatcha(g, 0, 'granola')), 'notMatchaFruit');
+    assert.equal(same(() => loadMatchaError(g, 0, 'banana'), () => loadMatcha(g, 0, 'banana')), null);
+    assert.equal(same(() => loadMatchaError(g, 0, 'mango'), () => loadMatcha(g, 0, 'mango')), 'slotBusy');
 
     const c = waitForCustomer(g);
     setOrder(c, { base: 'acai', mid: ['banana'] }, 'kiwi');
-    assert.equal(same(() => serveSmoothieError(g, 0, c.id), () => serveSmoothie(g, 0, c.id)), 'notReady');
-    run(g, g.kitchen.smoothieTime + 0.05);
-    assert.equal(same(() => serveSmoothieError(g, 0, c.id), () => serveSmoothie(g, 0, c.id)), 'wrongOrder');
+    assert.equal(same(() => serveMatchaError(g, 0, c.id), () => serveMatcha(g, 0, c.id)), 'notReady');
+    run(g, g.kitchen.matchaTime + 0.05);
+    assert.equal(same(() => serveMatchaError(g, 0, c.id), () => serveMatcha(g, 0, c.id)), 'wrongOrder');
     assert.equal(same(() => serveBowlError(g, 0, c.id), () => serveBowl(g, 0, c.id)), 'emptyBowl');
     g.bowls[0].base = 'acai';
     assert.equal(same(() => serveBowlError(g, 0, c.id), () => serveBowl(g, 0, c.id)), 'wrongOrder');
@@ -907,14 +907,14 @@ describe('action checks (*Error)', () => {
     g.bowls[1].mid.push('banana');
     assert.equal(same(() => serveBowlError(g, 1, c.id), () => serveBowl(g, 1, c.id)), 'alreadyDelivered');
     assert.equal(same(() => serveBowlError(g, 1, 999), () => serveBowl(g, 1, 999)), 'noCustomer');
-    c.order.smoothie = null;
-    assert.equal(same(() => serveSmoothieError(g, 0, c.id), () => serveSmoothie(g, 0, c.id)), 'noSmoothieWanted');
+    c.order.matcha = null;
+    assert.equal(same(() => serveMatchaError(g, 0, c.id), () => serveMatcha(g, 0, c.id)), 'noMatchaWanted');
   });
 });
 
 describe('determinism', () => {
   function script(seed) {
-    const g = createGame({ mode: 'campaign', level: LEVELS[9], owned: ALL, smoothies: true, seed });
+    const g = createGame({ mode: 'campaign', level: LEVELS[9], owned: ALL, matcha: true, seed });
     const log = [];
     for (let i = 0; i < 1200; i++) {
       tick(g, 0.05);

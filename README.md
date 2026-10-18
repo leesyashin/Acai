@@ -2,9 +2,9 @@
 
 Ein Zeitmanagement-Spiel im Stil von *Cooking Fever* für den Browser: Du arbeitest in einem modernen
 Açaí-Café. Deine Gäste bestellen Bowls – serviert in durchsichtigen Plastikbechern, in denen man die
-Schichten sieht – und später Smoothies; du stellst sie per **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
+Schichten sieht – und später Frucht-Matcha; du stellst sie per **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
 Maus am PC und (verkleinert) auf dem Handy. Deutsch und Englisch, Soundeffekte und Musik
-werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien. Die Küchengeräte (Mixer, Smoothie-Maschine,
+werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien. Die Küchengeräte (Mixer, Matcha-Maschine,
 Mülleimer, Gefriertruhe) sind echte 3D-Modelle, die per WebGL im Browser gerendert und animiert werden; jedes
 Upgrade bringt ein neues Modell.
 
@@ -39,11 +39,12 @@ werden abgelehnt.
 
 **Mixer läuft über:** Ab Level 3 wartet ein fertiger Mixer nicht ewig. Lässt du ihn zu lange stehen,
 fängt er an überzulaufen (rot, wackelt) – dann schnell ausgießen! Danach ist die Basis verdorben und
-der Mixer muss in den **Mülleimer** gezogen werden. Falsche Bowls (samt Becher) und Smoothies kommen ebenfalls in den Müll.
+der Mixer muss in den **Mülleimer** gezogen werden. Falsche Bowls (samt Becher) und Matcha kommen ebenfalls in den Müll.
 
-**Smoothies:** Ab Level 7 bestellen manche Gäste zusätzlich einen Smoothie. Zieh eine passende Frucht
-(Banane, Erdbeere, Blaubeere, Mango, Kiwi) in die Smoothie-Maschine, warte kurz und zieh den fertigen
-Becher auf den Gast.
+**Frucht-Matcha:** Ab Level 7 bestellen manche Gäste zusätzlich einen Eis-Matcha-Latte auf Fruchtpüree – einen
+Bananen-, Erdbeer-, Blaubeer-, Mango- oder Kiwi-Matcha. Zieh die passende Frucht auf das leere Glas in der
+Matcha-Maschine: Das Püree liegt unten im Glas, die Teemühle mahlt, der Wassertank dampft, dann gießt die Düse Milch und
+Matcha darüber. Ist der Matcha fertig, zieh das Glas auf den Gast.
 
 **Herzen:** Jeder Gast hat eine Geduldsanzeige. Läuft sie ab, geht er ohne zu bezahlen und du verlierst
 ein **Herz**. Bei 0 Herzen ist das Level verloren. Ab Level 12 (vier Plätze) hast du vier statt drei Herzen.
@@ -54,19 +55,22 @@ neuen Gäste mehr – wer schon wartet, wird noch bedient. Verdiente Münzen beh
 
 **Laden:** Mit deinen Münzen kaufst du im Shop neue Zutaten (am Anfang hast du nur Açaí, Banane, Granola
 und Honig – insgesamt gibt es 16), bessere Qualität (mehr Münzen pro Zutat), Küchen-Upgrades
-(schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Doppel-Smoothie) und Deko,
+(schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Doppel-Matcha) und Deko,
 die Gäste geduldiger macht.
 
-**Küchengeräte in 3D:** Mixer und Smoothie-Maschine stehen hinten auf der Arbeitsplatte vor der Theke und sind etwa
+**Küchengeräte in 3D:** Mixer und Matcha-Maschine stehen hinten auf der Arbeitsplatte vor der Theke und sind etwa
 doppelt so hoch wie ein Becher. Der Mixer ist einem echten Standmixer nachempfunden: gerippter Glaskrug mit Skala, klarem
 Griff rechts und Ausgießer links, schwarzer Deckel mit Messbecher, darunter ein hoher Motorsockel mit schwarzem Glasband,
 das vorn in ein V mit Display ausläuft, und großem Start/Stopp-Drehknopf. Jede Stufe des Turbo-Mixers ist ein neues Modell
 in dieser Form – vom weißen *Classic* mit einfachem Drehknopf und Lämpchen über den *Turbo* aus gebürstetem Edelstahl mit
 Countdown-Display und Chromring und den açaí-lila *Pro* mit LED-Ring bis zum graphitschwarzen *Pro Max* mit großem Display,
-Chromzierleiste und Lichtleiste. Der große Mixkrug ist sichtbar höher und breiter, die Smoothie-Maschine wächst vom kompakten Ein-Tank-
-zum Edelstahl-Zwei-Tank-Gerät. Beim Mixen dreht sich ein Strudel im Krug und gefrorene Stücke zerfallen, beim Überlaufen
-quillt Schaum unter dem Deckel hervor, in der Smoothie-Maschine wirbelt die Förderschnecke das Slush, dann öffnet der
-Zapfhahn und der Becher füllt sich. Der Mülleimer öffnet den Deckel, wenn du etwas Wegwerfbares darüber hältst, und aus der
+Chromzierleiste und Lichtleiste. Der große Mixkrug ist sichtbar höher und breiter. Die Matcha-Maschine ist einer echten
+Tee-Latte-Maschine nachempfunden: olivgrünes Gehäuse mit schwarzer Front, links ein rauchglasfarbener Wassertank über einem
+olivgrünen Ring mit Knopf und der Düse, unten die Abtropfschale mit Gitter, rechts in einer Nische die gläserne Teemühle
+mit grünem Matchapulver; mit dem Upgrade „Doppel-Matcha“ wird sie zur breiteren Zwei-Platz-Maschine mit Temperaturanzeige.
+Beim Mixen dreht sich ein Strudel im Krug und gefrorene Stücke zerfallen, beim Überlaufen quillt Schaum unter dem Deckel
+hervor; in der Matcha-Maschine dreht sich das Mahlwerk und wirbelt grünen Staub auf, im Tank steigen Bläschen und Dampf,
+dann gießt die Düse Milch und Matcha ins Glas. Der Mülleimer öffnet den Deckel, wenn du etwas Wegwerfbares darüber hältst, und aus der
 Gefriertruhe in der Theke (Glasschiebedeckel, Vorratspackungen auf der Stufe hinten) quillt Kaltluft, wenn du eine Packung
 herausnimmst. Ohne WebGL zeigt das Spiel die gezeichneten Geräte.
 
@@ -116,7 +120,7 @@ E2E-Skripte legen Screenshots in `$E2E_OUT_DIR` ab (Standard: Temp-Ordner), nie 
 dann mit Touch auf 1024×768, testet den Endlos-Modus und die englische Oberfläche, prüft, dass ein
 Zwei-Finger-Pinch im Rand um die Bühne die Seite nicht zoomt, und dass zwei offene Tabs sich den Spielstand
 nicht gegenseitig überschreiben. `appliances.e2e.mjs` prüft die 3D-Geräte (Modelle je Upgrade, Animationen, Deckel,
-Kaltluft der Truhe, Zapfhahn, Shop-Bilder), dass die Bilder der Zutaten-Behälter bei einer neuen Pixeldichte wieder
+Kaltluft der Truhe, Teemühle und Düse der Matcha-Maschine, Shop-Bilder), dass die Bilder der Zutaten-Behälter bei einer neuen Pixeldichte wieder
 scharf gezeichnet werden, und die gezeichneten Geräte ohne WebGL. `layout.e2e.mjs` prüft das
 Spielfeld: Jede Station liegt ganz auf der Bühne, ist mindestens 64 px groß und überdeckt keine andere, kein Behälter
 verdeckt einen Namen oder ein Namensschild, kein *NEU*-Schild verdeckt Qualitätssterne oder Ebenen-Nummer – auch in
@@ -142,9 +146,9 @@ js/orders.js          Bestellungen und Preise
 js/engine.js          Spiel-Simulation ohne DOM
 js/drag.js            Drag & Drop für Touch und Maus
 js/svg.js             gemeinsame SVG-Helfer + Farbverläufe (eine versteckte <svg> pro Seite)
-js/art-food.js        Becher mit Schichten, Zutaten, Inhalt der Zutaten-Behälter (und die Behälter ohne WebGL), Packungen, Smoothies
+js/art-food.js        Becher mit Schichten, Zutaten, Inhalt der Zutaten-Behälter (und die Behälter ohne WebGL), Packungen, Matcha-Gläser
 js/art-kitchen.js     Theke in Perspektive (Arbeitsplatte, Regal), Gefriertruhe, Podeste, Café-Rückwand, Deko;
-                      Mixer, Smoothie-Maschine, Mülleimer als Ersatz ohne WebGL
+                      Mixer, Matcha-Maschine, Mülleimer als Ersatz ohne WebGL
 js/art.js             Gäste, HUD-Symbole, Logo, Karte; reicht alle Grafiken weiter
 js/geo3d.js           3D-Mathematik, Geometrie (Drehkörper, abgerundete Boxen, Rohre, Flüssigkeitsoberflächen), Materialien
 js/kitchen3d.js       3D-Modelle der Küchengeräte mit allen Ausbaustufen und Animationen
@@ -169,16 +173,19 @@ docs/DESIGN.md        Spieldesign, Regeln, Modul-Verträge, Layout
 ## English
 
 **Açaí Fever** is a Cooking-Fever-style time-management game for the browser. You run an açaí bar:
-customers order bowls (and smoothies from level 7), and you build them by **drag & drop** before their
+customers order bowls (and a fruit matcha from level 7), and you build them by **drag & drop** before their
 patience runs out. Made for landscape tablets, also playable with a mouse and on phones. German and English UI. Play online:
 <https://leesyashin.github.io/Acai/> (every push to `main` deploys there).
 The kitchen appliances are real-time 3D models (WebGL, no library) with animations – a vortex in the blender jug,
-churning slush and a pouring tap in the smoothie machine, a pedal bin lid and cold air from the chest freezer – and every kitchen upgrade
-brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-tank → two-tank smoothie machine). The blender
+a grinding tea mill, a steaming tank and a pouring nozzle in the matcha machine, a pedal bin lid and cold air from the chest
+freezer – and every kitchen upgrade brings a new model (blender: Classic → Turbo → Pro → Pro Max, big jug; one-slot →
+two-slot matcha machine). The blender
 is modelled on a real stand blender: a fluted glass jug with a scale, a clear handle and a pouring spout, a black lid with a
 measuring cap, and a tall motor base with a black glass band that dips into a V display and a big start/stop dial – white
 with a plain knob (Classic), brushed stainless with a countdown display (Turbo), açaí purple with an LED ring (Pro) or
-graphite with a big display, chrome trim and a light bar (Pro Max). Blenders and
+graphite with a big display, chrome trim and a light bar (Pro Max). The matcha machine follows a household tea-latte
+machine: an olive shell with a black front, a smoked water tank over an olive collar and the nozzle, a drip tray with a
+grate and a glass tea mill with green matcha powder in an alcove. Blenders and
 machine stand at the back of the worktop in front of the pass, about twice as tall as a cup. The ingredients stand in real
 containers on oak risers: fruit in brushed stainless pans, granola in a clip-top jar, honey with its dipper, chia in a
 Weck glass with a measuring spoon, peanut butter with a spoon, chocolate sauce in a squeeze bottle, shredded coconut in
@@ -187,7 +194,8 @@ its shell, cacao nibs in a walnut bowl and mint on a board (3D pictures drawn on
 **How to play:** drag a frozen pack into the blender, put an empty bowl (a clear cup) from the stack on a
 free spot, drag the ready blender onto it, add *Fruits & Crunch*, then *Toppings & Sauces* (fixed layer order –
 wrong drops bounce back), and drag the finished bowl onto the customer. From level 3 a ready blender **overflows** if you leave it too long and has to
-go into the trash. Smoothies: drag a fruit into the smoothie machine, then the cup onto the customer.
+go into the trash. Fruit matcha (an iced matcha latte on banana, strawberry, blueberry, mango or kiwi purée): drag the
+fruit onto the glass in the matcha machine, wait until it is brewed, then drag the glass onto the customer.
 A customer who runs out of patience leaves and costs you a **heart** – 0 hearts loses the level.
 20 campaign levels with 1–3 **stars** (money goals); coins are kept even when you lose and buy new ingredients
 (4 at start, 16 total), quality, kitchen upgrades and decor in the **shop**. **Endless mode** unlocks after

@@ -1,14 +1,15 @@
 // 3D appliance models (js/kitchen3d.js): every state of every model builds, the upgrade levels
-// look different, the jug level shows the portions, the smoothie machine's taps line up with
-// the cups the game puts on its drip trays and the chest freezer fills the counter's freezer opening.
+// look different, the jug level shows the portions, the matcha machine's nozzles line up with
+// the glasses the game puts on its drip trays and the chest freezer fills the counter's freezer opening.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ELEV, FREEZER_ELEV, VIEWS, fitFrame, blenderScene, machineScene, trashScene, freezerScene, blenderLook, blenderJug,
-  blenderBadgeAt, blenderBox, jugLevel, isAnimated, slushPhase, pourFill, MACHINE_SLOT_X, CUP_Z, TRAY_Y, BLENDER_MODELS, SCENES,
+  ELEV, FREEZER_ELEV, VIEWS, fitFrame, blenderScene, matchaScene, trashScene, freezerScene, blenderLook, blenderJug,
+  blenderBadgeAt, blenderBox, jugLevel, isAnimated, brewPhase, pourFill, MACHINE_SLOT_X, GLASS_Z, TRAY_Y, BLENDER_MODELS, SCENES,
+  MATCHA_GEO, machinePoint,
 } from '../js/kitchen3d.js';
 import { screenOf, viewProjection, transformPoint, MODE } from '../js/geo3d.js';
-import { SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE } from '../js/art.js';
+import { MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE, MATCHA_STRAW, MATCHA_POUR_FROM } from '../js/art.js';
 import { getKitchenStats, UPG } from '../js/data.js';
 
 const PASSES = new Set(['shadow', 'opaque', 'decal', 'glass', 'glow']);
@@ -112,41 +113,110 @@ test('views: the world origin is inside each canvas, pictures keep their proport
   assert.deepEqual(Object.keys(SCENES).sort(), Object.keys(VIEWS).sort());
 });
 
-test('smoothie machine: taps above the cups the game puts on the drip trays', () => {
+test('matcha machine: nozzles above the glasses the game puts on the drip trays', () => {
   const f = VIEWS.machine;
   const size = 312; // MACHINE_SIZE in js/game-view.js: the machine element is the canvas
   assert.equal(f.w, size);
   assert.equal(f.h, size, 'a square box like the drawn machine');
-  const cup = size * SMOOTHIE_CUP_SIZE;
+  const cup = size * MATCHA_CUP_SIZE;
   for (const n of [1, 2]) {
     MACHINE_SLOT_X[n].forEach((x, i) => {
-      assert.ok(Math.abs((f.ax + x * f.zoom) / size - SMOOTHIE_SLOT_X[n][i]) < 0.002, `slot ${i} of ${n}: x`);
-      // the cup art's bottom (y = 95 of 100) stands on the tray
-      const [, up] = screenOf([x, TRAY_Y, CUP_Z], ELEV, f.zoom);
-      const cupBottom = SMOOTHIE_SLOT_Y * size - cup * 0.05;
-      assert.ok(Math.abs(f.ay - up - cupBottom) < 1.5, `slot ${i} of ${n}: tray at ${f.ay - up}, cup bottom ${cupBottom}`);
+      assert.ok(Math.abs((f.ax + x * f.zoom) / size - MATCHA_SLOT_X[n][i]) < 0.002, `slot ${i} of ${n}: x`);
+      // the glass art's bottom (y = 95 of 100) stands on the tray
+      const [, up] = screenOf([x, TRAY_Y, GLASS_Z], ELEV, f.zoom);
+      const cupBottom = MATCHA_SLOT_Y * size - cup * 0.05;
+      assert.ok(Math.abs(f.ay - up - cupBottom) < 1.5, `slot ${i} of ${n}: tray at ${f.ay - up}, glass bottom ${cupBottom}`);
+      // a ready glass's straw (its round tip included) ends ≥ 3 px under the collar's front edge and
+      // beside the nozzle head, not in them
+      const G = MATCHA_GEO;
+      const [rb] = G.models[n].tank;
+      const glassTop = MATCHA_SLOT_Y * size - cup;
+      const glassX = f.ax + x * f.zoom; // the glass is centred under the nozzle
+      const strawTop = glassTop + (cup * (MATCHA_STRAW.y1 - MATCHA_STRAW.w / 2)) / 100;
+      const strawLeft = glassX + (cup * (MATCHA_STRAW.x1 - MATCHA_STRAW.w / 2 - 50)) / 100;
+      const collar = machinePoint([x, G.collar[0], GLASS_Z + (rb + 0.9) * G.tankDepth])[1];
+      assert.ok(strawTop >= collar + 3, `slot ${i} of ${n}: straw tip at ${strawTop.toFixed(1)}, collar to ${collar.toFixed(1)}`);
+      const head = machinePoint([x, G.nozzle + 3.6, GLASS_Z + G.headR])[1];
+      const headRight = glassX + G.headR * f.zoom;
+      assert.ok(strawTop >= head + 1 || strawLeft >= headRight + 1, `slot ${i} of ${n}: straw tip [${strawLeft.toFixed(1)}, ${strawTop.toFixed(1)}] by the nozzle head [${headRight.toFixed(1)}, ${head.toFixed(1)}]`);
+      // the drawn machine's stream starts at its nozzle's tip
+      const tip = machinePoint([x, G.nozzle, GLASS_Z + 3.6])[1];
+      assert.ok(Math.abs(glassTop + (cup * MATCHA_POUR_FROM) / 100 - tip) < 0.01, `slot ${i} of ${n}: the stream starts at the tip`);
     });
   }
 });
 
-test('smoothie machine: fill, churn, then pour – and the cup fills only while pouring', () => {
-  assert.equal(slushPhase('empty').fill, 0);
-  const start = slushPhase('mixing', 0.02);
-  const churn = slushPhase('mixing', 0.3);
-  const pour = slushPhase('mixing', 0.8);
-  assert.ok(start.fill > 0 && start.pour === 0);
-  assert.ok(churn.fill === 1 && churn.churn > 0 && churn.pour === 0);
-  assert.ok(pour.pour > 0 && pour.fill < 1);
-  assert.ok(slushPhase('ready').fill > 0, 'a little slush stays in the tank');
+// The parts of a scene in canvas px of the machine's view: [x0, y0, x1, y1] of the items picked.
+function machineBox(scene, pick = () => true) {
+  const f = VIEWS.machine;
+  let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const it of scene.items.filter(pick)) {
+    for (let i = 0; i < it.mesh.pos.length; i += 3) {
+      const [x, y] = screenOf(transformPoint(it.m, [it.mesh.pos[i], it.mesh.pos[i + 1], it.mesh.pos[i + 2]]), ELEV, f.zoom);
+      x0 = Math.min(x0, f.ax + x);
+      x1 = Math.max(x1, f.ax + x);
+      y0 = Math.min(y0, f.ay - y);
+      y1 = Math.max(y1, f.ay - y);
+    }
+  }
+  return [x0, y0, x1, y1];
+}
+
+test('matcha machine: about 230 px wide with one slot, about 300 with two, its top clearly under the pass', () => {
+  const box = { left: 952, top: 265 }; // .g-machine in css/game.css (stage px)
+  for (const [n, lo, hi] of [[1, 220, 240], [2, 290, 312]]) {
+    const scene = matchaScene({ slots: Array.from({ length: n }, () => ({ state: 'empty' })) }, 0);
+    const [x0, y0, x1, y1] = machineBox(scene, (it) => it.pass === 'opaque');
+    assert.ok(x1 - x0 > lo && x1 - x0 < hi, `${n} slot(s): ${(x1 - x0).toFixed(1)} px wide`);
+    assert.ok(x0 >= 0 && x1 <= VIEWS.machine.w, `${n} slot(s) inside the canvas`);
+    // the pass ends at stage y 294; the housing starts 8–16 px below it, the drip tray's front on the
+    // line of the blenders' feet (y 548)
+    assert.ok(box.top + y0 > 300 && box.top + y0 < 312, `${n} slot(s): top at stage y ${(box.top + y0).toFixed(1)}`);
+    assert.ok(Math.abs(box.top + y1 - 550) < 4, `${n} slot(s): front at stage y ${(box.top + y1).toFixed(1)}`);
+  }
+  // every part of every state (the steam too) stays inside the canvas (the contact shadow's plane is
+  // bigger than the shadow on it)
+  for (const t of [0, 0.4, 0.9, 1.7]) {
+    for (const p of [0.1, 0.3, 0.7, 0.95]) {
+      const scene = matchaScene({ slots: [{ state: 'mixing', fruit: 'kiwi', progress: p }, { state: 'mixing', fruit: 'mango', progress: 1 - p }] }, t);
+      const [x0, y0, x1, y1] = machineBox(scene, (it) => it.pass !== 'shadow');
+      assert.ok(x0 >= 0 && y0 >= 0 && x1 <= VIEWS.machine.w && y1 <= VIEWS.machine.h, `t ${t}, p ${p}: [${[x0, y0, x1, y1].map((v) => v.toFixed(1))}]`);
+    }
+  }
+});
+
+test('matcha machine: grind and heat, then pour – and the glass fills only while pouring', () => {
+  const empty = brewPhase('empty');
+  assert.ok(empty.grind === 0 && empty.heat === 0 && empty.pour === 0);
+  const start = brewPhase('mixing', 0.02);
+  const grind = brewPhase('mixing', 0.3);
+  const pour = brewPhase('mixing', 0.8);
+  assert.ok(start.grind > 0 && start.pour === 0, 'the mill starts at once');
+  assert.ok(grind.grind > 0 && grind.heat > 0 && grind.pour === 0, 'grinding while the water heats');
+  assert.ok(grind.powder < start.powder, 'the powder sinks while it grinds');
+  assert.ok(pour.pour > 0 && pour.grind === 0);
+  const ready = brewPhase('ready');
+  assert.ok(ready.grind === 0 && ready.heat === 0 && ready.pour === 0, 'a ready glass waits, nothing moves');
   assert.equal(pourFill(0.3), 0);
   assert.ok(pourFill(0.7) > 0 && pourFill(0.7) < pourFill(0.9));
   assert.equal(pourFill(1), 1);
   for (const slots of [[{ state: 'empty' }], [{ state: 'mixing', fruit: 'kiwi', progress: 0.8 }, { state: 'ready', fruit: 'mango' }]]) {
-    for (const t of [0, 0.7]) assertScene(machineScene({ slots }, t), `machine ${slots.length}`);
+    for (const t of [0, 0.7]) assertScene(matchaScene({ slots }, t), `machine ${slots.length}`);
   }
-  const streams = (p) => machineScene({ slots: [{ state: 'mixing', fruit: 'mango', progress: p }] }, 0).items.filter((it) => it.mat.mode === 8).length;
-  assert.equal(streams(0.3), 0, 'no stream while churning');
+  const streams = (p) => matchaScene({ slots: [{ state: 'mixing', fruit: 'mango', progress: p }] }, 0).items.filter((it) => it.mat.mode === MODE.STREAM).length;
+  assert.equal(streams(0.3), 0, 'no stream while grinding');
   assert.equal(streams(0.8), 1, 'a stream while pouring');
+  // the steam rises only while the water heats (and a lit LED glows); a scene is a pure function of
+  // state and time
+  const glows = (o, t) => matchaScene(o, t).items.filter((it) => it.pass === 'glow').length;
+  assert.ok(glows({ slots: [{ state: 'mixing', fruit: 'mango', progress: 0.4 }] }, 0.3) > glows({ slots: [{ state: 'empty' }] }, 0.3));
+  const steam = (o, t) => matchaScene(o, t).items.filter((it) => it.mat.tex?.key === 'mt-steam').length;
+  assert.ok(steam({ slots: [{ state: 'mixing', fruit: 'mango', progress: 0.4 }] }, 0.3) > 0, 'steam while it heats');
+  assert.equal(steam({ slots: [{ state: 'empty' }] }, 0.3), 0, 'no steam from a cold tank');
+  assert.equal(steam({ slots: [{ state: 'ready', fruit: 'mango' }] }, 0.3), 0, 'no steam over a ready glass');
+  const m = (t) => matchaScene({ slots: [{ state: 'mixing', fruit: 'mango', progress: 0.3 }] }, t).items.map((it) => [...it.m].join()).join('|');
+  assert.equal(m(0.5), m(0.5));
+  assert.notEqual(m(0.5), m(0.6), 'the mill turns');
 });
 
 test('bin: the lid moves its parts', () => {

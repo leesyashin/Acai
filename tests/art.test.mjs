@@ -41,9 +41,9 @@ test('every shared gradient or clip path a picture uses is defined in artDefsSVG
     ...ALL_IDS.filter((id) => INGREDIENTS.find((i) => i.id === id).layer !== 'base').map((id) => art.binFillSVG(id, 96)),
     ...['acai', 'pitaya', 'spirulina'].map((id) => art.packIcon(id, 72)),
     art.bowlSVG(null, 140), art.bowlSVG({ base: 'acai', mid: ['banana', 'granola', 'kiwi'], top: ['honey', 'chia', 'mint'] }, 140),
-    art.cupStackSVG(84), art.cupSpotSVG(140), art.cupSVG('mango', 'ready', 70), art.cupSVG('kiwi', 'mixing', 70),
+    art.cupStackSVG(84), art.cupSpotSVG(140), art.matchaGlassSVG('mango', 'ready', 70), art.matchaGlassSVG('kiwi', 'mixing', 70),
     ...['empty', 'blending', 'ready', 'overflowing', 'ruined'].map((state) => art.blenderSVG({ state, base: 'pitaya', portions: 1, maxPortions: 2 }, 140)),
-    art.smoothieMachineSVG(2, 312), art.trashSVG(96), art.shopSceneSVG(1280, 330), art.customerSVG(7, 'happy', 160),
+    art.matchaMachineSVG(2, 312), art.trashSVG(96), art.shopSceneSVG(1280, 330), art.customerSVG(7, 'happy', 160),
     art.counterSVG(1280, 462), art.freezerSVG('well', 284, 186), art.freezerSVG('rim', 284, 186), art.riserSVG(400, 62),
     ...ALL_IDS.filter((id) => INGREDIENTS.find((i) => i.id === id).layer !== 'base').map((id) => art.scoopSVG(id, 84)),
     ...['plants', 'jukebox', 'seating', 'neon'].map((id) => art.decorSVG(id, 118)),
@@ -64,4 +64,26 @@ test('the cup shows what was put in: empty cup, purée, layers through the side,
   assert.ok(base.length > empty.length && one.length > base.length && two.length > one.length, 'every item adds to the picture');
   assert.notEqual(art.bowlSVG({ base: 'pitaya', mid: [], top: [] }, 140), base, 'the base colour shows');
   assert.notEqual(art.cupSpotSVG(140), empty, 'a free spot is not an empty cup');
+});
+
+test('the matcha glass: the purée first, then milk and matcha run in, a ready one has all three', () => {
+  const { MATCHA_COLORS: C, matchaFruitColorOf, MATCHA_MILK } = art;
+  const has = (svg, col) => svg.includes(col);
+  const puree = matchaFruitColorOf('mango');
+  const empty = art.matchaGlassSVG(null, 'empty', 100);
+  assert.ok(!has(empty, puree) && !has(empty, C.milk) && !has(empty, C.matcha), 'an empty glass is empty');
+  const start = art.matchaGlassSVG('mango', 'mixing', 100, { fill: 0 });
+  assert.ok(has(start, puree) && !has(start, C.milk) && !has(start, C.matcha), 'the fruit is purée at the bottom at once');
+  const milk = art.matchaGlassSVG('mango', 'mixing', 100, { fill: MATCHA_MILK * 0.6 });
+  assert.ok(has(milk, C.milk) && !has(milk, C.matcha), 'the milk runs in first');
+  const both = art.matchaGlassSVG('mango', 'mixing', 100, { fill: 0.8 });
+  assert.ok(has(both, C.milk) && has(both, C.matcha), 'then the matcha settles on it');
+  const ready = art.matchaGlassSVG('mango', 'ready', 100);
+  assert.ok(has(ready, puree) && has(ready, C.milk) && has(ready, C.matcha), 'a ready glass shows its three layers');
+  assert.notEqual(art.matchaGlassSVG('kiwi', 'ready', 100), ready, 'the fruit shows');
+  // its own stream only while something runs in, and never when the 3D machine pours
+  const streams = (svg) => (svg.match(/M47\.6 0H52\.4/g) || []).length;
+  assert.equal(streams(start), 0, 'no stream before the pour');
+  assert.ok(streams(both) > 0, 'the drawn machine pours into the glass');
+  assert.equal(streams(art.matchaGlassSVG('mango', 'mixing', 100, { fill: 0.8, stream: false })), 0);
 });

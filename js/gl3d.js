@@ -204,17 +204,12 @@ void main() {
     float l = noise(vec2(u * uP.x, w * 0.05)) * 0.6 + noise(vec2(u * uP.x * 3.7, w * 0.11)) * 0.4;
     base *= 0.9 + 0.16 * l + (l - 0.5) * uP.z * 2.0;
     rough = clamp(rough + (l - 0.5) * (0.12 + uP.z), 0.05, 1.0);
-  } else if (isMode(${MODE.PUREE}.0) || isMode(${MODE.SLUSH}.0)) {
+  } else if (isMode(${MODE.PUREE}.0)) {
     float t = uTime * uP.z;
     float s = sin(ang * uP.x + (vObj.y + rad) * uP.y - t + 1.7 * sin(ang * 2.0 + vObj.y * 0.12 - t * 0.5));
     float g = noise(vec2(ang * 5.0 - t * 0.8, vObj.y * 0.3 + rad * 0.2));
     base = mix(base, uColor2, smoothstep(0.3, 1.1, s * 0.55 + g * 0.65) * uP.w);
     base *= 0.94 + 0.12 * noise(vec2(ang * 22.0 - t, vObj.y * 1.4 + rad));
-    if (isMode(${MODE.SLUSH}.0)) {
-      float c = noise(vec2(ang * 40.0 - t * 1.3, vObj.y * 2.6 + rad * 1.3));
-      base = mix(base, vec3(1.0), smoothstep(0.78, 0.95, c) * 0.55);
-      rough = 0.42 - 0.25 * smoothstep(0.8, 0.95, c);
-    }
   } else if (isMode(${MODE.GLASS}.0)) {
     if (uP.x > 0.5) {
       // a thin spine with fine ticks to its right (d: along the wall from the spine), a long one at

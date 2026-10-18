@@ -2,21 +2,21 @@
 // requestAnimationFrame loop ticks the engine and patches only what changed.
 // Every player action is a drag & drop through js/drag.js.
 
-import { INGREDIENTS, LEVELS, SMOOTHIE_LEVEL, getLevel, ingName } from './data.js';
+import { INGREDIENTS, LEVELS, MATCHA_LEVEL, getLevel, ingName } from './data.js';
 import { registerStrings, t, onLangChange, getLang, formatNumber } from './i18n.js';
 import {
   createGame, tick, drainEvents, setPaused, releaseTutorialHold, endRun, bowlMatchesOrder,
   loadBlender, pourBlender, addIngredient, trashBowl, cleanBlender, placeCup,
-  loadSmoothie, trashSmoothie, serveBowl, serveSmoothie,
-  loadBlenderError, pourError, addIngredientError, loadSmoothieError, serveBowlError, serveSmoothieError, placeCupError,
+  loadMatcha, trashMatcha, serveBowl, serveMatcha,
+  loadBlenderError, pourError, addIngredientError, loadMatchaError, serveBowlError, serveMatchaError, placeCupError,
 } from './engine.js';
 import {
-  ingredientIcon, packIcon, bowlSVG, cupSVG, binSVG, binFillSVG, scoopSVG, cupStackSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
-  blenderBadgeSVG, smoothieMachineSVG, SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
+  ingredientIcon, packIcon, bowlSVG, matchaGlassSVG, binSVG, binFillSVG, scoopSVG, cupStackSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
+  blenderBadgeSVG, matchaMachineSVG, matchaLedAt, MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE, MATCHA_POUR_FROM,
   trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG, counterSVG, freezerSVG, riserSVG,
 } from './art.js';
 import { has3D, createView, snapshot, still, pixelRatio } from './art3d.js';
-import { blenderLook, blenderBadgeAt, blenderBox, pourFill } from './kitchen3d.js';
+import { blenderLook, blenderBadgeAt, blenderBox, pourFill, brewPhase } from './kitchen3d.js';
 import { PANTRY_VIEW, pantryKind, pantryHasFront, pantryTop, pantryBadges } from './pantry3d.js';
 import { createDragManager } from './drag.js';
 import defaultAudio from './audio.js';
@@ -63,10 +63,10 @@ registerStrings({
     'game.stack': 'Stapel mit leeren Bowls',
     'game.stackName': 'Bowls',
     'game.freezer': 'Basis',
-    'game.lockedSmoothie': 'Smoothies ab Level {n}',
+    'game.lockedMatcha': 'Matcha ab Level {n}',
     'game.banner.overflow': 'Achtung: Ein fertiger Mixer läuft über, wenn er zu lange steht! Verdorbene Mixer ziehst du in den Müll.',
     'game.banner.moreSeats': 'Jetzt gibt es 3 Plätze – mehr Gäste gleichzeitig!',
-    'game.banner.smoothie': 'Neu: die Smoothie-Maschine! Zieh eine Frucht hinein und den fertigen Becher zum Gast.',
+    'game.banner.matcha': 'Neu: die Matcha-Maschine! Zieh eine Frucht auf ein Glas und den fertigen Matcha zum Gast.',
     'game.banner.fourSeats': '4 Plätze – jetzt wird es richtig voll!',
     'game.banner.endless': 'Der Endlos-Modus ist freigeschaltet – probier ihn nach diesem Level aus!',
     'game.banner.endlessMode': 'Jede halbe Minute wird es schneller. Wie lange hältst du durch?',
@@ -81,8 +81,8 @@ registerStrings({
     'game.hint.blender': 'Zieh den Mixer auf eine leere Bowl!',
     'game.hint.blenderEmpty': 'Zieh eine Basis-Packung in den Mixer!',
     'game.hint.blenderRuined': 'Verdorben! Zieh den Mixer in den Müll.',
-    'game.hint.cup': 'Zieh den Smoothie zu einem Gast!',
-    'game.hint.slotEmpty': 'Zieh eine Frucht in die Maschine!',
+    'game.hint.glass': 'Zieh den Matcha zu einem Gast!',
+    'game.hint.slotEmpty': 'Zieh eine Frucht auf das Glas!',
     'game.hint.trash': 'Zieh Falsches hierher, um es wegzuwerfen.',
     'game.tut.title': 'So geht’s',
     'game.tut.welcome': 'Willkommen in deinem Açaí-Laden! Gleich kommt dein erster Gast.',
@@ -118,12 +118,12 @@ registerStrings({
     'reason.packToBlender': 'Die Packung kommt zuerst in den Mixer!',
     'reason.wrongOrder': 'Das hat der Gast nicht bestellt!',
     'reason.bowlIncomplete': 'Da fehlt noch etwas – schau in die Sprechblase!',
-    'reason.noSmoothieWanted': 'Dieser Gast möchte keinen Smoothie.',
+    'reason.noMatchaWanted': 'Dieser Gast möchte keinen Matcha.',
     'reason.noBowlWanted': 'Dieser Gast möchte keine Bowl.',
     'reason.alreadyDelivered': 'Das hat der Gast schon bekommen!',
-    'reason.slotBusy': 'Hier steht schon ein Smoothie!',
-    'reason.notReady': 'Der Smoothie ist noch nicht fertig!',
-    'reason.notSmoothieFruit': 'Daraus wird kein Smoothie!',
+    'reason.slotBusy': 'Hier steht schon ein Matcha!',
+    'reason.notReady': 'Der Matcha ist noch nicht fertig!',
+    'reason.notMatchaFruit': 'Daraus wird kein Matcha!',
     'reason.emptyBowl': 'Die Bowl ist noch leer!',
     'reason.noCustomer': 'Dieser Gast ist schon weg.',
     'reason.notPlaying': 'Gerade nicht möglich.',
@@ -166,10 +166,10 @@ registerStrings({
     'game.stack': 'Stack of empty bowls',
     'game.stackName': 'Bowls',
     'game.freezer': 'Base',
-    'game.lockedSmoothie': 'Smoothies from level {n}',
+    'game.lockedMatcha': 'Matcha from level {n}',
     'game.banner.overflow': 'Careful: a ready blender overflows if it waits too long! Drag spoiled blenders to the trash.',
     'game.banner.moreSeats': 'Now there are 3 seats – more customers at once!',
-    'game.banner.smoothie': 'New: the smoothie machine! Drag a fruit into it, then the finished cup to the customer.',
+    'game.banner.matcha': 'New: the matcha machine! Drag a fruit onto a glass, then the finished matcha to the customer.',
     'game.banner.fourSeats': '4 seats – now it gets really busy!',
     'game.banner.endless': 'Endless mode is unlocked – try it after this level!',
     'game.banner.endlessMode': 'Every half minute it gets faster. How long can you last?',
@@ -184,8 +184,8 @@ registerStrings({
     'game.hint.blender': 'Drag the blender onto an empty bowl!',
     'game.hint.blenderEmpty': 'Drag a base pack into the blender!',
     'game.hint.blenderRuined': 'Spoiled! Drag the blender to the trash.',
-    'game.hint.cup': 'Drag the smoothie to a customer!',
-    'game.hint.slotEmpty': 'Drag a fruit into the machine!',
+    'game.hint.glass': 'Drag the matcha to a customer!',
+    'game.hint.slotEmpty': 'Drag a fruit onto the glass!',
     'game.hint.trash': 'Drag mistakes here to throw them away.',
     'game.tut.title': 'How to play',
     'game.tut.welcome': 'Welcome to your açaí shop! Your first customer is on the way.',
@@ -221,12 +221,12 @@ registerStrings({
     'reason.packToBlender': 'The pack goes into the blender first!',
     'reason.wrongOrder': 'That’s not what they ordered!',
     'reason.bowlIncomplete': 'Something’s still missing – check the bubble!',
-    'reason.noSmoothieWanted': 'This customer doesn’t want a smoothie.',
+    'reason.noMatchaWanted': 'This customer doesn’t want a matcha.',
     'reason.noBowlWanted': 'This customer doesn’t want a bowl.',
     'reason.alreadyDelivered': 'They already have that!',
-    'reason.slotBusy': 'There’s already a smoothie here!',
-    'reason.notReady': 'The smoothie isn’t ready yet!',
-    'reason.notSmoothieFruit': 'That doesn’t make a smoothie!',
+    'reason.slotBusy': 'There’s already a matcha here!',
+    'reason.notReady': 'The matcha isn’t ready yet!',
+    'reason.notMatchaFruit': 'That doesn’t make a matcha!',
     'reason.emptyBowl': 'The bowl is still empty!',
     'reason.noCustomer': 'This customer has already left.',
     'reason.notPlaying': 'Not possible right now.',
@@ -271,7 +271,7 @@ const FREEZER_W = 284;
 const FREEZER_H = 186;
 const PACK_ART = 84;
 const MACHINE_SIZE = 312; // the machine box is its square canvas (VIEWS.machine) or drawn art
-const SLOT_W = 116;
+const SLOT_W = 96; // a slot: the glass on a drip tray (two of them keep a gap)
 const DECOR_IDS = ['plants', 'jukebox', 'seating', 'neon'];
 const DECOR_SIZE = { plants: 118, jukebox: 118, seating: 124, neon: 104 };
 const LAYER_NUM = { base: 1, mid: 2, top: 3 };
@@ -279,7 +279,7 @@ const MOODS = ['happy', 'neutral', 'impatient', 'angry'];
 const STAMP_MS = 1700;
 const MAX_FRAME_DT = 0.25;
 const STILL_SETTLE_MS = 200; // a new pixel ratio draws the containers again once it has held this long
-// Progress bars (patience, blender/smoothie timers, blender ring) write on one shared cadence:
+// Progress bars (patience, blender/matcha timers, blender ring) write on one shared cadence:
 // in Chromium every frame with such a write re-layerizes the whole stage.
 const BAR_TICK = 0.1; // s
 const BAR_STEPS = 100;
@@ -290,6 +290,8 @@ const ACTIVE = new Set(['arriving', 'waiting']);
 const POURABLE = new Set(['ready', 'overflowing', 'ruined']);
 // whole seconds a blender has left to blend (its display counts them down)
 const secsLeft = (b) => (b.state === 'blending' ? Math.ceil((1 - b.progress) * (b.duration || 0)) : 0);
+// a matcha slot's brew progress in the 3D machine's steps (it redraws 60 times per brew)
+const brewStep = (s) => (s.state === 'mixing' ? Math.round(s.progress * 60) / 60 : 0);
 const TUT_DOTS = ['pack', 'cup', 'wait', 'pour', 'add', 'serve', 'done'];
 const TUT_DOT_OF = { welcome: -1, pack: 0, clean: 0, cup: 1, cupWait: 1, wait: 2, waitWrong: 2, pour: 3, add: 4, trash: 4, serve: 5, done: 6 };
 
@@ -407,7 +409,7 @@ class GameView {
     this.mode = p.mode === 'endless' ? 'endless' : 'campaign';
     this.level = this.mode === 'campaign' ? getLevel(Number(p.levelId)) || LEVELS[0] : null;
     this.levelId = this.level ? this.level.id : null;
-    const smoothies = this.mode === 'endless' || this.levelId >= SMOOTHIE_LEVEL;
+    const matcha = this.mode === 'endless' || this.levelId >= MATCHA_LEVEL;
     const tutorial = this.levelId === 1 && !save.seenIntros?.basics;
     const seed = Number.isFinite(p.seed) ? p.seed : ((Date.now() ^ Math.floor(performance.now() * 1000)) >>> 0) || 1;
     this.featured = new Set(save.newIngredients || []);
@@ -417,7 +419,7 @@ class GameView {
       owned: save.owned.slice(),
       ingLevels: { ...save.ingLevels },
       kitchen: kitchenStats(),
-      smoothies,
+      matcha,
       seed,
       tutorial,
       featured: [...this.featured],
@@ -436,7 +438,7 @@ class GameView {
     const root = el('div', 'screen screen-game', { 'data-mode': this.mode, 'data-level': this.levelId ?? 'endless' });
     this.root = root;
     if (this.k3d) root.classList.add('is-3d');
-    if (g.smoothie) root.classList.add('has-smoothie');
+    if (g.matcha) root.classList.add('has-matcha');
     if (this.tut) root.classList.add('has-tutorial');
     root.append(this.buildScene(), el('div', 'g-counter'), this.buildWork(), this.buildHud());
     this.fxEl = el('div', 'g-fx');
@@ -606,38 +608,48 @@ class GameView {
       work.append(shelf);
     }
 
-    // smoothie machine with cup slots
+    // matcha machine with a glass on each drip tray (the slots)
     this.slotViews = [];
-    if (g.smoothie) {
-      const count = g.smoothie.slots.length;
+    if (g.matcha) {
+      const count = g.matcha.slots.length;
       const machine = el('div', 'g-machine', { 'data-model': count });
       if (this.k3d) {
         this.machineView = createView('machine');
         machine.append(this.machineView.el);
       } else {
-        machine.innerHTML = smoothieMachineSVG(count, MACHINE_SIZE);
+        machine.innerHTML = matchaMachineSVG(count, MACHINE_SIZE);
       }
-      const cup = Math.round(MACHINE_SIZE * SMOOTHIE_CUP_SIZE);
-      const xs = SMOOTHIE_SLOT_X[count] || SMOOTHIE_SLOT_X[2];
-      g.smoothie.slots.forEach((s, i) => {
-        const node = el('div', 'g-slot', { 'data-smoothie-slot': i, 'data-state': s.state });
-        node.style.left = `${Math.round(xs[i] * MACHINE_SIZE - SLOT_W / 2)}px`;
-        node.style.top = `${Math.round(SMOOTHIE_SLOT_Y * MACHINE_SIZE - cup - 16)}px`;
-        node.style.setProperty('--cup', `${cup}px`);
+      const glass = Math.round(MACHINE_SIZE * MATCHA_CUP_SIZE);
+      const xs = MATCHA_SLOT_X[count] || MATCHA_SLOT_X[2];
+      g.matcha.slots.forEach((s, i) => {
+        const node = el('div', 'g-slot', { 'data-matcha-slot': i, 'data-state': s.state });
+        const left = Math.round(xs[i] * MACHINE_SIZE - SLOT_W / 2);
+        const top = Math.round(MATCHA_SLOT_Y * MACHINE_SIZE - glass - 16);
+        node.style.left = `${left}px`;
+        node.style.top = `${top}px`;
+        node.style.setProperty('--glass', `${glass}px`);
         const art = el('div', 'g-art');
         const timer = el('div', 'g-timer');
         const fill = el('i');
         timer.append(fill);
         node.append(art, timer);
+        if (!this.k3d) {
+          // the drawn machine's status LED, lit over the drawing (amber while brewing, green when ready)
+          const [lx, ly] = matchaLedAt(count, i);
+          const led = el('i', 'g-led');
+          led.style.left = `${Math.round(lx - left)}px`;
+          led.style.top = `${Math.round(ly - top)}px`;
+          node.append(led);
+        }
         machine.append(node);
-        this.slotViews.push({ el: node, art, timer, fill, cup, state: null });
+        this.slotViews.push({ el: node, art, timer, fill, glass, state: null, pouring: false });
       });
       work.append(machine);
     } else if (this.mode === 'campaign') {
       // teaser: the machine arrives in a later level
       const machine = el('div', 'g-machine is-locked', { 'aria-hidden': 'true' });
       this.lockLabel = el('span', 'g-lock-label');
-      machine.innerHTML = `<div class="g-art">${this.k3d ? '' : smoothieMachineSVG(1, MACHINE_SIZE)}</div><span class="g-lock">${lockSVG(54)}</span>`;
+      machine.innerHTML = `<div class="g-art">${this.k3d ? '' : matchaMachineSVG(1, MACHINE_SIZE)}</div><span class="g-lock">${lockSVG(54)}</span>`;
       if (this.k3d) {
         const teaser = createView('machine');
         machine.querySelector('.g-art').append(teaser.el);
@@ -772,7 +784,7 @@ class GameView {
     for (const node of this.root.querySelectorAll('.g-new')) setText(node, t('game.new'));
     setText(this.freezerLabel, `${LAYER_NUM.base} · ${t('game.freezer')}`);
     for (const [layer, node] of Object.entries(this.shelfLabels)) setText(node, `${LAYER_NUM[layer]} · ${t(`layer.${layer}`)}`);
-    if (this.lockLabel) setText(this.lockLabel, t('game.lockedSmoothie', { n: SMOOTHIE_LEVEL }));
+    if (this.lockLabel) setText(this.lockLabel, t('game.lockedMatcha', { n: MATCHA_LEVEL }));
     this.trashEl.setAttribute('aria-label', t('game.trash'));
     this.stackEl.setAttribute('aria-label', t('game.stack'));
     setText(this.stackEl.querySelector('.g-name'), t('game.stackName'));
@@ -928,29 +940,29 @@ class GameView {
 
     this.slotViews.forEach((v, i) => {
       dnd.source(v.el, {
-        payload: () => (this.canAct() && g.smoothie.slots[i].state !== 'empty' ? { kind: 'cup', idx: i } : null),
+        payload: () => (this.canAct() && g.matcha.slots[i].state !== 'empty' ? { kind: 'glass', idx: i } : null),
         ghost: () => {
-          const s = g.smoothie.slots[i];
-          return cupSVG(s.fruit, s.state, v.cup);
+          const s = g.matcha.slots[i];
+          return matchaGlassSVG(s.fruit, s.state, v.glass, { fill: s.state === 'mixing' ? pourFill(s.progress) : null, stream: false });
         },
-        onTap: () => this.hint(v.el, 'game.hint.cup'),
+        onTap: () => this.hint(v.el, 'game.hint.glass'),
       });
       dnd.target(v.el, {
         accepts: (p) => p.kind === 'ing' && p.layer === 'mid',
-        valid: (p) => !loadSmoothieError(g, i, p.id),
-        drop: (p) => act(() => loadSmoothie(g, i, p.id)),
+        valid: (p) => !loadMatchaError(g, i, p.id),
+        drop: (p) => act(() => loadMatcha(g, i, p.id)),
       });
       this.listen(v.el, 'pointerdown', () => {
-        if (g.smoothie.slots[i].state === 'empty') this.hint(v.el, 'game.hint.slotEmpty');
+        if (g.matcha.slots[i].state === 'empty') this.hint(v.el, 'game.hint.slotEmpty');
       });
     });
 
     dnd.target(this.trashEl, {
-      accepts: (p) => p.kind === 'bowl' || p.kind === 'blender' || p.kind === 'cup',
+      accepts: (p) => p.kind === 'bowl' || p.kind === 'blender' || p.kind === 'glass',
       drop: (p) => act(() => {
         if (p.kind === 'bowl') return trashBowl(g, p.idx);
         if (p.kind === 'blender') return cleanBlender(g, p.idx);
-        return trashSmoothie(g, p.idx);
+        return trashMatcha(g, p.idx);
       }),
     });
     this.listen(this.trashEl, 'pointerdown', () => this.hint(this.trashEl, 'game.hint.trash'));
@@ -961,14 +973,14 @@ class GameView {
   wireCustomer(v) {
     const g = this.game;
     v.offTarget = this.dnd.target(v.el, {
-      accepts: (p) => (p.kind === 'bowl' || p.kind === 'cup') && ACTIVE.has(v.c.state),
+      accepts: (p) => (p.kind === 'bowl' || p.kind === 'glass') && ACTIVE.has(v.c.state),
       valid: (p) => {
-        const r = p.kind === 'bowl' ? serveBowlError(g, p.idx, v.id) : serveSmoothieError(g, p.idx, v.id);
+        const r = p.kind === 'bowl' ? serveBowlError(g, p.idx, v.id) : serveMatchaError(g, p.idx, v.id);
         return !r || r === 'wrongOrder';
       },
       drop: (p) => {
         if (!this.canAct()) return { ok: false, reason: 'notPlaying' };
-        if (p.kind !== 'bowl') return serveSmoothie(g, p.idx, v.id);
+        if (p.kind !== 'bowl') return serveMatcha(g, p.idx, v.id);
         const r = serveBowl(g, p.idx, v.id);
         // right so far, just not finished: say so instead of "not what they ordered"
         if (!r.ok && r.reason === 'wrongOrder' && v.c.order.bowl && bowlOnTrack(g.bowls[p.idx], v.c.order.bowl)) {
@@ -1011,20 +1023,20 @@ class GameView {
     if (!p) return null;
     const ruined = p.kind === 'blender' && g.blenders[p.idx]?.state === 'ruined';
     const hint = {
-      pack: 'game.hint.pack', ing: 'game.hint.bin', bowl: 'game.hint.bowl', cup: 'game.hint.cup', newcup: 'game.hint.stack',
+      pack: 'game.hint.pack', ing: 'game.hint.bin', bowl: 'game.hint.bowl', glass: 'game.hint.glass', newcup: 'game.hint.stack',
       blender: ruined ? 'game.hint.blenderRuined' : 'game.hint.blender',
     }[p.kind];
     // station type → hint, only for the stations that never take this kind of item
     const wrong = {
       pack: { bowl: 'reason.packToBlender', slot: hint, trash: hint, cust: hint },
-      ing: { blender: 'reason.wrongLayer', slot: p.layer === 'mid' ? null : 'reason.notSmoothieFruit', trash: hint, cust: hint },
+      ing: { blender: 'reason.wrongLayer', slot: p.layer === 'mid' ? null : 'reason.notMatchaFruit', trash: hint, cust: hint },
       blender: { blender: hint, slot: hint, cust: hint },
       bowl: { blender: hint, bowl: hint, slot: hint },
-      cup: { blender: hint, bowl: hint, slot: hint },
+      glass: { blender: hint, bowl: hint, slot: hint },
       newcup: { blender: hint, slot: hint, trash: hint, cust: hint },
     }[p.kind];
     if (!wrong) return null;
-    const source = { blender: this.blenderViews, bowl: this.bowlViews, cup: this.slotViews }[p.kind]?.[p.idx]?.el;
+    const source = { blender: this.blenderViews, bowl: this.bowlViews, glass: this.slotViews }[p.kind]?.[p.idx]?.el;
     const stations = {
       blender: this.blenderViews.map((v) => v.el),
       bowl: this.bowlViews.map((v) => v.el),
@@ -1279,11 +1291,11 @@ class GameView {
       case 'ingredientAdded':
         a.sfx('plop');
         break;
-      case 'smoothieStart':
-        a.sfx('pour');
+      case 'matchaStart':
+        a.sfx('plop');
         break;
-      case 'smoothieReady':
-        a.sfx('smoothieReady');
+      case 'matchaReady':
+        a.sfx('matchaReady');
         restartAnim(this.slotViews[ev.idx]?.art, 'is-pop');
         break;
       case 'trash':
@@ -1360,11 +1372,11 @@ class GameView {
     const top = o.bowl.top.map((id) => `<span class="g-ico">${ingredientIcon(id, 32)}</span>`).join('');
     const base = `<div class="g-order-base"><span class="g-lnum g-lnum-base">1</span>${bowlSVG({ base: o.bowl.base, mid: [], top: [] }, 50)}</div>`;
     const bowl = `<div class="g-order-part g-order-bowl" data-part="bowl">${base}<div class="g-rows">${row('mid', mid)}${row('top', top)}</div><span class="g-check">${CHECK_SVG}</span></div>`;
-    // the fruit badge names the smoothie like the bowl rows name their items (colour alone is too little)
-    const cup = o.smoothie
-      ? `<div class="g-order-part g-order-cup" data-part="smoothie"><span class="g-cup-wrap">${cupSVG(o.smoothie, 'ready', 50)}<span class="g-cup-fruit">${ingredientIcon(o.smoothie, 22)}</span></span><span class="g-check">${CHECK_SVG}</span></div>`
+    // the fruit badge names the matcha like the bowl rows name their items (colour alone is too little)
+    const drink = o.matcha
+      ? `<div class="g-order-part g-order-drink" data-part="matcha"><span class="g-drink-wrap">${matchaGlassSVG(o.matcha, 'ready', 50)}<span class="g-drink-fruit">${ingredientIcon(o.matcha, 22)}</span></span><span class="g-check">${CHECK_SVG}</span></div>`
       : '';
-    return `<div class="g-order">${bowl}${cup}</div><div class="g-patience"><i></i></div>`;
+    return `<div class="g-order">${bowl}${drink}</div><div class="g-patience"><i></i></div>`;
   }
 
   // Accessible name of the order bubble (it is role="img"), with what was already handed over.
@@ -1372,8 +1384,8 @@ class GameView {
     const o = c.order;
     const done = (yes) => (yes ? ` (${t('game.served')})` : '');
     const bowl = [o.bowl.base, ...o.bowl.mid, ...o.bowl.top].map((id) => ingName(id)).join(', ');
-    const cup = o.smoothie ? `; ${t(`smoothie.${o.smoothie}`)}${done(c.delivered.smoothie)}` : '';
-    return `${t('game.order')}: ${bowl}${done(c.delivered.bowl)}${cup}`;
+    const drink = o.matcha ? `; ${t(`matcha.${o.matcha}`)}${done(c.delivered.matcha)}` : '';
+    return `${t('game.order')}: ${bowl}${done(c.delivered.bowl)}${drink}`;
   }
 
   updateCustomer(v, c, seat) {
@@ -1394,11 +1406,11 @@ class GameView {
       v.mood = mood;
       v.bubble.dataset.mood = mood;
     }
-    const delivered = `${c.delivered.bowl ? 1 : 0}${c.delivered.smoothie ? 1 : 0}`;
+    const delivered = `${c.delivered.bowl ? 1 : 0}${c.delivered.matcha ? 1 : 0}`;
     if (delivered !== v.delivered) {
       v.delivered = delivered;
       v.bubble.querySelector('[data-part="bowl"]')?.classList.toggle('is-done', c.delivered.bowl);
-      v.bubble.querySelector('[data-part="smoothie"]')?.classList.toggle('is-done', c.delivered.smoothie);
+      v.bubble.querySelector('[data-part="matcha"]')?.classList.toggle('is-done', c.delivered.matcha);
       v.bubble.setAttribute('aria-label', this.bubbleLabel(c));
     }
     const q = Math.round(Math.max(0, Math.min(1, c.patience / c.maxPatience)) * BAR_STEPS) / BAR_STEPS;
@@ -1511,17 +1523,19 @@ class GameView {
   }
 
   updateSlots() {
-    const slots = this.game.smoothie?.slots;
+    const slots = this.game.matcha?.slots;
     if (!slots) return;
     slots.forEach((s, i) => {
       const v = this.slotViews[i];
-      if (this.k3d) {
-        // the machine pours from its tap: the cup fills up instead of showing its own stream
-        const fill = s.state === 'mixing' ? Math.round(pourFill(s.progress) * 12) / 12 : null;
-        patch(v.art, `${s.state}|${s.fruit}|${fill}`, () => cupSVG(s.fruit, s.state, v.cup, { fill, stream: false }));
-      } else {
-        patch(v.art, `${s.state}|${s.fruit}`, () => cupSVG(s.fruit, s.state, v.cup));
-      }
+      // the purée is in from the start, then milk and matcha run in; the 3D machine pours from its
+      // nozzle, the drawn one gets the glass's own stream from the drawn nozzle's tip
+      const fill = s.state === 'mixing' ? Math.round(pourFill(s.progress) * 12) / 12 : null;
+      const stream = !this.k3d;
+      patch(v.art, `${s.state}|${s.fruit}|${fill}`, () => matchaGlassSVG(s.fruit, s.state, v.glass, { fill, stream, from: MATCHA_POUR_FROM }));
+      // the nozzle starts to pour: a sound once per brew (with the 3D machine's stream, the drawn one's with the glass's)
+      const pouring = s.state === 'mixing' && (this.k3d ? brewPhase(s.state, brewStep(s)).pour > 0 : fill > 0);
+      if (pouring && !v.pouring) this.audio.sfx('pour');
+      v.pouring = pouring || s.state === 'ready';
       if (v.state !== s.state) {
         v.state = s.state;
         v.el.dataset.state = s.state;
@@ -1547,8 +1561,8 @@ class GameView {
         portions: b.portions, maxPortions: b.maxPortions,
       }, t);
     });
-    if (this.machineView && g.smoothie) {
-      this.machineView.draw({ slots: g.smoothie.slots.map((s) => ({ state: s.state, fruit: s.fruit, progress: s.state === 'mixing' ? Math.round(s.progress * 60) / 60 : 0 })) }, t);
+    if (this.machineView && g.matcha) {
+      this.machineView.draw({ slots: g.matcha.slots.map((s) => ({ state: s.state, fruit: s.fruit, progress: brewStep(s) })) }, t);
     }
     // the bin opens a little while something that may go in is carried, wide over it
     const tr = this.trashEl.classList;

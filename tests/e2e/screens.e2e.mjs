@@ -325,12 +325,12 @@ async function mainFlow(browser, base) {
     await assertNoOverflow(page, 'shop ingredients');
   });
 
-  await check('shop: kitchen tab – upgrade levels, locked smoothie slots', async () => {
+  await check('shop: kitchen tab – upgrade levels, locked matcha slots', async () => {
     await setCoins(page, 1000);
     await page.click('[data-tab="kitchen"]');
     eq(await page.getAttribute('[data-tab="kitchen"]', 'aria-selected'), 'true', 'tab selected');
-    eq(await page.getAttribute('[data-upgrade="smoothieSlots"]', 'data-state'), 'locked', 'smoothie slots locked');
-    await clickDisabled(page, '[data-upgrade="smoothieSlots"] [data-buy]');
+    eq(await page.getAttribute('[data-upgrade="matchaSlots"]', 'data-state'), 'locked', 'matcha slots locked');
+    await clickDisabled(page, '[data-upgrade="matchaSlots"] [data-buy]');
     assert((await toastText(page)).includes('Level 7'), 'locked toast');
     await page.click('[data-upgrade="bowlSlots"] [data-buy]');
     eq(await page.locator('[data-upgrade="bowlSlots"] .upg-pips i.on').count(), 1, 'one pip');

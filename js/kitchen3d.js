@@ -1,5 +1,5 @@
 // 3D models of the kitchen appliances: the blender (4 motor bases × 2 jugs, one per upgrade
-// level), the frozen-drink machine (1 or 2 tanks), the pedal bin and the chest freezer; the
+// level), the matcha machine (1 or 2 slots), the pedal bin and the chest freezer; the
 // ingredient containers on the risers come from js/pantry3d.js (the view 'pantry').
 // Pure module: every *Scene() returns { frame, elev, time, items } for js/gl3d.js – nothing here
 // touches the DOM. Geometry is in stage pixels, the floor is y = 0 and +z points at the player.
@@ -12,7 +12,7 @@ import {
 } from './geo3d.js';
 import { ING } from './data.js';
 import { mix, rngFor } from './svg.js';
-import { pureeOf, smoothieColorOf } from './art-food.js';
+import { pureeOf, MATCHA_COLORS, MATCHA_MILK } from './art-food.js';
 import { pantryScene, PANTRY_VIEW } from './pantry3d.js';
 
 // The camera looks down at the worktop by 17° – the angle the cup rims are drawn with.
@@ -71,8 +71,6 @@ const at = translation;
 
 // ------------------------------------------------------------------ materials
 const MAT = {
-  glassTank: material({ color: '#e1f2f7', alpha: 0.06, rough: 0.04, glass: true, double: true }),
-  steel: material({ color: '#c3c9cf', metal: 1, rough: 0.32, mode: MODE.BRUSHED, p: [0.9, 0, 0, 0] }),
   steelV: material({ color: '#c3c9cf', metal: 1, rough: 0.3, mode: MODE.BRUSHED, p: [0.8, 1, 0, 0] }),
   chrome: material({ color: '#eef1f4', metal: 1, rough: 0.08 }),
   blackGloss: material({ color: '#17181c', rough: 0.2, coat: 0.8 }),
@@ -83,8 +81,6 @@ const MAT = {
   gray: material({ color: '#8f969d', rough: 0.36, coat: 0.3 }),
   purple: material({ color: '#4b1f72', metal: 0.5, rough: 0.3, coat: 1 }),
   graphite: material({ color: '#2d3036', metal: 0.35, rough: 0.36, coat: 0.55 }),
-  bayBlack: material({ color: '#1a1b20', rough: 0.3, coat: 0.5 }),
-  baySteel: material({ color: '#7d858d', metal: 1, rough: 0.36, mode: MODE.BRUSHED, p: [2.6, 1, 0, 0] }),
   panelGlass: material({ color: '#0b0d10', rough: 0.12, coat: 1 }),
   ledOff: material({ color: '#3a3d44', rough: 0.25, coat: 0.6 }),
   bladeSteel: material({ color: '#d6dce1', metal: 1, rough: 0.18 }),
@@ -544,7 +540,7 @@ function pureeMat(base, kind) {
 // ---- printed and lit parts of the base (2D canvas textures; world units × px per unit)
 const ICON_INK = 'rgba(226, 233, 241, 0.92)';
 
-// Small line icons of the programmes (ice crush, smoothie glass, bowl, pulse) at x, y, size s px
+// Small line icons of the programmes (ice crush, drink glass, bowl, pulse) at x, y, size s px
 // (lw: the line width as a share of s).
 function drawIcon(ctx, kind, x, y, s, lw = 0.11) {
   ctx.save();
@@ -988,184 +984,423 @@ function flies(J, t) {
 }
 
 // ==================================================================
-// Frozen-drink machine (smoothies)
+// Matcha machine
 // ==================================================================
-// A fruit dropped into a slot fills that tank, the auger churns it into slush, then the tap
-// opens and pours it into the cup standing on the drip tray (the cup itself is the DOM art).
-// 1 slot: compact white household machine; 2 slots (upgrade): stainless double-tank machine. Both
-// wear the café's açaí purple on the head with the taps.
-// Cups stand at x = SLOT_X, y = 7, z = 30 – the game's smoothie slots line up with them.
-export const MACHINE_SLOT_X = { 1: [0], 2: [-47.2, 47.2] };
-const MACHINE = {
-  1: { w: 132, tankW: 100, tankD: 74, tankH: 64, cheek: MAT.white, head: MAT.purple, back: MAT.bayBlack, lid: MAT.white, lever: MAT.blackGloss, tray: MAT.chrome },
-  2: { w: 216, tankW: 86, tankD: 72, tankH: 64, cheek: MAT.steel, head: MAT.purple, back: MAT.baySteel, lid: MAT.white, lever: MAT.blackGloss, tray: MAT.steel },
+// Modelled on a household tea-latte machine (the overhaul's second reference photo): an upright
+// rounded housing with an olive matcha-green shell around a glossy black front. Per slot a bay: the
+// smoked water tank at the top (a grip recess on its front), under it an olive collar with a small
+// knob and the status LED, the nozzle, and a dark recess down to the drip tray with its grate, where
+// the glass stands (the glass itself is the DOM art). On the right, in an arched alcove, the tea
+// mill: a glass cylinder with green matcha powder and the burr between a dark cap and a dark base;
+// the lettering above it. 1 slot: close to the photo; 2 slots (upgrade "Doppel-Matcha"): a wider
+// machine with two bays side by side and a small temperature display.
+// A fruit dropped on a glass is its purée (the glass art); the mill grinds and the tank heats
+// (bubbles, steam), then the nozzle pours milk and matcha and the glass fills (pourFill).
+// Glasses stand at x = MACHINE_SLOT_X, y = TRAY_Y, z = GLASS_Z – the game's slots line up with them.
+export const MACHINE_SLOT_X = { 1: [-34], 2: [-68, 10] };
+export const GLASS_Z = 25;
+export const TRAY_Y = 8;
+// w: the housing's width, bays: [x0, x1] of each bay, mill: the mill's axis, tank: its half widths
+// at the bottom and the top
+const MATCHA = {
+  1: { w: 174, bays: [[-78, 10]], mill: 47, millR: 16.5, tank: [21, 32] },
+  2: { w: 228, bays: [[-105, -31], [-27, 47]], mill: 78, millR: 15.5, tank: [20, 29.5] },
 };
-export const CUP_Z = 30;
-export const TRAY_Y = 7.5;
-const HEAD_Y = [94, 106];
+// heights: the housing, the collar under a tank, the nozzle's tip; the nozzle head's radius; z: the
+// housing's back and front
+const MH = 170;
+const COLLAR = [87, 99];
+const NOZZLE_Y = 77;
+const HEAD_R = 8.6;
+const ZB = -40;
+const ZF = 6;
+const TRAY_Z = 44;
+const TANK_DEPTH = 0.6;
+// the mill (heights of its parts on the base)
+const MILL = { base: 44, glass: 84, cap: 96 };
+// the brew: grinding and heating first, then the nozzle pours from POUR_AT on
+const POUR_AT = 0.55;
+const steps8 = (v) => Math.round(clamp(v, 0, 1) * 8) / 8;
+// the machine's measures, for its drawn version without WebGL (js/art-kitchen.js)
+export const MATCHA_GEO = { models: MATCHA, h: MH, collar: COLLAR, nozzle: NOZZLE_Y, headR: HEAD_R, back: ZB, front: ZF, trayZ: TRAY_Z, mill: MILL, tankDepth: TANK_DEPTH };
 
-// Share of the tank filled and the pour state at a point of the mixing progress p.
-export function slushPhase(state, p = 0) {
+// A world point of the machine → canvas px of its view (VIEWS.machine).
+export function machinePoint(p, frame = VIEWS.machine) {
+  const [x, y] = screenOf(p, ELEV, frame.zoom || 1);
+  return [frame.ax + x, frame.ay - y];
+}
+
+const MATCHA_MAT = {
+  olive: material({ color: '#53563a', metal: 0.1, rough: 0.5, coat: 0.14 }),
+  oliveDark: material({ color: '#373924', metal: 0.1, rough: 0.5, coat: 0.1 }),
+  front: material({ color: '#0b0c0e', rough: 0.3, coat: 0.3 }),
+  tray: material({ color: '#131417', rough: 0.75, coat: 0 }),
+  smoke: material({ color: '#4c443b', alpha: 0.68, rough: 0.06, glass: true, double: true }),
+  lid: material({ color: '#1f1d1b', rough: 0.45, coat: 0.25 }),
+  water: material({ color: '#5a564e', rough: 0.1, coat: 0.7 }),
+  bubble: material({ color: '#ffffff', emit: '#c9dde3', glow: 0.5, rough: 0.1, coat: 0.6 }),
+  millBase: material({ color: '#36312b', rough: 0.34, coat: 0.55 }),
+  millGlass: material({ color: '#e3eef0', alpha: 0.07, rough: 0.04, glass: true, double: true }),
+  powder: material({ color: '#7a9c33', color2: '#4c6a1c', rough: 0.92, mode: MODE.GRAIN, p: [1.6, 0, 0.45, 0] }),
+  burr: material({ color: '#ebe5d4', rough: 0.4, coat: 0.3, mode: MODE.KNURL, p: [30, 0, 0, 0] }),
+  grate: material({ color: '#8e969d', metal: 1, rough: 0.3, mode: MODE.GRILLE, p: [16, 1, 0.34, 0] }),
+};
+
+// Share of the brew done at a point of the mixing progress p: the mill grinds (powder sinks a bit)
+// and the water heats, then the nozzle pours.
+export function brewPhase(state, p = 0) {
   if (state === 'mixing') {
     const q = clamp(p, 0, 1);
-    if (q < 0.12) return { fill: 0.1 + 0.9 * smooth(0, 0.12, q), churn: 1, pour: 0, filling: true };
-    if (q < 0.55) return { fill: 1, churn: 1, pour: 0 };
-    return { fill: 1 - 0.72 * smooth(0.55, 1, q), churn: 0.6, pour: 1 };
+    const heat = smooth(0, 0.25, q);
+    if (q < POUR_AT) return { grind: 1, heat, pour: 0, powder: 1 - 0.3 * smooth(0, POUR_AT, q), dust: smooth(0.05, 0.2, q) * (1 - smooth(0.42, POUR_AT, q)) };
+    return { grind: 0, heat: 1, pour: 1, powder: 0.7, dust: 0 };
   }
-  if (state === 'ready') return { fill: 0.28, churn: 0, pour: 0 };
-  return { fill: 0, churn: 0, pour: 0 };
+  if (state === 'ready') return { grind: 0, heat: 0, pour: 0, powder: 0.7, dust: 0 };
+  return { grind: 0, heat: 0, pour: 0, powder: 1, dust: 0 };
 }
 
-// How full the cup under the tap is (the game draws the cup with this level while mixing).
+// How much of the milk and matcha is in the glass on the drip tray (the game draws the glass with
+// this level while it brews).
 export function pourFill(p = 0) {
-  return smooth(0.55, 1, clamp(p, 0, 1));
+  return smooth(POUR_AT, 1, clamp(p, 0, 1));
 }
 
-function machineParts(n) {
-  return once(`mach|${n}`, () => {
-    const M = MACHINE[n];
-    const w = M.w;
-    const parts = {
-      body: roundedBox(w - 4, HEAD_Y[1], 50, 6, 3),
-      head: roundedBox(w, HEAD_Y[1] - HEAD_Y[0], 48, 4, 3),
-      plinth: roundedBox(w, 5, 52, 2.4, 3),
-      cheek: roundedBox(9, HEAD_Y[1], 88, 3.5, 3),
-      tray: roundedBox(62, 3, 42, 1.4, 2),
-      divider: roundedBox(5, HEAD_Y[0] - 8, 34, 2, 2),
-      nozzle: lathe([[0, 0], [2.4, 0, 1], [3.2, 1.6], [3.6, 5], [4.4, 6.5, 1], [0, 6.5]], { segs: 24 }),
-      valve: roundedBox(22, 12, 10, 3, 3),
-      lever: tube(spline([[0, 0, 0], [0, 6, 2.5], [0, 13, 5.5], [0, 18, 7]], 4), 2.3, { segs: 12, up: [1, 0, 0] }),
-      knob: sphere(4.6, 18, 12),
-      stream: lathe([[0, 0], [1.9, 0, 1], [1.9, 1, 1], [2.3, 1, 1], [0, 1]], { segs: 18 }),
-    };
-    // tank (open top), lid, evaporator column and auger
-    const r = M.tankW / 2;
-    const depth = M.tankD / M.tankW;
-    const h = M.tankH;
-    const opt = { segs: 56, sq: 0.68, depth };
-    parts.tank = lathe([[r - 7, 0], [r - 2.5, 0.4], [r - 0.4, 2.6], [r, 6], [r * 1.02, h - 4], [r * 1.045, h]], opt);
-    parts.tankFoot = lathe([[0, -1.5], [r + 1.5, -1.5, 1], [r + 1.5, 1.2], [r - 3, 1.6], [0, 1.6]], opt);
-    parts.lid = lathe([[r * 1.06, h - 2], [r * 1.08, h + 2.5], [r * 1.02, h + 6], [r * 0.62, h + 9.5], [0, h + 10]], opt);
-    parts.lidCap = cylinder(7, h + 9, h + 13, { segs: 24, bevel: 1 });
-    parts.column = cylinder(8.5, 0, h - 9, { segs: 28, bevel: 2 });
-    const helix = [];
-    const R = Math.min(r * 0.62, 22);
-    for (let i = 0; i <= 72; i++) {
-      const k = i / 72;
-      const a = k * Math.PI * 2 * 2.6;
-      helix.push([Math.cos(a) * R, 4 + k * (h - 16), Math.sin(a) * R * depth]);
-    }
-    parts.auger = tube(helix, 2.1, { segs: 10, squash: 0.55, up: [0, 1, 0] });
-    parts.r = r;
-    parts.depth = depth;
-    return parts;
-  });
+// A dark recess in the black front (behind a glass, the mill's alcove): matte black with its upper
+// edge in shadow and its lower lip catching the light; arch: the top is a half round.
+function recessTexture(w, h, arch) {
+  const S = 8;
+  const W = Math.round(w * S);
+  const H = Math.round(h * S);
+  return {
+    key: `mt-recess|${w}|${h}|${arch}`,
+    w: W,
+    h: H,
+    draw(ctx) {
+      ctx.clearRect(0, 0, W, H);
+      const m = 0.6 * S;
+      const r = arch ? (W - 2 * m) / 2 : 5 * S;
+      const shape = (k) => {
+        const x0 = m + k;
+        const x1 = W - m - k;
+        const y0 = m + k;
+        const y1 = H - m - k;
+        const rr = Math.max(1, r - k);
+        ctx.beginPath();
+        ctx.moveTo(x0, y1);
+        ctx.lineTo(x0, y0 + rr);
+        ctx.arcTo(x0, y0, x0 + rr, y0, rr);
+        ctx.lineTo(x1 - rr, y0);
+        ctx.arcTo(x1, y0, x1, y0 + rr, rr);
+        ctx.lineTo(x1, y1);
+        ctx.closePath();
+      };
+      // the panel's lip around the opening catches a little light
+      shape(-0.5 * S);
+      ctx.fillStyle = 'rgba(150, 156, 166, 0.35)';
+      ctx.fill();
+      shape(0);
+      const grd = ctx.createLinearGradient(0, 0, 0, H);
+      grd.addColorStop(0, '#000000');
+      grd.addColorStop(0.35, '#050506');
+      grd.addColorStop(1, '#101114');
+      ctx.fillStyle = grd;
+      ctx.fill();
+      // a soft inner shadow along the edge (strokes growing fainter inward), light on the lower back
+      ctx.save();
+      shape(0);
+      ctx.clip();
+      for (let i = 0; i < 6; i++) {
+        shape(i * 0.45 * S);
+        ctx.lineWidth = 0.6 * S;
+        ctx.strokeStyle = `rgba(0, 0, 0, ${0.5 - i * 0.08})`;
+        ctx.stroke();
+      }
+      const low = ctx.createLinearGradient(0, H * 0.55, 0, H);
+      low.addColorStop(0, 'rgba(70, 76, 84, 0)');
+      low.addColorStop(1, 'rgba(70, 76, 84, 0.35)');
+      ctx.fillStyle = low;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    },
+  };
 }
 
-function slushMeshes(n, level) {
-  const L = Math.round(level * 2) / 2;
-  return once(`slush|${n}|${L}`, () => {
-    const M = MACHINE[n];
-    const r = M.tankW / 2 - 1.6;
-    const depth = M.tankD / M.tankW;
-    const rAt = (y) => r * (1 + 0.045 * clamp((y - 6) / (M.tankH - 10), 0, 1)) - (y < 6 ? (6 - y) * 0.6 : 0);
-    const prof = [[0, 0.8]];
-    for (let i = 0; i <= 5; i++) {
-      const y = 0.8 + ((L - 0.8) * i) / 5;
-      prof.push([rAt(y), y]);
+// A soft reflection on the glossy black front: a broad glow from the top left fading out, two faint streaks.
+function sheenTexture() {
+  return {
+    key: 'mt-sheen',
+    w: 256,
+    h: 256,
+    draw(ctx) {
+      ctx.clearRect(0, 0, 256, 256);
+      const grd = ctx.createLinearGradient(0, 0, 200, 230);
+      grd.addColorStop(0, 'rgba(255, 255, 255, 0.13)');
+      grd.addColorStop(0.35, 'rgba(255, 255, 255, 0.04)');
+      grd.addColorStop(0.6, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.beginPath();
+      ctx.moveTo(40, 0);
+      ctx.lineTo(78, 0);
+      ctx.lineTo(0, 120);
+      ctx.lineTo(0, 62);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
+      ctx.beginPath();
+      ctx.moveTo(96, 0);
+      ctx.lineTo(108, 0);
+      ctx.lineTo(0, 166);
+      ctx.lineTo(0, 148);
+      ctx.closePath();
+      ctx.fill();
+    },
+  };
+}
+
+// The tank's grip: a recessed strip down its front left – its left wall in shadow, its right wall
+// catching the light, a bright lip along the left edge – bold enough to read at the game's 1× scale.
+function gripTexture() {
+  return {
+    key: 'mt-grip',
+    w: 64,
+    h: 256,
+    draw(ctx) {
+      ctx.clearRect(0, 0, 64, 256);
+      const grd = ctx.createLinearGradient(6, 0, 58, 0);
+      grd.addColorStop(0, 'rgba(10, 8, 6, 0.85)');
+      grd.addColorStop(0.55, 'rgba(28, 22, 17, 0.6)');
+      grd.addColorStop(1, 'rgba(64, 54, 44, 0.4)');
+      ctx.fillStyle = grd;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(6, 6, 52, 244, 22);
+      else ctx.rect(6, 6, 52, 244);
+      ctx.fill();
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(186, 174, 156, 0.5)';
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(47, 34);
+      ctx.lineTo(47, 226);
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255, 246, 232, 0.4)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(8, 236);
+      ctx.lineTo(8, 26);
+      ctx.quadraticCurveTo(8, 8, 28, 8);
+      ctx.stroke();
+    },
+  };
+}
+
+// A puff of steam: light in the middle with a soft grey edge, so it shows over the black front as
+// well as over the white marble of the pass behind the machine (drawn blended, not as a glow).
+function steamTexture() {
+  return {
+    key: 'mt-steam',
+    w: 64,
+    h: 64,
+    draw(ctx) {
+      ctx.clearRect(0, 0, 64, 64);
+      const grd = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grd.addColorStop(0, 'rgba(250, 251, 252, 0.9)');
+      grd.addColorStop(0.42, 'rgba(206, 213, 219, 0.78)');
+      grd.addColorStop(0.74, 'rgba(126, 137, 146, 0.5)');
+      grd.addColorStop(1, 'rgba(126, 137, 146, 0)');
+      ctx.fillStyle = grd;
+      ctx.fillRect(0, 0, 64, 64);
+    },
+  };
+}
+
+function matchaParts(n) {
+  return once(`mt|${n}`, () => {
+    const M = MATCHA[n];
+    const [rb, rt] = M.tank;
+    const tankTop = MH - 3;
+    const opt = { segs: 48, sq: 0.7, depth: TANK_DEPTH };
+    const tankR = (y) => rb + (rt - rb) * clamp((y - COLLAR[1]) / (tankTop - COLLAR[1]), 0, 1) ** 0.9;
+    const prof = [];
+    for (let i = 0; i <= 6; i++) {
+      const y = COLLAR[1] + ((tankTop - COLLAR[1]) * i) / 6;
+      prof.push([tankR(y), y]);
     }
+    const R = M.millR;
     return {
-      body: lathe(prof, { segs: 48, sq: 0.68, depth }),
-      surface: polarSurface(outline(0.68, depth, rAt(L)), 7, 48),
-      level: L,
+      shell: roundedBox(M.w, MH - 3, ZF - ZB, 9, 4),
+      panel: roundedBox(M.w - 12, MH - 16, 3, 2.6, 3),
+      base: roundedBox(M.w - 2, TRAY_Y, TRAY_Z - ZB, 3, 3),
+      lip: roundedBox(M.w - 6, 1.6, 1.6, 0.7, 2),
+      tank: lathe([[rb - 4, COLLAR[1]], [rb - 0.6, COLLAR[1] + 0.3], ...prof.slice(1)], opt),
+      lid: lathe([[0, tankTop - 1.2], [rt + 1.2, tankTop - 1.2, 1], [rt + 1.4, tankTop + 2.4], [rt + 0.4, tankTop + 3.6], [rt * 0.4, tankTop + 4], [0, tankTop + 4]], opt),
+      vent: cylinder(rt * 0.22, tankTop + 3.6, tankTop + 4.4, { segs: 24, bevel: 0.4 }),
+      collar: lathe([[0, COLLAR[0]], [rb - 2, COLLAR[0], 1], [rb, COLLAR[0] + 0.8], [rb + 0.9, COLLAR[0] + 3], [rb + 0.9, COLLAR[1] - 1], [rb + 0.3, COLLAR[1]], [0, COLLAR[1]]], { ...opt, segs: 40, sq: 0.35 }),
+      band: lathe([[rb + 0.95, COLLAR[0] + 1.6], [rb + 1.1, COLLAR[0] + 2.2, 1], [rb + 1.1, COLLAR[0] + 3.4, 1], [rb + 0.95, COLLAR[0] + 4]], { ...opt, segs: 40, sq: 0.35 }),
+      knob: lathe([[0, 0], [2.6, 0, 1], [2.8, 2], [2.4, 3.2], [0, 3.4]], { segs: 20 }),
+      head: lathe([[0, NOZZLE_Y + 3.6], [HEAD_R - 0.4, NOZZLE_Y + 3.6, 1], [HEAD_R, NOZZLE_Y + 5], [HEAD_R, COLLAR[0] + 0.5], [0, COLLAR[0] + 0.5]], { segs: 32 }),
+      tip: lathe([[0, NOZZLE_Y], [2.2, NOZZLE_Y, 1], [3.2, NOZZLE_Y + 1.2], [3.6, NOZZLE_Y + 4], [0, NOZZLE_Y + 4]], { segs: 24 }),
+      stream: lathe([[0, 0], [1.6, 0, 1], [1.6, 1, 1], [2, 1, 1], [0, 1]], { segs: 18 }),
+      waterBody: (level) => lathe([[0, COLLAR[1] + 1], [rb - 2, COLLAR[1] + 1], [tankR(level) - 1.8, level], [0, level]], opt),
+      tankR,
+      // the mill: dark base, clear glass with the powder and the burr, olive rings, dark cap
+      millBase: lathe([[0, TRAY_Y], [R - 1.4, TRAY_Y, 1], [R, TRAY_Y + 1.4], [R + 0.4, MILL.base - 2], [R - 0.2, MILL.base], [0, MILL.base]], { segs: 40 }),
+      millGlass: lathe([[R - 2.2, MILL.base], [R - 1.2, MILL.base + 0.6], [R - 1.2, MILL.glass - 0.6], [R - 2.2, MILL.glass]], { segs: 48 }),
+      ring: lathe([[R - 1.1, 0], [R - 0.4, 0, 1], [R - 0.4, 1.8, 1], [R - 1.1, 1.8]], { segs: 40 }),
+      burr: cylinder(R - 4.2, 0, 5, { segs: 36, bevel: 0.8 }),
+      shaft: cylinder(1.6, MILL.base, MILL.glass, { segs: 12 }),
+      millCap: lathe([[0, MILL.glass], [R - 0.4, MILL.glass, 1], [R + 0.2, MILL.glass + 1.2], [R + 0.2, MILL.cap - 3], [R - 1.6, MILL.cap - 0.4], [R * 0.5, MILL.cap], [0, MILL.cap]], { segs: 40 }),
+      powder: (level) => cylinder(R - 2.6, MILL.base + 0.5, level, { segs: 36 }),
+      dust: sphere(1, 8, 6),
     };
   });
 }
 
-const slushMat = (fruit, churning) => once(`slush|${fruit}|${churning}`, () => {
-  const c = smoothieColorOf(fruit);
-  return material({ color: mix(c, '#3a1a2a', 0.08), color2: mix(c, '#ffffff', 0.45), rough: 0.4, coat: 0.1, mode: MODE.SLUSH, p: [3, 0.12, churning ? 5 : 0, 0.75] });
-});
-const streamMat = (fruit) => once(`stream|${fruit}`, () => material({ color: smoothieColorOf(fruit), rough: 0.2, coat: 0.3, mode: MODE.STREAM, p: [-2.4, 0, 0, 0] }));
+const streamMat = (kind) => once(`mt-stream|${kind}`, () => material({ color: MATCHA_COLORS[kind], rough: 0.2, coat: 0.3, mode: MODE.STREAM, p: [-2.4, 0, 0, 0] }));
 
 // o = { slots: [{ state, fruit, progress }] } (1 or 2 slots)
-export function machineScene(o = {}, t = 0, frame = VIEWS.machine) {
+export function matchaScene(o = {}, t = 0, frame = VIEWS.machine) {
   const slots = (o.slots && o.slots.length ? o.slots : [{ state: 'empty' }]).slice(0, 2);
   const n = slots.length >= 2 ? 2 : 1;
-  const M = MACHINE[n];
-  const P = machineParts(n);
-  const xs = MACHINE_SLOT_X[n];
+  const M = MATCHA[n];
+  const P = matchaParts(n);
   const items = [];
-  const zc = -3; // centre of the body front to back
-  items.push(shadow(M.w / 2 - 2, 44, 10, 11, 0.6, at(0, 0, zc)));
-  // body (back wall of the cup bays), head with the taps, plinth, side cheeks
-  items.push(item(P.body, M.back, at(0, HEAD_Y[1] / 2, -21)));
-  items.push(item(P.head, M.head, at(0, (HEAD_Y[0] + HEAD_Y[1]) / 2, 16)));
-  items.push(item(P.plinth, MAT.blackSatin, at(0, 2.5, 14)));
-  for (const sx of [-1, 1]) items.push(item(P.cheek, M.cheek, at(sx * (M.w / 2 - 4.5), HEAD_Y[1] / 2, -2)));
-  if (n === 2) items.push(item(P.divider, M.cheek, at(0, 8 + (HEAD_Y[0] - 8) / 2, 20)));
-  // trim line under the head and the model plate
-  items.push(item(once(`mach-trim|${n}`, () => roundedBox(M.w - 6, 1.6, 1.2, 0.6, 2)), MAT.chrome, at(0, HEAD_Y[0] + 1.2, 40.4)));
+  const zc = (ZB + TRAY_Z) / 2;
+  items.push(shadow(M.w / 2 - 3, (TRAY_Z - ZB) / 2 - 2, 10, 11, 0.6, at(0, 0, zc)));
+  // housing: olive shell, the black front (an olive frame around it), the drip tray along the bottom
+  items.push(item(P.shell, MATCHA_MAT.olive, at(0, (MH - 3) / 2 + 3, (ZB + ZF) / 2)));
+  items.push(item(P.panel, MATCHA_MAT.front, at(0, 7 + (MH - 16) / 2, ZF)));
+  items.push(item(P.base, MATCHA_MAT.tray, at(0, TRAY_Y / 2, (ZB + TRAY_Z) / 2)));
+  items.push(item(P.lip, MATCHA_MAT.front, at(0, TRAY_Y - 0.6, TRAY_Z - 0.4)));
+  items.push(item(once(`mt-sheen-plane|${n}`, () => plane(M.w - 12, MH - 16)), decalMat('mt-sheen-mat', sheenTexture, 0, { rough: 0.2, coat: 0.6 }),
+    at(0, 7 + (MH - 16) / 2, ZF + 1.6), 'decal'));
+  const phases = slots.map((s) => brewPhase(s?.state === 'mixing' || s?.state === 'ready' ? s.state : 'empty', s?.progress));
+  const ZA = GLASS_Z;
+  const zPanel = ZF + 1.55;
 
   slots.forEach((slot, i) => {
-    const x = xs[i];
+    const [b0, b1] = M.bays[i];
+    const [rb, rt] = M.tank;
+    const x = MACHINE_SLOT_X[n][i];
     const st = slot?.state === 'mixing' || slot?.state === 'ready' ? slot.state : 'empty';
-    const fruit = slot?.fruit || 'strawberry';
-    const ph = slushPhase(st, slot?.progress);
-    // drip tray with a grate
-    items.push(item(P.tray, M.tray, at(x, TRAY_Y - 1.5, 22)));
-    items.push(item(once('mach-grate', () => plane(58, 38, { up: true })), once('grate-mat', () => material({ color: '#c3cad0', metal: 1, rough: 0.26, mode: MODE.GRILLE, p: [20, 1, 0.3, 0] })), at(x, TRAY_Y + 0.06, 22)));
-    // tap: valve under the head, nozzle above the cup, lever in front
-    items.push(item(P.valve, MAT.white, at(x, HEAD_Y[0] + 3, 38)));
-    items.push(item(P.nozzle, MAT.chrome, compose(at(x, HEAD_Y[0] - 0.5, CUP_Z), rotationX(Math.PI))));
-    const open = ph.pour > 0 ? 0.75 : 0;
-    const lever = compose(at(x, HEAD_Y[0] + 6, 43), rotationX(open));
-    items.push(item(P.lever, M.lever, lever));
-    items.push(item(P.knob, n === 2 ? once(`knob|${fruit}`, () => material({ color: smoothieColorOf(fruit), rough: 0.25, coat: 0.8 })) : once('knob-red', () => material({ color: '#e8344a', rough: 0.25, coat: 0.9 })), compose(lever, at(0, 18, 7))));
-    // status LED on the head
-    const ledMat = st === 'ready' ? LED.green : st === 'mixing' ? (Math.sin(t * 8) > -0.2 ? LED.amber : MAT.ledOff) : MAT.ledOff;
-    const lx = x + (n === 2 ? -17 : -19);
-    items.push(item(once('led-dome', () => sphere(1, 12, 8)), ledMat, compose(at(lx, HEAD_Y[0] + 6, 40.3), scaling(1.5, 1.5, 1))));
-    if (ledMat !== MAT.ledOff) items.push(glow(st === 'ready' ? '#3dff70' : '#ffc04a', lx, HEAD_Y[0] + 6, 42, 5, 0.6));
-    // stream into the cup
+    const ph = phases[i];
+    // the recess behind the glass and the grate it stands on
+    const rw = b1 - b0 - 6;
+    const rh = COLLAR[0] - 10;
+    items.push(item(once(`mt-recess-plane|${rw}|${rh}`, () => plane(rw, rh)), decalMat(`mt-recess-mat|${rw}|${rh}`, () => recessTexture(rw, rh, false), 0, { rough: 0.6, coat: 0.2 }),
+      at(x, 9 + rh / 2, zPanel), 'decal'));
+    items.push(item(once(`mt-grate|${rw}`, () => plane(rw - 6, 32, { up: true })), MATCHA_MAT.grate, at(x, TRAY_Y + 0.06, ZA)));
+    // nozzle head and tip under the collar
+    items.push(item(P.head, MATCHA_MAT.front, at(x, 0, ZA)));
+    items.push(item(P.tip, MAT.chrome, at(x, 0, ZA)));
+    // the collar with its band, the small knob on its front right and the status LED on its front left
+    const col = at(x, 0, ZA);
+    items.push(item(P.collar, MATCHA_MAT.olive, col));
+    items.push(item(P.band, MATCHA_MAT.oliveDark, col));
+    const ka = Math.PI * 0.32;
+    const [kx, kz] = section(ka, 0.35, TANK_DEPTH);
+    items.push(item(P.knob, MAT.chrome, compose(at(x + kx * (rb + 0.9), (COLLAR[0] + COLLAR[1]) / 2 + 0.6, ZA + kz * (rb + 0.9)), rotationY(Math.PI / 2 - ka), rotationX(Math.PI / 2))));
+    const blink = Math.sin(t * 8) > -0.2;
+    const ledMat = st === 'ready' ? LED.green : st === 'mixing' && blink ? LED.amber : MAT.ledOff;
+    const [lx, lz] = section(Math.PI * 0.64, 0.35, TANK_DEPTH);
+    const lp = [x + lx * (rb + 1.1), (COLLAR[0] + COLLAR[1]) / 2 + 1, ZA + lz * (rb + 1.1)];
+    items.push(item(once('led-dome', () => sphere(1, 12, 8)), ledMat, compose(at(...lp), scaling(2.4, 2.4, 1.4))));
+    if (ledMat !== MAT.ledOff) items.push(glow(st === 'ready' ? '#3dff70' : '#ffc04a', lp[0], lp[1], lp[2] + 2.5, 8, 0.8));
+    // the stream from the nozzle: milk first, then the matcha settles on it
     if (ph.pour > 0) {
-      const len = HEAD_Y[0] - 7 - (TRAY_Y + 4);
-      items.push(item(P.stream, streamMat(fruit), compose(at(x, TRAY_Y + 4, CUP_Z), scaling(1, len, 1))));
+      const kind = pourFill(slot.progress) < MATCHA_MILK ? 'milk' : 'light';
+      const y0 = TRAY_Y + 6;
+      items.push(item(P.stream, streamMat(kind), compose(at(x, y0, ZA), scaling(1, NOZZLE_Y - y0, 1))));
     }
-    // tank on top: slush, auger, column, clear bowl, lid
-    const tz = zc;
-    const tankM = at(x, HEAD_Y[1], tz);
-    items.push(item(P.tankFoot, MAT.blackSatin, tankM));
-    const spin = ph.churn > 0 ? t * (3.2 * ph.churn + 1) : t * 0.35 * (st === 'ready' ? 1 : 0);
-    items.push(item(P.column, MAT.steel, tankM));
-    items.push(item(P.auger, MAT.white, compose(tankM, rotationY(spin))));
-    if (ph.fill > 0.02) {
-      const level = 1 + (M.tankH - 14) * ph.fill;
-      const sl = slushMeshes(n, level);
-      const mat = slushMat(fruit, ph.churn > 0);
-      const L = sl.level;
-      const amp = ph.churn > 0 ? 1.6 : 0.4;
-      updateSurface(sl.surface, (xx, zz, k, a) => L + amp * Math.sin(2 * a - t * 5 + k * 3) * k + amp * 0.6 * Math.sin(5 * a + t * 3.4) * k * k + (ph.churn ? -2.2 * (1 - k * k) : -0.5 * (1 - k * k)));
-      items.push(item(sl.body, mat, tankM));
-      items.push(item(sl.surface, mat, tankM));
-      if (ph.filling) {
-        // fruit pieces tumbling in
-        const fm = once(`fruitbit|${fruit}`, () => material({ color: mix(smoothieColorOf(fruit), '#ffffff', 0.1), rough: 0.35, coat: 0.4 }));
-        for (let k = 0; k < 4; k++) {
-          const ky = L + 30 - ((t * 60 + k * 9) % 34);
-          items.push(item(once('chunk', () => roundedBox(1, 1, 1, 0.3, 2)), fm, compose(tankM, at(-12 + k * 8, ky, 4 - k * 3), rotationX(t * 4 + k), rotationY(k), scaling(5.5))));
-        }
+    // the water tank: water (bubbles rising while it heats), the smoked shell, its grip, the lid
+    const used = st === 'ready' ? 1 : st === 'mixing' ? pourFill(slot.progress) : 0;
+    const level = Math.round((COLLAR[1] + (MH - 3 - COLLAR[1]) * (0.72 - 0.12 * used)) * 2) / 2;
+    const water = once(`mt-water|${n}|${level}`, () => P.waterBody(level));
+    items.push(item(water, MATCHA_MAT.water, at(x, 0, ZA)));
+    if (ph.heat > 0) {
+      // (on the front of the water, where they show through the smoked shell; the water is opaque)
+      const rng = rngFor(`mt-bubbles|${i}`);
+      const r0 = rb - 2;
+      const r1 = P.tankR(level) - 1.8;
+      for (let k = 0; k < 7; k++) {
+        const sp = 9 + rng.next() * 7;
+        const span = level - COLLAR[1] - 4;
+        const y = COLLAR[1] + 2 + ((t * sp + rng.next() * span) % span);
+        // evenly across the front (section's x is cos(a) ** e with e = 2 / (2 + 8 · 0.7))
+        const u = (rng.next() * 2 - 1) * 0.8;
+        const a = Math.acos(Math.sign(u) * Math.abs(u) ** 3.8);
+        const rr = r0 + ((r1 - r0) * (y - COLLAR[1] - 1)) / (level - COLLAR[1] - 1);
+        const [bx, bz] = section(a, 0.7, TANK_DEPTH);
+        const sz = (1.3 + rng.next() * 1.4) * ph.heat;
+        items.push(item(P.dust, MATCHA_MAT.bubble, compose(at(x + bx * rr + Math.sin(t * 5 + k) * 0.6, y, ZA + bz * rr), scaling(sz))));
       }
     }
-    items.push(item(P.tank, MAT.glassTank, tankM, 'glass'));
-    items.push(item(P.lid, M.lid, tankM));
-    items.push(item(P.lidCap, n === 2 ? MAT.blackGloss : MAT.steel, tankM));
+    items.push(item(P.tank, MATCHA_MAT.smoke, at(x, 0, ZA), 'glass'));
+    // (the grip lies on the shell, drawn after it: under the smoke it would not read at 1×)
+    const gy = (COLLAR[1] + MH) / 2 + 3;
+    const gz = ZA + P.tankR(gy) * TANK_DEPTH + 0.6;
+    const lean = Math.atan2((rt - rb) * TANK_DEPTH, MH - 3 - COLLAR[1]);
+    items.push(item(once(`mt-grip-plane|${n}`, () => plane(rt * 0.36, (MH - COLLAR[1]) * 0.66)), decalMat('mt-grip-mat', gripTexture, 0, { rough: 0.2, coat: 0.6 }),
+      compose(at(x - P.tankR(gy) * 0.52, gy, gz), rotationX(-lean), rotationY(-0.2)), 'glass', 1));
+    items.push(item(P.lid, MATCHA_MAT.lid, at(x, 0, ZA)));
+    items.push(item(P.vent, MAT.blackSatin, at(x + rt * 0.35, 0, ZA - rt * TANK_DEPTH * 0.3)));
+    // steam from the lid's vent while it heats: puffs rising, growing and fading (in 8 steps of
+    // strength, so the materials stay a handful), blended with a grey edge so they show over white
+    if (ph.heat > 0.05) {
+      for (let k = 0; k < 5; k++) {
+        const life = (t * 0.55 + k / 5) % 1;
+        const a = steps8(ph.heat * Math.sin(Math.PI * life) ** 1.5);
+        if (!a) continue;
+        const y = MH + 3 + life * 32;
+        const sx = x + rt * 0.35 + Math.sin(t * 1.7 + k * 2.1 + life * 4) * (2 + life * 7);
+        const r = 4 + life * 9;
+        const mat = decalMat(`mt-steam-mat|${a}`, steamTexture, 0.3, { alpha: a, rough: 0.9, coat: 0 });
+        items.push(item(once('mt-steam-plane', () => plane(2, 2)), mat, compose(at(sx, y, ZA - rt * TANK_DEPTH * 0.3), rotationX(-ELEV), scaling(r)), 'glass'));
+      }
+    }
   });
+
+  // the tea mill in its arched alcove (one for the whole machine; it grinds while any slot does)
+  const grind = Math.max(...phases.map((p) => p.grind));
+  const dust = Math.max(...phases.map((p) => p.dust));
+  const powder = Math.min(...phases.map((p) => p.powder));
+  const mx = M.mill;
+  const R = M.millR;
+  const aw = Math.round(R * 2 + 10);
+  const ah = MILL.cap + 6 - 9;
+  items.push(item(once(`mt-alcove-plane|${aw}|${ah}`, () => plane(aw, ah)), decalMat(`mt-alcove-mat|${aw}|${ah}`, () => recessTexture(aw, ah, true), 0, { rough: 0.6, coat: 0.2 }),
+    at(mx, 9 + ah / 2, zPanel), 'decal'));
+  const mill = at(mx, 0, ZA);
+  items.push(item(P.millBase, MATCHA_MAT.millBase, mill));
+  const level = Math.round((MILL.base + 3 + 17 * powder) * 2) / 2;
+  items.push(item(once(`mt-powder|${n}|${level}`, () => P.powder(level)), MATCHA_MAT.powder, mill));
+  const spin = grind > 0 ? t * 9 : 0;
+  items.push(item(P.shaft, MAT.chrome, mill));
+  items.push(item(P.burr, MATCHA_MAT.burr, compose(mill, at(0, MILL.glass - 11, 0), rotationY(spin))));
+  if (dust > 0) {
+    // green dust whirled up by the burr
+    const rng = rngFor('mt-dust');
+    for (let k = 0; k < 9; k++) {
+      const a = rng.next() * Math.PI * 2 + t * (4 + rng.next() * 3);
+      const rr = (R - 4) * (0.35 + rng.next() * 0.6);
+      const y = level + 2 + rng.next() * (MILL.glass - 14 - level) + Math.sin(t * 6 + k) * 1.5;
+      items.push(item(P.dust, MATCHA_MAT.powder, compose(mill, at(Math.cos(a) * rr, y, Math.sin(a) * rr), scaling(0.7 + rng.next() * 0.6))));
+    }
+    if (steps8(dust)) items.push(glow('#b8d873', mx, (level + MILL.glass - 10) / 2, ZA + R, R * 0.95, 0.5 * steps8(dust), { k: 1.1 }));
+  }
+  items.push(item(P.millGlass, MATCHA_MAT.millGlass, mill, 'glass'));
+  for (const y of [MILL.glass - 5, MILL.glass - 2.2]) items.push(item(P.ring, MATCHA_MAT.olive, compose(mill, at(0, y, 0))));
+  items.push(item(P.millCap, MATCHA_MAT.millBase, mill));
+
+  // lettering over the mill; the two-slot model has a temperature display above it
+  const ly = n === 2 ? 142 : 138;
+  const lw = n === 2 ? 50 : 56;
+  items.push(item(once(`mt-word-plane|${lw}`, () => plane(lw, lw / 4)), decalMat('mt-word-mat', () => labelTexture('MATCHA', '#e8e2c2', { w: 512, h: 128, spacing: 0.14 })), at(mx, ly, zPanel), 'decal'));
+  items.push(item(once('mt-brand-plane', () => plane(36, 4.5)), once('mt-brand-mat', () => labelMat('AÇAÍ FEVER', '#b9b48a', BRAND)), at(mx, ly - 10, zPanel), 'decal'));
   if (n === 2) {
-    const disp = once('mach-disp', () => texMat(segmentTexture('-4°C', '#7fd8ff'), 1.3, { color: '#000000' }));
-    items.push(item(once('mach-disp-plane', () => plane(22, 8)), disp, at(0, (HEAD_Y[0] + HEAD_Y[1]) / 2, 40.35)));
-  } else {
-    items.push(item(once('mach-plate', () => plane(26, 4.6)), once('mach-plate-mat', () => labelMat('SLUSH', '#f3eefa')), at(26, (HEAD_Y[0] + HEAD_Y[1]) / 2, 40.3), 'decal'));
+    const disp = once('mt-disp', () => texMat(segmentTexture('80°C', '#a6ff6a'), 1.3, { color: '#000000' }));
+    items.push(item(once('mt-disp-plane', () => plane(22, 8.4)), disp, at(mx, ly + 13, zPanel)));
   }
   return { frame, elev: ELEV, time: t, items };
 }
@@ -1369,4 +1604,4 @@ export function isAnimated(kind, o = {}) {
   return false;
 }
 
-export const SCENES = { blender: blenderScene, machine: machineScene, trash: trashScene, freezer: freezerScene, pantry: pantryScene };
+export const SCENES = { blender: blenderScene, machine: matchaScene, trash: trashScene, freezer: freezerScene, pantry: pantryScene };

@@ -651,7 +651,6 @@ export const MODE = {
   FROST: 4, // frosted surface; p.x amount, p.y frost along the uv edges, p.z light streaks (glass panes)
   SHADOW: 5, // soft contact shadow of a rounded rect: p.x half width, p.y half depth, p.z radius, p.w blur
   TEX: 6, // texture (labels, displays); p.x glow of the texture
-  SLUSH: 7, // churning ice slush; like PUREE plus crystals
   STREAM: 8, // poured liquid; p.x flow speed
   KNURL: 9, // grip ridges around the object's y axis; p.x ridges
   GRILLE: 10, // slots / holes over the uv square; p.x columns, p.y rows, p.z hole width

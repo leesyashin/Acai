@@ -1,6 +1,6 @@
 // Order generation and pricing. Pure module (no DOM) – used by the engine and tests.
 
-import { INGREDIENTS, ING, isSmoothieFruit, ingredientValue, smoothieValue } from './data.js';
+import { INGREDIENTS, ING, isMatchaFruit, ingredientValue, matchaValue } from './data.js';
 
 const FEATURED_WEIGHT = 2;
 const CATALOG_INDEX = Object.fromEntries(INGREDIENTS.map((ing, i) => [ing.id, i]));
@@ -39,8 +39,9 @@ function countInRange(rng, range, available, min = 0) {
 }
 
 // owned: ingredient ids; config: level or endlessConfig(stage);
+// matcha: the matcha machine is there (a fruit matcha may join the bowl);
 // featured: freshly bought ingredients – twice as likely so the player gets to use them.
-export function generateOrder(rng, { owned, config, smoothies = false, featured = [] }) {
+export function generateOrder(rng, { owned, config, matcha = false, featured = [] }) {
   const weightOf = (id) => (featured.includes(id) ? FEATURED_WEIGHT : 1);
   const bases = ownedOfLayer(owned, 'base');
   const mids = ownedOfLayer(owned, 'mid');
@@ -51,12 +52,13 @@ export function generateOrder(rng, { owned, config, smoothies = false, featured 
   const mid = weightedSample(rng, mids, countInRange(rng, config.mid, mids.length, 1), weightOf);
   const top = weightedSample(rng, tops, countInRange(rng, config.top, tops.length), weightOf);
 
-  let smoothie = null;
-  if (smoothies && config.smoothieChance > 0 && rng.chance(config.smoothieChance)) {
-    const fruits = owned.filter(isSmoothieFruit).sort(byCatalog);
-    if (fruits.length) smoothie = weightedPick(rng, fruits, weightOf);
+  // the drink: a fruit matcha (iced matcha latte on a purée of one owned fruit)
+  let drink = null;
+  if (matcha && config.matchaChance > 0 && rng.chance(config.matchaChance)) {
+    const fruits = owned.filter(isMatchaFruit).sort(byCatalog);
+    if (fruits.length) drink = weightedPick(rng, fruits, weightOf);
   }
-  return { bowl: { base, mid, top }, smoothie };
+  return { bowl: { base, mid, top }, matcha: drink };
 }
 
 export function bowlValue(bowl, ingLevels = {}) {
@@ -66,6 +68,6 @@ export function bowlValue(bowl, ingLevels = {}) {
 }
 
 export function orderValue(order, ingLevels = {}) {
-  const drink = order.smoothie ? smoothieValue(order.smoothie, ingLevels) : 0;
+  const drink = order.matcha ? matchaValue(order.matcha, ingLevels) : 0;
   return bowlValue(order.bowl, ingLevels) + drink;
 }

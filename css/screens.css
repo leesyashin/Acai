@@ -494,9 +494,9 @@
   transform-origin: 50% 90%;
   animation: title-bounce 1.5s ease-in-out infinite;
 }
-.title-bowl svg, .title-cup svg { display: block; }
+.title-bowl svg, .title-drink svg { display: block; }
 
-.title-cup {
+.title-drink {
   position: absolute;
   left: 918px;
   top: 576px;
@@ -1020,7 +1020,7 @@
   display: flex;
 }
 .card-quality svg { display: block; margin-left: -3px; }
-.card-smoothie {
+.card-matcha {
   position: absolute;
   left: calc(50% + 18px);
   bottom: -4px;
@@ -1108,6 +1108,8 @@
 .upg-machine { position: relative; }
 .upg-machine > span { position: absolute; }
 .upg-machine svg { display: block; }
+.upg-machine-crop { position: relative; flex: none; overflow: hidden; }
+.upg-machine-crop > div { position: absolute; }
 /* 3D pictures of the appliances (js/art3d.js) stand in for the drawn svg art */
 img.art3d { display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; }
 .upg-art-pair .art3d + .art3d { margin-left: -26px; }

@@ -1,6 +1,6 @@
 // E2E checks of the 3D kitchen appliances (js/art3d.js + js/kitchen3d.js through js/game-view.js
 // and js/screens.js): WebGL canvases at every station, one model per upgrade level, animations that
-// follow the game (blending, bin lid, cold air from the freezer, smoothie tap), the ingredient containers' still
+// follow the game (blending, bin lid, cold air from the freezer, the matcha machine's nozzle), the ingredient containers' still
 // pictures drawn again for a new pixel ratio, and the drawn SVG art when the browser has no WebGL.
 // Run: node tests/e2e/appliances.e2e.mjs   (serves the repo on :8090, exits non-zero on failure)
 
@@ -211,14 +211,20 @@ async function main() {
         assert(after.hash === closed.hash, 'the cold air does not settle again');
       });
 
-      await check('smoothie machine: churn first, then the tap fills the cup', async () => {
-        await engine(page, 'return e.loadSmoothie(g, 0, "mango").ok;');
-        const cupHasMango = () => page.evaluate(() => document.querySelector('[data-smoothie-slot="0"] .g-art svg')?.innerHTML.includes('#ffb53b'));
+      await check('matcha machine: the purée first, the mill grinds, then the nozzle fills the glass', async () => {
+        await engine(page, 'return e.loadMatcha(g, 0, "mango").ok;');
+        // the glass's layers (js/art-food.js): mango purée, then the matcha over the milk
+        const glassHas = (col) => page.evaluate((c) => !!document.querySelector('[data-matcha-slot="0"] .g-art svg')?.innerHTML.includes(c), col);
+        const machine = () => canvasInfo(page, '.g-machine canvas.g-3d');
         await sleep(300);
-        assert(!(await cupHasMango()), 'the cup fills before the tap opens');
-        await fastUntil(page, () => window.__acaiGame.smoothie.slots[0].progress > 0.8, null, 2);
+        assert(await glassHas('#ffa623'), 'no mango purée in the glass at the start');
+        assert(!(await glassHas('#7f9f37')), 'the glass fills before the nozzle pours');
+        const a = await machine();
+        await sleep(400);
+        assert((await machine()).hash !== a.hash, 'the machine stands still while it brews');
+        await fastUntil(page, () => window.__acaiGame.matcha.slots[0].progress > 0.8, null, 2);
         await sleep(200);
-        assert(await cupHasMango(), 'the cup does not fill while the tap pours');
+        assert(await glassHas('#7f9f37'), 'the glass does not fill while the nozzle pours');
         await page.screenshot({ path: path.join(OUT, 'pour.png') });
       });
 
@@ -288,7 +294,7 @@ async function main() {
       await check('without WebGL the game draws the SVG appliances', async () => {
         assert(await page.locator('.screen-game.is-3d').count() === 0, 'is-3d without WebGL');
         assert(await page.locator('[data-blender="0"] .g-art svg [data-fill], [data-blender="0"] .g-art svg').count() >= 1, 'no SVG blender');
-        assert(await page.locator('.g-machine > svg').count() === 1, 'no SVG smoothie machine');
+        assert(await page.locator('.g-machine > svg').count() === 1, 'no SVG matcha machine');
         assert(await page.locator('.g-trash .g-art svg').count() === 1, 'no SVG trash can');
         assert(await page.locator('canvas.g-3d').count() === 0, '3D canvases without WebGL');
         await engine(page, 'return e.loadBlender(g, 0, "acai").ok;');

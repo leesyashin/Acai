@@ -4,7 +4,7 @@
 
 import { registerStrings, t, getLang, setLang, formatNumber } from './i18n.js';
 import {
-  LAYERS, LEVELS, UPGRADES, UPG, ENDLESS_UNLOCK_LEVEL, SMOOTHIE_LEVEL,
+  LAYERS, LEVELS, UPGRADES, UPG, ENDLESS_UNLOCK_LEVEL, MATCHA_LEVEL,
   getLevel, ingName, ingredientValue, ingredientsByLayer, qualityUpgradeCost, nextUpgradeCost, getKitchenStats,
 } from './data.js';
 import {
@@ -12,9 +12,9 @@ import {
   upgradeLevel, ingLevel, upgradeLocked, buyIngredient, upgradeIngredient, buyUpgrade, setSetting, resetSave,
 } from './save.js';
 import {
-  logoSVG, bowlSVG, ingredientIcon, packIcon, cupSVG, customerSVG, blenderSVG, smoothieMachineSVG, decorSVG,
+  logoSVG, bowlSVG, ingredientIcon, packIcon, matchaGlassSVG, customerSVG, blenderSVG, matchaMachineSVG, decorSVG,
   coinSVG, starSVG, heartSVG, clockSVG, lockSVG, mapBackgroundSVG,
-  SMOOTHIE_SLOT_X, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
+  MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE,
 } from './art.js';
 import { pictureMarkup } from './art3d.js';
 import { blenderLook, BLENDER_MODELS } from './kitchen3d.js';
@@ -46,7 +46,7 @@ registerStrings({
     'map.goalReached': 'Erreicht',
     'map.seats': '{n} Plätze',
     'map.hearts': '{n} Herzen',
-    'map.smoothies': 'Smoothies',
+    'map.matcha': 'Matcha',
     'map.time': 'Zeit',
     'map.start': 'Los geht’s!',
     'map.shopHint': 'Du hast {n} Münzen – im Shop wartet etwas Neues!',
@@ -58,8 +58,8 @@ registerStrings({
     'intro.overflow.text': 'Ab jetzt wartet ein fertiger Mixer nicht ewig: Bleibt er zu lange stehen, läuft er über und die Basis verdirbt. Verdorbenes kommt in den Müll.',
     'intro.moreSeats.title': 'Mehr Gäste',
     'intro.moreSeats.text': 'Dein Laden hat jetzt 3 Plätze. Behalte die Geduld aller Gäste im Blick!',
-    'intro.smoothie.title': 'Smoothies!',
-    'intro.smoothie.text': 'Neu: die Smoothie-Maschine! Zieh eine Frucht hinein, warte kurz und gib den fertigen Becher dem Gast.',
+    'intro.matcha.title': 'Matcha!',
+    'intro.matcha.text': 'Neu: die Matcha-Maschine! Zieh eine Frucht auf ein Glas, warte, bis der Matcha fertig ist, und gib ihn dem Gast.',
     'intro.endless.title': 'Endlos-Modus',
     'intro.endless.text': 'Alle 30 Sekunden wird es schwerer. Spiel, bis alle Herzen weg sind, und knack deinen Rekord!',
     'intro.fourSeats.title': 'Volles Haus',
@@ -84,13 +84,13 @@ registerStrings({
     'shop.tipTitle': 'Tipp',
     'shop.tipText': 'Neue Zutaten tauchen sofort in Bestellungen auf und bringen mehr Münzen.',
     'shop.tipQuality': 'Qualität ★: +30 % und +60 % Münzen pro Portion.',
-    'shop.smoothie': 'Auch als Smoothie',
+    'shop.matcha': 'Auch als Matcha',
     'shop.levelOf': 'Stufe {a} von {b}',
     'shop.stat.blendTime': 'Mixzeit',
     'shop.stat.portions': 'Bowls pro Mix',
     'shop.stat.blenders': 'Mixer',
     'shop.stat.bowlSlots': 'Bowl-Plätze',
-    'shop.stat.smoothieSlots': 'Smoothie-Plätze',
+    'shop.stat.matchaSlots': 'Matcha-Plätze',
     'shop.stat.patience': 'Geduld der Gäste',
     'shop.seconds': '{n} s',
     'shop.percent': '+{n} %',
@@ -172,7 +172,7 @@ registerStrings({
     'map.goalReached': 'Reached',
     'map.seats': '{n} seats',
     'map.hearts': '{n} hearts',
-    'map.smoothies': 'Smoothies',
+    'map.matcha': 'Matcha',
     'map.time': 'Time',
     'map.start': 'Let’s go!',
     'map.shopHint': 'You have {n} coins – something new is waiting in the shop!',
@@ -184,8 +184,8 @@ registerStrings({
     'intro.overflow.text': 'From now on a ready blender won’t wait forever: leave it too long and it overflows and the base spoils. Spoiled stuff goes in the trash.',
     'intro.moreSeats.title': 'More customers',
     'intro.moreSeats.text': 'Your shop now has 3 seats. Keep an eye on everyone’s patience!',
-    'intro.smoothie.title': 'Smoothies!',
-    'intro.smoothie.text': 'New: the smoothie machine! Drag a fruit into it, wait a moment and hand the cup to the customer.',
+    'intro.matcha.title': 'Matcha!',
+    'intro.matcha.text': 'New: the matcha machine! Drag a fruit onto a glass, wait until the matcha is ready and hand it to the customer.',
     'intro.endless.title': 'Endless mode',
     'intro.endless.text': 'It gets harder every 30 seconds. Play until your hearts run out and beat your best score!',
     'intro.fourSeats.title': 'Full house',
@@ -210,13 +210,13 @@ registerStrings({
     'shop.tipTitle': 'Tip',
     'shop.tipText': 'New ingredients show up in orders right away and earn more coins.',
     'shop.tipQuality': 'Quality ★: +30% and +60% coins per serving.',
-    'shop.smoothie': 'Also as a smoothie',
+    'shop.matcha': 'Also as a matcha',
     'shop.levelOf': 'Level {a} of {b}',
     'shop.stat.blendTime': 'Blend time',
     'shop.stat.portions': 'Bowls per batch',
     'shop.stat.blenders': 'Blenders',
     'shop.stat.bowlSlots': 'Bowl spots',
-    'shop.stat.smoothieSlots': 'Smoothie spots',
+    'shop.stat.matchaSlots': 'Matcha spots',
     'shop.stat.patience': 'Customer patience',
     'shop.seconds': '{n} s',
     'shop.percent': '+{n}%',
@@ -549,7 +549,7 @@ const title = {
       </div>
       <div class="title-counter" aria-hidden="true"></div>
       <div class="title-bowl" aria-hidden="true"><div class="title-bowl-inner">${bowlSVG({ base: 'acai', mid: ['banana', 'strawberry', 'blueberry'], top: ['coconut', 'honey'] }, 240)}</div></div>
-      <div class="title-cup" aria-hidden="true">${cupSVG('mango', 'ready', 120)}</div>
+      <div class="title-drink" aria-hidden="true">${matchaGlassSVG('mango', 'ready', 120)}</div>
       <div class="sc-topbar">
         <div class="sc-topbar-group">${coinsPill()}${starsPill()}</div>
         <div class="sc-topbar-group">
@@ -620,7 +620,7 @@ const title = {
 const MAP_ROWS = [668, 528, 388, 248];
 const MAP_COLS = [250, 445, 640, 835, 1030];
 const MAP_WAVE = 14;
-const MAP_BADGES = { 7: 'smoothie', 10: 'endless' };
+const MAP_BADGES = { 7: 'matcha', 10: 'endless' };
 
 function levelPos(index) {
   const row = Math.floor(index / 5);
@@ -656,7 +656,7 @@ function nextPlayableLevel() {
 
 function mapBadge(levelId) {
   const kind = MAP_BADGES[levelId];
-  if (kind === 'smoothie') return `<span class="map-badge">${cupSVG('strawberry', 'ready', 40)}</span>`;
+  if (kind === 'matcha') return `<span class="map-badge">${matchaGlassSVG('strawberry', 'ready', 40)}</span>`;
   if (kind === 'endless') return `<span class="map-badge is-endless">${ICON.endless(34)}</span>`;
   return '';
 }
@@ -767,8 +767,8 @@ function introArt(key) {
       return `<div class="intro-art intro-art-steps">${packIcon('acai', 54)}<i></i>${blenderArt({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 64, null, {})}<i></i>${bowlSVG(null, 60)}<i></i>${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 70)}</div>`;
     case 'overflow':
       return `<div class="intro-art">${blenderArt({ state: 'overflowing', base: 'acai', portions: 2, maxPortions: 2 }, 110, null, {})}</div>`;
-    case 'smoothie':
-      return `<div class="intro-art">${smoothieMachineArt(132, ['strawberry'])}</div>`;
+    case 'matcha':
+      return `<div class="intro-art">${matchaMachineArt(140, ['strawberry'], true)}</div>`;
     case 'endless':
       return `<div class="intro-art intro-art-endless">${ICON.endless(96)}</div>`;
     case 'moreSeats':
@@ -832,7 +832,7 @@ export function openPreLevel(container, levelId, ctx = {}, opts = {}) {
         <span class="sc-chip" title="${esc(t('map.time'))}">${clockSVG(32)}<b>${timeText(level.duration)}</b></span>
         <span class="sc-chip">${seatsIcons(level.seats, level.id * 11)}<b>${esc(t('map.seats', { n: level.seats }))}</b></span>
         <span class="sc-chip">${heartSVG(true, 30)}<b>${esc(t('map.hearts', { n: level.hearts }))}</b></span>
-        ${level.id >= SMOOTHIE_LEVEL ? `<span class="sc-chip">${cupSVG('kiwi', 'ready', 36)}<b>${esc(t('map.smoothies'))}</b></span>` : ''}
+        ${level.id >= MATCHA_LEVEL ? `<span class="sc-chip">${matchaGlassSVG('kiwi', 'ready', 36)}<b>${esc(t('map.matcha'))}</b></span>` : ''}
       </div>
       ${level.intro ? `<div class="prelevel-intro intro-${level.intro}">
         ${introArt(level.intro)}
@@ -938,7 +938,7 @@ function ingredientCard(ing) {
   return `<article class="shop-card ing-card is-${state}" data-card="${ing.id}" data-shop-item="${ing.id}" data-state="${state}">
     ${owned ? `<span class="card-owned" title="${esc(t('shop.owned'))}">${ICON.check(22)}<span class="sc-sr">${esc(t('shop.owned'))}</span></span>` : ''}
     ${owned ? `<span class="card-quality" role="img" aria-label="${esc(t('shop.qualityAria', { n: q }))}">${starSVG(q >= 1, 22)}${starSVG(q >= 2, 22)}</span>` : ''}
-    <div class="card-icon">${ing.layer === 'base' ? packIcon(ing.id, 68) : ingredientIcon(ing.id, 64)}${ing.smoothie ? `<span class="card-smoothie" title="${esc(t('shop.smoothie'))}">${cupSVG(ing.id, 'ready', 30)}</span>` : ''}</div>
+    <div class="card-icon">${ing.layer === 'base' ? packIcon(ing.id, 68) : ingredientIcon(ing.id, 64)}${ing.matcha ? `<span class="card-matcha" title="${esc(t('shop.matcha'))}">${matchaGlassSVG(ing.id, 'ready', 30)}</span>` : ''}</div>
     <h3 class="card-name">${esc(name)}</h3>
     <p class="card-value">${coinSVG(20)}<b>${numFmt(value)}</b><span>${esc(t('shop.perUse'))}</span></p>
     ${action}
@@ -965,7 +965,7 @@ const STAT_SPEC = {
   jug: { key: 'portions', fmt: (v) => numFmt(v) },
   blender2: { key: 'blenders', fmt: (v) => numFmt(v) },
   bowlSlots: { key: 'bowlSlots', fmt: (v) => numFmt(v) },
-  smoothieSlots: { key: 'smoothieSlots', fmt: (v) => numFmt(v) },
+  matchaSlots: { key: 'matchaSlots', fmt: (v) => numFmt(v) },
 };
 
 function statLine(u) {
@@ -983,13 +983,20 @@ function statLine(u) {
     + `<span class="upg-stat-value">${esc(spec.fmt(now))}${next !== null ? ` <i>→</i> <b>${esc(spec.fmt(next))}</b>` : ''}</span>`;
 }
 
-// The smoothie machine with a ready cup per fruit (one fruit: the one-tank machine of level 7).
-function smoothieMachineArt(size, fruits = ['strawberry', 'kiwi']) {
-  const cup = Math.round(size * SMOOTHIE_CUP_SIZE);
-  const xs = SMOOTHIE_SLOT_X[fruits.length];
-  const machine = pictureMarkup('machine', { slots: fruits.map((fruit) => ({ state: 'ready', fruit })) }, size, () => smoothieMachineSVG(fruits.length, size));
-  return `<div class="upg-machine" style="width:${size}px;height:${size}px">${machine}${xs.map((fx, i) =>
-    `<span style="left:${Math.round(fx * size - cup / 2)}px;top:${Math.round(SMOOTHIE_SLOT_Y * size - cup)}px">${cupSVG(fruits[i], 'ready', cup)}</span>`).join('')}</div>`;
+// The matcha machine with a ready glass per fruit (one fruit: the one-slot machine of level 7).
+// crop: the size×size square shows only the one-slot machine (MACHINE_CROP of its 312 px canvas: x, y,
+// side), so it fills the picture instead of standing small in the canvas's empty sides.
+const MACHINE_CROP = [29, 38, 254];
+function matchaMachineArt(size, fruits = ['strawberry', 'kiwi'], crop = false) {
+  const full = crop ? Math.round((size * 312) / MACHINE_CROP[2]) : size;
+  const glass = Math.round(full * MATCHA_CUP_SIZE);
+  const xs = MATCHA_SLOT_X[fruits.length];
+  const machine = pictureMarkup('machine', { slots: fruits.map((fruit) => ({ state: 'ready', fruit })) }, full, () => matchaMachineSVG(fruits.length, full));
+  const art = `<div class="upg-machine" style="width:${full}px;height:${full}px">${machine}${xs.map((fx, i) =>
+    `<span style="left:${Math.round(fx * full - glass / 2)}px;top:${Math.round(MATCHA_SLOT_Y * full - glass)}px">${matchaGlassSVG(fruits[i], 'ready', glass)}</span>`).join('')}</div>`;
+  if (!crop) return art;
+  const [x, y] = MACHINE_CROP.map((v) => Math.round((v * full) / 312));
+  return `<div class="upg-machine-crop" style="width:${size}px;height:${size}px"><div style="left:${-x}px;top:${-y}px">${art}</div></div>`;
 }
 
 function upgradeArt(id) {
@@ -1008,8 +1015,8 @@ function upgradeArt(id) {
       return `<div class="upg-art-pair">${blenderArt({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 128)}${blenderArt({ state: 'blending', base: 'spirulina', progress: 0.45, remaining: 3 }, 128)}</div>`;
     case 'bowlSlots':
       return `<div class="upg-art-bowls">${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 104)}${bowlSVG(null, 104)}${bowlSVG({ base: 'pitaya', mid: ['strawberry'], top: [] }, 104)}</div>`;
-    case 'smoothieSlots':
-      return smoothieMachineArt(172);
+    case 'matchaSlots':
+      return matchaMachineArt(172);
     default:
       return decorSVG(id, 230);
   }
@@ -1048,7 +1055,7 @@ function kitchenSummary() {
     ${item(blenderArt({ state: 'ready', base: 'pitaya', portions: k.portions, maxPortions: k.portions }, 50), t('shop.stat.portions'), numFmt(k.portions))}
     ${item(blenderArt({ state: 'empty', base: 'acai' }, 50), t('shop.stat.blenders'), numFmt(k.blenders))}
     ${item(bowlSVG(null, 50), t('shop.stat.bowlSlots'), numFmt(k.bowlSlots))}
-    ${item(cupSVG('mango', 'ready', 46), t('shop.stat.smoothieSlots'), numFmt(k.smoothieSlots))}
+    ${item(matchaGlassSVG('mango', 'ready', 46), t('shop.stat.matchaSlots'), numFmt(k.matchaSlots))}
   </div>`;
 }
 
@@ -1118,7 +1125,7 @@ const shop = {
         sfx(ctx, 'reject');
         shake(card);
         const msg = res.reason === 'noMoney' ? t('shop.noMoney')
-          : res.reason === 'locked' ? t('shop.lockedToast', { n: UPG[id]?.requiresLevel ?? SMOOTHIE_LEVEL })
+          : res.reason === 'locked' ? t('shop.lockedToast', { n: UPG[id]?.requiresLevel ?? MATCHA_LEVEL })
             : t('shop.maxed');
         showToast(container, scope, msg, { anchor: btn });
         return;

@@ -1,4 +1,4 @@
-// Kitchen art for Açaí Fever: the stand blender, the smoothie machine, the trash can, the work
+// Kitchen art for Açaí Fever: the stand blender, the matcha machine, the trash can, the work
 // counter in perspective with its freezer and risers, and the back wall of the café. Same realistic
 // look as art-food.js (shared gradients from svg.js). Pure module.
 
@@ -9,6 +9,7 @@ import {
   rrect, paint, lit, litCircle, softShadow, edge, registerDefs,
 } from './svg.js';
 import { cupArt, pureeOf, ingredientArt, packIcon } from './art-food.js';
+import { MATCHA_GEO, MACHINE_SLOT_X, GLASS_Z, VIEWS, ELEV, machinePoint } from './kitchen3d.js';
 
 const FONT = `'Lilita One', 'Trebuchet MS', system-ui, sans-serif`;
 const BOWL_RIM_COL = '#86614a';
@@ -251,54 +252,172 @@ export function blenderBadgeSVG(state, size = 30) {
 }
 
 // ======================================================================
-// Smoothie machine (viewBox 200×200, cups drawn separately)
-// SMOOTHIE_SLOT_X[slotCount] → x fractions (of the machine width) of each cup centre.
-// SMOOTHIE_SLOT_Y → y fraction where the bottom edge of a cup element of
-// size SMOOTHIE_CUP_SIZE × machine size should sit.
+// Matcha machine, the drawn version of the 3D model (js/kitchen3d.js) for browsers without WebGL,
+// built from the model's own measures (MATCHA_GEO, projected with machinePoint), so its drip trays
+// are where the glasses stand: olive shell, black front with the dark recesses, the smoked tanks
+// with their collars and nozzles, the tea mill in its arched alcove, the lettering. viewBox = the
+// machine's canvas (312 × 312), glasses drawn separately:
+// MATCHA_SLOT_X[slotCount] → x fractions (of the machine box) of each glass centre;
+// MATCHA_SLOT_Y → y fraction where the bottom edge of a glass element of
+// size MATCHA_CUP_SIZE × machine size sits.
 // ======================================================================
-export const SMOOTHIE_SLOT_X = [[0.5], [0.5], [0.3, 0.7]];
-export const SMOOTHIE_SLOT_Y = 0.885;
-export const SMOOTHIE_CUP_SIZE = 0.33;
+export const MATCHA_SLOT_X = [[0.356], [0.356], [0.212, 0.542]];
+export const MATCHA_SLOT_Y = 0.874;
+export const MATCHA_CUP_SIZE = 0.327;
+// MATCHA_POUR_FROM: the y (of the glass's 100 viewBox) of the nozzle's tip over a glass on the drip
+// tray – where the drawn machine's stream starts (matchaGlassSVG opts.from)
+export const MATCHA_POUR_FROM = ((machinePoint([0, MATCHA_GEO.nozzle, GLASS_Z + 3.6])[1] / VIEWS.machine.h - MATCHA_SLOT_Y + MATCHA_CUP_SIZE) / MATCHA_CUP_SIZE) * 100;
+// The status LED on the front left of a slot's collar, in px of the machine's canvas: the drawn
+// machine's LED (the game lights it over the drawing while the slot brews or is ready)
+export function matchaLedAt(slotCount, i) {
+  const n = slotCount >= 2 ? 2 : 1;
+  const G = MATCHA_GEO;
+  const [rb] = G.models[n].tank;
+  const x = MACHINE_SLOT_X[n][i] ?? MACHINE_SLOT_X[n][0];
+  const [cx] = machinePoint([x, 0, 0]);
+  const [, cy0] = machinePoint([x, G.collar[1], GLASS_Z + (rb + 0.9) * G.tankDepth]);
+  const [, cy1] = machinePoint([x, G.collar[0], GLASS_Z + (rb + 0.9) * G.tankDepth]);
+  return [cx - rb * 0.75 * VIEWS.machine.zoom, (cy0 + cy1) / 2 - 0.5];
+}
 
-export function smoothieMachineSVG(slotCount = 1, size = 200) {
+const MT = { olive: '#7b7d52', oliveTop: '#a3a479', oliveDark: '#4c4e31', front: '#141518', recess: '#060607', tray: '#202125', smoke: '#463c33', powder: '#86a83f' };
+
+// A face of the housing: the rounded rectangle through the projected corners (x0..x1, y0..y1 at depth z).
+function face(x0, x1, y0, y1, z, r) {
+  const [X0, Y0] = machinePoint([x0, y1, z]);
+  const [X1, Y1] = machinePoint([x1, y0, z]);
+  return rrect(X0, Y0, X1 - X0, Y1 - Y0, r);
+}
+
+export function matchaMachineSVG(slotCount = 1, size = 312) {
   const n = slotCount >= 2 ? 2 : 1;
   return memo(`m|${n}|${size}`, () => {
-    const xs = SMOOTHIE_SLOT_X[n].map((q) => q * 200);
-    let s = softShadow(98, 193, 98, 7);
-    s += rect(34, 185, 18, 10, 3, '#1d1d22') + rect(150, 185, 18, 10, 3, '#1d1d22');
-    // white body seen from above and from the left: top face, left side, front
-    const side = 'M22 34L11 22V176L22 189Z';
-    const top = 'M22 34L11 22Q11 19 14 19H176Q179 19 181 21L190 31Z';
-    s += path(side, '#cdd2d7', stroke(1.2, '#7f8a95')) + path(side, paint('down-dark'), op(0.35));
-    s += path(top, '#ffffff', stroke(1.2, '#7f8a95')) + path(top, paint('down-dark'), op(0.12));
-    const body = rrect(22, 30, 168, 160, 12);
-    s += path(body, '#f5f6f7', stroke(1.2, '#7f8a95')) + path(body, paint('cyl-soft'), op(0.45)) + path(body, paint('down'), op(0.35));
-    s += line('M30 36H182', WHITE, 2, op(0.9)) + line('M27 44V182', WHITE, 2.2, op(0.7));
-    // açaí-purple head panel with the display and two status lights
-    s += path(rrect(32, 38, 148, 44, 12), '#6c2a8f', stroke(1, '#3d1352')) + path(rrect(32, 38, 148, 44, 12), paint('down'));
-    s += path(rrect(64, 44, 84, 32, 8), '#14161c', stroke(1, '#000000')) + path(rrect(64, 44, 84, 32, 8), paint('down'), op(0.6));
-    s += path('M94 50H118L114.8 70H97.2Z', '#ff6fa8', op(0.95)) + path('M94 50H118L117.4 54H94.6Z', '#ffd3e6');
-    s += line('M109 51L114 44.5', '#ffd3e6', 2) + circle(106, 60, 14, '#ff6fa8', op(0.12));
-    s += circle(48, 60, 6.5, '#ffb627', stroke(1, '#a8690a')) + litCircle(48, 60, 6.5, 'sph');
-    s += circle(164, 60, 6.5, OK, stroke(1, '#1f7a4a')) + litCircle(164, 60, 6.5, 'sph');
-    // the bay the cups stand in: dark, lit by an LED strip, its right wall catching the light
-    s += path(rrect(32, 90, 148, 94, 10), '#1f2229', stroke(1, '#0c0d10'));
-    s += path('M170 92L178 100V176L170 182Z', '#3a3f48', op(0.9));
-    s += path(rrect(32, 90, 148, 94, 10), paint('down'), op(0.5));
-    s += line('M40 94H170', '#e9fbff', 2, op(0.85)) + rect(40, 95, 130, 10, 0, '#bff4ff', op(0.08));
-    s += line('M44 104L70 176M58 104L78 150', WHITE, 2, op(0.08));
-    // nozzles
-    for (const x of xs) {
-      s += path(`M${x - 11} 91H${x + 11}L${x + 6.5} 104H${x - 6.5}Z`, paint('steel', '#cfd6dc'), stroke(1, '#6f7a85'));
-      s += rect(x - 3.5, 103, 7, 5, 2, '#5b6570');
+    const G = MATCHA_GEO;
+    const M = G.models[n];
+    const P = (x, y, z) => machinePoint([x, y, z]);
+    const k = VIEWS.machine.zoom;
+    const W = M.w / 2;
+    const zA = GLASS_Z;
+    let s = '';
+    // contact shadow on the worktop
+    const [, sy] = P(0, 0, (G.back + G.trayZ) / 2);
+    s += softShadow(156, sy + 4, W * k + 10, 24);
+    // olive shell: the top face, then the front (an olive frame around the black panel)
+    const [tx0, ty0] = P(-W, G.h, G.back);
+    const [tx1, ty1] = P(W, G.h, G.front);
+    const top = rrect(tx0, ty0, tx1 - tx0, ty1 - ty0 + 8, 9);
+    s += path(top, MT.oliveTop, stroke(1, MT.oliveDark)) + path(top, paint('down'), op(0.5));
+    const shell = face(-W, W, 3, G.h, G.front, 11);
+    s += path(shell, MT.olive, stroke(1.2, MT.oliveDark)) + path(shell, paint('cyl-soft'), op(0.8)) + path(shell, paint('down'), op(0.4));
+    s += line(`M${f(tx0 + 12)} ${f(ty1 + 1.6)}H${f(tx1 - 12)}`, '#e6e6c4', 1.6, op(0.55));
+    // the black front with a soft sheen from the top left
+    const panel = face(-W + 6, W - 6, 7, G.h - 9, G.front + 1.5, 4);
+    s += path(panel, MT.front, stroke(1, '#000000')) + path(panel, paint('black-v'), op(0.35));
+    const [px0, py0] = P(-W + 6, G.h - 9, G.front + 1.5);
+    s += path(`M${f(px0 + 6)} ${f(py0 + 4)}L${f(px0 + 60)} ${f(py0 + 4)}L${f(px0 + 6)} ${f(py0 + 90)}Z`, WHITE, op(0.04));
+    // recesses behind the glasses, the mill's arched alcove
+    const zP = G.front + 1.6;
+    M.bays.forEach(([b0, b1]) => {
+      const rec = face(b0 + 3, b1 - 3, 9, G.collar[0] - 1, zP, 6);
+      s += path(rec, '#3a3e45', op(0.6)) + path(face(b0 + 3.4, b1 - 3.4, 9.4, G.collar[0] - 1.4, zP, 5.5), MT.recess) + path(rec, paint('up-dark'), op(0.5));
+      const [, ry1] = P(0, 9, zP);
+      const [rx0] = P(b0 + 5, 0, 0);
+      const [rx1] = P(b1 - 5, 0, 0);
+      s += rect(rx0, ry1 - 22, rx1 - rx0, 20, 4, '#4a515a', op(0.18));
+    });
+    const R = M.millR;
+    const [ax0, ay0] = P(M.mill - R - 5, 9 + G.mill.cap - 3, zP);
+    const [ax1, ay1] = P(M.mill + R + 5, 9, zP);
+    const ar = (ax1 - ax0) / 2;
+    const alcove = `M${f(ax0)} ${f(ay1)}V${f(ay0 + ar)}A${f(ar)} ${f(ar)} 0 0 1 ${f(ax1)} ${f(ay0 + ar)}V${f(ay1)}Z`;
+    s += path(alcove, MT.recess, stroke(1.2, '#3a3e45')) + path(alcove, paint('up-dark'), op(0.5));
+    // the drip tray along the bottom: its top in front of the panel, its front edge
+    const [bx0, by0] = P(-W + 1, 8, G.front + 1.5);
+    const [bx1, by1] = P(W - 1, 8, G.trayZ);
+    const [, by2] = P(0, 0, G.trayZ);
+    s += path(rrect(bx0, by0, bx1 - bx0, by1 - by0, 2), MT.tray) + path(rrect(bx0, by0, bx1 - bx0, by1 - by0, 2), paint('down'), op(0.25));
+    s += path(rrect(bx0, by1 - 1, bx1 - bx0, by2 - by1 + 1, 3), '#111215', stroke(1, '#000000')) + line(`M${f(bx0 + 4)} ${f(by1)}H${f(bx1 - 4)}`, '#7d838c', 1.2, op(0.7));
+    // per slot: the grate on the tray, the nozzle, the collar, the smoked tank with its lid
+    M.bays.forEach(([b0, b1], i) => {
+      const x = MACHINE_SLOT_X[n][i];
+      const [gx0, gy0] = P(b0 + 6, 8, zA - 16);
+      const [gx1, gy1] = P(b1 - 6, 8, zA + 16);
+      s += path(rrect(gx0, gy0, gx1 - gx0, gy1 - gy0, 1.5), '#9aa2a9', stroke(0.8, '#3f454c'));
+      let slots = '';
+      for (let gx = gx0 + 4; gx < gx1 - 3; gx += 5.2) slots += `M${f(gx)} ${f(gy0 + 1.6)}V${f(gy1 - 1.6)}`;
+      s += line(slots, '#202328', 2.4);
+      const [cx] = P(x, 0, 0);
+      const [rb, rt] = M.tank;
+      // nozzle head and its chrome tip
+      const [, hy0] = P(x, G.collar[0], zA + G.headR);
+      const [, hy1] = P(x, G.nozzle + 3.6, zA + G.headR);
+      const head = rrect(cx - G.headR * k, hy0, G.headR * 2 * k, hy1 - hy0 + 3, 4);
+      s += path(head, '#1a1b1f', stroke(1, '#000000')) + path(head, paint('cyl'), op(0.6));
+      const [, ty] = P(x, G.nozzle, zA + 3.6);
+      s += path(rrect(cx - 3.6 * k, hy1, 7.2 * k, ty - hy1 + 2, 2), paint('steel', '#cfd6dc'), stroke(0.8, '#5f6a75'));
+      // the tank: tapered smoked shell, the water in it, the grip, highlights, the lid on top
+      const tTop = G.h - 3;
+      const [, yb] = P(x, G.collar[1], zA + rb * G.tankDepth);
+      const [, yt] = P(x, tTop, zA + rt * G.tankDepth);
+      const tank = `M${f(cx - rt * k)} ${f(yt)}L${f(cx - rb * k)} ${f(yb - 3)}Q${f(cx - rb * k)} ${f(yb)} ${f(cx - rb * k + 4)} ${f(yb)}H${f(cx + rb * k - 4)}Q${f(cx + rb * k)} ${f(yb)} ${f(cx + rb * k)} ${f(yb - 3)}L${f(cx + rt * k)} ${f(yt)}Z`;
+      s += path(tank, MT.smoke, stroke(1, '#1f1a16'));
+      const waterY = yt + (yb - yt) * 0.3;
+      const wl = (y) => cx - (rt + ((rb - rt) * (y - yt)) / (yb - yt)) * k + 3;
+      const wr = (y) => 2 * cx - wl(y);
+      s += path(`M${f(wl(waterY))} ${f(waterY)}L${f(wl(yb - 3))} ${f(yb - 3)}H${f(wr(yb - 3))}L${f(wr(waterY))} ${f(waterY)}Z`, '#6d6a62', op(0.55));
+      s += line(`M${f(wl(waterY) + 1)} ${f(waterY)}H${f(wr(waterY) - 1)}`, '#b9b4a8', 1, op(0.6));
+      s += path(tank, paint('cyl'), op(0.55));
+      s += path(rrect(cx - rt * k * 0.62, yt + 8, rt * k * 0.3, (yb - yt) * 0.62, 4), '#a59886', op(0.45));
+      s += line(`M${f(cx - rt * k + 5)} ${f(yt + 6)}L${f(cx - rb * k + 4)} ${f(yb - 8)}`, WHITE, 2.2, op(0.35));
+      s += line(`M${f(cx + rt * k - 5)} ${f(yt + 6)}L${f(cx + rb * k - 4)} ${f(yb - 8)}`, WHITE, 1.2, op(0.25));
+      const [, lidY] = P(x, tTop + 2, zA);
+      const lid = rrect(cx - (rt + 1.4) * k, lidY - 5, (rt + 1.4) * 2 * k, 10, 5);
+      s += path(lid, '#2a2725', stroke(1, '#0d0c0b')) + path(lid, paint('down'), op(0.5)) + ellipse(cx + rt * 0.35 * k, lidY - 1.5, 4, 1.4, '#0d0c0b');
+      // the olive collar with its darker band, the chrome knob and the status LED
+      const [, cy0] = P(x, G.collar[1], zA + (rb + 0.9) * G.tankDepth);
+      const [, cy1] = P(x, G.collar[0], zA + (rb + 0.9) * G.tankDepth);
+      const collar = rrect(cx - (rb + 0.9) * k, cy0 - 2, (rb + 0.9) * 2 * k, cy1 - cy0 + 4, 4);
+      s += path(collar, MT.olive, stroke(1, MT.oliveDark)) + path(collar, paint('cyl'), op(0.7));
+      s += rect(cx - (rb + 1) * k, cy1 - 7, (rb + 1) * 2 * k, 2.6, 1, MT.oliveDark, op(0.8));
+      s += circle(cx + rb * 0.8 * k, (cy0 + cy1) / 2, 3.2, paint('steel', '#cfd6dc'), stroke(0.8, '#5f6a75'));
+      const [ledX, ledY] = matchaLedAt(n, i);
+      s += circle(ledX, ledY, 3, '#3a3d44', stroke(0.6, '#000000'));
+    });
+    // the tea mill: dark base, glass with the green powder and the cream burr, olive rings, dark cap
+    const mx = P(M.mill, 0, 0)[0];
+    const mr = R * k;
+    const yAt = (y) => P(M.mill, y, zA + R)[1];
+    const yTop = (y) => P(M.mill, y, zA)[1];
+    const ry = R * k * Math.sin(ELEV);
+    const cyl = (y0, y1, fill, a = '') => path(`M${f(mx - mr)} ${f(yTop(y1))}V${f(yAt(y0) - ry)}A${f(mr)} ${f(ry)} 0 0 0 ${f(mx + mr)} ${f(yAt(y0) - ry)}V${f(yTop(y1))}Z`, fill, a);
+    s += cyl(8, G.mill.base, '#3a342e', stroke(1, '#15120f')) + cyl(8, G.mill.base, paint('cyl'), op(0.7));
+    s += cyl(G.mill.base, G.mill.glass, '#e3eef0', op(0.25));
+    const pw = (R - 2.6) * k;
+    const level = G.mill.base + 20; // a full mill
+    s += path(`M${f(mx - pw)} ${f(yTop(level))}V${f(yAt(G.mill.base) - ry + 1)}H${f(mx + pw)}V${f(yTop(level))}Z`, MT.powder) + ellipse(mx, yTop(level), pw, ry * 0.9, '#a3c25a');
+    s += path(`M${f(mx - pw)} ${f(yTop(level))}V${f(yAt(G.mill.base) - ry + 1)}H${f(mx + pw)}V${f(yTop(level))}Z`, paint('cyl'), op(0.5));
+    const rng = rngFor('mill-powder');
+    let dots = '';
+    for (let i = 0; i < 30; i++) dots += circle(mx + (rng.next() - 0.5) * 2 * pw * 0.9, yTop(level) + 2 + rng.next() * (yAt(G.mill.base) - yTop(level) - 6), 0.7, '#55701f', op(0.6));
+    s += dots + line(`M${f(mx)} ${f(yTop(level))}V${f(yTop(G.mill.glass - 6))}`, '#c9ced3', 2.4);
+    const burr = rrect(mx - (R - 4.2) * k, yTop(G.mill.glass - 6), (R - 4.2) * 2 * k, 7, 2.5);
+    s += path(burr, '#ebe5d4', stroke(0.8, '#9d9682'));
+    for (let i = -3; i <= 3; i++) s += line(`M${f(mx + i * 3.4)} ${f(yTop(G.mill.glass - 6) + 1)}V${f(yTop(G.mill.glass - 6) + 6)}`, '#9d9682', 0.8);
+    s += cyl(G.mill.base, G.mill.glass, paint('glass'), op(0.6)) + cyl(G.mill.base, G.mill.glass, 'none', stroke(1, '#9ab9c5') + op(0.7));
+    for (const y of [G.mill.glass - 5, G.mill.glass - 2.2]) s += rect(mx - mr, yAt(y) - ry - 1.4, mr * 2, 2.4, 1, MT.olive);
+    s += cyl(G.mill.glass, G.mill.cap, '#3a342e', stroke(1, '#15120f')) + cyl(G.mill.glass, G.mill.cap, paint('cyl'), op(0.7));
+    s += ellipse(mx, yTop(G.mill.cap), mr - 1, ry, '#4a433c', stroke(0.8, '#15120f')) + ellipse(mx - 3, yTop(G.mill.cap) - 0.6, mr * 0.5, ry * 0.4, WHITE, op(0.18));
+    // lettering (and the temperature display of the two-slot model)
+    const ly = n === 2 ? 142 : 138;
+    const [, wy] = P(M.mill, ly, zP);
+    s += `<text x="${f(mx)}" y="${f(wy + 4.5)}" text-anchor="middle" font-family="Nunito, 'Trebuchet MS', Arial, sans-serif" font-weight="900" font-size="${n === 2 ? 11.5 : 12.5}" letter-spacing="1.6" fill="#e8e2c2">MATCHA</text>`;
+    s += `<text x="${f(mx)}" y="${f(wy + 16.5)}" text-anchor="middle" font-family="Nunito, 'Trebuchet MS', Arial, sans-serif" font-weight="900" font-size="5.2" letter-spacing="1" fill="#b9b48a">AÇAÍ FEVER</text>`;
+    if (n === 2) {
+      const [, dy] = P(M.mill, ly + 13, zP);
+      s += rect(mx - 15, dy - 6, 30, 12, 2, '#050607', stroke(0.8, '#2a2d33'));
+      s += `<text x="${f(mx)}" y="${f(dy + 4)}" text-anchor="middle" font-family="'Trebuchet MS', Arial, sans-serif" font-weight="700" font-size="10" fill="#a6ff6a">80°C</text>`;
     }
-    // drip tray: grille seen from above, steel front edge
-    let grate = '';
-    for (let x = 44; x < 168; x += 7) grate += `M${x} 168.5L${x - 1.6} 176.5`;
-    s += path('M40 166H172L176 178H36Z', paint('steel-v', '#cfd6dc'), stroke(1, '#6f7a85'));
-    s += line(grate, '#6f7a85', 2, op(0.8));
-    s += path(rrect(35, 177.5, 142, 7, 3), paint('steel-v', '#dfe4e9'), stroke(1, '#6f7a85')) + line('M38 179H174', WHITE, 1.2, op(0.85));
-    return svgWrap(size, size, 200, 200, s);
+    return svgWrap(size, size, 312, 312, s);
   });
 }
 
@@ -827,13 +946,15 @@ const DECOR = {
     const seat = 'M6 96Q6 86 18 86H64Q76 86 76 96V104Q76 110 68 110H14Q6 110 6 104Z';
     s += path(seat, '#e65a91', stroke(1, '#7a1a42')) + path(seat, paint('down'));
     s += line('M14 116L16 110M68 116L66 110', '#6b4a33', 3);
-    // side table with a smoothie
+    // side table with an iced matcha
     s += line('M96 96V116M88 116H104', '#1d1d22', 2.6);
     s += ellipse(96, 94, 16, 4.6, '#f4f1ec', stroke(1, '#a99f92')) + ellipse(96, 93.4, 16, 4, paint('sph-soft'));
-    const glass = 'M89 70H103L101 92H91Z';
-    s += path(glass, '#ffb53b', stroke(0.9, '#8fb0bd')) + path(glass, paint('plastic', '#ffffff'));
-    s += path('M88 70C88 62 104 62 104 70Z', '#ffd38a', op(0.7)) + path('M88 70C88 62 104 62 104 70Z', paint('plastic', '#ffffff'));
-    s += line('M99 66L104 54', '#ff6fa8', 2.4);
+    // the glass: mango purée, milk and matcha in layers, a paper straw
+    s += line('M98.5 74L104 56', '#7a8f3c', 2.6) + line('M98.5 74L104 56', '#f6f1e4', 1.8);
+    s += path('M89.6 86H102.4L101.6 91.6H90.4Z', '#ffa623') + path('M89.2 80H102.8L102.4 86H89.6Z', '#f4efe3') + path('M88.6 71.5H103.4L102.8 80H89.2Z', '#7f9f37');
+    s += ellipse(96, 71.5, 7.4, 1.4, '#e3ebc0');
+    const glass = 'M88 69H104L101.6 92H90.4Z';
+    s += path(glass, paint('plastic', '#ffffff'), stroke(0.9, '#8fb0bd'));
     return s;
   },
 

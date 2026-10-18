@@ -1,7 +1,7 @@
 # Açaí Fever – Game Design & Architecture
 
 A Cooking-Fever-style time-management game in the browser: you run an açaí bowl
-shop, customers order bowls (and later smoothies), and you assemble them by
+shop, customers order bowls (and later a fruit matcha), and you assemble them by
 drag & drop under time pressure. Plain HTML/CSS/JS (ES modules), no framework.
 
 This document is the single source of truth. Every module must follow the
@@ -15,29 +15,29 @@ player decisions listed in §1.
 | # | Topic | Decision |
 |---|---|---|
 | 1 | Device | **Tablet, landscape** first (touch). Must still work with mouse on PC and (scaled) on phones. |
-| 2 | Style | **Realistic, glossy Cooking Fever look in a modern café**: the player stands at the counter, seen in perspective like in Cooking Fever (a slim marble pass in front of the guests, the worktop with its rounded front edge and a strip of open shelves with stock below; the tall appliances stand at the back of the worktop in front of the pass); believable size relations (blender and machine about twice as tall as a cup); clear plastic cups that show their layers, every ingredient in its own realistic container (fruit in brushed stainless pans, granola, honey, chia and peanut butter in glass jars, chocolate sauce in a squeeze bottle, coconut in its shell, cacao nibs in a wooden bowl, mint on a board), 3D appliances (blender, smoothie machine, freezer), a little cleaner and more modern than Cooking Fever. Menus keep their chunky cartoon UI. |
+| 2 | Style | **Realistic, glossy Cooking Fever look in a modern café**: the player stands at the counter, seen in perspective like in Cooking Fever (a slim marble pass in front of the guests, the worktop with its rounded front edge and a strip of open shelves with stock below; the tall appliances stand at the back of the worktop in front of the pass); believable size relations (blender and machine about twice as tall as a cup); clear plastic cups that show their layers, every ingredient in its own realistic container (fruit in brushed stainless pans, granola, honey, chia and peanut butter in glass jars, chocolate sauce in a squeeze bottle, coconut in its shell, cacao nibs in a wooden bowl, mint on a board), 3D appliances (blender, matcha machine, freezer), a little cleaner and more modern than Cooking Fever. Menus keep their chunky cartoon UI. |
 | 3 | Controls | **Drag & drop** (touch + mouse) for every action. No tap-to-place. |
 | 4 | Order rule | **Fixed layers**: Base (from blender) → Fruits & Crunch → Toppings & Sauces. A drop into the wrong layer is **rejected** (bounce back + hint). Order *within* a layer is free. |
-| 5 | Stations | **Blender** with wait time for the base; it **overflows / spoils** if left too long. Later a **smoothie machine**. |
+| 5 | Stations | **Blender** with wait time for the base; it **overflows / spoils** if left too long. Later a **matcha machine** (brews a fruit matcha on a glass). |
 | 6 | Customers | Seats grow **2 → 3 → 4** with level progress. |
 | 7 | Patience | When patience runs out the customer **leaves, pays nothing**, player loses a **heart**. 0 hearts = level lost. |
 | 8 | Levels | **Campaign** (20 levels, time limit + money goal, 1–3 stars) **plus Endless mode** (unlocked later). |
 | 9 | Unlocks | New ingredients are **bought with earned coins** in the shop (no level gate on ingredients). |
-| 10 | Upgrades | **Faster blender**, **more slots** (bowl slots, 2nd blender, bigger jug, smoothie slots), **decor → more patience**, **better ingredient quality → more coins**. |
+| 10 | Upgrades | **Faster blender**, **more slots** (bowl slots, 2nd blender, bigger jug, matcha slots), **decor → more patience**, **better ingredient quality → more coins**. |
 | 11 | Ingredient count | **16** total, **4 at start**. |
-| 12 | Drinks | **Smoothies** from campaign level 7 on. |
+| 12 | Drinks | **Fruit matcha** from campaign level 7 on: an iced matcha latte on the purée of one fruit (banana, strawberry, blueberry, mango, kiwi), made like the old smoothies (fruit onto a glass in the machine → wait → serve). |
 | 13 | Language | **German / English**, switchable in menu, remembered. |
 | 14 | Sound | **SFX + music**, each mutable, remembered. |
 | 15 | Name | **Açaí Fever** |
 | 16 | Cups | A bowl is a **clear plastic cup**. An empty cup is **put down from the stack** on a free spot before anything goes into it; serving or trashing takes it off the counter. |
-| 17 | Appliances | The kitchen machines are **3D** (real-time WebGL) and **animated** (blending vortex, churning slush, pouring tap, lids and doors), modelled on **real household appliances** (the blender on a stand blender: fluted glass jug with a clear handle, spout and measuring cap, tall tapered motor base with a black glass V display band and a big start/stop dial), with **a new model per upgrade level** (blender: Classic → Turbo → Pro → Pro Max, all of that shape, normal or big jug; smoothie machine: one tank → two tanks). The ingredient containers are 3D pictures too (drawn once, what lies in them is SVG). Without WebGL the drawn SVG art is used. |
+| 17 | Appliances | The kitchen machines are **3D** (real-time WebGL) and **animated** (blending vortex, grinding tea mill, steaming tank, pouring nozzle, lids and doors), modelled on **real household appliances** (the blender on a stand blender: fluted glass jug with a clear handle, spout and measuring cap, tall tapered motor base with a black glass V display band and a big start/stop dial), with **a new model per upgrade level** (blender: Classic → Turbo → Pro → Pro Max, all of that shape, normal or big jug; matcha machine after a household tea-latte machine – olive shell, black front, smoked water tank over an olive collar and the nozzle, a glass tea mill in an alcove –: one slot → two slots). The ingredient containers are 3D pictures too (drawn once, what lies in them is SVG). Without WebGL the drawn SVG art is used. |
 
 ---
 
 ## 2. Core loop
 
 1. A customer walks to a free seat at the counter and shows an **order bubble**:
-   one bowl (base + 1–3 fruits/crunch + 0–3 toppings) and, from level 7, sometimes a smoothie.
+   one bowl (base + 1–3 fruits/crunch + 0–3 toppings) and, from level 7, sometimes a fruit matcha.
 2. Player drags a **frozen base pack** (Açaí / Pitaya / Spirulina) into an **empty blender**.
    The blender blends for `blendTime` seconds, then is **ready** with `portions` portions.
 3. Player drags an **empty cup from the stack** onto a **free bowl spot** (`placeCup`; a spot that already
@@ -53,12 +53,13 @@ player decisions listed in §1.
 6. Player drags the **finished bowl** onto the **customer**. If it matches the order
    exactly (same base, same set of layer‑2 items, same set of layer‑3 items) it is accepted
    (the cup leaves the counter, the spot is free again), otherwise rejected (`wrongOrder`) and the bowl flies back.
-7. Smoothies: drag a smoothie-capable **fruit bin onto an empty smoothie-machine slot** →
-   it mixes for `smoothieTime` seconds → a **ready cup** → drag cup onto the customer.
-   (The machine brings its own cups – only bowls need a cup from the stack.)
+7. Matcha: drag a matcha fruit (**banana, strawberry, blueberry, mango, kiwi**) **onto the empty glass of a
+   matcha-machine slot** → its purée is in the glass, the machine brews for `matchaTime` seconds (the mill grinds, the
+   tank steams, the nozzle pours milk and matcha) → a **ready glass** → drag the glass onto the customer.
+   (The machine brings its own glasses – only bowls need a cup from the stack.)
 8. When all parts of a customer's order are delivered they **pay** (order value + tip based
    on remaining patience) and leave happily. Coins fly to the HUD.
-9. Wrong/unneeded bowls or cups can be dragged into the **trash** (a bowl goes in with its cup). A **spoiled blender** must be
+9. Wrong/unneeded bowls or glasses of matcha can be dragged into the **trash** (a bowl goes in with its cup). A **spoiled blender** must be
    dragged to the trash to empty it (also allowed for a ready blender to discard it).
 
 ### Blender lifecycle
@@ -70,15 +71,15 @@ player decisions listed in §1.
 - Pouring the last portion → `empty`.
 
 ### Patience
-- Each customer has `maxPatience = level.patience × kitchen.patienceMult` (+8 s if the order has a smoothie).
-- Drains 1/s while waiting. Each partial delivery (bowl or smoothie of a 2‑part order) refills **+15 %** of max.
+- Each customer has `maxPatience = level.patience × kitchen.patienceMult` (+8 s if the order has a matcha).
+- Drains 1/s while waiting. Each partial delivery (bowl or matcha of a 2‑part order) refills **+15 %** of max.
 - Mood from ratio: `>0.6 happy`, `>0.3 neutral`, `>0.12 impatient`, else `angry`.
 - At 0 → leaves angry, `hearts -= 1`, `lost += 1`.
 
 ### Payment
 - Bowl value = Σ `ingredientValue(id)` of base + all items.
-- Smoothie value = `SMOOTHIE_PRICE × qualityMultiplier(fruit)`.
-- Order value = bowl value + smoothie value. **Tip** = `round(value × 0.3 × patienceRatio)` at completion.
+- Matcha value = `MATCHA_PRICE × qualityMultiplier(fruit)` (the fruit's quality).
+- Order value = bowl value + matcha value. **Tip** = `round(value × 0.3 × patienceRatio)` at completion.
 - Coins of a level are added to the wallet at the end **even if the level is lost**.
 
 ### Level end
@@ -101,7 +102,7 @@ player decisions listed in §1.
   the cup, (5) drag the ordered ingredient(s) onto the bowl, (6) drag the bowl to the customer, (7) "Great! Watch
   the patience of your customers" → hold released. The step is derived from the game state every frame (a trashed
   bowl leads back to the cup step).
-- Other intros (`overflow`, `moreSeats`, `smoothie`, `fourSeats`, `endless`) are explained in the pre-level
+- Other intros (`overflow`, `moreSeats`, `matcha`, `fourSeats`, `endless`) are explained in the pre-level
   card and with a short non-blocking banner at level start.
 - A freshly bought ingredient shows a "NEU/NEW" badge on its bin for the next level.
 
@@ -117,10 +118,11 @@ player decisions listed in §1.
 | `mid` (Fruits & Crunch) | **Banana**, **Granola**, Strawberry, Blueberries, Mango, Kiwi |
 | `top` (Toppings & Sauces) | **Honey**, Coconut flakes, Chia seeds, Peanut butter, Chocolate sauce, Mint, Cacao nibs |
 
-Smoothie flavours = smoothie-capable `mid` fruits the player owns (banana, strawberry, blueberry, mango, kiwi).
+Matcha flavours = the matcha fruits (`matcha: true`) the player owns: banana, strawberry, blueberry, mango, kiwi ("Erdbeer-Matcha /
+Strawberry matcha" …). Same price (6), brew time (5 s), chances and patience bonus as the smoothies they replaced.
 
 Upgrades (`UPGRADES` in data.js): `blenderSpeed` (3 levels), `jug` (portions 2→3, readyHold 9→13.5 s so the bigger batch does not spoil), `blender2` (2nd blender),
-`bowlSlots` (2→3→4), `smoothieSlots` (1→2, needs level 7 reached), decor: `plants`, `jukebox`, `seating`,
+`bowlSlots` (2→3→4), `matchaSlots` ("Doppel-Matcha / Double matcha", 1→2, needs level 7 reached), decor: `plants`, `jukebox`, `seating`,
 `neon` (each adds patience %, and appears visibly in the shop scene). Ingredient quality: each owned
 ingredient has 2 quality upgrades (value ×1.3, ×1.6, rounded up to 0.5 so every star adds coins).
 
@@ -144,12 +146,12 @@ js/engine.js          pure game simulation (no DOM): createGame, tick, actions, 
 js/drag.js            generic pointer-based drag & drop manager (touch + mouse), stage-scale aware
 js/svg.js             shared SVG helpers + the shared gradients/clip paths (artDefsSVG, one hidden <svg> per page)
 js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, what lies in the ingredient containers (and the
-                      containers drawn, without WebGL), packs, smoothie cups
-js/art-kitchen.js     realistic kitchen art: work counter, freezer, risers, café back wall, decor; blender, smoothie machine,
+                      containers drawn, without WebGL), packs, the glasses of fruit matcha
+js/art-kitchen.js     realistic kitchen art: work counter, freezer, risers, café back wall, decor; blender, matcha machine,
                       trash and freezer as the SVG fallback of the 3D models
 js/art.js             people, HUD icons, logo, map; re-exports the food + kitchen art (screens import from here)
 js/geo3d.js           3D math, mesh builders (lathe – also fluted or warped –, rounded box, tube, liquid surface) and materials – pure
-js/kitchen3d.js       3D models of the appliances as scene descriptions (blender tiers, smoothie machine, bin, freezer) – pure
+js/kitchen3d.js       3D models of the appliances as scene descriptions (blender tiers, matcha machine, bin, freezer) – pure
 js/pantry3d.js        3D models of the ingredient containers (stainless pans, jars, squeeze bottle, coconut, wood) – pure
 js/gl3d.js            WebGL renderer: one shared offscreen context, studio lighting, glass, patterns
 js/art3d.js           live 3D station views (canvas), still pictures drawn once (containers), cached 3D pictures for menus
@@ -193,7 +195,7 @@ createGame({
   owned,            // string[] owned ingredient ids
   ingLevels,        // { [id]: 0|1|2 } quality levels
   kitchen,          // getKitchenStats(save.upgrades)
-  smoothies,        // boolean – smoothie machine present
+  matcha,           // boolean – matcha machine present
   seed,             // number
   tutorial,         // boolean – level-1 tutorial hold active at start
 }) → game
@@ -205,26 +207,26 @@ pourBlender(game, blenderIdx, bowlIdx)        → { ok, reason? }
 addIngredient(game, bowlIdx, ingId)           → { ok, reason? }
 trashBowl(game, bowlIdx)                      → { ok }            // the cup goes too: the spot is free
 cleanBlender(game, blenderIdx)                → { ok, reason? }   // ruined/ready/overflowing → empty
-loadSmoothie(game, slotIdx, fruitId)          → { ok, reason? }
-trashSmoothie(game, slotIdx)                  → { ok }
+loadMatcha(game, slotIdx, fruitId)            → { ok, reason? }   // a fruit onto the slot's empty glass
+trashMatcha(game, slotIdx)                    → { ok }
 serveBowl(game, bowlIdx, customerId)          → { ok, reason? }
-serveSmoothie(game, slotIdx, customerId)      → { ok, reason? }
+serveMatcha(game, slotIdx, customerId)        → { ok, reason? }
 setPaused(game, bool)
 releaseTutorialHold(game)
 endRun(game) → boolean                        // endless only: ends the run (gameOver, reason 'quit')
 // Pure checks (no state change) – the reason the matching action would reject with right now, or null:
 loadBlenderError(game, blenderIdx, baseId), placeCupError(game, bowlIdx), pourError(game, blenderIdx, bowlIdx),
-addIngredientError(game, bowlIdx, ingId), loadSmoothieError(game, slotIdx, fruitId),
-serveBowlError(game, bowlIdx, customerId), serveSmoothieError(game, slotIdx, customerId)
+addIngredientError(game, bowlIdx, ingId), loadMatchaError(game, slotIdx, fruitId),
+serveBowlError(game, bowlIdx, customerId), serveMatchaError(game, slotIdx, customerId)
 drainEvents(game) → Event[]                   // returns and clears queued events
 bowlMatchesOrder(bowl, orderBowl) → boolean
 ```
 
 Reasons (i18n key `reason.<code>` in game-view): `noCup`, `cupThere`, `needBase`, `toppingsOnTop`, `alreadyAdded`, `bowlFull`,
 `blenderBusy`, `blenderNotReady`, `blenderRuined`, `bowlHasBase`, `notOwned`, `wrongLayer`, `wrongOrder`,
-`noSmoothieWanted`, `noBowlWanted`, `alreadyDelivered`, `slotBusy`, `notReady`, `notSmoothieFruit`, `emptyBowl`,
+`noMatchaWanted`, `noBowlWanted`, `alreadyDelivered`, `slotBusy`, `notReady`, `notMatchaFruit`, `emptyBowl`,
 plus `noCustomer` (customer gone or leaving), `notPlaying` (paused / game over) and `invalid` (bad index,
-no smoothie machine). `loadBlender` checks `wrongLayer` → `notOwned` → `blenderRuined` (spoiled blender) → `blenderBusy`; `cleanBlender` returns
+no matcha machine). `loadBlender` checks `wrongLayer` → `notOwned` → `blenderRuined` (spoiled blender) → `blenderBusy`; `cleanBlender` returns
 `blenderBusy` while blending and `blenderNotReady` when empty (a blending blender cannot be thrown away).
 `pourError` checks the blender (`blenderRuined`, `blenderNotReady`) before the spot (`noCup`, `bowlHasBase`);
 `addIngredientError` checks `notOwned` → `wrongLayer` → `noCup` → `needBase` → ….
@@ -240,23 +242,23 @@ game = {
   seats: [ customer|null ],     // length = current seat count (max 4)
   blenders: [ { state, base, t, duration, portions, maxPortions } ],
   bowls:    [ { cup: bool, base: id|null, mid: id[], top: id[], uid } ],  // length = kitchen.bowlSlots; cup false = free spot
-  smoothie: null | { slots: [ { state: 'empty'|'mixing'|'ready', fruit, t, duration } ] },
+  matcha:   null | { slots: [ { state: 'empty'|'mixing'|'ready', fruit, t, duration } ] },  // mixing = brewing
   owned, ingLevels, kitchen, events: [],
   result: null|'won'|'lost', stars, endReason: null|'goal'|'hearts'|'quit', featured   // set at game over
 }
-// blenders and smoothie slots also carry progress (0–1 within the current state; for a ready
+// blenders and matcha slots also carry progress (0–1 within the current state; for a ready
 // blender it counts toward overflow). bowl.uid changes whenever a bowl is reset.
 // Internal state lives in game._sim – never read or write it from the view.
-customer = { id, seat, look, order: { bowl: {base, mid[], top[]}, smoothie: fruitId|null },
-             delivered: { bowl: bool, smoothie: bool }, patience, maxPatience,
+customer = { id, seat, look, order: { bowl: {base, mid[], top[]}, matcha: fruitId|null },
+             delivered: { bowl: bool, matcha: bool }, patience, maxPatience,
              state: 'arriving'|'waiting'|'leavingHappy'|'leavingAngry', t, mood, paid }
 ```
 Events (`{type, …}`): `customerArrive{customerId, seat}`, `customerPaid{customerId, seat, amount, tip}`,
 `customerLost{customerId, seat}`, `partialDelivery{customerId}`, `blenderStart{idx}`, `blenderReady{idx}`,
 `blenderOverflow{idx}`, `blenderRuined{idx}`, `blenderEmpty{idx}`, `cupPlaced{bowlIdx}`, `basePoured{bowlIdx, blenderIdx}`,
-`ingredientAdded{bowlIdx, id}`, `smoothieStart{idx}`, `smoothieReady{idx}`, `trash{what}`,
+`ingredientAdded{bowlIdx, id}`, `matchaStart{idx}`, `matchaReady{idx}`, `trash{what}`,
 `closingTime`, `stageUp{stage}` (endless), `gameOver{result: 'won'|'lost', stars, reason: 'hearts'|'goal'|'quit'|null}`.
-`trash` events always carry `idx` (`trash{what:'bowl'|'blender'|'smoothie', idx}`); `cleanBlender` emits
+`trash` events always carry `idx` (`trash{what:'bowl'|'blender'|'matcha', idx}`); `cleanBlender` emits
 `blenderEmpty` then `trash`. `gameOver.reason` is `null` when won, `'goal'` when lost on goal 1, `'hearts'` when
 hearts ran out (endless always ends `lost`, with `'hearts'` or – after `endRun` – `'quit'`). Once the first customer has arrived, `game.time` stops
 while `tutorialHold` is on, so the tutorial does not eat level time (blenders keep running).
@@ -316,12 +318,22 @@ cupStackSVG(width = 90)              // stack of empty cups (120×185) – the d
                                      // cups of bowlSVG(1.146 × width), so the stack and a placed cup match
 cupSpotSVG(size = 150)               // free spot: white coaster with a dashed cup outline (same box as bowlSVG)
 artDefsSVG() / ART_DEFS_ID           // the hidden <svg> with the shared gradients + clip paths (initStage inserts it)
-cupSVG(fruitId|null, state, size=70) // smoothie cup: state 'empty'|'mixing'|'ready'
+matchaGlassSVG(fruitId|null, state, size = 70, { fill, stream, from }?)  // glass of fruit matcha (bottom at y 95 of 100):
+                                      // 'empty' | 'mixing' (fill 0–1: the purée from the start, then milk, then matcha; its own
+                                      // stream from y `from` (default 0) while it runs in, unless stream: false) | 'ready'
+                                      // (purée, milk, matcha with foam, ice, a paper straw, the fruit on the rim)
+matchaFruitColorOf(id), MATCHA_COLORS, MATCHA_MILK // the purée's colour, milk / matcha / foam, the share of the pour that
+                                      // is milk (derived from the glass's layer heights; the 3D nozzle's stream takes the same colours);
+                                      // every purée stays clearly apart from the olive matcha at 50 px (kiwi: vivid green, big black seeds)
+MATCHA_STRAW = { x0, y0, x1, y1, w }  // the ready glass's straw (viewBox), short enough to clear the machine's collar and nozzle
 customerSVG(look, mood, size = 160)  // mood: 'happy'|'neutral'|'impatient'|'angry'
 randomLook(rng)                       // → look object (skin, hair colour/style, shirt, accessory) – diverse
 blenderSVG({state, base, progress, remaining?, portions, maxPortions, badge?}, size = 150)  // badge:false hides the status badge;
                                       // remaining: whole seconds the display counts down while blending
-smoothieMachineSVG(slotCount, size)   // machine body without cups (cups drawn separately)
+matchaMachineSVG(slotCount, size)     // the machine without glasses (drawn separately at MATCHA_SLOT_X/Y, MATCHA_CUP_SIZE),
+                                      // built from the 3D model's measures (MATCHA_GEO, machinePoint); MATCHA_POUR_FROM: the
+                                      // glass's y at the nozzle tip (its stream's start); matchaLedAt(slotCount, i): a slot's
+                                      // status LED in the 312 px canvas (the game lights it over the drawing)
 trashSVG(size), coinSVG(size), heartSVG(filled, size), starSVG(filled, size)
 decorSVG(id, size)                    // 'plants' | 'jukebox' | 'seating' | 'neon'
 shopSceneSVG(width, height)           // back wall / window / sign for the gameplay scene
@@ -337,8 +349,8 @@ logoSVG(width)                        // "Açaí Fever" logo with bowl
 Look: shapes are filled with their colour and shaded with the shared overlay gradients (`url(#af-sph)`,
 `af-cyl`, `af-plastic`, `af-steel` …, light from the top left), thin outlines in a darker shade of the fill.
 Everything on the counter is seen from the player's side, from above at an angle (Cooking Fever's view): round
-things are ellipses, boxes show their top face and the side that faces the middle of the screen (smoothie machine:
-left side; the blender is drawn from the front like its 3D model), and every object casts a soft shadow on the
+things are ellipses, boxes show their top face and the side that faces the middle of the screen (the blender and the
+matcha machine are drawn from the front like their 3D models), and every object casts a soft shadow on the
 worktop. The ingredient containers in the two front rows are seen more steeply (`PANTRY_ELEV` 38°, the tilt the fruit pieces are drawn with): the
 rows are nearer to the player and lower than the appliances, and the pans' tops and the jars' mouths must read.
 The fruit lies in neat staggered rows like a deli counter, each piece with a little contact shadow away from the
@@ -349,18 +361,22 @@ gradient (café wall, work counter, logo, map) builds unique ids with `uid()`. P
 outline (`withInk`), the HUD icons, logo and map keep the cartoon ink line of the menus.
 
 ### 4.4.1 3D appliances (`js/geo3d.js`, `js/kitchen3d.js`, `js/gl3d.js`, `js/art3d.js`)
-The blender, smoothie machine, pedal bin and chest freezer are real 3D models rendered with WebGL (no library), and so are
+The blender, matcha machine, pedal bin and chest freezer are real 3D models rendered with WebGL (no library), and so are
 the ingredient containers (js/pantry3d.js, drawn once as still pictures). Everything else (guests, food, cups, HUD) stays SVG.
 ```js
 // kitchen3d.js (pure): scene = { frame, elev, persp?, time, items: [{ mesh, mat, m, pass }] }
 blenderScene({ tier 0–3, big, state, base, progress, remaining, portions, maxPortions }, t, frame?)
-machineScene({ slots: [{ state: 'empty'|'mixing'|'ready', fruit, progress }] }, t, frame?)   // 1 or 2 slots
+matchaScene({ slots: [{ state: 'empty'|'mixing'|'ready', fruit, progress }] }, t, frame?)    // 1 or 2 slots (view 'machine')
 trashScene({ lid: 0 closed … 1 open }, t, frame?)
 freezerScene({ layer: 'back'|'front', door: 0 … 1 /* a pack is being taken */ }, t, frame?)
 VIEWS[kind] = { w, h, ax, ay, zoom?, pic? } // canvas size (stage px), where the world origin sits in it, its zoom
                                             // (the blender's is per model), pic = { y, h }: the rows a menu picture shows
 blenderLook(save.upgrades) → { tier, big }  // tier = Turbo-Mixer level, big = big jug bought
-BLENDER_MODELS = ['Classic', 'Turbo', 'Pro', 'Pro Max'];  MACHINE_SLOT_X; pourFill(progress); isAnimated(kind, o)
+BLENDER_MODELS = ['Classic', 'Turbo', 'Pro', 'Pro Max'];  isAnimated(kind, o)
+MACHINE_SLOT_X, TRAY_Y, GLASS_Z             // where the glasses stand on the matcha machine's drip trays (world)
+brewPhase(state, progress) → { grind, heat, pour, powder, dust }   // what the matcha machine does at a point of the brew
+pourFill(progress)                          // how full the glass under the nozzle is (0 until the pour starts at 0.55)
+MATCHA_GEO; machinePoint([x, y, z]) → [x, y] // the machine's measures and a world point in its canvas (the drawn version)
 blenderZoom(tier, big)                      // a model's zoom: every model equally tall (measured once from its jug, lid and cap)
 blenderBadgeAt(tier, big) → { x, y }        // canvas point above the right end of the model's lid (status badge)
 blenderBox(tier, big, state) → [x0, y0, x1, y1]  // the canvas part a model in a state covers (drag ghost), measured once
@@ -395,13 +411,14 @@ pixelRatio()                                 // device px per stage px, 1–3
 - **Sizes (`VIEWS`, CSS px):** blender 164 × 292 (no zoom of its own: `blenderZoom` scales each model so the lid (its
   measuring cap) of a 2-bowl jug ends 188 px above the floor, the 3-bowl jug's 208 px – ≈200 / ≈220 px tall in all,
   about 2× / 2.25× a cup, whatever the motor base; the canvas keeps headroom for the lid an overflowing blender lifts, menu pictures crop most of
-  it with `pic`), smoothie machine 312 × 312 (zoom 312/236, the machine box of the game; the cups' slots line up with its
-  taps and drip trays), pedal bin 153 × 209 (zoom 1.35), chest freezer 284 × 194, ingredient container 96 × 112
+  it with `pic`), matcha machine 312 × 312 (zoom 312/236, the machine box of the game; the glasses' slots line up with
+  its nozzles and drip trays; the machine ≈230 px wide with one slot, ≈300 with two, ≈240 px tall, room above it for the
+  steam – every part of every state stays inside the canvas), pedal bin 153 × 209 (zoom 1.35), chest freezer 284 × 194, ingredient container 96 × 112
   (`PANTRY_VIEW`, origin at ax 48 / ay 96). Every part of every blender state stays inside its canvas and its `blenderBox`
   (tests/kitchen3d.test.mjs), every container inside its art box (tests/pantry3d.test.mjs).
 - **Look:** metal/roughness shading with GGX highlights from three studio lights, reflections of a procedural photo studio
   (soft boxes over a warm room), clear plastic with Fresnel reflections, procedural surface patterns (brushed steel, swirling
-  purée, slush crystals, frost, printed scales, seven-segment displays, LED rings, wood grain, coconut fibres, and packed
+  purée, frost, printed scales, seven-segment displays, LED rings, wood grain, coconut fibres, and packed
   granola clusters or chia seeds as 3D cells – round or long pieces in shades of their own with dark gaps, so no side of a
   jar shows them stretched), ACES tone
   mapping. Colours are sRGB in the models and linear in the shader. Objects darken toward the floor they stand on (a band of
@@ -454,14 +471,32 @@ pixelRatio()                                 // device px per stage px, 1–3
   chrome trim along the band and its V, a bigger display and a thin light line just over the plinth with a soft halo on
   the body, not on the floor where the game's timer bar runs (white idle, cyan blending, green ready, red blinking when it
   overflows). The dial turns to the top of its ramp while blending. The big jug is
-  taller and wider. The smoothie machine is a compact white one-tank machine or the stainless two-tank machine, both
-  with the café's açaí purple on the head with the taps. Green LEDs at the tip of every base's V show the portions left.
+  taller and wider. Green LEDs at the tip of every base's V show the portions left.
   The shop's Turbo-Mixer card shows the next model ("New model: Pro").
+- **Matcha machine:** a stylised household tea-latte machine (the overhaul's second reference photo; the lettering reads
+  "MATCHA" / "AÇAÍ FEVER"): an upright rounded housing with a muted olive matcha-green shell around a glossy black front
+  (a soft sheen from the top left). Per slot a bay: the water tank at the top in a dark, fairly opaque smoked brown-grey
+  (its water level and the bubbles still show through; tapering downward, a grip recess down its front left – a shadowed
+  wall and a lit edge, drawn over the smoke so it reads at 1× –, a dark lid with a steam vent), an olive collar under it
+  with a chrome knob on its front right and the status LED on its front left, the black nozzle head with a chrome tip, a
+  dark recess behind the glass and the drip tray with a grate along the bottom. On the right, in an arched alcove, the
+  tea mill: a dark base, a glass cylinder with green matcha powder and a cream burr on a shaft, two olive rings, a dark
+  cap; the lettering above it. One slot (≈230 px wide, close to the photo; also the locked teaser) or, with
+  "Doppel-Matcha", a wider machine with two bays side by side and a small "80°C" display. The glass on each drip tray is
+  DOM art (`matchaGlassSVG`, a tall clear tumbler ≈0.8 × a cup's height; the bay leaves room under the nozzle for its
+  straw and garnish: a ready glass's straw ends ≥ 3 px under the collar, beside the nozzle head; a glass that gets ready
+  flashes its glow and pops only a little – 1.06 × 1.03 – so the straw stays clear of the collar). Without WebGL the
+  drawn machine stands still; the game lights a slot's LED over the drawing (amber blinking while it brews, green when
+  ready), the glass stands still too and its own stream starts at the drawn nozzle's tip.
 - **Animations** are functions of state and time: vortex, swirl and frozen chunks that melt away while blending, jug
   vibration, the countdown and the filling LED ring, foam, drips, a puddle and the lifted lid (with its cap) when
-  overflowing, mould and flies when spoiled; fruit tumbling into the tank, auger and slush churning, then the lever opens and a stream fills the cup (the cup art fills with `pourFill`); the bin lid
-  opens while something trashable is carried (wide over the bin) and falls shut with a bounce; cold air spills out of the
-  chest freezer while a pack is taken.
+  overflowing, mould and flies when spoiled; the matcha machine: a fruit dropped on a glass is its purée at the bottom,
+  the mill's burr turns and green dust whirls while the powder sinks a little, bubbles rise on the front of the tank's
+  water and steam puffs from its vent (blended, light with a grey edge, so they show softly over the white pass at 1×),
+  then the nozzle pours (milk first, then the matcha) and the glass fills (`pourFill`; a pour sound as the stream
+  appears) while the tank's water sinks; the LED blinks amber while it brews and is green when the glass is ready; the
+  bin lid opens while something trashable is carried (wide over the bin) and falls shut with a bounce; cold air spills
+  out of the chest freezer while a pack is taken.
 - **Rendering:** one shared offscreen WebGL context draws each view into the view's own 2D canvas (passes: contact shadow,
   opaque, decals, glass back-to-front – both sides of clear plastic, only the near side of a filled jar's glass –, glows).
   A view only redraws when its state changed or while it animates. If drawing is
@@ -474,7 +509,7 @@ pixelRatio()                                 // device px per stage px, 1–3
   model and state (measured when the blenders are built; a live canvas is never read back – that would stall the GPU); the
   freezer gets two canvases around the DOM packs (frame, frosty well with spare packs on a step at the back and the
   sliding glass lids behind them; the frame's front edge and the cold air in front of them; the canvases end at the
-  worktop's front edge); the machine canvas sits under the DOM cups (slots); the blender and bin canvases reach above
+  worktop's front edge); the machine canvas sits under the DOM glasses (slots; drawn with `{fill, stream: false}`, the nozzle pours); the blender and bin canvases reach above
   their hit areas (an overflowing lid, the bin lid). The animation clock `animT` only runs while the game runs (pause,
   game over and `prefers-reduced-motion` freeze it).
 - Preview of every model and state, and of every ingredient container: `tools/appliances-3d.html` (`?z=2` zoom, `?only=`
@@ -489,7 +524,7 @@ audio.loop(id, on)            // continuous sounds: 'blender' (only while ≥1 b
 audio.setSfx(bool); audio.setMusic(bool); audio.sfxOn(); audio.musicOn()
 audio.suspend(); audio.resume()  // for pause / tab hidden
 ```
-SFX names: `click, pickup, drop, reject, blenderStart, blenderReady, overflow, ruined, smoothieReady, pour,
+SFX names: `click, pickup, drop, reject, blenderStart, blenderReady, overflow, ruined, matchaReady, pour,
 plop, coin, bell, angry, happy, trash, purchase, star, win, lose, closing, heart, tick, cup` (`cup`: a cup set down).
 
 ### 4.6 Screens & router (`js/main.js`, `js/screens.js`, `js/game-view.js`)
@@ -558,11 +593,16 @@ y 338–742  worktop in perspective (counterSVG): terrazzo, chips shrinking towa
              sticks up over the riser's front edge, except where it would cover the layer name (within ≈72 px of
              its middle): then it sits on the badges' line beside its container, the stars under it (honey and
              peanut butter: under their stars)
-  x 952–1264 smoothie machine at the back (when present, slots = kitchen.smoothieSlots; a locked teaser before
-             level 7): a 312 px box (y 265–577), the machine ≈285 px wide with two tanks (≈175 with one), its feet on
-             the back-row line; the drink glasses (103 px boxes: an empty glass ≈0.65 × a cup's height, a ready one
-             with its dome lid ≈0.8 ×; a bigger one would push its straw into the tap head) stand on its drip trays;
-             a fruit basket and a jar of straws (decor, part of counterSVG) on the worktop in front of it
+  x 952–1264 matcha machine at the back (when present, slots = kitchen.matchaSlots; a locked teaser before
+             level 7: the one-slot machine greyed (opaque), a lock on its black front between the tank and the mill, "Matcha ab
+             Level 7" under it): a 312 px box
+             (y 265–577), the machine ≈243 px tall (its top at y≈306, clear of the pass's top line, its drip tray's
+             front on the back-row line), ≈230 px wide with one slot (x 993–1223), ≈300 with two (x 957–1259); the
+             tea mill stands at its right. The glasses (102 px boxes, a glass ≈75 px tall: ≈0.8 × a cup's height; the bay under each nozzle
+             leaves room for its straw and garnish) stand on its drip trays; a slot (the glass's hit area) is
+             96 × 136 px, two of them keep a gap; a slot's timer bar lies on the worktop just under the drip tray's
+             front (y≈551–561), like the blenders' bars; a fruit basket and a jar of straws (decor, part of
+             counterSVG) on the worktop in front of the machine
 y 742–756  rounded front edge of the worktop
 y 756–800  cabinet strip: the tops of open oak shelves with the café's stock (cups, bowls, fruit crates, granola,
            jars, coconuts) under an LED strip; the trash can (136 px box, x 1136–1272, y 664–800, its lid reaching
@@ -583,8 +623,9 @@ slots, with and without WebGL, at 1280×800 and 1024×768) and in small ones (le
   worktop in perspective with a rounded front edge and open shelves of stock below, the ingredients in real
   containers on oak risers (brushed stainless pans of fruit in neat rows, glass jars, a squeeze bottle, a coconut
   shell, a walnut bowl, a board – 3D, light from the top left like everything else), 3D appliances about twice as tall as a cup (a stand
-  blender after a household model – fluted glass jug, tall stainless base with a black glass V display band and a big chrome dial –, white smoothie
-  machine with an açaí-purple head, stainless freezer and pedal bin) – clean and modern rather than cluttered.
+  blender after a household model – fluted glass jug, tall stainless base with a black glass V display band and a big chrome dial –, a matcha
+  machine after a household tea-latte machine – muted olive shell, black front, smoked water tank, a glass tea mill –,
+  stainless freezer and pedal bin) – clean and modern rather than cluttered.
   Bubbles, HUD pills, toasts and cards in the café are light frosted panels with soft shadows. Menus keep the chunky
   cartoon UI (thick ink outline buttons and panels) around the same realistic food art.
 - No dark-mode variant, but every colour is a CSS token on `:root` (game-only tokens on `.screen-game`)
@@ -610,6 +651,9 @@ Key `acaiFever.save.v1`. Shape:
 - Several tabs share one save: before each change `save.js` adopts what another tab stored since this tab
   last read or wrote it, and a `storage` event updates open menus (`onSaveChange`) right away. While
   writes fail (quota, blocked storage) the in-memory state wins.
+- Renamed upgrade ids carry over (`LEGACY_UPGRADES`): the smoothie machine became the matcha machine, so an old save's
+  `upgrades.smoothieSlots` is taken over as `matchaSlots` (unless that is set) and the old id is not kept. The key and
+  `version: 1` stay; `seenIntros` only ever stores `basics`, so the renamed level-7 intro needs nothing.
 
 ### 4.10 Build & hosting
 - Dev: `npm start` (static server on :8080) – ES modules need http(s), not `file://`.
@@ -621,8 +665,9 @@ Key `acaiFever.save.v1`. Shape:
 - `npm test` → `node --test "tests/**/*.test.mjs"` (`node --test tests/` also works through `tests/index.js`;
   Node 22 treats a bare directory argument as a module).
 - `appliances.e2e.mjs` checks the 3D stations in a real browser (canvases drawn, model per upgrade, blending animates,
-  bin lid and the freezer's cold air react to drags, the tap fills the cup, shop pictures, the ingredient containers'
-  still pictures drawn again sharp for a new pixel ratio) and the SVG fallback without WebGL.
+  bin lid and the freezer's cold air react to drags, the matcha machine brews – the purée first, then the nozzle fills
+  the glass –, shop pictures, the ingredient containers' still pictures drawn again sharp for a new pixel ratio) and the
+  SVG fallback without WebGL.
 - `layout.e2e.mjs` checks the gameplay layout of §4.7 (stations on the stage, ≥ 64 px, no overlaps, layer names and name
   tags uncovered, badges visible).
 - `npm run e2e` → every `tests/e2e/*.e2e.mjs` in sequence (Playwright, static server on :8090 by default,

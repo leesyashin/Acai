@@ -71,7 +71,7 @@
 .screen-game .g-cust.drop-ok .g-bubble { box-shadow: 0 0 0 5px var(--glow-ok), 0 0 22px 6px var(--glow-ok); }
 .screen-game .g-cust.drop-ok.drop-hover .g-figure { scale: 1.06; }
 .screen-game .g-cust.drop-ok.drop-hover .g-bubble { box-shadow: 0 0 0 6px var(--mango), 0 0 30px 10px var(--glow-ok); }
-/* hovering a guest who will refuse it (cup still mixing, nothing ordered): muted red, no grow */
+/* hovering a guest who will refuse it (glass still brewing, nothing ordered): muted red, no grow */
 .screen-game .g-cust.drop-bad .g-bubble { box-shadow: 0 0 0 4px var(--glow-bad); }
 
 /* order bubble */
@@ -112,16 +112,16 @@
 .screen-game .g-row { display: flex; align-items: center; height: 33px; }
 .screen-game .g-row .g-lnum { margin-right: 1px; }
 .screen-game .g-ico { display: block; flex: none; }
-.screen-game .g-order-cup {
+.screen-game .g-order-drink {
   padding-left: 6px;
   border-left: 2px dotted rgba(42, 18, 54, 0.2);
 }
-.screen-game .g-cup-wrap { position: relative; display: block; }
-/* which fruit: the same icon the bin shows, on the cup's lower right (inside the bubble padding) */
-.screen-game .g-cup-fruit {
+.screen-game .g-drink-wrap { position: relative; display: block; }
+/* which fruit: the bin's icon, on the glass's lower right in the bubble padding (the purée layer stays visible) */
+.screen-game .g-drink-fruit {
   position: absolute;
-  right: -6px;
-  bottom: -3px;
+  right: -7px;
+  bottom: -2px;
   width: 26px;
   height: 26px;
   box-sizing: border-box;
@@ -531,8 +531,9 @@
 .screen-game .g-bin:active,
 .screen-game .g-stack:active { translate: 0 2px; }
 
-/* smoothie machine (x 952–1264): a square box (its canvas, y 265–577) with the machine standing at its bottom, the
-   front feet on the line of the blenders' (y 548), the top over the pass; only the cup slots take the pointer */
+/* matcha machine (x 952–1264): a square box (its canvas, y 265–577) with the machine standing at its bottom, the
+   front of its drip tray on the line of the blenders' feet (y 548), its top just under the pass (y≈306), room
+   above for the steam; only the glass slots take the pointer */
 .screen-game .g-machine {
   position: absolute;
   left: 952px;
@@ -543,31 +544,57 @@
 }
 .screen-game .g-slot {
   position: absolute;
-  width: 116px;
-  height: calc(var(--cup) + 34px);
+  width: 96px;
+  height: calc(var(--glass) + 34px);
   border-radius: 20px;
   pointer-events: auto;
 }
 .screen-game .g-slot .g-art {
   position: absolute;
-  left: calc(50% - var(--cup) / 2);
+  left: calc(50% - var(--glass) / 2);
   top: 16px;
-  width: var(--cup);
-  height: var(--cup);
+  width: var(--glass);
+  height: var(--glass);
   transform-origin: 50% 100%;
 }
-.screen-game .g-slot .g-timer { left: 16px; right: 16px; top: auto; bottom: 4px; height: 10px; }
-.screen-game .g-slot[data-state="mixing"] .g-art { animation: g-rattle 0.22s linear infinite; }
+/* a glass's timer lies on the worktop just under the drip tray's front, like the blenders' bars (a glass under a
+   nozzle stands still while it brews) */
+.screen-game .g-slot .g-timer { left: 10px; right: 10px; top: auto; bottom: -5px; height: 10px; }
 .screen-game .g-slot[data-state="ready"] .g-art { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95)); }
+/* a glass that just got ready flashes its glow and pops only a little: its straw ends ≈4 px under the collar */
+.screen-game .g-slot .g-art.is-pop { animation: g-pop-glass 0.4s ease-out; }
+/* without WebGL: the drawn machine's status LED on the slot's collar, amber blinking while it brews, green when ready */
+.screen-game .g-slot .g-led {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+}
+.screen-game .g-slot[data-state="mixing"] .g-led {
+  opacity: 1;
+  background: radial-gradient(circle at 35% 35%, #fff3c4, #ffb000 62%);
+  box-shadow: 0 0 6px 2px rgba(255, 190, 59, 0.8);
+  animation: g-led-blink 0.78s steps(1) infinite;
+}
+.screen-game .g-slot[data-state="ready"] .g-led {
+  opacity: 1;
+  background: radial-gradient(circle at 35% 35%, #d8ffe0, #1fd65a 62%);
+  box-shadow: 0 0 6px 2px rgba(43, 255, 98, 0.75);
+}
 
 .screen-game .g-machine.is-locked { pointer-events: none; }
 .screen-game.has-tutorial .g-machine.is-locked { visibility: hidden; }
-.screen-game .g-machine.is-locked .g-art { opacity: 0.45; filter: grayscale(0.85); }
-.screen-game .g-lock { position: absolute; left: 50%; top: 132px; translate: -50% 0; }
+/* the dark machine greyed out and lightened by the filter alone (opaque: the pass must not show through it) */
+.screen-game .g-machine.is-locked .g-art { filter: grayscale(1) brightness(1.5) contrast(0.5); }
+/* the lock on the black front between the tank and the mill (clear of the collar, its knob and the mill), the label under it */
+.screen-game .g-lock { position: absolute; left: 170px; top: 120px; translate: -50% 0; }
 .screen-game .g-lock-label {
   position: absolute;
-  left: 50%;
-  top: 196px;
+  left: 170px;
+  top: 184px;
   translate: -50% 0;
   padding: 5px 12px 4px;
   border-radius: 10px;
@@ -605,9 +632,8 @@
 .screen-game .g-freezer .g-3d { top: -8px; }
 .screen-game .g-freezer .g-3d-back { z-index: 0; }
 .screen-game .g-freezer .g-3d-front { z-index: 2; }
-/* smoothie machine: the cups stand on its drip trays */
+/* matcha machine: the glasses stand on its drip trays */
 .screen-game .g-machine .g-slot { z-index: 1; }
-.screen-game.is-3d .g-slot[data-state="mixing"] .g-art { animation: none; }
 /* pedal bin: the canvas reaches above the hit area so the lid can open */
 .screen-game.is-3d .g-trash .g-art { position: absolute; left: -9px; top: -72px; width: 153px; height: 209px; transform-origin: 76px 191px; }
 
@@ -971,6 +997,7 @@
 @keyframes g-stomp-out-l { 0% { translate: 0 0; } 8% { translate: -8px 0; } 16% { translate: 8px 0; } 24% { translate: -6px 0; } 32% { translate: 0 0; opacity: 1; } 100% { translate: -300px 0; opacity: 0; } }
 @keyframes g-stomp-out-r { 0% { translate: 0 0; } 8% { translate: 8px 0; } 16% { translate: -8px 0; } 24% { translate: 6px 0; } 32% { translate: 0 0; opacity: 1; } 100% { translate: 300px 0; opacity: 0; } }
 @keyframes g-bubble-in { from { scale: 0.3; opacity: 0; } 70% { scale: 1.08; opacity: 1; } to { scale: 1; opacity: 1; } }
+@keyframes g-led-blink { 58% { opacity: 0.2; } }
 @keyframes g-rattle { 0%, 100% { rotate: 0deg; translate: 0 0; } 25% { rotate: -1.6deg; translate: -1px 0; } 75% { rotate: 1.6deg; translate: 1px 0; } }
 @keyframes g-overflow { 0%, 100% { rotate: 0deg; filter: drop-shadow(0 0 0 rgba(255, 77, 77, 0)); } 25% { rotate: -2.5deg; } 50% { filter: drop-shadow(0 0 14px var(--glow-bad)); } 75% { rotate: 2.5deg; } }
 @keyframes g-red-pulse { 0%, 100% { scale: 1; } 50% { scale: 1.08; } }
@@ -978,6 +1005,7 @@
 @keyframes g-shake { 0%, 100% { translate: 0 0; } 20% { translate: -10px 0; } 40% { translate: 9px 0; } 60% { translate: -6px 0; } 80% { translate: 4px 0; } }
 @keyframes g-squash { 0% { scale: 1.14 0.86; } 55% { scale: 0.95 1.06; } 100% { scale: 1 1; } }
 @keyframes g-pop { 0% { scale: 1; } 40% { scale: 1.16; } 100% { scale: 1; } }
+@keyframes g-pop-glass { 40% { scale: 1.06 1.03; filter: drop-shadow(0 0 14px rgba(255, 255, 255, 1)); } }
 @keyframes g-wobble { 0%, 100% { rotate: 0deg; } 25% { rotate: -9deg; } 55% { rotate: 7deg; } 80% { rotate: -3deg; } }
 @keyframes g-hop { 0%, 100% { translate: 0 0; } 40% { translate: 0 -18px; } }
 @keyframes g-wiggle { 0%, 100% { rotate: 10deg; } 50% { rotate: 2deg; } }
@@ -999,6 +1027,7 @@
   .screen-game .g-cust,
   .screen-game .g-figure,
   .screen-game .g-art,
+  .screen-game .g-led,
   .screen-game .g-new,
   .screen-game .g-tut-arrow,
   .screen-game .g-tut-ring,

@@ -15,7 +15,7 @@ const PORT = Number(process.env.E2E_PORT) || 8090;
 const OUT = e2eOutDir('layout');
 const MIN = 64; // stage px (DESIGN §4.7: tablet fingers)
 const PASS_TOP = 294; // stage y of the pass: the guests and their bubbles are above it
-const STATIONS = '[data-blender], [data-pack], [data-cup-stack], [data-bowl], [data-bin], [data-smoothie-slot], [data-trash]';
+const STATIONS = '[data-blender], [data-pack], [data-cup-stack], [data-bowl], [data-bin], [data-matcha-slot], [data-trash]';
 const results = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -60,7 +60,7 @@ const measure = (page, sel) => page.evaluate((stations) => {
     const reach = el.matches('[data-bin]') ? -parseFloat(getComputedStyle(el, '::before').top) || 0 : 0;
     return { ...b, y1: b.y1 - reach };
   };
-  const name = (el) => ['blender', 'pack', 'cupStack', 'bowl', 'bin', 'smoothieSlot', 'trash']
+  const name = (el) => ['blender', 'pack', 'cupStack', 'bowl', 'bin', 'matchaSlot', 'trash']
     .filter((a) => a in el.dataset).map((a) => `${a}${el.dataset[a] ? `=${el.dataset[a]}` : ''}`)[0];
   // labels and pictures let the pointer through: hit-test them for a moment to see what is drawn on top
   const arts = [...document.querySelectorAll('.g-bin .g-art')];
@@ -153,14 +153,14 @@ function assertLayout({ stations, labels }, want) {
   assert(bad.length === 0, bad.join('\n'));
 }
 
-const ALL = { blender: 2, pack: 3, cupStack: 1, bowl: 4, bin: 13, smoothieSlot: 2, trash: 1 };
+const ALL = { blender: 2, pack: 3, cupStack: 1, bowl: 4, bin: 13, matchaSlot: 2, trash: 1 };
 const CASES = [
   { name: 'fullest kitchen (level 14, everything owned and upgraded)', query: 'level=14&owned=all&upgrades=max&seed=4', want: ALL, shot: 'fullest' },
   { name: 'fullest kitchen at 1024×768', query: 'level=14&owned=all&upgrades=max&seed=4', want: ALL, viewport: { width: 1024, height: 768 } },
   { name: 'fullest kitchen without WebGL', query: 'level=14&owned=all&upgrades=max&seed=4', want: ALL, noWebgl: true, shot: 'fullest-svg' },
-  { name: 'level 1 (1 blender, 2 cups, 4 ingredients)', query: 'level=1&fresh=1&seed=3', want: { blender: 1, pack: 1, cupStack: 1, bowl: 2, bin: 3, smoothieSlot: 0, trash: 1 }, shot: 'level1' },
-  { name: 'level 5 (3 seats, locked machine)', query: 'level=5&fresh=1&seed=11', want: { blender: 1, bowl: 2, smoothieSlot: 0, trash: 1 }, shot: 'level5' },
-  { name: 'endless with the one-tank machine', query: 'mode=endless&fresh=1&seed=9', want: { smoothieSlot: 1, trash: 1 } },
+  { name: 'level 1 (1 blender, 2 cups, 4 ingredients)', query: 'level=1&fresh=1&seed=3', want: { blender: 1, pack: 1, cupStack: 1, bowl: 2, bin: 3, matchaSlot: 0, trash: 1 }, shot: 'level1' },
+  { name: 'level 5 (3 seats, locked machine)', query: 'level=5&fresh=1&seed=11', want: { blender: 1, bowl: 2, matchaSlot: 0, trash: 1 }, shot: 'level5' },
+  { name: 'endless with the one-slot machine', query: 'mode=endless&fresh=1&seed=9', want: { matchaSlot: 1, trash: 1 } },
 ];
 // new toppings in the front row's middle, right under the fruits' layer label, the jars with their lid beside them and
 // the granola jar; every ingredient with two quality stars, or none (the sticker takes the stars' place)

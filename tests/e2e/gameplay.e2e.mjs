@@ -51,7 +51,7 @@ async function serve() {
 function firstOrder(seed, levelId, owned) {
   const g = createGame({
     mode: 'campaign', level: levelId, owned, ingLevels: {}, kitchen: getKitchenStats({}),
-    smoothies: levelId >= 7, seed, tutorial: levelId === 1,
+    matcha: levelId >= 7, seed, tutorial: levelId === 1,
   });
   for (let i = 0; i < 400 && !g.seats.some(Boolean); i++) tick(g, 0.1);
   return g.seats.find(Boolean)?.order || null;
@@ -82,7 +82,7 @@ const snap = (page) => page.evaluate(() => {
     seats: g.seats.map((c) => c && { id: c.id, state: c.state, order: c.order, delivered: { ...c.delivered } }),
     bowls: g.bowls.map((b) => ({ cup: b.cup, base: b.base, mid: [...b.mid], top: [...b.top], uid: b.uid })),
     blenders: g.blenders.map((b) => ({ state: b.state, base: b.base, portions: b.portions })),
-    slots: g.smoothie ? g.smoothie.slots.map((s) => ({ state: s.state, fruit: s.fruit })) : null,
+    slots: g.matcha ? g.matcha.slots.map((s) => ({ state: s.state, fruit: s.fruit })) : null,
   };
 });
 
@@ -136,7 +136,7 @@ async function glowWhileDragging(page, from) {
     const d = e.dataset;
     if (d.blender !== undefined) return `blender${d.blender}`;
     if (d.bowl !== undefined) return `bowl${d.bowl}`;
-    if (d.smoothieSlot !== undefined) return `slot${d.smoothieSlot}`;
+    if (d.matchaSlot !== undefined) return `slot${d.matchaSlot}`;
     if (d.customerId !== undefined) return `cust${d.customerId}`;
     return d.trash !== undefined ? 'trash' : e.className;
   }).sort().join(' '));
@@ -199,7 +199,7 @@ async function serveCustomer(page, id, { touch = false } = {}) {
   const c = s.seats.find((x) => x && x.id === id);
   assert(c, `customer ${id} is gone`);
   const order = c.order;
-  if (order.smoothie && !c.delivered.smoothie) await serveSmoothie(page, id, order.smoothie, touch);
+  if (order.matcha && !c.delivered.matcha) await serveMatcha(page, id, order.matcha, touch);
   const bi = await readyBlender(page, order.bowl.base, touch);
   s = await snap(page);
   const bowl = s.bowls.findIndex((b) => !b.base);
@@ -220,14 +220,14 @@ async function serveCustomer(page, id, { touch = false } = {}) {
   assert(!(await snap(page)).bowls[bowl].cup, 'the served cup is still on the counter');
 }
 
-async function serveSmoothie(page, id, fruit, touch) {
-  await drag(page, `[data-bin="${fruit}"]`, '[data-smoothie-slot="0"]', touch);
-  await until(page, () => window.__acaiGame.smoothie.slots[0].state === 'mixing', null, 3000);
-  await fastUntil(page, () => window.__acaiGame.smoothie.slots[0].state === 'ready', null, 4);
-  await drag(page, '[data-smoothie-slot="0"]', custSel(id), touch);
+async function serveMatcha(page, id, fruit, touch) {
+  await drag(page, `[data-bin="${fruit}"]`, '[data-matcha-slot="0"]', touch);
+  await until(page, () => window.__acaiGame.matcha.slots[0].state === 'mixing', null, 3000);
+  await fastUntil(page, () => window.__acaiGame.matcha.slots[0].state === 'ready', null, 4);
+  await drag(page, '[data-matcha-slot="0"]', custSel(id), touch);
   await until(page, (cid) => {
     const c = window.__acaiGame.seats.find((x) => x && x.id === cid);
-    return !c || c.delivered.smoothie;
+    return !c || c.delivered.matcha;
   }, id, 3000);
 }
 
@@ -451,31 +451,31 @@ async function overflowAndClean(srv) {
   }
 }
 
-async function smoothieTouch(srv) {
+async function matchaTouch(srv) {
   const tag = '[touch 1024×768]';
-  const seed = findSeed(7, ALL, (o) => !!o.smoothie);
+  const seed = findSeed(7, ALL, (o) => !!o.matcha);
   const { page, errors, close } = await open(srv, `level=7&fresh=1&owned=all&tutorial=0&seed=${seed}`, {
     touch: true, viewport: { width: 1024, height: 768 },
   });
   try {
-    await check(`${tag} level 7: smoothie made and served, then the bowl → customer pays`, async () => {
-      const id = await waitCustomer(page, 'c.order.smoothie !== null');
+    await check(`${tag} level 7: matcha made and served, then the bowl → customer pays`, async () => {
+      const id = await waitCustomer(page, 'c.order.matcha !== null');
       const before = await snap(page);
-      const fruit = before.seats.find((c) => c && c.id === id).order.smoothie;
-      await serveSmoothie(page, id, fruit, true);
-      const cupDone = await page.evaluate((cid) => !!document.querySelector(`[data-customer-id="${cid}"] [data-part="smoothie"].is-done`), id);
-      assert(cupDone, 'smoothie part not ticked in the bubble');
-      const badge = await page.evaluate((cid) => !!document.querySelector(`[data-customer-id="${cid}"] [data-part="smoothie"] .g-cup-fruit svg`), id);
-      assert(badge, 'smoothie order shows no fruit badge');
+      const fruit = before.seats.find((c) => c && c.id === id).order.matcha;
+      await serveMatcha(page, id, fruit, true);
+      const drinkDone = await page.evaluate((cid) => !!document.querySelector(`[data-customer-id="${cid}"] [data-part="matcha"].is-done`), id);
+      assert(drinkDone, 'matcha part not ticked in the bubble');
+      const badge = await page.evaluate((cid) => !!document.querySelector(`[data-customer-id="${cid}"] [data-part="matcha"] .g-drink-fruit svg`), id);
+      assert(badge, 'matcha order shows no fruit badge');
       const aria = await page.getAttribute(`${custSel(id)} .g-bubble`, 'aria-label');
-      const want = [await tr(page, 'game.order'), await tr(page, `smoothie.${fruit}`), await tr(page, 'game.served')];
+      const want = [await tr(page, 'game.order'), await tr(page, `matcha.${fruit}`), await tr(page, 'game.served')];
       assert(want.every((w) => aria?.includes(w)), `order bubble aria-label "${aria}" lacks ${JSON.stringify(want)}`);
       await serveCustomer(page, id, { touch: true });
       const s = await snap(page);
       assert(s.served === before.served + 1 && s.money > before.money, 'customer did not pay');
     });
-    await check(`${tag} a topping on a smoothie slot bounces back with a hint`, async () => {
-      await expectReject(page, '[data-bin="honey"]', '[data-smoothie-slot="0"]', 'notSmoothieFruit', true);
+    await check(`${tag} a topping on a matcha slot bounces back with a hint`, async () => {
+      await expectReject(page, '[data-bin="honey"]', '[data-matcha-slot="0"]', 'notMatchaFruit', true);
     });
     await check(`${tag} holding a fruit bin or putting it back never drops it into the bowl above`, async () => {
       const bi = await readyBlender(page, 'acai', true);
@@ -543,7 +543,7 @@ async function glowRules(srv) {
         assert(lit === want, `${from}: glowing "${lit}", expected "${want}"`);
       };
       await expect('[data-bin="banana"]', 'slot0 slot1'); // free spots need a cup and a base first
-      await expect('[data-bin="granola"]', ''); // no base anywhere, granola makes no smoothie
+      await expect('[data-bin="granola"]', ''); // no base anywhere, granola makes no matcha
       await expect('[data-bin="honey"]', '');
       await expect('[data-pack="acai"]', 'blender0 blender1');
       await expect('[data-cup-stack]', 'bowl0 bowl1 bowl2 bowl3');
@@ -560,24 +560,24 @@ async function glowRules(srv) {
       await until(page, () => window.__acaiGame.bowls[0].base === 'acai', null, 3000);
       await expect('[data-blender="0"]', 'bowl1 bowl2 bowl3 trash'); // bowl 0 has a base now
       await expect('[data-bin="banana"]', 'bowl0 slot0 slot1');
-      await drag(page, '[data-bin="banana"]', '[data-smoothie-slot="0"]');
-      await until(page, () => window.__acaiGame.smoothie.slots[0].state === 'mixing', null, 3000);
+      await drag(page, '[data-bin="banana"]', '[data-matcha-slot="0"]');
+      await until(page, () => window.__acaiGame.matcha.slots[0].state === 'mixing', null, 3000);
       await expect('[data-bin="mango"]', 'bowl0 slot1');
     });
     await check(`${tag} glow: no hover look on a target that will reject`, async () => {
       const box = await page.locator('[data-bin="granola"]').boundingBox();
-      const slot = await page.locator('[data-smoothie-slot="1"]').boundingBox();
+      const slot = await page.locator('[data-matcha-slot="1"]').boundingBox();
       await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
       await page.mouse.down();
       await page.mouse.move(slot.x + slot.width / 2, slot.y + slot.height / 2, { steps: 8 });
       await sleep(80);
-      const cls = await page.getAttribute('[data-smoothie-slot="1"]', 'class');
+      const cls = await page.getAttribute('[data-matcha-slot="1"]', 'class');
       assert(/drop-hover/.test(cls) && /drop-bad/.test(cls) && !/drop-ok/.test(cls), `hovered invalid slot: "${cls}"`);
       const cursor = await page.evaluate(() => getComputedStyle(document.querySelector('[data-bin="granola"]')).cursor);
       assert(cursor === 'grabbing', `source cursor while dragging is "${cursor}"`);
       await clearToast(page);
       await page.mouse.up();
-      await until(page, (w) => document.querySelector('.g-fx .g-toast')?.textContent === w, await tr(page, 'reason.notSmoothieFruit'), 3000);
+      await until(page, (w) => document.querySelector('.g-fx .g-toast')?.textContent === w, await tr(page, 'reason.notMatchaFruit'), 3000);
     });
     await check(`${tag} no console errors`, async () => assertNoConsoleErrors(errors, 'glow'));
   } finally {
@@ -700,7 +700,7 @@ try {
   await tutorialAndServing(srv);
   await layerRejects(srv);
   await overflowAndClean(srv);
-  await smoothieTouch(srv);
+  await matchaTouch(srv);
   await glowRules(srv);
   await endlessQuit(srv);
   await rotateInterrupt(srv);
