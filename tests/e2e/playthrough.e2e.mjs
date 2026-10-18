@@ -9,14 +9,17 @@
 //   4. Language EN: title, map, shop and the game HUD show English text.
 //   5. Touch tablet/phone (mobile viewport): a two-finger pinch in the letterbox bands or on the
 //      rotate hint does not zoom the page; touch taps and the rotate hint's dismiss button still work.
-//   6. Two tabs on one profile: tab B's open shop shows the coins tab A banks, and a purchase in B
+//   6. MacBook 1470×832 @2x (mouse + trackpad): trackpad pinches, ⌘/Ctrl + scroll and two-finger
+//      swipes neither zoom nor navigate, the 3D blender is drawn at Retina resolution, and the
+//      tutorial + 3 customers are played with mouse drags.
+//   7. Two tabs on one profile: tab B's open shop shows the coins tab A banks, and a purchase in B
 //      keeps A's win instead of overwriting it with B's stale copy of the save.
 // Every scenario asserts zero console errors and page errors.
 // Env: E2E_PORT (default 8090), E2E_FONTS=real|stub (default stub), E2E_OUT_DIR for failure shots.
 
 import path from 'node:path';
 import {
-  startServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, pinch, e2eOutDir,
+  startServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, pinch, trackpadPinch, e2eOutDir,
 } from './helpers.mjs';
 
 const PORT = Number(process.env.E2E_PORT) || 8090;
@@ -561,6 +564,85 @@ async function noPageZoom(srv) {
   }
 }
 
+// MacBook Air 13″ (1470×956) with a maximised browser window, Retina, mouse/trackpad.
+async function macBook(srv) {
+  const viewport = { width: 1470, height: 832 };
+  const b = await launchBrowser({ fonts: FONTS, viewport, deviceScaleFactor: 2 });
+  const { page } = b;
+  const errors = collectConsoleErrors(page);
+  page.setDefaultTimeout(8000);
+  console.log('[MacBook 1470×832 @2x: mouse + trackpad, fresh profile]');
+  try {
+    await page.goto(`${srv.url}/index.html`);
+
+    await check('MacBook: trackpad pinches, ⌘/Ctrl + scroll and two-finger swipes neither zoom nor navigate', async () => {
+      await screenIs(page, 'title');
+      const r = await wrapRect(page);
+      assert(r.left >= 30, `no side band at 1470×832 (stage-wrap ${JSON.stringify(r)})`);
+      for (const [what, p] of [['on the stage', { x: viewport.width / 2, y: 400 }], ['in the side band', { x: r.left / 2, y: 400 }]]) {
+        const scale = await trackpadPinch(page, p);
+        assert(scale === 1, `pinch ${what}: page zoomed to ${scale}×`);
+      }
+      // A two-finger swipe sideways is a horizontal wheel; zooming with a modifier is a wheel too.
+      await page.evaluate(() => {
+        window.__wheels = [];
+        window.addEventListener('wheel', (e) => window.__wheels.push(e.defaultPrevented));
+      });
+      await page.mouse.move(viewport.width / 2, 400);
+      await page.mouse.wheel(-400, 0);
+      await page.mouse.wheel(400, 0);
+      for (const key of ['Meta', 'Control']) {
+        await page.keyboard.down(key);
+        await page.mouse.wheel(0, -300);
+        await page.keyboard.up(key);
+      }
+      const wheels = await page.waitForFunction(() => window.__wheels.length >= 4 && window.__wheels, null, { timeout: 3000 })
+        .then((h) => h.jsonValue(), () => page.evaluate(() => window.__wheels));
+      assert(wheels.length >= 4 && wheels.every(Boolean), `wheel events not cancelled: ${JSON.stringify(wheels)}`);
+      assert(await viewportScale(page) === 1, 'page zoomed by ⌘/Ctrl + scroll');
+      const css = await page.evaluate(() => [document.documentElement, document.body]
+        .map((el) => `${el.localName}:${getComputedStyle(el).overscrollBehaviorX}`));
+      assert(css.every((x) => x.endsWith(':none')), `overscroll-behavior-x: ${css.join(', ')}`);
+      // Safari's own trackpad pinch events and the Force Touch press (Look Up)
+      const open = await page.evaluate(() => ['gesturestart', 'gesturechange', 'gestureend', 'webkitmouseforcewillbegin'].filter((type) => {
+        const e = new Event(type, { bubbles: true, cancelable: true });
+        document.getElementById('stage').dispatchEvent(e);
+        return !e.defaultPrevented;
+      }));
+      assert(!open.length, `Safari events not cancelled: ${open.join(', ')}`);
+    }, page);
+
+    await check('MacBook: the stage fills the window height and the 3D blender is drawn at Retina resolution', async () => {
+      await press(page, '[data-action="play"]');
+      await startLevel(page, 1);
+      const h = await page.evaluate(() => document.getElementById('stage').getBoundingClientRect().height);
+      assert(Math.abs(h - (viewport.height - 16)) < 2, `stage ${h} px high in an ${viewport.height} px window`);
+      const px = await page.waitForFunction(() => {
+        const c = document.querySelector('canvas.g-3d-blender');
+        const css = c?.getBoundingClientRect().width;
+        return c && (c.width !== 300 || c.height !== 150) && { device: c.width, css }; // drawn (not the default size)
+      }, null, { timeout: 5000 }).then((x) => x.jsonValue());
+      assert(px.device >= px.css * 2 * 0.98, `blender canvas: ${px.device} device px for ${px.css.toFixed(1)} css px at 2×`);
+    }, page);
+
+    await check('MacBook: tutorial + at least 3 customers served with mouse drags', async () => {
+      const bot = await playBot(page, { done: (s) => s.served >= 3, timeout: 150000 });
+      const s = await snap(page);
+      console.log(`        MacBook: served ${s.served}, lost ${s.lost}, ${bot.actions} drags, ${bot.rejects.length} rejected`
+        + `${bot.rejects.length ? ` (${bot.rejects.join('; ')})` : ''}`);
+      assert(s.served >= 3, `only ${s.served} served`);
+      assert(bot.tutSteps.includes('done'), 'tutorial did not finish');
+      assert(bot.rejects.length <= 2, `too many rejected drops: ${bot.rejects.join('; ')}`);
+      assert(await viewportScale(page) === 1, 'page zoomed during play');
+      await quitViaPause(page, false, 'map');
+    }, page);
+
+    await check('MacBook run: no console errors', async () => assertNoConsoleErrors(errors, 'MacBook run'));
+  } finally {
+    await b.close();
+  }
+}
+
 async function twoTabs(srv) {
   const b = await launchBrowser({ fonts: FONTS, viewport: { width: 1280, height: 800 } });
   const tabA = b.page;
@@ -630,6 +712,7 @@ async function main() {
     await touchCampaign(srv);
     await endlessAndLanguage(srv);
     await noPageZoom(srv);
+    await macBook(srv);
     await twoTabs(srv);
   } finally {
     await srv.close();

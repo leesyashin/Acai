@@ -3,7 +3,7 @@
 Ein Zeitmanagement-Spiel im Stil von *Cooking Fever* für den Browser: Du arbeitest in einem modernen
 Açaí-Café. Deine Gäste bestellen Bowls – serviert in durchsichtigen Plastikbechern, in denen man die
 Schichten sieht – und später Frucht-Matcha; du stellst sie per **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
-Maus am PC und (verkleinert) auf dem Handy. Deutsch und Englisch, Soundeffekte und Musik
+Maus am PC, auf dem **MacBook im Browser** (Maus oder Trackpad) und (verkleinert) auf dem Handy. Deutsch und Englisch, Soundeffekte und Musik
 werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien. Die Küchengeräte (Mixer, Matcha-Maschine,
 Mülleimer, Gefriertruhe) sind echte 3D-Modelle, die per WebGL im Browser gerendert und animiert werden; jedes
 Upgrade bringt ein neues Modell.
@@ -104,6 +104,18 @@ oder du im Pausenmenü die Schicht beendest – deine Münzen und dein Highscore
 
 Fortschritt, Sprache und Ton-Einstellungen werden im Browser gespeichert (`localStorage`).
 
+## Auf dem MacBook spielen
+
+Einfach <https://leesyashin.github.io/Acai/> in Safari, Chrome, Firefox oder Edge öffnen – keine App, nichts zu
+installieren (Safari ab Version 14.1). Das Spiel passt sich jeder Fenstergröße an und ist auf Retina-Displays scharf.
+
+- **Ziehen mit dem Trackpad:** Trackpad herunterdrücken, gedrückt halten und dabei ziehen – oder mit drei Fingern
+  ziehen, wenn das in den Systemeinstellungen (Bedienungshilfen → Zeigersteuerung) eingeschaltet ist. Eine Maus geht auch.
+- **Größer spielen:** Vollbild mit **⌃⌘F** (oder dem grünen Knopf oben links im Fenster) – die Bühne wächst mit.
+- **Kein versehentliches Zoomen oder Zurückblättern:** Pinch-Zoom, ⌘/Ctrl + Scrollen und das Wischen mit zwei Fingern
+  sind im Spiel abgeschaltet, damit ein laufendes Level nicht aus Versehen verloren geht.
+- Musik und Sounds starten nach dem ersten Klick (das verlangt der Browser).
+
 ## Lokal starten
 
 Voraussetzung: [Node.js](https://nodejs.org) 22 oder neuer.
@@ -133,7 +145,9 @@ Ohne Server spielen: `npm run build` ausführen und danach **`dist/acai-fever.ht
 E2E-Skripte legen Screenshots in `$E2E_OUT_DIR` ab (Standard: Temp-Ordner), nie im Repository.
 `playthrough.e2e.mjs` spielt Level 1 komplett mit echten Maus-Drags durch (inkl. Tutorial, Shop-Kauf, Level 2),
 dann mit Touch auf 1024×768, testet den Endlos-Modus und die englische Oberfläche, prüft, dass ein
-Zwei-Finger-Pinch im Rand um die Bühne die Seite nicht zoomt, und dass zwei offene Tabs sich den Spielstand
+Zwei-Finger-Pinch im Rand um die Bühne die Seite nicht zoomt, spielt in einem MacBook-Fenster (1470×832, Retina) mit
+der Maus und prüft dort, dass Trackpad-Pinch, ⌘/Ctrl + Scrollen und Zwei-Finger-Wischen weder zoomen noch zurückblättern,
+und dass zwei offene Tabs sich den Spielstand
 nicht gegenseitig überschreiben. `appliances.e2e.mjs` prüft die 3D-Geräte (Modelle je Upgrade, Animationen, Deckel,
 Kaltluft der Truhe, Teemühle und Düse der Matcha-Maschine, Shop-Bilder), dass das Spiel flüssig bleibt, wenn beide Mixer
 und beide Matcha-Gläser zugleich animiert sind (auch mit Software-WebGL), dass die Bilder der Zutaten-Behälter bei einer
@@ -196,7 +210,8 @@ docs/DESIGN.md        Spieldesign, Regeln, Modul-Verträge, Layout
 
 **Açaí Fever** is a Cooking-Fever-style time-management game for the browser. You run an açaí bar:
 customers order bowls (and a fruit matcha from level 7), and you build them by **drag & drop** before their
-patience runs out. Made for landscape tablets, also playable with a mouse and on phones. German and English UI; sound
+patience runs out. Made for landscape tablets, also playable with a mouse, on a MacBook in the browser (Safari, Chrome, Firefox, Edge – mouse or
+trackpad, nothing to install; trackpad pinches and two-finger swipes never zoom or navigate away) and on phones. German and English UI; sound
 effects and music are synthesized – there are no image or audio files. Play online:
 <https://leesyashin.github.io/Acai/> (every push to `main` deploys there).
 The kitchen appliances are real-time 3D models (WebGL, no library) with animations – a vortex in the blender jug,

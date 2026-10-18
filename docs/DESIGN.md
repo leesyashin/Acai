@@ -14,7 +14,7 @@ player decisions listed in §1.
 
 | # | Topic | Decision |
 |---|---|---|
-| 1 | Device | **Tablet, landscape** first (touch). Must still work with mouse on PC and (scaled) on phones. |
+| 1 | Device | **Tablet, landscape** first (touch). Must still work with mouse on PC, on a **MacBook in the browser** (Safari, Chrome, Firefox, Edge; mouse or trackpad – no app, no install) and (scaled) on phones. |
 | 2 | Style | **Realistic, glossy Cooking Fever look in a modern café**: the player stands at the counter, seen in perspective like in Cooking Fever (a slim marble pass in front of the guests, the worktop with its rounded front edge and a strip of open shelves with stock below; the tall appliances stand at the back of the worktop in front of the pass); believable size relations (blender and machine about twice as tall as a cup); clear plastic cups that show their layers, every ingredient in its own realistic container (fruit in brushed stainless pans, granola, honey, chia and peanut butter in glass jars, chocolate sauce in a squeeze bottle, coconut in its shell, cacao nibs in a wooden bowl, mint on a board), 3D appliances (blender, matcha machine, freezer), a little cleaner and more modern than Cooking Fever. Menus keep their chunky cartoon UI. |
 | 3 | Controls | **Drag & drop** (touch + mouse) for every action. No tap-to-place. |
 | 4 | Order rule | **Fixed layers**: Base (from blender) → Fruits & Crunch → Toppings & Sauces. A drop into the wrong layer is **rejected** (bounce back + hint). Order *within* a layer is free. |
@@ -189,8 +189,12 @@ or < 1100 px on a coarse pointer) `#rotate-hint` shows "Please rotate your devic
 When the hint appears, `main.js` dispatches `acai:rotate-hint` on `window`; a running level pauses (the game view
 listens), so nothing runs on behind the hint.
 The page never pinch-zooms or pans: `touch-action: none` on `html, body` (letterbox bands, rotate hint)
-as well as on `#stage`, plus a cancelled `gesturestart` for iOS Safari (`initStage`). A scrollable list
-added later needs its own `touch-action: pan-y`.
+as well as on `#stage`, plus cancelled `gesturestart`/`gesturechange`/`gestureend` for Safari (iOS touch, Mac
+trackpad) (`initStage`). On a MacBook, touch-action does not reach the trackpad: Chrome, Edge and Firefox deliver a
+pinch as ctrl+wheel events and a two-finger swipe sideways navigates back, so `initStage` cancels every `wheel`
+event (non-passive listener on `window`) and `html, body` carry `overscroll-behavior: none`; a Force Touch press
+(`webkitmouseforcewillbegin`) is cancelled too, so it never opens Look Up mid-drag. A scrollable list added later
+needs its own `touch-action: pan-y` and an exception in that wheel listener.
 
 ### 4.2 Engine (`js/engine.js`) – contract
 
