@@ -160,14 +160,16 @@ async function renderSegment(f, i0, i1, file, from, onFrame) {
 }
 
 // Brings the sound to the loudness TikTok plays at (-14 LUFS, two-pass loudnorm) and muxes it.
+// The sound is cut or padded to exactly the video's length (-shortest would drop the last frames).
 async function mux(video, wav, out, from, to, lufs = -14) {
+  const length = (Math.round((to - from) * FPS) / FPS).toFixed(4);
   const audioArgs = ['-ss', String(from), '-t', String(to - from)];
   const target = `I=${lufs}:TP=-1.0:LRA=11`;
   const measured = await run('ffmpeg', ['-y', ...audioArgs, '-i', wav, '-af', `loudnorm=${target}:print_format=json`, '-f', 'null', '-']);
   const m = JSON.parse(measured.slice(measured.lastIndexOf('{'), measured.lastIndexOf('}') + 1));
-  const norm = `loudnorm=${target}:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true,aresample=48000`;
+  const norm = `loudnorm=${target}:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true,aresample=48000,apad`;
   await run('ffmpeg', ['-y', '-i', video, ...audioArgs, '-i', wav, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', norm,
-    '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-shortest', '-movflags', '+faststart', out]);
+    '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-t', length, '-movflags', '+faststart', out]);
   console.log(`wrote ${out}`);
 }
 
