@@ -65,7 +65,7 @@ const SAVE_KEY = 'acaiFever.save.v1';
 const ALL_ING = ['acai', 'pitaya', 'spirulina', 'banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi',
   'honey', 'coconut', 'chia', 'peanut', 'chocolate', 'mint', 'cacao'];
 
-// A busy moment of level 14 (four guests, two blenders, filled bowls, smoothies), at 2× pixels.
+// A busy moment of level 14 (four guests, two blenders, filled bowls, matcha), at 2× pixels.
 async function gameShot(url, lang) {
   const b = await launchBrowser({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, fonts: 'real', locale: lang === 'en' ? 'en-US' : 'de-DE' });
   try {
@@ -74,7 +74,7 @@ async function gameShot(url, lang) {
     for (let i = 1; i <= 14; i++) stars[i] = 3;
     const save = {
       version: 1, coins: 2380, owned: ALL_ING.slice(), ingLevels: { acai: 2, pitaya: 1, banana: 1, strawberry: 2, mango: 1 },
-      upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, smoothieSlots: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
+      upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, matchaSlots: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
       stars, endlessBest: 512, newIngredients: [], seenIntros: { basics: true }, settings: { lang, music: false, sfx: false },
       stats: { served: 640, earned: 6400, played: 20 },
     };
@@ -111,9 +111,9 @@ async function gameShot(url, lang) {
       for (const id of ['mango', 'kiwi', 'coconut', 'chia']) e.addIngredient(g, 1, id);
       e.pourBlender(g, 0, 2);
       e.addIngredient(g, 2, 'blueberry');
-      if (g.smoothie) {
-        e.loadSmoothie(g, 0, 'strawberry');
-        e.loadSmoothie(g, 1, 'mango');
+      if (g.matcha) {
+        e.loadMatcha(g, 0, 'strawberry');
+        e.loadMatcha(g, 1, 'mango');
       }
     });
     await sleep(1400);

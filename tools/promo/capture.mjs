@@ -32,14 +32,14 @@ function saveFor(lang, level) {
   for (let i = 1; i < level; i++) stars[i] = 3;
   return {
     version: 1, coins: 1800, owned: ALL_ING.slice(), ingLevels: { acai: 1, banana: 1, strawberry: 1 },
-    upgrades: { blenderSpeed: 2, blender2: 1, bowlSlots: 1, smoothieSlots: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
+    upgrades: { blenderSpeed: 2, blender2: 1, bowlSlots: 1, matchaSlots: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
     stars, endlessBest: 0, newIngredients: [], seenIntros: { basics: true }, settings: { lang, music: false, sfx: false },
     stats: { served: 300, earned: 3000, played: level },
   };
 }
 
 // ------------------------------------------------------------------ the bot
-// One decision per call, like a player: serve > smoothies > build bowls > pour > blend > put cups
+// One decision per call, like a player: serve > matcha > build bowls > pour > blend > put cups
 // down (the same priorities as the playthrough e2e test).
 const POURABLE = ['ready', 'overflowing'];
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
@@ -55,17 +55,17 @@ function plan(s) {
   const waiting = s.seats.filter((c) => c && c.state === 'waiting').sort((a, b) => a.patience - b.patience);
   const usedSlots = new Set();
   for (const c of waiting) {
-    const fruit = c.order.smoothie;
-    if (!fruit || c.delivered.smoothie) continue;
+    const fruit = c.order.matcha;
+    if (!fruit || c.delivered.matcha) continue;
     const ready = s.slots.findIndex((x, i) => !usedSlots.has(i) && x.state === 'ready' && x.fruit === fruit);
-    if (ready >= 0) return { kind: 'serveCup', slot: ready, cust: c.id };
+    if (ready >= 0) return { kind: 'serveMatcha', slot: ready, cust: c.id };
     const mixing = s.slots.findIndex((x, i) => !usedSlots.has(i) && x.state === 'mixing' && x.fruit === fruit);
     if (mixing >= 0) {
       usedSlots.add(mixing);
       continue;
     }
     const empty = s.slots.findIndex((x) => x.state === 'empty');
-    if (empty >= 0) return { kind: 'loadCup', slot: empty, fruit };
+    if (empty >= 0) return { kind: 'loadMatcha', slot: empty, fruit };
   }
   for (const c of waiting) {
     if (c.delivered.bowl) continue;
@@ -115,8 +115,8 @@ function dragFor(a) {
     case 'placeCup': return { from: '[data-cup-stack]', to: `[data-bowl="${a.bowl}"]` };
     case 'loadBlender': return { from: `[data-pack="${a.base}"]`, to: `[data-blender="${a.blender}"]` };
     case 'cleanBlender': return { from: `[data-blender="${a.blender}"]`, to: '[data-trash]' };
-    case 'loadCup': return { from: `[data-bin="${a.fruit}"]`, to: `[data-smoothie-slot="${a.slot}"]` };
-    case 'serveCup': return { from: `[data-smoothie-slot="${a.slot}"]`, to: cust(a.cust) };
+    case 'loadMatcha': return { from: `[data-bin="${a.fruit}"]`, to: `[data-matcha-slot="${a.slot}"]` };
+    case 'serveMatcha': return { from: `[data-matcha-slot="${a.slot}"]`, to: cust(a.cust) };
     default: throw new Error(`unknown action ${a.kind}`);
   }
 }
@@ -129,7 +129,7 @@ const snapshot = () => {
     seats: g.seats.map((c) => c && { id: c.id, state: c.state, patience: c.patience, order: c.order, delivered: { ...c.delivered } }),
     bowls: g.bowls.map((b) => ({ cup: b.cup, base: b.base, mid: [...b.mid], top: [...b.top] })),
     blenders: g.blenders.map((b) => ({ state: b.state, base: b.base, portions: b.portions, maxPortions: b.maxPortions })),
-    slots: g.smoothie ? g.smoothie.slots.map((x) => ({ state: x.state, fruit: x.fruit })) : [],
+    slots: g.matcha ? g.matcha.slots.map((x) => ({ state: x.state, fruit: x.fruit })) : [],
   };
 };
 

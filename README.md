@@ -170,7 +170,7 @@ aller Bildschirme in mehreren Größen.
 (`--version`):
 
 - **`hype`** (Standard): schneller Motion-Design-Film – Hook („4 Gäste · 1 Mixer · keine Zeit“), Logo, die drei Schritte
-  *Mixen → Belegen → Servieren* animiert, Zeitdruck, 16 Zutaten, 3D-Mixer-Upgrades, Smoothies, Level, Endkarte.
+  *Mixen → Belegen → Servieren* animiert, Zeitdruck, 16 Zutaten, 3D-Mixer-Upgrades, Frucht-Matcha, Level, Endkarte.
 - **`mix`**: ruhiger geschnitten (ein Schnitt alle zwei Takte, weiche Übergänge, kaum Wackler) – die drei Schritte und der
   Ansturm in **echtem Gameplay** im Bildschirm-Fenster, dazu Logo, Zutaten, Upgrades und Endkarte.
 - **`gameplay`**: fast nur **echtes Gameplay**, bildschirmfüllend, die Kamera folgt dem Finger, kurze Untertitel

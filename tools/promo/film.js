@@ -12,7 +12,7 @@
 
 import {
   logoSVG, bowlSVG, ingredientIcon, packIcon, customerSVG, lookFromSeed, coinSVG, heartSVG, starSVG,
-  clockSVG, cupSVG, scoopSVG, blenderBadgeSVG, SMOOTHIE_SLOT_Y, SMOOTHIE_CUP_SIZE,
+  clockSVG, matchaGlassSVG, scoopSVG, blenderBadgeSVG, MATCHA_SLOT_Y, MATCHA_CUP_SIZE,
 } from '../../js/art.js';
 import { INGREDIENTS } from '../../js/data.js';
 import { VIEWS, MACHINE_SLOT_X, pourFill, fitFrame } from '../../js/kitchen3d.js';
@@ -45,8 +45,8 @@ const COPY = {
     ingSub: 'Neue Zutaten im Shop freischalten',
     upgrades: 'UPGRADES',
     upgSub: 'Jedes Upgrade – ein neues 3D-Gerät',
-    smoothies: 'SMOOTHIES',
-    smoothieSub: 'Smoothie-Maschine ab Level 7',
+    matcha: 'FRUCHT-MATCHA',
+    matchaSub: 'Matcha-Maschine ab Level 7',
     levels: '20 LEVEL',
     endless: '+ ENDLOS-MODUS',
     cafe: 'DEIN CAFÉ\nWARTET!',
@@ -63,7 +63,7 @@ const COPY = {
     capCup: 'Becher hinstellen',
     capTop: 'Belegen',
     capServe: 'Servieren & kassieren',
-    capSmoothie: 'Smoothies ab Level 7',
+    capMatcha: 'Matcha ab Level 7',
     capRush: 'Schnell sein – sie warten!',
     rushSub: 'Gäste werden ungeduldig',
     chipLevels: '20 Level',
@@ -91,8 +91,8 @@ const COPY = {
     ingSub: 'Unlock new ones in the shop',
     upgrades: 'UPGRADES',
     upgSub: 'Every upgrade – a new 3D machine',
-    smoothies: 'SMOOTHIES',
-    smoothieSub: 'Smoothie machine from level 7',
+    matcha: 'FRUIT MATCHA',
+    matchaSub: 'Matcha machine from level 7',
     levels: '20 LEVELS',
     endless: '+ ENDLESS MODE',
     cafe: 'YOUR CAFÉ\nIS WAITING!',
@@ -109,7 +109,7 @@ const COPY = {
     capCup: 'Put a cup down',
     capTop: 'Add the toppings',
     capServe: 'Serve & get paid',
-    capSmoothie: 'Smoothies from level 7',
+    capMatcha: 'Matcha from level 7',
     capRush: 'Be quick – they are waiting!',
     rushSub: 'Guests get impatient',
     chipLevels: '20 levels',
@@ -135,7 +135,7 @@ const SEG = {
   play: 6.9,
   playCaptions: [
     [0.5, 2.6, 'capMix', '1', 'pink'],
-    [2.6, 4.6, 'capSmoothie', '', 'leaf'],
+    [2.6, 4.6, 'capMatcha', '', 'leaf'],
     [4.6, 7.8, 'capTop', '2', 'lagoon'],
     [7.8, 10, 'capServe', '3', 'mango'],
     [10, 12.6, 'capMix', '1', 'pink'],
@@ -158,7 +158,7 @@ export const CUTS = {
     energy: 1,
     bounce: [4, 44],
     scenes: [['hook', 4], ['logo', 4], ['mix', 4], ['top', 6], ['serve', 6], ['rush', 4], ['ingredients', 4], ['upgrades', 4],
-      ['smoothies', 4], ['game', 4], ['end', 8]],
+      ['matcha', 4], ['game', 4], ['end', 8]],
     music: [
       { style: 'hook' }, { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 }, { style: 'groove', g: 3 },
       { style: 'groove', g: 4, fill: true }, { style: 'tension', chords: ['Am', 'E7'], mel: null }, { style: 'drop', g: 12, harmony: true },
@@ -212,7 +212,7 @@ export const CUTS = {
     bounce: [4, 40],
     footage: true,
     scenes: [['hook', 4], ['logo', 4], ['mix', 4], ['top', 6], ['serve', 6], ['rush', 4], ['ingredients', 4], ['upgrades', 4],
-      ['smoothies', 4],
+      ['matcha', 4],
       ['follow', 32, { seg: [SEG.play], title: [0, 'realPlay', 104, 2.6], captions: SEG.playCaptions.slice(1), keys: SEG.comboKeys, enter: ['whipIn', 0.14], leave: ['zoomOut', 0.12] }],
       ['end', 8]],
     music: [
@@ -1028,26 +1028,26 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
     };
   };
 
-  // ================================================================ smoothies + levels
-  SCENES.smoothies = (root, from, to, o = {}) => {
+  // ================================================================ matcha + levels
+  SCENES.matcha = (root, from, to, o = {}) => {
     const A = div(root, 'layer');
     const B = div(root, 'layer');
-    const title = new Title(A, C.smoothies, { size: 140, fill: 'pink' });
-    const sub = subPill(A, C.smoothieSub);
+    const title = new Title(A, C.matcha, { size: 118, fill: 'leaf' });
+    const sub = subPill(A, C.matchaSub);
     const SIZE = 780;
     const machine = new View3D(A, 'machine', SIZE);
     const mf = fitFrame(VIEWS.machine, SIZE);
-    const cupPx = Math.round(SIZE * SMOOTHIE_CUP_SIZE);
+    const cupPx = Math.round(SIZE * MATCHA_CUP_SIZE);
     const fruits = ['strawberry', 'mango'];
     const slotCups = fruits.map(() => new Sprite(A, ''));
-    const side = [['kiwi', 170, 1520, -10], ['blueberry', 910, 1540, 10]].map(([id, x, y, r]) => ({ sp: new Sprite(A, cupSVG(id, 'ready', 260)), x, y, r }));
+    const side = [['kiwi', 170, 1520, -10], ['blueberry', 910, 1540, 10]].map(([id, x, y, r]) => ({ sp: new Sprite(A, matchaGlassSVG(id, 'ready', 260)), x, y, r }));
     const levels = new Title(B, C.levels, { size: 170, fill: 'mango' });
     const endless = new Title(B, C.endless, { size: 96, fill: 'lagoon' });
     const stars = [[300, 880, 220, -12], [540, 800, 290, 0], [780, 880, 220, 12]].map(([x, y, s, r]) => ({ sp: new Sprite(B, starSVG(true, s)), x, y, r }));
     const confetti = confettiBurst(B, { n: 40, seed: 3, x: 540, y: 820, t0: b(3) });
     cue(from, 'impact', { gain: 0.7 });
     fx.flash(from, 0.7, 9);
-    cue(from + b(0.4), 'smoothieReady', { kind: 'sfx', gain: 0.8 });
+    cue(from + b(0.4), 'matchaReady', { kind: 'sfx', gain: 0.8 });
     cue(from + b(1.6), 'whoosh', { gain: 0.6 });
     [0, 0.5, 1].forEach((d, i) => {
       cue(from + b(2 + d), 'star', { kind: 'sfx', step: i * 2 });
@@ -1060,7 +1060,7 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
     return {
       from, to, enter: ['upIn', 0.15], leave: ['whipOut', 0.12], tint: 'lagoon',
       update(lt) {
-        // part A – the smoothie machine at work
+        // part A – the matcha machine at work
         const swap = b(2);
         const aOut = ease.inQuart(prog(lt, swap - 0.12, swap));
         const bIn = 1 - ease.outQuart(prog(lt, swap, swap + 0.15));
@@ -1082,9 +1082,9 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
           machine.sprite.set({ x: 540, y: 1000 + mp.dy, s: mp.s });
           slots.forEach((s, i) => {
             const fill = s.state === 'mixing' ? Math.round(pourFill(s.progress) * 12) / 12 : null;
-            slotCups[i].html(cupSVG(s.fruit, s.state, cupPx, { fill, stream: false }));
+            slotCups[i].html(matchaGlassSVG(s.fruit, s.state, cupPx, { fill, stream: false }));
             const cx = mf.ax + MACHINE_SLOT_X[2][i] * mf.zoom - SIZE / 2;
-            const cy = SMOOTHIE_SLOT_Y * SIZE - cupPx / 2 - SIZE / 2;
+            const cy = MATCHA_SLOT_Y * SIZE - cupPx / 2 - SIZE / 2;
             slotCups[i].set({ x: 540 + cx * mp.s, y: 1000 + mp.dy + cy * mp.s, s: mp.s });
           });
           side.forEach((c, i) => {
