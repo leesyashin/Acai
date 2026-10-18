@@ -124,7 +124,7 @@ aller Bildschirme in mehreren Größen.
 
 ## Werbevideo für TikTok
 
-`tools/promo/` enthält kurze Werbefilme (25–29 s, Hochformat 1080×1920), die das Spiel vorstellen – in drei Fassungen
+`tools/promo/` enthält kurze Werbefilme (25–39 s, Hochformat 1080×1920), die das Spiel vorstellen – in vier Fassungen
 (`--version`):
 
 - **`hype`** (Standard): schneller Motion-Design-Film – Hook („4 Gäste · 1 Mixer · keine Zeit“), Logo, die drei Schritte
@@ -133,6 +133,8 @@ aller Bildschirme in mehreren Größen.
   Ansturm in **echtem Gameplay** im Bildschirm-Fenster, dazu Logo, Zutaten, Upgrades und Endkarte.
 - **`gameplay`**: fast nur **echtes Gameplay**, bildschirmfüllend, die Kamera folgt dem Finger, kurze Untertitel
   („Basis mixen“, „Belegen“, „Servieren & kassieren“ …), ein Logo-Moment, eine Totale mit den Features und die Endkarte.
+- **`combo`**: erst der komplette `hype`-Film, dann ca. 15 s **echtes Gameplay** wie in `gameplay` („Echtes Gameplay“) und
+  zum Schluss die Endkarte (ca. 39 s).
 
 Alles ist aus den Grafiken, 3D-Geräten, Sounds und der Musik des Spiels gebaut (124 BPM, jeder Schnitt sitzt auf
 dem Beat) – es gibt keine Video- oder Audiodateien im Repository. Das echte Gameplay nimmt `tools/promo/capture.mjs`

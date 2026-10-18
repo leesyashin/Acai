@@ -1,7 +1,7 @@
-// The promo films of Açaí Fever (tools/promo): 9:16 TikTok ads that introduce the game in 25–31
+// The promo films of Açaí Fever (tools/promo): 9:16 TikTok ads that introduce the game in 25–39
 // seconds. They run at 124 BPM like the game's own music and every cut sits on the beat. CUTS holds
-// the versions: 'hype' (fast motion design), 'mix' (calmer, the steps shown in real gameplay) and
-// 'gameplay' (mostly real gameplay with a follow camera).
+// the versions: 'hype' (fast motion design), 'mix' (calmer, the steps shown in real gameplay),
+// 'gameplay' (mostly real gameplay with a follow camera) and 'combo' (hype, then real gameplay).
 //
 //   const film = buildFilm(frameEl, { lang, shot, version, footage });   // builds every scene once
 //   await film.seek(t)            // puts the whole frame at time t (seconds)
@@ -70,6 +70,7 @@ const COPY = {
     chipIngredients: '16 Zutaten',
     chipUpgrades: '3D-Upgrades',
     chipEndless: 'Endlos-Modus',
+    realPlay: 'ECHTES GAMEPLAY',
   },
   en: {
     hook: ['4 GUESTS', '1 BLENDER', 'NO TIME!', 'CAN YOU\nHANDLE IT?'],
@@ -115,6 +116,7 @@ const COPY = {
     chipIngredients: '16 ingredients',
     chipUpgrades: '3D upgrades',
     chipEndless: 'Endless mode',
+    realPlay: 'REAL GAMEPLAY',
   },
 };
 
@@ -143,6 +145,9 @@ const SEG = {
   ],
   // the follow camera close up; while the blender works, a look at the waiting guests
   playKeys: [[0, 2.4, null, 400], [12.6, 2.4, null, 400], [14.2, 1.0, 640, 400], [17.2, 1.0, 640, 400], [18.8, 2.4, null, 400]],
+  // the combo cut starts on the whole café (title), then moves in close like the gameplay cut
+  comboKeys: [[0, 0.84, 640, 400], [1.4, 0.84, 640, 400], [2.8, 2.4, null, 400], [12.6, 2.4, null, 400], [14.2, 1.0, 640, 400],
+    [17.2, 1.0, 640, 400], [18.8, 2.4, null, 400]],
   wide: 36.4,
 };
 
@@ -198,6 +203,24 @@ export const CUTS = {
       { style: 'intro', g: 15 }, { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 }, { style: 'groove', g: 3 },
       { style: 'groove', g: 4 }, { style: 'groove', g: 5 }, { style: 'groove', g: 6 }, { style: 'groove', g: 7, fill: true },
       { style: 'groove', g: 8, harmony: true }, { style: 'groove', g: 10, harmony: true }, { style: 'groove', g: 11, harmony: true, fill: true },
+      { style: 'groove', chords: ['Dm7', 'G7'], mel: 15, harmony: true, fill: true }, { style: 'end' },
+    ],
+  },
+  // hype first, then 15 s of real gameplay (instead of the tablet screenshot), then the end card
+  combo: {
+    energy: 1,
+    bounce: [4, 40],
+    footage: true,
+    scenes: [['hook', 4], ['logo', 4], ['mix', 4], ['top', 6], ['serve', 6], ['rush', 4], ['ingredients', 4], ['upgrades', 4],
+      ['smoothies', 4],
+      ['follow', 32, { seg: [SEG.play], title: [0, 'realPlay', 104, 2.6], captions: SEG.playCaptions.slice(1), keys: SEG.comboKeys, enter: ['whipIn', 0.14], leave: ['zoomOut', 0.12] }],
+      ['end', 8]],
+    music: [
+      { style: 'hook' }, { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 }, { style: 'groove', g: 3 },
+      { style: 'groove', g: 4, fill: true }, { style: 'tension', chords: ['Am', 'E7'], mel: null }, { style: 'drop', g: 12, harmony: true },
+      { style: 'groove', g: 13, harmony: true }, { style: 'groove', g: 10, harmony: true, fill: true },
+      { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 }, { style: 'groove', g: 3 }, { style: 'groove', g: 4 },
+      { style: 'groove', g: 5 }, { style: 'groove', g: 6 }, { style: 'groove', g: 7, fill: true },
       { style: 'groove', chords: ['Dm7', 'G7'], mel: 15, harmony: true, fill: true }, { style: 'end' },
     ],
   },
