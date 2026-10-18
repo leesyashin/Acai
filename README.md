@@ -122,6 +122,28 @@ Spiel und startet es per `file://`. Alle 3D-Geräte in allen Zuständen zeigt `t
 (`npm start`, dann `http://localhost:8080/tools/appliances-3d.html?anim=1`). Für eine Sichtprüfung erzeugt `node tools/shots.mjs <ordner>` Screenshots
 aller Bildschirme in mehreren Größen.
 
+## Werbevideo für TikTok
+
+`tools/promo/` enthält einen kurzen Werbefilm (ca. 25 s, Hochformat 1080×1920), der das Spiel vorstellt: Hook
+(„4 Gäste · 1 Mixer · keine Zeit“), Logo, die drei Schritte *Mixen → Belegen → Servieren*, Zeitdruck, 16 Zutaten,
+die 3D-Mixer-Upgrades, Smoothies, 20 Level + Endlos-Modus, ein Blick ins echte Spiel und eine Endkarte mit Link.
+Alles ist aus den Grafiken, 3D-Geräten, Sounds und der Musik des Spiels gebaut (124 BPM, jeder Schnitt sitzt auf
+dem Beat) – es gibt keine Video- oder Audiodateien im Repository.
+
+```bash
+npm install                                         # Playwright + Chromium, ffmpeg muss installiert sein
+node tools/promo/render.mjs acai-fever-tiktok.mp4   # MP4 mit Musik, Ton auf -14 LUFS (TikTok)
+node tools/promo/render.mjs out.mp4 --sfx-only      # zusätzlich out-sfx.mp4 nur mit Effekten (für einen TikTok-Sound)
+node tools/promo/render.mjs out.mp4 --lang en       # englische Fassung
+node tools/promo/render.mjs out.mp4 --stills 1,6.5  # nur Einzelbilder zum Prüfen
+```
+
+Weitere Optionen: `--fps 30` (Bilder pro Sekunde), `--blur 3` (Teilbilder pro Bild für Bewegungsunschärfe,
+`1` = aus, schneller), `--workers 3` (parallele Browser-Seiten), `--from`/`--to` (nur ein Ausschnitt).
+Das Skript macht zuerst einen Screenshot vom echten Spiel (Level 14), rendert dann jedes Bild einzeln im Browser und
+setzt Bild und Ton mit ffmpeg zusammen. Vorschau mit Ton und Zeitleiste: `npm start`, dann
+<http://localhost:8080/tools/promo/promo.html> (Leertaste = Play/Pause, Pfeiltasten = ein Bild, `?lang=en`).
+
 ## Projektstruktur
 
 ```
@@ -155,6 +177,8 @@ tools/build.mjs       esbuild-Build → dist/
 tools/run-e2e.mjs     startet die E2E-Skripte nacheinander
 tools/shots.mjs       Screenshots aller Bildschirme zur Sichtprüfung
 tools/*.html          Vorschauseiten für Grafiken, 3D-Geräte (appliances-3d.html), Sound und Drag & Drop
+tools/promo/          TikTok-Werbefilm: film.js (Szenen), kit.js/motion.js (Bausteine, Easing), score.js (Soundtrack),
+                      promo.html (Vorschau), render.mjs (rendert das MP4 mit Playwright + ffmpeg)
 tests/*.test.mjs      Unit-Tests (node --test)
 tests/e2e/            Playwright-Skripte + gemeinsame Helfer (helpers.mjs)
 docs/DESIGN.md        Spieldesign, Regeln, Modul-Verträge, Layout
@@ -192,6 +216,7 @@ npm test           # unit tests (node --test)
 npm run build      # dist/acai-fever.html (single file, works via file://) + dist/artifact.html
 npm run e2e        # Playwright scripts in tests/e2e/*.e2e.mjs, one after another (server on :8090)
 node tools/shots.mjs <dir>   # review screenshots of every screen
+node tools/promo/render.mjs promo.mp4 --lang en   # the 25 s TikTok promo video (1080×1920, needs ffmpeg)
 ```
 
 Or build once and open `dist/acai-fever.html` directly. The full spec lives in [`docs/DESIGN.md`](docs/DESIGN.md).
