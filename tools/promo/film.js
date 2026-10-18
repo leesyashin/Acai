@@ -1,12 +1,14 @@
-// The promo film of Açaí Fever (tools/promo): a 9:16 TikTok ad that introduces the game in about
-// 25 seconds. It runs at 124 BPM like the game's own music and every cut and hit sits on the beat.
+// The promo films of Açaí Fever (tools/promo): 9:16 TikTok ads that introduce the game in 25–31
+// seconds. They run at 124 BPM like the game's own music and every cut sits on the beat. CUTS holds
+// the versions: 'hype' (fast motion design), 'mix' (calmer, the steps shown in real gameplay) and
+// 'gameplay' (mostly real gameplay with a follow camera).
 //
-//   const film = buildFilm(frameEl, { lang, shot });   // builds every scene once
-//   film.seek(t)                                        // puts the whole frame at time t (seconds)
-//   film.duration, film.cues (sound cues for score.js), film.loops
+//   const film = buildFilm(frameEl, { lang, shot, version, footage });   // builds every scene once
+//   await film.seek(t)            // puts the whole frame at time t (seconds)
+//   film.duration, film.cues (sound cues for score.js), film.loops, film.music (bar by bar)
 //
 // Scenes register their sounds as cues while they are built, so picture and sound stay in sync
-// when a timing changes.
+// when a timing changes. footage = { clip, base } is the real gameplay recorded by capture.mjs.
 
 import {
   logoSVG, bowlSVG, ingredientIcon, packIcon, customerSVG, lookFromSeed, coinSVG, heartSVG, starSVG,
@@ -17,6 +19,7 @@ import { VIEWS, MACHINE_SLOT_X, pourFill, fitFrame } from '../../js/kitchen3d.js
 import { createRng } from '../../js/rng.js';
 import { clamp, lerp, prog, ease, spring, jiggle, decay, bump, wob, arc } from './motion.js';
 import { Sprite, Title, Burst, Ring, View3D, div, touchMarkup, setTouch, progressRingMarkup, setProgressRing } from './kit.js';
+import { FootageView, followPath, camOn, placeSounds } from './footage.js';
 
 export const BPM = 124;
 export const BEAT = 60 / BPM;
@@ -53,6 +56,20 @@ const COPY = {
     devices: 'Tablet · Handy · PC · Mac',
     url: 'leesyashin.github.io/Acai',
     bio: 'Link in Bio',
+    openA: 'DEIN EIGENES\nAÇAÍ-CAFÉ',
+    openB: 'SCHAFFST DU\nDEN ANSTURM?',
+    pov: 'POV: Dein eigenes\nAçaí-Café',
+    capMix: 'Basis mixen',
+    capCup: 'Becher hinstellen',
+    capTop: 'Belegen',
+    capServe: 'Servieren & kassieren',
+    capSmoothie: 'Smoothies ab Level 7',
+    capRush: 'Schnell sein – sie warten!',
+    rushSub: 'Gäste werden ungeduldig',
+    chipLevels: '20 Level',
+    chipIngredients: '16 Zutaten',
+    chipUpgrades: '3D-Upgrades',
+    chipEndless: 'Endlos-Modus',
   },
   en: {
     hook: ['4 GUESTS', '1 BLENDER', 'NO TIME!', 'CAN YOU\nHANDLE IT?'],
@@ -84,6 +101,38 @@ const COPY = {
     devices: 'Tablet · Phone · PC · Mac',
     url: 'leesyashin.github.io/Acai',
     bio: 'Link in bio',
+    openA: 'YOUR OWN\nAÇAÍ CAFÉ',
+    openB: 'CAN YOU HANDLE\nTHE RUSH?',
+    pov: 'POV: You run\nan açaí café',
+    capMix: 'Blend the base',
+    capCup: 'Put a cup down',
+    capTop: 'Add the toppings',
+    capServe: 'Serve & get paid',
+    capSmoothie: 'Smoothies from level 7',
+    capRush: 'Be quick – they are waiting!',
+    rushSub: 'Guests get impatient',
+    chipLevels: '20 levels',
+    chipIngredients: '16 ingredients',
+    chipUpgrades: '3D upgrades',
+    chipEndless: 'Endless mode',
+  },
+};
+
+// ------------------------------------------------------------------ the cuts
+// scenes: [name, beats, options] in order; music: one entry per bar (see score.js); energy scales
+// shakes, flashes and punches (speed lines only at 1); bounce: beats in which the camera bounces.
+export const CUTS = {
+  hype: {
+    energy: 1,
+    bounce: [4, 44],
+    scenes: [['hook', 4], ['logo', 4], ['mix', 4], ['top', 6], ['serve', 6], ['rush', 4], ['ingredients', 4], ['upgrades', 4],
+      ['smoothies', 4], ['game', 4], ['end', 8]],
+    music: [
+      { style: 'hook' }, { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 }, { style: 'groove', g: 3 },
+      { style: 'groove', g: 4, fill: true }, { style: 'tension', chords: ['Am', 'E7'], mel: null }, { style: 'drop', g: 12, harmony: true },
+      { style: 'groove', g: 13, harmony: true }, { style: 'groove', g: 10, harmony: true }, { style: 'groove', g: 11, harmony: true, fill: true },
+      { style: 'groove', chords: ['Dm7', 'G7'], mel: 15, harmony: true, fill: true }, { style: 'end' },
+    ],
   },
 };
 
@@ -92,8 +141,10 @@ const PLAY_ICON = '<svg width="78" height="84" viewBox="0 0 78 84"><path d="M10 
 
 // ------------------------------------------------------------------ frame-wide effects
 // Camera shake, zoom punches, white flashes and speed lines, registered by the scenes.
+// energy < 1 (the calm cuts) tones every hit down and leaves out the speed lines.
 class Fx {
-  constructor() {
+  constructor(energy = 1) {
+    this.energy = energy;
     this.shakes = [];
     this.punches = [];
     this.flashes = [];
@@ -102,24 +153,24 @@ class Fx {
   }
 
   shake(t, amp, k = 7) {
-    this.shakes.push({ t, amp, k });
+    this.shakes.push({ t, amp: amp * this.energy ** 2, k });
   }
 
   punch(t, a, k = 9) {
-    this.punches.push({ t, a, k });
+    this.punches.push({ t, a: a * this.energy, k });
   }
 
   flash(t, s = 0.8, k = 11) {
-    this.flashes.push({ t, s, k });
+    this.flashes.push({ t, s: s * this.energy, k });
   }
 
   speed(t, s = 1, k = 3.2) {
-    this.lines.push({ t, s, k });
+    if (this.energy >= 1) this.lines.push({ t, s, k });
   }
 
   // extra turn of the background rays: amp degrees, spent with rate k
   spin(t, amp, k = 2.5) {
-    this.spins.push({ t, amp, k });
+    this.spins.push({ t, amp: amp * this.energy, k });
   }
 
   cam(t) {
@@ -159,6 +210,11 @@ const TRANS = {
   upOut: (k) => ({ y: -1950 * ease.inQuart(k) }),
   spinIn: (k) => ({ s: lerp(0.2, 1, ease.outBack(k)), r: lerp(-30, 0, ease.outCubic(k)), o: clamp(k * 4) }),
   spinOut: (k) => ({ s: lerp(1, 0.2, ease.inBack(k)), r: lerp(0, 30, ease.inCubic(k)), o: 1 - ease.inQuad(k) }),
+  // the calm cuts: a short dip through the background
+  softIn: (k) => ({ s: lerp(0.94, 1, ease.outCubic(k)), y: lerp(50, 0, ease.outCubic(k)), o: ease.outQuad(k) }),
+  softOut: (k) => ({ s: lerp(1, 1.04, ease.inCubic(k)), y: lerp(0, -40, ease.inCubic(k)), o: 1 - ease.inQuad(k) }),
+  slideIn: (k) => ({ x: lerp(420, 0, ease.outCubic(k)), o: ease.outQuad(k) }),
+  slideOut: (k) => ({ x: lerp(0, -420, ease.inCubic(k)), o: 1 - ease.inQuad(k) }),
 };
 
 // ------------------------------------------------------------------ helpers
@@ -225,9 +281,12 @@ function stepHeader(root, num, word, { color = 'pink', fill = 'white', size = 15
 }
 
 // ------------------------------------------------------------------ the film
-export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
+export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', footage = null } = {}) {
   const C = COPY[lang] || COPY.de;
-  const fx = new Fx();
+  const cut = CUTS[version] || CUTS.hype;
+  if (cut.footage && !footage) throw new Error(`the '${version}' cut needs gameplay footage (tools/promo/capture.mjs)`);
+  const fx = new Fx(cut.energy ?? 1);
+  const path = footage ? followPath(footage.clip) : null;
   const cues = [];
   const loops = [];
   // sound cue: kind 'sfx' (the game's effects) or 'fx' (promo effects in score.js)
@@ -275,11 +334,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
     scenes.push(s);
     return s;
   };
+  const SCENES = {};
 
-  // ================================================================ 1 · hook (beats 0–4)
-  scene((root) => {
-    const from = 0;
-    const to = b(4);
+  // ================================================================ hook – 4 guests, 1 blender, no time (hype cut, at the very start)
+  SCENES.hook = (root, from, to, o = {}) => {
     const fill = ['white', 'mango', 'red', 'pink'];
     const titles = C.hook.map((txt, i) => new Title(root, txt, { size: i === 3 ? 150 : 172, fill: fill[i] }));
     const seeds = [5, 12, 3, 27];
@@ -366,12 +424,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
       },
       alarm: (lt) => (lt > b(3) ? 0.55 + 0.25 * Math.sin(lt * 18) : 0),
     };
-  });
+  };
 
-  // ================================================================ 2 · logo (beats 4–8)
-  scene((root) => {
-    const from = b(4);
-    const to = b(8);
+  // ================================================================ logo
+  SCENES.logo = (root, from, to, o = {}) => {
     const rings = [new Ring(root, { x: 540, y: 720, t0: 0, size: 1500, color: '#ffffff', width: 30 }), new Ring(root, { x: 540, y: 720, t0: 0.07, size: 1100, color: '#ffd23f', width: 22, dur: 0.5 })];
     const sparkles = [];
     const burst = new Burst(root, {
@@ -424,12 +480,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
         });
       },
     };
-  });
+  };
 
-  // ================================================================ 3 · blend (beats 8–12)
-  scene((root) => {
-    const from = b(8);
-    const to = b(12);
+  // ================================================================ mix – step 1, blending (animated)
+  SCENES.mix = (root, from, to, o = {}) => {
     const head = stepHeader(root, '1', C.mix, { color: 'pink' });
     const sub = subPill(root, C.mixSub);
     const blender = new View3D(root, 'blender', 760);
@@ -505,12 +559,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
         stars.update(lt);
       },
     };
-  });
+  };
 
-  // ================================================================ 4 · toppings (beats 12–18)
-  scene((root) => {
-    const from = b(12);
-    const to = b(18);
+  // ================================================================ top – step 2, toppings (animated)
+  SCENES.top = (root, from, to, o = {}) => {
     const head = stepHeader(root, '2', C.top, { color: 'lagoon' });
     const sub = subPill(root, C.topSub);
     const SIZE = 640;
@@ -618,12 +670,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
         stars.update(lt);
       },
     };
-  });
+  };
 
-  // ================================================================ 5 · serve (beats 18–24)
-  scene((root) => {
-    const from = b(18);
-    const to = b(24);
+  // ================================================================ serve – step 3, serving (animated)
+  SCENES.serve = (root, from, to, o = {}) => {
     const head = stepHeader(root, '3', C.serve, { color: 'mango', size: 140 });
     const sub = subPill(root, C.serveSub);
     const gst = guest(root, 31, 560);
@@ -721,12 +771,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
         tip.set({ x: 540, y: 440 + tp.dy, s: tp.s, r: -4, o: tp.o });
       },
     };
-  });
+  };
 
-  // ================================================================ 6 · patience (beats 24–28)
-  scene((root) => {
-    const from = b(24);
-    const to = b(28);
+  // ================================================================ rush – patience runs out
+  SCENES.rush = (root, from, to, o = {}) => {
     const title = new Title(root, C.rush, { size: 118, fill: 'white' });
     const heartXs = [380, 540, 700];
     const heartSp = heartXs.map(() => new Sprite(root, heartSVG(true, 130)));
@@ -806,12 +854,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
       },
       alarm: (lt) => 0.35 + 0.35 * decay(lt % BEAT, 6),
     };
-  });
+  };
 
-  // ================================================================ 7 · ingredients (beats 28–32)
-  scene((root) => {
-    const from = b(28);
-    const to = b(32);
+  // ================================================================ ingredients – 16 of them
+  SCENES.ingredients = (root, from, to, o = {}) => {
     const num = new Sprite(root, '<div class="big-num" style="font-size:300px">16</div>');
     const numEl = num.in.firstChild;
     const word = new Title(root, C.ingredients, { size: 128, fill: 'mango' });
@@ -850,12 +896,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
         });
       },
     };
-  });
+  };
 
-  // ================================================================ 8 · upgrades (beats 32–36)
-  scene((root) => {
-    const from = b(32);
-    const to = b(36);
+  // ================================================================ upgrades – the four blender models
+  SCENES.upgrades = (root, from, to, o = {}) => {
     const title = new Title(root, C.upgrades, { size: 140, fill: 'lagoon' });
     const sub = subPill(root, C.upgSub);
     const spot = new Sprite(root, '<div style="width:1000px;height:1300px;background:radial-gradient(ellipse 50% 50% at 50% 55%,rgba(255,255,255,.33),rgba(255,255,255,0) 70%)"></div>');
@@ -892,12 +936,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
         });
       },
     };
-  });
+  };
 
-  // ================================================================ 9 · smoothies + levels (beats 36–40)
-  scene((root) => {
-    const from = b(36);
-    const to = b(40);
+  // ================================================================ smoothies + levels
+  SCENES.smoothies = (root, from, to, o = {}) => {
     const A = div(root, 'layer');
     const B = div(root, 'layer');
     const title = new Title(A, C.smoothies, { size: 140, fill: 'pink' });
@@ -974,12 +1016,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
         }
       },
     };
-  });
+  };
 
-  // ================================================================ 10 · the real game (beats 40–44)
-  scene((root) => {
-    const from = b(40);
-    const to = b(44);
+  // ================================================================ game – a screenshot of the real game in a tablet
+  SCENES.game = (root, from, to, o = {}) => {
     const title = new Title(root, C.cafe, { size: 130, fill: 'white' });
     const W = 980;
     const H = Math.round((W * 800) / 1280);
@@ -1034,12 +1074,10 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
         plus.update(lt);
       },
     };
-  });
+  };
 
-  // ================================================================ 11 · end card (beats 44–52)
-  scene((root) => {
-    const from = b(44);
-    const to = b(52);
+  // ================================================================ end card
+  SCENES.end = (root, from, to, o = {}) => {
     const logo = new Sprite(root, logoSVG(900));
     const ring = new Ring(root, { x: 540, y: 560, t0: 0, size: 1400, color: '#ffffff', width: 26 });
     const confetti = confettiBurst(root, { n: 50, seed: 31, x: 540, y: 560, t0: 0.02 });
@@ -1101,15 +1139,165 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
         }
       },
     };
-  });
+  };
 
-  const duration = b(52);
+  // ================================================================ real gameplay (the calm cuts)
+  // A camera on the footage: keys [[beat, scale, cx, cy], …] eased one into the next; cx/cy null
+  // follows the player's finger. Returns the camera at scene time lt and footage time ft.
+  const keyedCam = (keys, lt, ft, w, h) => {
+    let i = 0;
+    while (i < keys.length - 1 && lt >= b(keys[i + 1][0])) i++;
+    const k0 = keys[i];
+    const k1 = keys[Math.min(i + 1, keys.length - 1)];
+    const k = k1 === k0 ? 0 : ease.inOutCubic(prog(lt, b(k0[0]), b(k1[0])));
+    const sc = lerp(k0[1], k1[1], k);
+    const follow = camOn(path, footage.clip, ft, sc, w, h);
+    const pick = (v, axis) => (v === null || v === undefined ? follow[axis] : v);
+    return fitCam(lerp(pick(k0[2], 'cx'), pick(k1[2], 'cx'), k), lerp(pick(k0[3], 'cy'), pick(k1[3], 'cy'), k), sc, w, h);
+  };
+  // footage segment o.seg = [ft0] played from the scene's start at o.rate, with the game's sounds
+  const footageOf = (from, to, o, gain = 0.85) => {
+    const rate = o.rate || 1;
+    const ft0 = o.seg[0];
+    placeSounds(footage.clip, ft0, ft0 + (to - from) * rate, from, cue, loops, { gain, rate });
+    return (lt) => ft0 + lt * rate;
+  };
+
+  // a step of the game (badge + word, a line of help) shown in real gameplay in a window
+  SCENES.stepGame = (root, from, to, o) => {
+    const head = stepHeader(root, o.num, C[o.word], { color: o.color, size: o.size || 150 });
+    const sub = subPill(root, C[o.sub]);
+    const W = 1000;
+    const H = 1040;
+    const view = new FootageView(root, footage, { w: W, h: H, round: 52, window: true });
+    const ftAt = footageOf(from, to, o);
+    const keys = o.keys || [[0, o.zoom || 1.5, null, null]];
+    return {
+      from, to, enter: ['softIn', 0.3], leave: ['softOut', 0.25],
+      update(lt) {
+        head(lt);
+        const sp = popIn(lt - 0.25, { f: 2, d: 8 });
+        sub.set({ x: 540, y: 440 + sp.dy, s: sp.s, o: sp.o });
+        const k = ease.outCubic(prog(lt, 0, 0.45));
+        view.sprite.set({ x: 540, y: lerp(1160, 1100, k), s: lerp(0.96, 1, k) });
+        const ft = ftAt(lt);
+        return view.show(ft, keyedCam(keys, lt, ft, W, H));
+      },
+    };
+  };
+
+  // titles over the whole café (opening and the rush)
+  SCENES.cafeGame = (root, from, to, o) => {
+    const titles = o.titles.map(([, key, fill, size]) => new Title(root, C[key], { size: size || 128, fill }));
+    const W = 1000;
+    const H = o.h || 720;
+    const view = new FootageView(root, footage, { w: W, h: H, round: 44, window: true });
+    const ftAt = footageOf(from, to, o);
+    const keys = o.keys || [[0, W / 1280, 640, 400]];
+    const sub = o.sub ? subPill(root, C[o.sub]) : null;
+    return {
+      from, to, enter: o.enter === undefined ? ['softIn', 0.3] : o.enter, leave: ['softOut', 0.25],
+      update(lt) {
+        o.titles.forEach(([at, , , , until], i) => {
+          const tt = titles[i];
+          const t0 = b(at);
+          const out = until === undefined ? null : b(until) - t0 - 0.2;
+          if (lt < t0 || (out !== null && lt > b(until))) return tt.sprite.hide();
+          tt.sprite.set({ x: 540, y: o.titleY || 330 });
+          tt.pop(lt - t0, { stagger: 0.03, freq: 2.4, damp: 9, out, outDur: 0.2 });
+          return null;
+        });
+        if (sub) {
+          const sp = popIn(lt - b(o.subAt || 1), { f: 2, d: 8 });
+          sub.set({ x: 540, y: 1545 + sp.dy, s: sp.s, o: sp.o });
+        }
+        const k = ease.outCubic(prog(lt, 0, 0.5));
+        view.sprite.set({ x: 540, y: lerp(1080, 1040, k) + (o.viewDy || 0), s: lerp(0.96, 1, k) });
+        const ft = ftAt(lt);
+        return view.show(ft, keyedCam(keys, lt, ft, W, H));
+      },
+    };
+  };
+
+  // the gameplay cut: full-screen footage with a follow camera, captions and a few overlays
+  SCENES.follow = (root, from, to, o) => {
+    const W = 1080;
+    const H = 1920;
+    const view = new FootageView(root, footage, { w: W, h: H, blurBg: true });
+    const ftAt = footageOf(from, to, o, 1);
+    const keys = o.keys || [[0, 2.4, null, 400]];
+    const band = o.title ? new Sprite(root, '<div class="top-band"></div>') : null;
+    const title = o.title ? new Title(root, C[o.title[1]], { size: o.title[2] || 104, fill: 'white' }) : null;
+    const caps = (o.captions || []).map(([at, until, key, num, color]) => ({
+      at, until, sp: new Sprite(root, `<div class="cap">${num ? `<span class="cap-num ${color || ''}">${num}</span>` : ''}${C[key]}</div>`),
+    }));
+    const logo = o.logo ? new Sprite(root, logoSVG(760)) : null;
+    const tag = o.logo ? new Title(root, C.tagline, { size: 84, fill: 'mango' }) : null;
+    const chips = (o.chips || []).map(([at, key, color, x, y, r]) => ({ at, x, y, r: r || 0, sp: chip(root, C[key], color) }));
+    if (o.logo) {
+      fx.flash(from + b(o.logo[0]), 0.6, 9);
+      cue(from + b(o.logo[0]), 'impact', { gain: 0.55 });
+    }
+    chips.forEach((c, i) => cue(from + b(c.at), 'pop', { gain: 0.35, pitch: 2 + i }));
+    return {
+      from, to, enter: o.enter === undefined ? ['softIn', 0.3] : o.enter, leave: o.leave === undefined ? ['softOut', 0.25] : o.leave,
+      update(lt) {
+        const ft = ftAt(lt);
+        const wait = view.show(ft, keyedCam(keys, lt, ft, W, H));
+        view.sprite.set({ x: 540, y: 960 });
+        if (title) {
+          const [at, , , until] = o.title;
+          const on = prog(lt, b(at), b(at) + 0.3) * (1 - prog(lt, b(until) - 0.3, b(until)));
+          band.set({ x: 540, y: 280, o: on });
+          title.sprite.set({ x: 540, y: 270, o: on > 0 ? 1 : 0 });
+          title.pop(lt - b(at), { stagger: 0.03, freq: 2.4, damp: 9, out: b(until) - b(at) - 0.25, outDur: 0.2 });
+        }
+        caps.forEach((c) => {
+          const p = popIn(lt - b(c.at), { f: 2.2, d: 8 });
+          const out = ease.inBack(prog(lt, b(c.until) - 0.22, b(c.until)));
+          c.sp.set({ x: 540, y: 1470 + p.dy + out * 60, s: p.s * (1 - out * 0.3), o: p.o * (1 - out) });
+        });
+        if (logo) {
+          const [at, until] = o.logo;
+          const q = lt - b(at);
+          const land = 0.12;
+          const sl = q < land ? lerp(2.2, 0.93, ease.inQuad(clamp(q / land))) : 0.93 + 0.07 * spring(q - land, 2, 6);
+          const out = ease.inBack(prog(lt, b(until) - 0.25, b(until)));
+          logo.set({ x: 540, y: 380 - out * 500, s: sl, r: -4 + Math.sin(lt * 2) * 1, o: q > 0 ? 1 : 0 });
+          tag.sprite.set({ x: 540, y: 1420 + out * 500, o: q > 0 ? 1 : 0 });
+          tag.pop(q - b(1), { stagger: 0.025 });
+        }
+        chips.forEach((c) => {
+          const p = popIn(lt - b(c.at), { f: 2.4, d: 8 });
+          c.sp.set({ x: c.x, y: c.y + p.dy, s: p.s * 1.15, r: c.r, o: p.o });
+        });
+        return wait;
+      },
+    };
+  };
+
+  // ================================================================ assemble the cut
+  let at = 0;
+  for (const [name, beats, opts = {}] of cut.scenes) {
+    const from = b(at);
+    const to = b(at + beats);
+    scene((root) => {
+      const sc = SCENES[name](root, from, to, opts);
+      if (opts.enter !== undefined) sc.enter = opts.enter;
+      if (opts.leave !== undefined) sc.leave = opts.leave;
+      return sc;
+    });
+    at += beats;
+  }
+  const duration = b(at);
 
   // ---------------------------------------------------------------- seek
-  function seek(t) {
+  // resolves once every picture of the frame is decoded
+  async function seek(t) {
     const c = fx.cam(t);
-    // the camera bounces on every beat while the music grooves
-    const beatPunch = t > b(4) && t < b(44) ? 0.012 * decay(t % BEAT, 10) : 0;
+    const waits = [];
+    // the camera bounces on every beat while the music grooves (the hype cut)
+    const beatPunch = cut.bounce && t > b(cut.bounce[0]) && t < b(cut.bounce[1]) ? 0.012 * decay(t % BEAT, 10) : 0;
     cam.style.transform = `translate(${c.x.toFixed(2)}px,${c.y.toFixed(2)}px) rotate(${c.r.toFixed(3)}deg) scale(${(c.s + beatPunch).toFixed(4)})`;
     rays.style.transform = `rotate(${fx.raysAt(t).toFixed(2)}deg) scale(${(1 + 0.03 * decay(t % BEAT, 7)).toFixed(4)})`;
     floaters.forEach((f, i) => {
@@ -1135,7 +1323,8 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
       const { x = 0, y = 0, s: sc = 1, r = 0, o = 1 } = tr;
       s.root.style.transform = x || y || sc !== 1 || r ? `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) rotate(${r.toFixed(2)}deg) scale(${sc.toFixed(4)})` : '';
       s.root.style.opacity = o < 1 ? o.toFixed(3) : '';
-      s.update(lt, t);
+      const wait = s.update(lt, t);
+      if (wait) waits.push(wait);
       if (s.alarm) alarmO = s.alarm(lt);
     }
     for (const [name, el] of Object.entries(tints)) el.style.opacity = (tintOn[name] || 0).toFixed(3);
@@ -1144,10 +1333,11 @@ export function buildFilm(frame, { lang = 'de', shot = null } = {}) {
     const lo = fx.linesAt(t);
     linesEl.style.opacity = lo.toFixed(3);
     if (lo > 0.01) linesEl.firstChild.style.transform = `rotate(${((Math.floor(t * 24) * 37) % 360)}deg)`;
+    await Promise.all(waits);
   }
 
   cues.sort((p, q) => p.t - q.t);
-  return { duration, seek, cues, loops, beat: BEAT, bpm: BPM };
+  return { duration, seek, cues, loops, beat: BEAT, bpm: BPM, music: cut.music, version };
 }
 
 // ------------------------------------------------------------------ art made for the film

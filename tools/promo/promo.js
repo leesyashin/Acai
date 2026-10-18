@@ -4,11 +4,12 @@
 
 import { artDefsSVG } from '../../js/art.js';
 import { setLang } from '../../js/i18n.js';
-import { buildFilm } from './film.js';
+import { buildFilm, CUTS } from './film.js';
 import { renderScore, wavBytes } from './score.js';
 
 const q = new URLSearchParams(location.search);
 const lang = q.get('lang') === 'en' ? 'en' : 'de';
+const version = q.get('version') || 'hype';
 const rendering = q.has('render');
 document.body.classList.toggle('render', rendering);
 setLang(lang);
@@ -23,8 +24,15 @@ async function boot() {
   await document.fonts.ready;
   // render.mjs hands over a screenshot of the real game (data URL) before the page loads
   const shot = window.__promoShot || null;
+  // real gameplay recorded by capture.mjs (the calm cuts need it)
+  let footage = null;
+  if (CUTS[version]?.footage) {
+    const base = `footage/${q.get('footage') || 'main'}`;
+    const res = await fetch(`${base}/clip.json`);
+    if (res.ok) footage = { clip: await res.json(), base };
+  }
   const frame = document.getElementById('frame');
-  const film = buildFilm(frame, { lang, shot });
+  const film = buildFilm(frame, { lang, shot, version, footage });
   await Promise.all([...frame.querySelectorAll('img')].map((img) => img.decode().catch(() => {})));
   let score = null;
   window.promo = {
@@ -32,7 +40,7 @@ async function boot() {
     bpm: film.bpm,
     cues: film.cues,
     seek(t) {
-      film.seek(t);
+      return film.seek(t);
     },
     // the soundtrack as a base64 WAV (render.mjs muxes it into the video); { music: false } = effects only
     async wavBase64(opts = {}) {
@@ -56,7 +64,7 @@ function preview(film) {
   const time = document.getElementById('time');
   const langLink = document.getElementById('lang');
   langLink.textContent = lang === 'de' ? 'English' : 'Deutsch';
-  langLink.href = `?lang=${lang === 'de' ? 'en' : 'de'}`;
+  langLink.href = `?lang=${lang === 'de' ? 'en' : 'de'}&version=${version}`;
   const fit = () => {
     const s = Math.min(innerWidth / 1080, (innerHeight - 52) / 1920);
     frame.style.transform = `translate(${((innerWidth - 1080 * s) / 2).toFixed(1)}px, 0) scale(${s.toFixed(4)})`;

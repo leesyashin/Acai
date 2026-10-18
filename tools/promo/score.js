@@ -107,30 +107,23 @@ const X = {
 };
 
 // ------------------------------------------------------------------ music
-// bar: { chord(s) per half bar, melody bar of the game track, groove style }
-function plan() {
-  const g = (i) => ({ chords: [GAME.chords[i], GAME.chords[i]], mel: GAME.melody[i] });
-  return [
-    { style: 'hook' },
-    { style: 'drop', ...g(0) },
-    { style: 'groove', ...g(1) },
-    { style: 'groove', ...g(2) },
-    { style: 'groove', ...g(3) },
-    { style: 'groove', ...g(4), fill: true },
-    { style: 'tension', chords: [CH.Am, CH.E7], mel: null },
-    { style: 'drop', ...g(12), harmony: true },
-    { style: 'groove', ...g(13), harmony: true },
-    { style: 'groove', ...g(10), harmony: true },
-    { style: 'groove', ...g(11), harmony: true, fill: true },
-    { style: 'groove', chords: [CH.Dm7, CH.G7], mel: GAME.melody[15], harmony: true, fill: true },
-    { style: 'end' },
-  ];
+// The film gives its music bar by bar (film.music): { style, g, chords, mel, harmony, fill, lead }.
+// g: i takes chords and melody of bar i of the game's track; chords: ['Am', 'E7'] (one per half bar)
+// and mel: i name them instead; lead: false leaves the melody out. Styles: hook (stabs on the beats),
+// intro (half-time, soft), groove, drop (groove + brass hit), tension, end (the final chord).
+function resolveBar(m) {
+  let chords = null;
+  if (m.chords) chords = m.chords.map((n) => CH[n]);
+  else if (m.g !== undefined) chords = [GAME.chords[m.g], GAME.chords[m.g]];
+  if (chords && chords.length === 1) chords = [chords[0], chords[0]];
+  const mel = m.lead === false ? undefined : m.mel !== undefined ? m.mel : m.g;
+  return { ...m, chords, mel: mel === undefined || mel === null ? null : GAME.melody[mel] };
 }
 
-function arrangeMusic(c, bus, beat) {
+function arrangeMusic(c, bus, beat, music) {
   const sd = beat / 4;
   const swing = 0.1;
-  const bars = plan();
+  const bars = music.map(resolveBar);
   const { drums, bass, keys, lead, pump } = bus;
   const at = (out, t) => ({ ctx: c, out, t });
   bars.forEach((bar, bi) => {
@@ -165,12 +158,13 @@ function arrangeMusic(c, bus, beat) {
         continue;
       }
       const tension = bar.style === 'tension';
+      const soft = bar.style === 'intro';
       // drums
-      if (s % 4 === 0) {
+      if (s % 4 === 0 && (!soft || s % 8 === 0)) {
         INST.kick(at(drums, t), bar.style === 'drop' && s === 0 ? 0.85 : 0.7);
         pumpAt(pump, t, beat);
       }
-      if (!tension && (s === 4 || s === 12)) {
+      if (!tension && !soft && (s === 4 || s === 12)) {
         INST.clap(at(drums, t), 0.36);
         X.snare(at(drums, t), 0.12);
       }
@@ -201,7 +195,7 @@ function arrangeMusic(c, bus, beat) {
       // lead: the game's melody on steel drum, thirds below in the second half
       const n = bar.mel && bar.mel.at[s];
       if (n) {
-        INST.steel(at(lead, t), n.m, 0.44);
+        INST.steel(at(lead, t), n.m, soft ? 0.34 : 0.44);
         if (bar.harmony) INST.marimba(at(lead, t), harmonyBelow(n.m, SCALE, ch), 0.22);
         INST.marimba(at(lead, t), n.m - 12, 0.14);
       }
@@ -292,7 +286,7 @@ export async function renderScore(film, { sampleRate = 48000, music = true, effe
   const seconds = film.duration + TAIL;
   const c = new OfflineAudioContext(2, Math.ceil(seconds * sampleRate), sampleRate);
   const mix = buildMix(c);
-  if (music) arrangeMusic(c, mix, film.beat);
+  if (music) arrangeMusic(c, mix, film.beat, film.music);
   for (const q of effects ? film.cues : []) {
     const t = Math.max(0, q.t);
     const g = q.gain ?? 1;
