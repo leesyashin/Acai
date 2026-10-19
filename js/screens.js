@@ -4,15 +4,16 @@
 
 import { registerStrings, t, getLang, setLang, formatNumber } from './i18n.js';
 import {
-  LAYERS, LEVELS, UPGRADES, UPG, ENDLESS_UNLOCK_LEVEL, MATCHA_LEVEL,
-  getLevel, ingName, ingredientValue, ingredientsByLayer, qualityUpgradeCost, nextUpgradeCost, getKitchenStats,
+  LAYERS, MATCHA_LAYERS, LEVELS, UPGRADES, UPG, ENDLESS_UNLOCK_LEVEL, MATCHA_LEVEL, ING,
+  getLevel, ingName, ingredientValue, ingredientsByLayer, qualityUpgradeCost, nextUpgradeCost, getKitchenStats, unlockedIn,
 } from './data.js';
 import {
   getSave, onSaveChange, isOwned, levelStars, isLevelUnlocked, isEndlessUnlocked, totalStars,
-  upgradeLevel, ingLevel, upgradeLocked, buyIngredient, upgradeIngredient, buyUpgrade, setSetting, resetSave,
+  upgradeLevel, ingLevel, upgradeLocked, upgradeIngredient, buyUpgrade, setSetting, resetSave,
 } from './save.js';
 import {
   logoSVG, bowlSVG, ingredientIcon, packIcon, matchaGlassSVG, customerSVG, lookFromSeed, blenderSVG, matchaMachineSVG,
+  cupDispenserSVG, cupSpotSVG, armRailSVG, armCarriageSVG, armGripSVG,
   decorSVG, coinSVG, starSVG, heartSVG, clockSVG, lockSVG, titleCounterSVG,
   mapRegionSVG, mapLevelPos, mapRoadData, MAP_H, MAP_BLEED, MAP_REGIONS,
   MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE,
@@ -70,7 +71,10 @@ registerStrings({
     'intro.moreSeats.title': 'Mehr Gäste',
     'intro.moreSeats.text': 'Dein Laden hat jetzt 3 Plätze. Behalte die Geduld aller Gäste im Blick!',
     'intro.matcha.title': 'Matcha!',
-    'intro.matcha.text': 'Neu: die Matcha-Maschine! Zieh eine Frucht auf ein Glas, warte, bis der Matcha fertig ist, und gib ihn dem Gast.',
+    'intro.matcha.text': 'Neu: die Matcha-Maschine mit eigener Matcha-Bar! Zieh eine Frucht aus der Matcha-Bar auf ein Glas: Die Maschine püriert sie und gießt den Matcha darauf. Dann gib ihn dem Gast.',
+    'intro.extras.title': 'Matcha-Extras',
+    'intro.extras.text': 'Manche Gäste wollen Extras auf ihren Matcha, zum Beispiel Eiswürfel. Extras kommen aufs Glas, sobald die Frucht drin ist – auch während die Maschine noch arbeitet.',
+    'map.newIngredients': 'Neue Zutat',
     'intro.endless.title': 'Endlos-Modus',
     'intro.endless.text': 'Alle 30 Sekunden wird es schwerer. Spiel, bis alle Herzen weg sind, und knack deinen Rekord!',
     'intro.fourSeats.title': 'Volles Haus',
@@ -86,16 +90,16 @@ registerStrings({
     'shop.buyAria': '{name} kaufen für {n} Münzen',
     'shop.upgradeAria': 'Qualität von {name} verbessern für {n} Münzen',
     'shop.noMoney': 'Nicht genug Münzen!',
-    'shop.boughtIng': 'Neu im Laden: {name}!',
     'shop.boughtUpg': '{name} gekauft!',
     'shop.upgraded': 'Bessere Qualität: {name}!',
     'shop.maxed': 'Schon voll ausgebaut.',
     'shop.locked': 'Ab Level {n}',
     'shop.lockedToast': 'Wird ab Level {n} freigeschaltet.',
     'shop.tipTitle': 'Tipp',
-    'shop.tipText': 'Neue Zutaten tauchen sofort in Bestellungen auf und bringen mehr Münzen.',
+    'shop.tipText': 'Neue Zutaten kommen mit den Leveln. Hier machst du sie besser – jede ist sofort in den Bestellungen.',
     'shop.tipQuality': 'Qualität ★: +30 % und +60 % Münzen pro Portion.',
-    'shop.matcha': 'Auch als Matcha',
+    'shop.notYet': 'Kommt mit Level {n}',
+    'shop.stat.cupArm': 'Pro Bowl',
     'shop.levelOf': 'Stufe {a} von {b}',
     'shop.stat.blendTime': 'Mixzeit',
     'shop.stat.portions': 'Bowls pro Mix',
@@ -205,7 +209,10 @@ registerStrings({
     'intro.moreSeats.title': 'More customers',
     'intro.moreSeats.text': 'Your shop now has 3 seats. Keep an eye on everyone’s patience!',
     'intro.matcha.title': 'Matcha!',
-    'intro.matcha.text': 'New: the matcha machine! Drag a fruit onto a glass, wait until the matcha is ready and hand it to the customer.',
+    'intro.matcha.text': 'New: the matcha machine with its own matcha bar! Drag a fruit from the matcha bar onto a glass: the machine purées it and pours the matcha on top. Then hand it to the customer.',
+    'intro.extras.title': 'Matcha extras',
+    'intro.extras.text': 'Some customers want extras on their matcha, like ice cubes. Extras go on the glass once its fruit is in – even while the machine is still working.',
+    'map.newIngredients': 'New ingredient',
     'intro.endless.title': 'Endless mode',
     'intro.endless.text': 'It gets harder every 30 seconds. Play until your hearts run out and beat your best score!',
     'intro.fourSeats.title': 'Full house',
@@ -221,16 +228,16 @@ registerStrings({
     'shop.buyAria': 'Buy {name} for {n} coins',
     'shop.upgradeAria': 'Improve the quality of {name} for {n} coins',
     'shop.noMoney': 'Not enough coins!',
-    'shop.boughtIng': 'New in your shop: {name}!',
     'shop.boughtUpg': '{name} bought!',
     'shop.upgraded': 'Better quality: {name}!',
     'shop.maxed': 'Already fully upgraded.',
     'shop.locked': 'From level {n}',
     'shop.lockedToast': 'Unlocks at level {n}.',
     'shop.tipTitle': 'Tip',
-    'shop.tipText': 'New ingredients show up in orders right away and earn more coins.',
+    'shop.tipText': 'New ingredients arrive with the levels. Here you make them better – each shows up in orders right away.',
     'shop.tipQuality': 'Quality ★: +30% and +60% coins per serving.',
-    'shop.matcha': 'Also as a matcha',
+    'shop.notYet': 'Arrives with level {n}',
+    'shop.stat.cupArm': 'Per bowl',
     'shop.levelOf': 'Level {a} of {b}',
     'shop.stat.blendTime': 'Blend time',
     'shop.stat.portions': 'Bowls per batch',
@@ -782,7 +789,9 @@ function introArt(key) {
     case 'overflow':
       return `<div class="intro-art">${blenderArt({ state: 'overflowing', base: 'acai', portions: 2, maxPortions: 2 }, 136, null, {})}</div>`;
     case 'matcha':
-      return `<div class="intro-art">${matchaMachineArt(140, ['strawberry'], true)}</div>`;
+      return `<div class="intro-art">${matchaMachineArt(140, ['mStrawberry'], true)}</div>`;
+    case 'extras':
+      return `<div class="intro-art intro-art-steps">${ingredientIcon('ice', 54)}<i></i>${matchaGlassSVG('mBanana', 'ready', 92, { extras: ['ice'] })}</div>`;
     case 'endless':
       return `<div class="intro-art intro-art-endless">${ICON.endless(96)}</div>`;
     case 'moreSeats':
@@ -795,13 +804,21 @@ function introArt(key) {
   }
 }
 
+// The ingredients a level brings (none for the first: those are the start), with their icons and names.
+function newIngredientsMarkup(levelId) {
+  const ids = levelId > 1 ? unlockedIn(levelId) : [];
+  if (!ids.length) return '';
+  const items = ids.map((id) => `<span class="prelevel-new-item">${ING[id].layer === 'base' ? packIcon(id, 52) : ingredientIcon(id, 52)}<b>${esc(ingName(id))}</b></span>`).join('');
+  return `<div class="prelevel-new" data-new-ingredients="${ids.join(' ')}"><span class="sc-new">${esc(t('map.new'))}</span><span class="prelevel-new-label">${esc(t('map.newIngredients'))}</span>${items}</div>`;
+}
+
 // Something in the shop the player can afford right now?
 function affordableCount() {
   const coins = getSave().coins;
   let n = 0;
-  for (const layer of LAYERS) {
+  for (const layer of [...LAYERS, ...MATCHA_LAYERS]) {
     for (const ing of ingredientsByLayer(layer)) {
-      const cost = isOwned(ing.id) ? qualityUpgradeCost(ing.id, ingLevel(ing.id)) : ing.cost;
+      const cost = isOwned(ing.id) ? qualityUpgradeCost(ing.id, ingLevel(ing.id)) : null;
       if (cost !== null && cost <= coins) n++;
     }
   }
@@ -846,8 +863,9 @@ export function openPreLevel(container, levelId, ctx = {}, opts = {}) {
         <span class="sc-chip" title="${esc(t('map.time'))}">${clockSVG(32)}<b>${timeText(level.duration)}</b></span>
         <span class="sc-chip">${seatsIcons(level.seats, level.id * 11)}<b>${esc(t('map.seats', { n: level.seats }))}</b></span>
         <span class="sc-chip">${heartSVG(true, 30)}<b>${esc(t('map.hearts', { n: level.hearts }))}</b></span>
-        ${level.id >= MATCHA_LEVEL ? `<span class="sc-chip">${matchaGlassSVG('kiwi', 'ready', 36)}<b>${esc(t('map.matcha'))}</b></span>` : ''}
+        ${level.id >= MATCHA_LEVEL ? `<span class="sc-chip">${matchaGlassSVG('mStrawberry', 'ready', 36)}<b>${esc(t('map.matcha'))}</b></span>` : ''}
       </div>
+      ${newIngredientsMarkup(level.id)}
       ${level.intro ? `<div class="prelevel-intro intro-${level.intro}">
         ${introArt(level.intro)}
         <div class="prelevel-intro-text"><h4><span class="sc-new">${esc(t('map.new'))}</span>${esc(t(`intro.${level.intro}.title`))}</h4><p>${esc(t(`intro.${level.intro}.text`))}</p></div>
@@ -938,21 +956,21 @@ function priceButton({ kind, id, price, label, upgrade = false }) {
     + `${upgrade ? `<span class="sc-price-up">${starSVG(true, 24)}</span>` : ''}${coinSVG(26)}<span>${coinsText(price)}</span></button>`;
 }
 
+// An ingredient: arrived ones can be made better (quality stars), the others say which level brings them.
 function ingredientCard(ing) {
   const owned = isOwned(ing.id);
   const q = ingLevel(ing.id);
-  const price = owned ? qualityUpgradeCost(ing.id, q) : ing.cost;
-  const state = !owned ? 'buy' : price === null ? 'max' : 'upgrade';
+  const price = owned ? qualityUpgradeCost(ing.id, q) : null;
+  const state = !owned ? 'locked' : price === null ? 'max' : 'upgrade';
   const name = ingName(ing.id);
   const value = ingredientValue(ing.id, getSave().ingLevels);
   let action;
   if (state === 'max') action = `<div class="sc-maxed">${starSVG(true, 22)}${starSVG(true, 22)}<span>${esc(t('shop.max'))}</span></div>`;
-  else if (state === 'buy') action = priceButton({ kind: 'ing', id: ing.id, price, label: t('shop.buyAria', { name, n: price }) });
+  else if (state === 'locked') action = `<div class="sc-price is-locked sc-not-yet">${lockSVG(24)}<span>${esc(t('shop.notYet', { n: ing.unlock }))}</span></div>`;
   else action = priceButton({ kind: 'ing', id: ing.id, price, upgrade: true, label: t('shop.upgradeAria', { name, n: price }) });
   return `<article class="shop-card ing-card is-${state}" data-card="${ing.id}" data-shop-item="${ing.id}" data-state="${state}">
-    ${owned ? `<span class="card-owned" title="${esc(t('shop.owned'))}">${ICON.check(22)}<span class="sc-sr">${esc(t('shop.owned'))}</span></span>` : ''}
     ${owned ? `<span class="card-quality" role="img" aria-label="${esc(t('shop.qualityAria', { n: q }))}">${starSVG(q >= 1, 22)}${starSVG(q >= 2, 22)}</span>` : ''}
-    <div class="card-icon">${ing.layer === 'base' ? packIcon(ing.id, 68) : ingredientIcon(ing.id, 64)}${ing.matcha ? `<span class="card-matcha" title="${esc(t('shop.matcha'))}">${matchaGlassSVG(ing.id, 'ready', 30)}</span>` : ''}</div>
+    <div class="card-icon">${ing.layer === 'base' ? packIcon(ing.id, 68) : ingredientIcon(ing.id, 64)}${MATCHA_LAYERS.includes(ing.layer) ? `<span class="card-matcha" title="${esc(t('map.matcha'))}">${matchaGlassSVG(ing.layer === 'mfruit' ? ing.id : 'mStrawberry', 'ready', 30, { extras: ing.layer === 'mextra' ? [ing.id] : [] })}</span>` : ''}</div>
     <h3 class="card-name">${esc(name)}</h3>
     <p class="card-value">${coinSVG(20)}<b>${numFmt(value)}</b><span>${esc(t('shop.perUse'))}</span></p>
     ${action}
@@ -960,15 +978,16 @@ function ingredientCard(ing) {
 }
 
 function ingredientsTab() {
-  return LAYERS.map((layer) => {
+  return [...LAYERS, ...MATCHA_LAYERS].map((layer) => {
     const items = ingredientsByLayer(layer);
     const owned = items.filter((i) => isOwned(i.id)).length;
     const tip = layer === 'base' ? `<aside class="shop-tip">
         <div class="shop-tip-art">${bowlSVG({ base: 'pitaya', mid: ['mango', 'kiwi'], top: ['coconut', 'chia'] }, 112)}</div>
         <div><h3>${esc(t('shop.tipTitle'))}</h3><p>${esc(t('shop.tipText'))}</p><p>${esc(t('shop.tipQuality'))}</p></div>
       </aside>` : '';
+    const num = LAYER_NUM[layer] ? `<span class="shop-row-num">${LAYER_NUM[layer]}</span>` : `<span class="shop-row-num is-matcha">${matchaGlassSVG('mStrawberry', 'ready', 26)}</span>`;
     return `<section class="shop-row shop-row-${layer}" aria-label="${esc(t(`layer.${layer}`))}">
-      <div class="shop-row-label"><span class="shop-row-num">${LAYER_NUM[layer]}</span><span class="shop-row-name">${esc(t(`layer.${layer}`))}</span><span class="shop-row-count">${owned}/${items.length}</span></div>
+      <div class="shop-row-label">${num}<span class="shop-row-name">${esc(t(`layer.${layer}`))}</span><span class="shop-row-count">${owned}/${items.length}</span></div>
       <div class="shop-row-cards">${items.map(ingredientCard).join('')}${tip}</div>
     </section>`;
   }).join('');
@@ -980,6 +999,7 @@ const STAT_SPEC = {
   blender2: { key: 'blenders', fmt: (v) => numFmt(v) },
   bowlSlots: { key: 'bowlSlots', fmt: (v) => numFmt(v) },
   matchaSlots: { key: 'matchaSlots', fmt: (v) => numFmt(v) },
+  cupArm: { key: 'cupArm', fmt: (v) => (v > 0 ? t('shop.seconds', { n: numFmt(v) }) : '–') },
 };
 
 function statLine(u) {
@@ -1001,7 +1021,7 @@ function statLine(u) {
 // crop: the size×size square shows only the one-slot machine (MACHINE_CROP of its 312 px canvas: x, y,
 // side), so it fills the picture instead of standing small in the canvas's empty sides.
 const MACHINE_CROP = [29, 38, 254];
-function matchaMachineArt(size, fruits = ['strawberry', 'kiwi'], crop = false) {
+function matchaMachineArt(size, fruits = ['mStrawberry', 'mMango'], crop = false) {
   const full = crop ? Math.round((size * 312) / MACHINE_CROP[2]) : size;
   const glass = Math.round(full * MATCHA_CUP_SIZE);
   const xs = MATCHA_SLOT_X[fruits.length];
@@ -1011,6 +1031,19 @@ function matchaMachineArt(size, fruits = ['strawberry', 'kiwi'], crop = false) {
   if (!crop) return art;
   const [x, y] = MACHINE_CROP.map((v) => Math.round((v * full) / 312));
   return `<div class="upg-machine-crop" style="width:${size}px;height:${size}px"><div style="left:${-x}px;top:${-y}px">${art}</div></div>`;
+}
+
+// The cup arm on its rail, a cup in its gripper over a free spot, the dispenser beside it.
+function cupArmArt() {
+  return `<div class="upg-art-arm">
+    <span class="upg-arm-rail">${armRailSVG(210)}</span>
+    <span class="upg-arm-disp">${cupDispenserSVG(96)}</span>
+    <span class="upg-arm-spot">${cupSpotSVG(96)}</span>
+    <span class="upg-arm-rod"></span>
+    <span class="upg-arm-cup">${bowlSVG(null, 96)}</span>
+    <span class="upg-arm-claw">${armGripSVG(false)}</span>
+    <span class="upg-arm-car">${armCarriageSVG(true)}</span>
+  </div>`;
 }
 
 function upgradeArt(id) {
@@ -1031,6 +1064,8 @@ function upgradeArt(id) {
       return `<div class="upg-art-bowls">${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 104)}${bowlSVG(null, 104)}${bowlSVG({ base: 'pitaya', mid: ['strawberry'], top: [] }, 104)}</div>`;
     case 'matchaSlots':
       return matchaMachineArt(172);
+    case 'cupArm':
+      return cupArmArt();
     default:
       return decorSVG(id, 230, { wall: false });
   }
@@ -1133,13 +1168,13 @@ const shop = {
       // on the redrawn button of the card just bought: swallow it silently (no reject either).
       if (id === lastBuy.id && ((e?.detail ?? 0) > 1 || now - lastBuy.at < BUY_COOLDOWN_MS)) return;
       const card = btn.closest('.shop-card');
-      const wasOwned = kind === 'ing' && isOwned(id);
-      const res = kind === 'ing' ? (wasOwned ? upgradeIngredient(id) : buyIngredient(id)) : buyUpgrade(id);
+      const res = kind === 'ing' ? upgradeIngredient(id) : buyUpgrade(id);
       if (!res.ok) {
         sfx(ctx, 'reject');
         shake(card);
         const msg = res.reason === 'noMoney' ? t('shop.noMoney')
           : res.reason === 'locked' ? t('shop.lockedToast', { n: UPG[id]?.requiresLevel ?? MATCHA_LEVEL })
+            : res.reason === 'notOwned' ? t('shop.notYet', { n: ING[id]?.unlock ?? 1 })
             : t('shop.maxed');
         showToast(container, scope, msg, { anchor: btn });
         return;
@@ -1152,7 +1187,7 @@ const shop = {
         burst(container, scope, fresh);
       }
       const name = kind === 'ing' ? ingName(id) : t(`upg.${id}`);
-      const msg = kind === 'upg' ? t('shop.boughtUpg', { name }) : wasOwned ? t('shop.upgraded', { name }) : t('shop.boughtIng', { name });
+      const msg = kind === 'upg' ? t('shop.boughtUpg', { name }) : t('shop.upgraded', { name });
       showToast(container, scope, msg, { kind: 'good', anchor: fresh || null });
     };
 

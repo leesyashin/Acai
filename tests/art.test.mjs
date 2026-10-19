@@ -82,26 +82,47 @@ test('the cup shows what was put in: empty cup, purée, layers through the side,
   assert.notEqual(art.cupSpotSVG(140), empty, 'a free spot is not an empty cup');
 });
 
-test('the matcha glass: the purée first, then milk and matcha run in, a ready one has all three', () => {
+test('the matcha glass: the fruit is puréed, then milk and matcha run in, a ready one has all three', () => {
   const { MATCHA_COLORS: C, matchaFruitColorOf, MATCHA_MILK } = art;
   const has = (svg, col) => svg.includes(col);
-  const puree = matchaFruitColorOf('mango');
+  const puree = matchaFruitColorOf('mMango');
+  assert.equal(puree, matchaFruitColorOf('mango'), 'a matcha fruit has the colour of the bowl fruit it is cut from');
   const empty = art.matchaGlassSVG(null, 'empty', 100);
   assert.ok(!has(empty, puree) && !has(empty, C.milk) && !has(empty, C.matcha), 'an empty glass is empty');
-  const start = art.matchaGlassSVG('mango', 'mixing', 100, { fill: 0 });
-  assert.ok(has(start, puree) && !has(start, C.milk) && !has(start, C.matcha), 'the fruit is purée at the bottom at once');
-  const milk = art.matchaGlassSVG('mango', 'mixing', 100, { fill: MATCHA_MILK * 0.6 });
+  const pieces = art.matchaGlassSVG('mMango', 'mixing', 100, { fill: 0, puree: 0 });
+  const half = art.matchaGlassSVG('mMango', 'mixing', 100, { fill: 0, puree: 0.5 });
+  const start = art.matchaGlassSVG('mMango', 'mixing', 100, { fill: 0, puree: 1 });
+  assert.ok(!has(pieces, C.milk) && !has(pieces, C.matcha) && pieces !== half && half !== start, 'pieces turn into purée');
+  assert.ok(has(start, puree) && !has(start, C.milk) && !has(start, C.matcha), 'then the purée lies at the bottom');
+  const milk = art.matchaGlassSVG('mMango', 'mixing', 100, { fill: MATCHA_MILK * 0.6 });
   assert.ok(has(milk, C.milk) && !has(milk, C.matcha), 'the milk runs in first');
-  const both = art.matchaGlassSVG('mango', 'mixing', 100, { fill: 0.8 });
+  const both = art.matchaGlassSVG('mMango', 'mixing', 100, { fill: 0.8 });
   assert.ok(has(both, C.milk) && has(both, C.matcha), 'then the matcha settles on it');
-  const ready = art.matchaGlassSVG('mango', 'ready', 100);
+  const ready = art.matchaGlassSVG('mMango', 'ready', 100);
   assert.ok(has(ready, puree) && has(ready, C.milk) && has(ready, C.matcha), 'a ready glass shows its three layers');
-  assert.notEqual(art.matchaGlassSVG('kiwi', 'ready', 100), ready, 'the fruit shows');
+  assert.notEqual(art.matchaGlassSVG('mStrawberry', 'ready', 100), ready, 'the fruit shows');
+  for (const id of ['ice', 'vanilla', 'foam']) {
+    assert.notEqual(art.matchaGlassSVG('mMango', 'ready', 100, { extras: [id] }), ready, `${id} shows in the glass`);
+  }
+  assert.equal(art.matchaGlassSVG('mMango', 'ready', 100, { extras: ['foam', 'ice'] }), art.matchaGlassSVG('mMango', 'ready', 100, { extras: ['ice', 'foam'] }));
   // its own stream only while something runs in, and never when the 3D machine pours
   const streams = (svg) => (svg.match(/M47\.6 0H52\.4/g) || []).length;
   assert.equal(streams(start), 0, 'no stream before the pour');
   assert.ok(streams(both) > 0, 'the drawn machine pours into the glass');
-  assert.equal(streams(art.matchaGlassSVG('mango', 'mixing', 100, { fill: 0.8, stream: false })), 0);
+  assert.equal(streams(art.matchaGlassSVG('mMango', 'mixing', 100, { fill: 0.8, stream: false })), 0);
+});
+
+test('the matcha bar: every matcha ingredient has an icon, a container and something to carry', () => {
+  for (const ing of INGREDIENTS.filter((i) => i.layer === 'mfruit' || i.layer === 'mextra')) {
+    for (const svg of [art.ingredientIcon(ing.id, 40), art.binSVG(ing.id, 96), art.scoopSVG(ing.id, 84)]) {
+      assert.match(svg, /^<svg[^>]*>.*<\/svg>$/s, ing.id);
+      assert.ok(!svg.includes('NaN') && !svg.includes('undefined'), `${ing.id}: bad numbers`);
+    }
+  }
+  assert.ok(!art.cupDispenserSVG(120).includes('NaN'));
+  for (const svg of [art.armRailSVG(500), art.armCarriageSVG(true), art.armGripSVG(true), art.armGripSVG(false)]) {
+    assert.ok(!svg.includes('NaN') && !svg.includes('undefined'));
+  }
 });
 
 // ------------------------------------------------------------------ guests

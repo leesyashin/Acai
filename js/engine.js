@@ -476,6 +476,7 @@ export function addIngredientError(game, bowlIdx, ingId) {
   const ing = ING[ingId];
   if (!ing || !game.owned.includes(ingId)) return 'notOwned';
   if (ing.layer === 'base') return 'wrongLayer';
+  if (ing.layer !== 'mid' && ing.layer !== 'top') return 'matchaItem'; // the matcha bar's fruit and extras
   if (!bowl.cup) return 'noCup';
   if (!bowl.base) return 'needBase';
   if (bowl.mid.includes(ingId) || bowl.top.includes(ingId)) return 'alreadyAdded';

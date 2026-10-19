@@ -6,7 +6,7 @@ import { ING } from './data.js';
 import { t } from './i18n.js';
 import {
   WHITE, f, rngFor, memo, mix, lighten, esc, uid, svgWrap, stroke, op, tf, circle, ellipse, path, rect, g, line,
-  rrect, paint, lit, litCircle, softShadow, edge, registerDefs,
+  rrect, paint, lit, litCircle, softShadow, edge,
 } from './svg.js';
 import { pureeOf, ingredientArt, packIcon } from './art-food.js';
 import { MATCHA_GEO, MACHINE_SLOT_X, GLASS_Z, VIEWS, ELEV, machinePoint } from './kitchen3d.js';
@@ -435,6 +435,64 @@ export function matchaMachineSVG(slotCount = 1, size = 312) {
 }
 
 // ======================================================================
+// The cup arm (shop upgrade "Greifarm"): a chrome rail along the front of the pass with a little
+// carriage that runs on it; from the carriage a telescopic rod reaches down to a gripper with two
+// fingers that take a cup by its middle. js/game-view.js moves the parts (the rod is a CSS strip).
+// ======================================================================
+// The rail, len px long (box len × 30): a polished tube on two brackets screwed to the pass.
+export function armRailSVG(len) {
+  return memo(`armrail|${len}`, () => {
+    const L = Math.max(60, Math.round(len));
+    let s = '';
+    for (const x of [14, L - 14]) {
+      s += path(rrect(x - 7, 0, 14, 16, 3), paint('steel', '#c9d0d6'), stroke(0.9, '#5f6a75'));
+      s += circle(x, 5, 1.6, '#5f6a75');
+    }
+    s += path(rrect(4, 12, L - 8, 9, 4.5), paint('steel-v', '#dfe4e9'), stroke(1, '#5f6a75'));
+    s += line(`M10 14.6H${L - 10}`, WHITE, 1.6, op(0.85));
+    s += line(`M10 19.4H${L - 10}`, '#000000', 1, op(0.15));
+    for (const x of [4, L - 4]) s += ellipse(x, 16.5, 2.4, 4.4, '#9aa4ae', stroke(0.8, '#5f6a75'));
+    return svgWrap(L, 30, L, 30, s);
+  });
+}
+
+// The carriage (64 × 40): rollers on the rail, a graphite body with the café's purple stripe and a
+// status LED (lit: led).
+export function armCarriageSVG(led = false) {
+  return memo(`armcar|${led}`, () => {
+    let s = '';
+    for (const x of [18, 46]) s += circle(x, 9, 6, '#3b3f45', stroke(0.9, '#1d2024')) + circle(x, 9, 2.2, '#9aa4ae');
+    const body = rrect(6, 12, 52, 22, 6);
+    s += path(body, '#2f3338', stroke(1, '#15171a')) + path(body, paint('sph-soft'), op(0.8));
+    s += path(rrect(6, 25, 52, 4, 2), '#7b3a96');
+    s += circle(49, 18.5, 2.6, led ? '#3dff70' : '#425046', led ? '' : op(0.9));
+    if (led) s += circle(49, 18.5, 5.5, '#3dff70', op(0.3));
+    s += path(rrect(26, 32, 12, 8, 2), '#24272b');
+    s += line('M12 15.5H34', WHITE, 1.2, op(0.35));
+    return svgWrap(64, 40, 64, 40, s);
+  });
+}
+
+// The gripper (100 × 56): the hub and a crossbar, two fingers hanging from its ends with purple rubber
+// pads; open, the fingers splay out. The pads meet a cup's middle at y 46, 34 px either side of x 50.
+export function armGripSVG(open = false) {
+  return memo(`armgrip|${open}`, () => {
+    const finger = (x, side) => {
+      const tilt = open ? side * 9 : 0;
+      let fs = path(rrect(x - 3, 8, 6, 36, 3), paint('steel-v', '#dfe4e9'), stroke(0.9, '#5f6a75'));
+      fs += path(rrect(x - 4.5 - (side < 0 ? 0 : 0), 36, 9, 14, 3.5), '#7b3a96', stroke(0.8, '#4a1a5e'));
+      fs += line(`M${x - 1.2} 11V40`, WHITE, 1.1, op(0.7));
+      return g(`rotate(${tilt} ${x} 10)`, fs);
+    };
+    let s = finger(16, -1) + finger(84, 1);
+    s += path(rrect(10, 4, 80, 10, 5), paint('steel', '#c9d0d6'), stroke(1, '#5f6a75'));
+    s += path(rrect(36, 0, 28, 14, 5), '#2f3338', stroke(1, '#15171a')) + path(rrect(36, 0, 28, 14, 5), paint('sph-soft'), op(0.7));
+    s += circle(50, 7, 2.6, '#7b3a96');
+    return svgWrap(100, 56, 100, 56, s);
+  });
+}
+
+// ======================================================================
 // Trash can (viewBox 100×100): stainless pedal bin
 // ======================================================================
 export function trashSVG(size = 64) {
@@ -587,31 +645,6 @@ function underCounter(X0, X1, C, H) {
   return s;
 }
 
-// Fruit basket and a jar of paper straws on the free worktop in front of the machine (drawn at
-// 1:1 around the basket's foot at (1046, 334), then scaled into place by counterSVG).
-const DECOR_AT = { x: 1098, y: 300, scale: 0.72 };
-
-function worktopDecor() {
-  let s = softShadow(1046, 330, 70, 11) + softShadow(1124, 318, 22, 5);
-  // wicker basket: belly in front of the heaped fruit, woven texture, rim
-  const belly = 'M984 292C986 318 1010 334 1046 334C1082 334 1106 318 1108 292Z';
-  s += ellipse(1046, 292, 62, 16, '#7a5532');
-  s += stockIcon('banana', 990, 230, 0.66) + stockIcon('mango', 1036, 236, 0.58) + stockIcon('kiwi', 1062, 252, 0.5) + stockIcon('strawberry', 1012, 258, 0.42);
-  s += path(belly, '#c48b4e', stroke(1, '#7a5532'));
-  let weave = '';
-  for (let x = 992; x < 1104; x += 9) weave += `M${x} 294L${x + 7} 330M${x + 9} 294L${x + 2} 330`;
-  s += `<g clip-path="url(#af-clip-basket)">${line(weave, '#9c6a37', 1.4, op(0.55))}</g>`;
-  s += path(belly, paint('cyl-soft')) + path('M984 292A62 16 0 0 0 1108 292', 'none', stroke(4.5, '#a97440')) + path('M986 291A60 14.5 0 0 0 1106 291', 'none', stroke(1.4, '#e5b87f') + op(0.8));
-  // glass jar of striped paper straws
-  for (const [x2, y2, c] of [[1112, 244, '#ff6fa8'], [1122, 238, '#6c2a8f'], [1132, 246, '#2fbf71'], [1118, 250, '#ffb627']]) {
-    s += line(`M${f(1124 + (x2 - 1124) * 0.3)} 304L${x2} ${y2}`, '#ffffff', 4.2) + line(`M${f(1124 + (x2 - 1124) * 0.3)} 304L${x2} ${y2}`, c, 4.2, ' stroke-dasharray="3 3"');
-  }
-  s += path('M1108 270V312A16 4 0 0 0 1140 312V270Z', '#e8f4f8', op(0.5)) + path('M1108 270V312A16 4 0 0 0 1140 312V270Z', paint('glass'));
-  s += ellipse(1124, 270, 16, 4, 'none', stroke(1.4, '#ffffff') + op(0.9)) + path('M1108 270V312A16 4 0 0 0 1140 312V270', 'none', stroke(1, '#8fb0bd'));
-  return s;
-}
-registerDefs('<clipPath id="af-clip-basket"><path d="M984 292C986 318 1010 334 1046 334C1082 334 1106 318 1108 292Z"/></clipPath>');
-
 // bleed / below: the worktop and the cabinet run on that far to either side and down (full bleed on wider or
 // taller screens); then the picture is (1280 + 2·bleed) × (462 + below) px, drawn 1:1 with x 0 at `bleed`.
 export function counterSVG(width = COUNTER_W, height = COUNTER_H, { bleed = 0, below = 0 } = {}) {
@@ -634,7 +667,6 @@ export function counterSVG(width = COUNTER_W, height = COUNTER_H, { bleed = 0, b
   // warm light of the pendant lamps pooling in the middle of the worktop
   s += ellipse(640, 150, 520, 120, paint('warm-glow'), op(0.35));
   s += rect(X0, 0, X1 - X0, 40, 0, paint('up-dark'), op(0.55)) + rect(X0, 0, X1 - X0, 8, 0, '#3b2a22', op(0.18));
-  s += g(`translate(${DECOR_AT.x} ${DECOR_AT.y}) scale(${DECOR_AT.scale}) translate(-1046 -334)`, worktopDecor());
   // cabinet: open shelves with the stock, the freezer's front panel on the left
   s += underCounter(X0, X1, C, H);
   const fp = `M18 ${C}H298V${H + 4}H18Z`;

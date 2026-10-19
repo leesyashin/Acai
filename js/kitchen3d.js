@@ -1065,6 +1065,11 @@ export function pourFill(p = 0) {
   return smooth(POUR_AT, 1, clamp(p, 0, 1));
 }
 
+// How far the fruit dropped into the glass is puréed while the mill grinds (pieces 0 … smooth 1).
+export function pureeFill(p = 0) {
+  return smooth(0.04, POUR_AT - 0.04, clamp(p, 0, 1));
+}
+
 // A dark recess in the black front (behind a glass, the mill's alcove): matte black with its upper
 // edge in shadow and its lower lip catching the light; arch: the top is a half round.
 function recessTexture(w, h, arch) {

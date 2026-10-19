@@ -992,7 +992,7 @@ describe('action checks (*Error)', () => {
   });
 
   test('bowl: addIngredientError mirrors addIngredient', () => {
-    const g = newGame({ owned: ['acai', 'banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi', 'honey', 'coconut'] });
+    const g = newGame({ owned: ['acai', 'banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi', 'honey', 'coconut', 'mBanana', 'ice'] });
     const chk = (bowl, id) => same(() => addIngredientError(g, bowl, id), () => addIngredient(g, bowl, id));
     assert.equal(chk(9, 'banana'), 'invalid');
     assert.equal(chk(0, 'mint'), 'notOwned');
@@ -1009,6 +1009,8 @@ describe('action checks (*Error)', () => {
     g.bowls[1].base = 'acai';
     for (const id of ['banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi']) assert.equal(chk(1, id), null);
     assert.equal(chk(1, 'coconut'), 'bowlFull');
+    assert.equal(chk(0, 'mBanana'), 'matchaItem', 'the matcha bar\'s fruit is not for bowls');
+    assert.equal(chk(0, 'ice'), 'matchaItem');
   });
 
   test('matcha + serving: loadMatchaError / serveBowlError / serveMatchaError mirror their actions', () => {
