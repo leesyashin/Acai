@@ -169,7 +169,8 @@ export function scenes({ lang, b, cue, fx, shot, popIn, confettiBurst, PLAY_ICON
       if (i < 10 || i % 2 === 0) cue(from + n.t, 'ping', { gain: i < 6 ? 0.55 : 0.35 });
       if (i < 4 || i % 3 === 0) cue(from + n.t + 0.02, 'buzz', { gain: i < 4 ? 0.5 : 0.35, len: i < 4 ? 0.32 : 0.18 });
       if (n.angry && i % 4 === 1) cue(from + n.t + 0.05, 'angry', { kind: 'sfx', gain: 0.35 });
-      fx.shake(from + n.t, i < 6 ? 6 : 10 + i * 0.6, 9);
+      // the first orders stay readable; the phone only rattles once the rush is on
+      if (i >= 9) fx.shake(from + n.t, 6 + i * 0.5, 9);
     });
     cue(from + b(2), 'click', { kind: 'sfx', gain: 0.6 });
     cue(from + b(16), 'heart', { kind: 'sfx', gain: 0.6 });
