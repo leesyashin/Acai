@@ -2,8 +2,8 @@
 // every action returns { ok, reason? } and queues events (see docs/DESIGN.md §4.2).
 
 import {
-  ING, LEVELS, START_OWNED, MAX_BOWL_ITEMS, TIP_RATE, PARTIAL_DELIVERY_BONUS,
-  MATCHA_PATIENCE_BONUS, ENDLESS_STAGE_SECONDS, isMatchaFruit, endlessConfig, getKitchenStats, getLevel,
+  ING, LEVELS, START_OWNED, MAX_BOWL_ITEMS, MAX_MATCHA_EXTRAS, TIP_RATE, PARTIAL_DELIVERY_BONUS, PATIENCE_PER_WORK,
+  ENDLESS_STAGE_SECONDS, isMatchaFruit, isMatchaExtra, endlessConfig, getKitchenStats, getLevel, orderWork, ownedAt,
 } from './data.js';
 import { createRng } from './rng.js';
 import { generateOrder, orderValue } from './orders.js';
@@ -30,6 +30,9 @@ export const ARRIVE_TIME = 0.6;
 export const LEAVE_TIME = 0.9;
 export const SEAT_REUSE_DELAY = 0.8;
 export const TUTORIAL_RELEASE_DELAY = 2;
+// Once nobody is waiting, the next guest comes this long after the last one at the latest.
+export const EARLY_SPAWN_GAP = 2.5;
+export const SPAWN_JITTER = 0.15;
 
 const ACTIVE = new Set(['arriving', 'waiting']);
 
@@ -44,8 +47,15 @@ function emptyBlender(maxPortions) {
   return { state: 'empty', base: null, t: 0, duration: 0, progress: 0, portions: 0, maxPortions };
 }
 
+// A matcha slot: the glass on the machine's drip tray. 'mixing': the fruit is in, the machine purées
+// it and pours the matcha on top; extras can go in from then on.
 function emptySlot() {
-  return { state: 'empty', fruit: null, t: 0, duration: 0, progress: 0 };
+  return { state: 'empty', fruit: null, extras: [], t: 0, duration: 0, progress: 0 };
+}
+
+// The cup arm (upgrade): 'idle' or 'moving' a cup from the dispenser to the spot `target`.
+function idleArm() {
+  return { state: 'idle', target: null, t: 0, duration: 0, progress: 0 };
 }
 
 export function createGame(opts = {}) {
@@ -53,6 +63,7 @@ export function createGame(opts = {}) {
   const level = mode === 'campaign' ? resolveLevel(opts.level) : null;
   const config = mode === 'campaign' ? level : endlessConfig(0);
   const kitchen = opts.kitchen || getKitchenStats({});
+  const owned = opts.owned || (mode === 'campaign' ? ownedAt(level.id) : START_OWNED);
   const seed = Number.isFinite(opts.seed) ? opts.seed : 1;
   const hearts = config.hearts ?? 3;
   const game = {
@@ -72,7 +83,8 @@ export function createGame(opts = {}) {
     blenders: Array.from({ length: kitchen.blenders }, () => emptyBlender(kitchen.portions)),
     bowls: [],
     matcha: opts.matcha ? { slots: Array.from({ length: kitchen.matchaSlots }, emptySlot) } : null,
-    owned: (opts.owned || START_OWNED).slice(),
+    arm: kitchen.cupArm > 0 ? idleArm() : null,
+    owned: owned.slice(),
     ingLevels: { ...(opts.ingLevels || {}) },
     kitchen,
     featured: (opts.featured || []).slice(),
@@ -83,6 +95,7 @@ export function createGame(opts = {}) {
     _sim: {
       rng: createRng(seed),
       nextSpawn: FIRST_SPAWN,
+      lastSpawn: FIRST_SPAWN - EARLY_SPAWN_GAP,
       seatFreeAt: Array(config.seats).fill(-Infinity),
       nextCustomerId: 1,
       nextUid: 1,
@@ -125,6 +138,7 @@ export function tick(game, dt) {
 
   updateBlenders(game, step);
   updateMatcha(game, step);
+  updateArm(game, step);
   updateCustomers(game, step);
   if (game.status !== 'playing') return;
   if (game.mode === 'endless') updateStage(game);
@@ -182,6 +196,31 @@ function updateMatcha(game, dt) {
   });
 }
 
+export // The arm takes the leftmost spot without a cup; a spot that got a cup by hand meanwhile is dropped.
+function updateArm(game, dt) {
+  const arm = game.arm;
+  if (!arm) return;
+  if (arm.state === 'moving' && game.bowls[arm.target]?.cup) {
+    Object.assign(arm, idleArm());
+    emit(game, 'armCancel');
+  }
+  if (arm.state === 'idle') {
+    const target = game.bowls.findIndex((b) => !b.cup);
+    if (target < 0) return;
+    setTimer(arm, 'moving', game.kitchen.cupArm);
+    arm.target = target;
+    emit(game, 'armStart', { bowlIdx: target });
+    return;
+  }
+  arm.t += dt;
+  updateProgress(arm);
+  if (arm.t < arm.duration) return;
+  const bowlIdx = arm.target;
+  Object.assign(arm, idleArm());
+  game.bowls[bowlIdx].cup = true;
+  emit(game, 'cupPlaced', { bowlIdx, auto: true });
+}
+
 export function moodFor(ratio) {
   if (ratio > 0.6) return 'happy';
   if (ratio > 0.3) return 'neutral';
@@ -237,19 +276,23 @@ function updateClosing(game) {
   emit(game, 'closingTime');
 }
 
+// The next guest comes pace × the work of the last order later – a big order buys time – or as soon
+// as nobody is waiting any more (EARLY_SPAWN_GAP after the last guest), so a quick player never idles.
 function updateSpawning(game) {
   const sim = game._sim;
   if (game.closing) return;
   if (game.tutorialHold && sim.spawned > 0) return;
-  if (game.time < sim.nextSpawn) return;
+  const idle = !game.seats.some((c) => c && ACTIVE.has(c.state));
+  if (game.time < sim.nextSpawn && !(idle && game.time - sim.lastSpawn >= EARLY_SPAWN_GAP)) return;
   const free = [];
   game.seats.forEach((c, i) => {
     if (!c && game.time - sim.seatFreeAt[i] >= SEAT_REUSE_DELAY) free.push(i);
   });
   if (!free.length) return; // spawns as soon as a seat frees up
-  spawnCustomer(game, sim.rng.pick(free));
-  const [lo, hi] = game.config.spawnGap;
-  sim.nextSpawn = game.time + sim.rng.range(lo, hi);
+  const c = spawnCustomer(game, sim.rng.pick(free));
+  sim.lastSpawn = game.time;
+  const jitter = sim.rng.range(1 - SPAWN_JITTER, 1 + SPAWN_JITTER);
+  sim.nextSpawn = game.time + game.config.pace * orderWork(c.order) * jitter;
 }
 
 function spawnCustomer(game, seat) {
@@ -260,8 +303,8 @@ function spawnCustomer(game, seat) {
     matcha: !!game.matcha,
     featured: game.featured,
   });
-  const maxPatience = game.config.patience * game.kitchen.patienceMult
-    + (order.matcha ? MATCHA_PATIENCE_BONUS : 0);
+  const perWork = game.config.patiencePerWork ?? PATIENCE_PER_WORK;
+  const maxPatience = (game.config.patience + perWork * orderWork(order)) * game.kitchen.patienceMult;
   const customer = {
     id: sim.nextCustomerId++,
     seat,
@@ -318,7 +361,12 @@ export function findCustomer(game, customerId) {
 }
 
 export function isOrderComplete(c) {
-  return c.delivered.bowl && (!c.order.matcha || c.delivered.matcha);
+  return (!c.order.bowl || c.delivered.bowl) && (!c.order.matcha || c.delivered.matcha);
+}
+
+// Does the drink in a slot (fruit + extras) match an ordered drink { fruit, extras }?
+export function matchaMatchesOrder(slot, drink) {
+  return !!slot && !!drink && slot.fruit === drink.fruit && sameSet(slot.extras, drink.extras);
 }
 
 function canAct(game) {
@@ -466,19 +514,43 @@ export function loadMatchaError(game, slotIdx, fruitId) {
   if (!canAct(game)) return 'notPlaying';
   const slot = game.matcha?.slots[slotIdx];
   if (!slot) return 'invalid';
+  if (isMatchaExtra(fruitId)) return addMatchaExtraError(game, slotIdx, fruitId);
   if (!isMatchaFruit(fruitId)) return 'notMatchaFruit';
   if (!game.owned.includes(fruitId)) return 'notOwned';
   if (slot.state !== 'empty') return 'slotBusy';
   return null;
 }
 
-export function loadMatcha(game, slotIdx, fruitId) {
-  const err = loadMatchaError(game, slotIdx, fruitId);
+// A matcha fruit on an empty glass starts the machine; an extra goes on a glass that has its fruit.
+export function loadMatcha(game, slotIdx, id) {
+  if (isMatchaExtra(id)) return addMatchaExtra(game, slotIdx, id);
+  const err = loadMatchaError(game, slotIdx, id);
   if (err) return fail(err);
   const slot = game.matcha.slots[slotIdx];
   setTimer(slot, 'mixing', game.kitchen.matchaTime);
-  slot.fruit = fruitId;
+  slot.fruit = id;
+  slot.extras = [];
   emit(game, 'matchaStart', { idx: slotIdx });
+  return success();
+}
+
+export function addMatchaExtraError(game, slotIdx, extraId) {
+  if (!canAct(game)) return 'notPlaying';
+  const slot = game.matcha?.slots[slotIdx];
+  if (!slot) return 'invalid';
+  if (!isMatchaExtra(extraId)) return 'notMatchaFruit';
+  if (!game.owned.includes(extraId)) return 'notOwned';
+  if (slot.state === 'empty') return 'fruitFirst';
+  if (slot.extras.includes(extraId)) return 'alreadyAdded';
+  if (slot.extras.length >= MAX_MATCHA_EXTRAS) return 'glassFull';
+  return null;
+}
+
+export function addMatchaExtra(game, slotIdx, extraId) {
+  const err = addMatchaExtraError(game, slotIdx, extraId);
+  if (err) return fail(err);
+  game.matcha.slots[slotIdx].extras.push(extraId);
+  emit(game, 'extraAdded', { idx: slotIdx, id: extraId });
   return success();
 }
 
@@ -532,7 +604,12 @@ export function serveMatchaError(game, slotIdx, customerId) {
   if (slot.state !== 'ready') return 'notReady';
   if (!c.order.matcha) return 'noMatchaWanted';
   if (c.delivered.matcha) return 'alreadyDelivered';
-  if (slot.fruit !== c.order.matcha) return 'wrongOrder';
+  if (!matchaMatchesOrder(slot, c.order.matcha)) {
+    // the right fruit with an extra still missing: say so instead of "not ordered"
+    const d = c.order.matcha;
+    const short = slot.fruit === d.fruit && slot.extras.every((id) => d.extras.includes(id));
+    return short ? 'drinkIncomplete' : 'wrongOrder';
+  }
   return null;
 }
 
