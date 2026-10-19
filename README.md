@@ -24,8 +24,11 @@ und ein kurzer Hinweis erklärt, warum.
 
 1. **Basis mixen:** Zieh eine gefrorene Packung (Açaí, später Pitaya oder Blaue Spirulina) aus der
    Gefriertruhe in einen leeren Mixer. Nach ein paar Sekunden ist die Basis fertig.
-2. **Bowl hinstellen:** Zieh eine leere Bowl (einen durchsichtigen Becher) vom Stapel auf einen freien
-   Platz. Ohne Becher geht nichts hinein – am besten stellst du ihn hin, während der Mixer noch läuft.
+2. **Bowl hinstellen:** Zieh eine leere Bowl (einen durchsichtigen Becher) aus dem Becherspender auf einen
+   freien Platz – die Becher stecken kopfüber in der Theke. Ohne Becher geht nichts hinein – am besten
+   stellst du ihn hin, während der Mixer noch läuft. Mit dem **Greifarm** aus dem Shop passiert das von
+   selbst: Ein kleiner Greifer fährt auf einer Schiene an der Theke entlang, zieht den obersten Becher aus
+   dem Spender, dreht ihn um und stellt ihn auf den nächsten freien Platz (der Turbo-Greifarm ist schneller).
 3. **Bowl füllen:** Zieh den fertigen Mixer auf die leere Bowl. Eine Mischung reicht für zwei Bowls
    (mit dem großen Mixkrug für drei).
 4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus ihren Behältern auf der Arbeitsplatte auf die Bowl.
@@ -38,32 +41,46 @@ und ein kurzer Hinweis erklärt, warum.
 Eine Frucht auf einem Topping, ein Topping vor der ersten Frucht, eine Zutat ohne Basis, doppelte Zutaten oder mehr als sechs Zutaten
 werden abgelehnt.
 
-**Mixer läuft über:** Ab Level 3 wartet ein fertiger Mixer nicht ewig. Lässt du ihn zu lange stehen,
+**Mixer läuft über:** Ab Level 6 wartet ein fertiger Mixer nicht ewig. Lässt du ihn zu lange stehen,
 fängt er an überzulaufen (rot, wackelt) – dann schnell ausgießen! Danach ist die Basis verdorben und
 der Mixer muss in den **Mülleimer** gezogen werden. Falsche Bowls (samt Becher) und Matcha kommen ebenfalls in den Müll.
 
-**Frucht-Matcha:** Ab Level 7 bestellen manche Gäste zusätzlich einen Eis-Matcha-Latte auf Fruchtpüree – einen
-Bananen-, Erdbeer-, Blaubeer-, Mango- oder Kiwi-Matcha. Zieh die passende Frucht auf das leere Glas in der
-Matcha-Maschine: Das Püree liegt unten im Glas, die Teemühle mahlt, der Wassertank dampft, dann gießt die Düse Milch und
-Matcha darüber. Ist der Matcha fertig, zieh das Glas auf den Gast.
+**Frucht-Matcha:** Ab Level 11 bestellen manche Gäste zusätzlich – oder nur – einen Eis-Matcha-Latte auf Fruchtpüree.
+Der Matcha hat seine eigenen Zutaten in der **Matcha-Bar** unter der Maschine: hinten die Früchte (geschnittene
+Banane und Erdbeeren, später Mango und Blaubeeren), davor die Extras (**Eiswürfel** ab Level 14, **Vanillesirup**
+ab Level 20, **Cold Foam** ab Level 30). Zieh die bestellte Frucht auf das leere Glas in der Maschine: Die Stücke
+liegen im Glas, die Maschine püriert sie, während die Teemühle mahlt, dann gießt die Düse Milch und Matcha darüber.
+Extras kommen aufs Glas, sobald die Frucht drin ist – auch während die Maschine noch arbeitet. Ist der Matcha fertig
+und hat er alle bestellten Extras, zieh das Glas auf den Gast.
 
 **Bestellblase:** Über jedem Gast steht, was er möchte. Links die Bowl: der Becher mit der Basis (1), daneben die
 Reihe Früchte & Crunch (2) und darunter Toppings & Soßen (3) – große Symbole auf Kreisen in der Farbe ihrer Schicht, wie
-die Zahlen an den Behältern. Rechts, hinter einem Trennstrich, der Matcha mit seiner Frucht. Unten zeigt ein dicker
+die Zahlen an den Behältern. Rechts, hinter einem Trennstrich, der Matcha mit seiner Frucht und darunter seine
+Extras. Unten zeigt ein dicker
 Balken die Geduld (grün → gelb → orange → rot). Was du schon übergeben hast, wird grün hinterlegt und groß abgehakt. Die
 Chips unter jedem Becher zeigen in derselben Sprache, was schon drin ist.
 
 **Herzen:** Jeder Gast hat eine Geduldsanzeige. Läuft sie ab, geht er ohne zu bezahlen und du verlierst
-ein **Herz**. Bei 0 Herzen ist das Level verloren. Ab Level 12 (vier Plätze) hast du vier statt drei Herzen.
+ein **Herz**. Bei 0 Herzen ist das Level verloren. Ab Level 40 (vier Plätze) hast du vier statt drei Herzen.
 
-**Sterne:** Jedes der 20 Kampagnen-Level hat ein Zeitlimit und drei Geldziele. Erreichst du das erste Ziel,
+**Wenige Gäste, große Bestellungen:** Je mehr Handgriffe eine Bestellung braucht, desto länger lässt sich der
+nächste Gast Zeit und desto geduldiger ist der Gast selbst. Am Anfang kommen pro Level rund zehn Gäste mit kleinen
+Bowls, später ähnlich viele mit großen Bowls und Matcha – die bringen dafür ein Vielfaches an Münzen. Wartet gerade
+niemand, kommt der nächste Gast schon nach ein paar Sekunden: Schnelle Spieler bedienen also mehr Gäste.
+
+**Sterne:** Jedes der 60 Kampagnen-Level hat ein Zeitlimit und drei Geldziele. Erreichst du das erste Ziel,
 ist das Level geschafft (1 Stern), für 2 und 3 Sterne brauchst du mehr. Bei Ladenschluss kommen keine
 neuen Gäste mehr – wer schon wartet, wird noch bedient. Verdiente Münzen behältst du auch bei einer Niederlage.
 
-**Laden:** Mit deinen Münzen kaufst du im Shop neue Zutaten (am Anfang hast du nur Açaí, Banane, Granola
-und Honig – insgesamt gibt es 16), bessere Qualität (mehr Münzen pro Zutat), Küchen-Upgrades
-(schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Doppel-Matcha) und Deko,
-die Gäste geduldiger macht.
+**Neue Zutaten kommen mit den Leveln:** Am Anfang gibt es Açaí, Banane, Granola und Honig; die anderen
+Zutaten – insgesamt 16 für die Bowls und 7 für die Matcha-Bar – kommen nach und nach dazu, höchstens eine pro
+Level. Die Level-Karte zeigt vor dem Start, was neu ist, und im Level trägt die neue Zutat ein „NEU“-Schild und wird
+öfter bestellt.
+
+**Laden:** Mit deinen Münzen kaufst du im Shop bessere Qualität (mehr Münzen pro Zutat, für jede Zutat, die schon da
+ist), Küchen-Upgrades (schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Greifarm, Doppel-Matcha)
+und Deko, die Gäste geduldiger macht. Wer schon mit einer älteren Version gespielt und Zutaten gekauft hat, bekommt
+die Münzen dafür zurück.
 
 **Küchengeräte in 3D:** Mixer und Matcha-Maschine stehen hinten auf der Arbeitsplatte vor der Theke und sind etwa
 doppelt so hoch wie ein Becher. Der Mixer ist einem echten Standmixer nachempfunden: gerippter Glaskrug mit Skala, klarem
@@ -117,7 +134,7 @@ Vibration). Beim Start zeigt ein Ladebildschirm Logo und Ladebalken; zwischen de
 schließt sich kurz ein Açaí-Vorhang. Die Knöpfe sind glänzend wie in einem Handyspiel, und das HUD im Spiel hat denselben kräftigen Look
 wie die Menüs.
 
-**Endlos-Modus:** Nach Level 10 wird der Endlos-Modus freigeschaltet: kein Zeitlimit, alle 30 Sekunden
+**Endlos-Modus:** Nach Level 15 wird der Endlos-Modus freigeschaltet: kein Zeitlimit, alle 30 Sekunden
 wird es schwerer (mehr Plätze, mehr Gäste, größere Bestellungen). Gespielt wird, bis alle Herzen weg sind
 oder du im Pausenmenü die Schicht beendest – deine Münzen und dein Highscore werden gespeichert.
 
@@ -173,7 +190,7 @@ Ohne Server spielen: `npm run build` ausführen und danach **`dist/acai-fever.ht
 
 `tools/build.mjs` versteht außerdem `--entry <datei>`, `--outdir <ordner>` und `--root <ordner>`.
 E2E-Skripte legen Screenshots in `$E2E_OUT_DIR` ab (Standard: Temp-Ordner), nie im Repository.
-`playthrough.e2e.mjs` spielt Level 1 komplett mit echten Maus-Drags durch (inkl. Tutorial, Shop-Kauf, Level 2),
+`playthrough.e2e.mjs` spielt Level 1 komplett mit echten Maus-Drags durch (inkl. Tutorial, Qualitätsstern im Shop, Level 2 und Level 3 mit seiner neuen Zutat),
 dann mit Touch auf 1024×768, testet den Endlos-Modus und die englische Oberfläche, prüft, dass ein
 Zwei-Finger-Pinch im Rand um die Bühne die Seite nicht zoomt, spielt in einem MacBook-Fenster (1470×832, Retina) mit
 der Maus und prüft dort, dass Trackpad-Pinch, ⌘/Ctrl + Scrollen und Zwei-Finger-Wischen weder zoomen noch zurückblättern,
@@ -184,7 +201,7 @@ und beide Matcha-Gläser zugleich animiert sind (auch mit Software-WebGL), dass 
 neuen Pixeldichte wieder scharf gezeichnet werden, und die gezeichneten Geräte ohne WebGL. `layout.e2e.mjs` prüft das
 Spielfeld: Jede Station liegt ganz auf der Bühne, ist mindestens 64 px groß und überdeckt keine andere, kein Behälter
 verdeckt einen Namen oder ein Namensschild, kein *NEU*-Schild verdeckt Qualitätssterne oder Ebenen-Nummer – auch in
-der vollsten Küche mit 4 Gästen, 2 Mixern, 4 Bechern, allen 16 Zutaten und 2 Matcha-Plätzen (mit und ohne WebGL, bei
+der vollsten Küche mit 4 Gästen, 2 Mixern, 4 Bechern, allen 23 Zutaten (16 für die Bowls, 7 in der Matcha-Bar) und 2 Matcha-Plätzen (mit und ohne WebGL, bei
 1280×800 und 1024×768) und in kleinen Küchen; ein Druck auf die Chips eines Bechers hebt genau diesen Becher (auch bei
 einem falsch belegten Becher mit 6 Zutaten bleiben sie in höchstens zwei Reihen unter ihm). Außerdem setzt es 4, 3 und 2
 Gäste mit den längsten Bestellungen (3 + 3 + Matcha): Ihre Blasen bleiben unter dem HUD auf der Bühne, halten Abstand,

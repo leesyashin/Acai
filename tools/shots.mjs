@@ -25,31 +25,29 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 mkdirSync(OUT, { recursive: true });
 
 const KEY = 'acaiFever.save.v1';
-const ALL_ING = ['acai', 'pitaya', 'spirulina', 'banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi',
-  'honey', 'coconut', 'chia', 'peanut', 'chocolate', 'mint', 'cacao'];
 
 function save(kind, lang) {
   const base = {
-    version: 1, coins: 0, owned: ['acai', 'banana', 'granola', 'honey'], ingLevels: {}, upgrades: {}, stars: {},
-    endlessBest: 0, newIngredients: [], seenIntros: {}, settings: { lang, music: false, sfx: false },
+    version: 2, coins: 0, ingLevels: {}, upgrades: {}, stars: {},
+    endlessBest: 0, seenIntros: {}, settings: { lang, music: false, sfx: false },
     stats: { served: 0, earned: 0, played: 0 },
   };
   if (kind === 'fresh') return base;
   if (kind === 'mid') {
     const stars = { 1: 3, 2: 3, 3: 2, 4: 3, 5: 1, 6: 2 };
     return {
-      ...base, coins: 412, owned: [...base.owned, 'strawberry', 'blueberry', 'pitaya', 'coconut', 'mango'],
+      ...base, coins: 412,
       ingLevels: { acai: 1, banana: 2 }, upgrades: { blenderSpeed: 1, bowlSlots: 1, plants: 1 }, stars,
       seenIntros: { basics: true }, stats: { served: 140, earned: 1650, played: 9 },
     };
   }
-  // late game: everything owned, many upgrades
+  // late game: everything there, many upgrades
   const stars = {};
-  for (let i = 1; i <= 14; i++) stars[i] = (i % 4) ? 3 : 2;
+  for (let i = 1; i <= 44; i++) stars[i] = (i % 4) ? 3 : 2;
   return {
-    ...base, coins: 2380, owned: ALL_ING.slice(), ingLevels: { acai: 2, pitaya: 1, banana: 1, strawberry: 2, mango: 1 },
-    upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, matchaSlots: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
-    stars, endlessBest: 512, newIngredients: ['cacao'], seenIntros: { basics: true }, stats: { served: 640, earned: 6400, played: 20 },
+    ...base, coins: 2380, ingLevels: { acai: 2, pitaya: 1, banana: 1, strawberry: 2, mango: 1 },
+    upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, cupArm: 1, matchaSlots: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
+    stars, endlessBest: 512, seenIntros: { basics: true }, stats: { served: 640, earned: 6400, played: 20 },
   };
 }
 
@@ -171,7 +169,7 @@ async function main() {
         await go('map', {});
         await shot('09-map-late');
         if (want('12-game-busy') || want('13-game-drag') || want('14-pause') || want('15-stamp')) {
-          await go('game', { mode: 'campaign', levelId: 14, seed: 5 });
+          await go('game', { mode: 'campaign', levelId: 45, seed: 5 });
           await page.evaluate(() => { window.__acaiSpeed = 6; });
           await page.waitForFunction(() => window.__acaiGame.seats.filter((c) => c && c.state === 'waiting').length >= 4, null, { timeout: 30000 });
           await page.evaluate(async () => {

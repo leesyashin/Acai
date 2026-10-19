@@ -604,6 +604,11 @@
 .screen-game .g-shelf-label-top { background: var(--l-top); }
 .screen-game .g-shelf-label-mfruit,
 .screen-game .g-shelf-label-mextra { background: var(--l-matcha); }
+/* the matcha bar's rows start at its left end (js/game-view.js MBAR_X0); right under the glasses on the machine its
+   bins have no raised hit area (the glass above takes a press there) */
+.screen-game .g-shelf-mfruit,
+.screen-game .g-shelf-mextra { justify-content: flex-start; }
+.screen-game .g-mbin::before { display: none; }
 /* a bin narrower than its container's picture (a squeezed row, the matcha bar): the picture scaled down toward its
    foot, the middle of the bin's bottom edge (js/game-view.js buildShelf places the badges to match) */
 .screen-game .g-bin[style*="--k"] .g-art { left: calc(50% - 48px); transform: scale(var(--k)); transform-origin: 48px 112px; }
@@ -681,7 +686,7 @@
 .screen-game .g-slot {
   position: absolute;
   width: 96px;
-  height: calc(var(--glass) + 34px);
+  height: calc(var(--glass) + 26px);
   border-radius: 20px;
   pointer-events: auto;
 }
@@ -695,7 +700,7 @@
 }
 /* a glass's timer lies on the worktop just under the drip tray's front, like the blenders' bars (a glass under a
    nozzle stands still while it brews) */
-.screen-game .g-slot .g-timer { left: 10px; right: 10px; top: auto; bottom: -5px; height: 10px; }
+.screen-game .g-slot .g-timer { left: 10px; right: 10px; top: auto; bottom: -13px; height: 10px; }
 .screen-game .g-slot[data-state="ready"] .g-art { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95)); }
 /* a glass that just got ready flashes its glow and pops only a little: its straw ends ≈4 px under the collar */
 .screen-game .g-slot .g-art.is-pop { animation: g-pop-glass 0.4s ease-out; }
@@ -761,7 +766,7 @@
 }
 .screen-game .g-arm-grip { position: absolute; left: 0; top: 0; will-change: transform; }
 .screen-game .g-arm-claw { position: absolute; left: -50px; top: 0; width: 100px; height: 56px; }
-/* the carried cup: its middle between the pads (ARM_CUP_MID), flipped about it */
+/* the carried cup: its middle (y 70 of the 120 px cup) between the pads, flipped about it */
 .screen-game .g-arm-cup { position: absolute; left: -60px; top: -24px; width: 120px; height: 120px; transform-origin: 50% 58.3%; }
 
 /* trash can: on the floor in front of the cabinet, bottom right (y 668–800), beside the matcha bar's extras */

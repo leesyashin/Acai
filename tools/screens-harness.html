@@ -108,12 +108,14 @@
         const pattern = [3, 2, 3, 1, 2, 3];
         for (let id = a; id <= b; id++) if (id >= 1 && id <= LEVELS.length) d.stars[id] = fixed ? Number(fixed) : pattern[(id - 1) % pattern.length];
       }
+      // ingredients come with the levels: "all" opens every level, a list opens the levels that bring them
       if (q.has('owned')) {
         const owned = q.get('owned') === 'all' ? INGREDIENTS.map((i) => i.id) : q.get('owned').split(',').filter((id) => ING[id]);
-        d.owned = [...new Set([...d.owned, ...owned])];
+        const reach = Math.max(1, ...owned.map((id) => ING[id].unlock));
+        for (let id = 1; id < reach; id++) d.stars[id] = d.stars[id] || 1;
       }
       if (q.has('quality')) {
-        d.ingLevels = q.get('quality') === 'max' ? Object.fromEntries(d.owned.map((id) => [id, 2])) : parsePairs(q.get('quality'));
+        d.ingLevels = q.get('quality') === 'max' ? Object.fromEntries(INGREDIENTS.map((i) => [i.id, 2])) : parsePairs(q.get('quality'));
       }
       if (q.has('upgrades')) {
         d.upgrades = q.get('upgrades') === 'max' ? Object.fromEntries(UPGRADES.map((u) => [u.id, u.levels.length])) : parsePairs(q.get('upgrades'));
@@ -131,7 +133,7 @@
       win3: base,
       win1: { ...base, levelId: 6, stars: 1, money: 141, served: 11, lost: 2, newBest: false, unlockedLevel: null },
       win10: { ...base, levelId: 10, stars: 2, money: 302, served: 22, lost: 1, unlockedLevel: 11, unlockedEndless: true },
-      win20: { ...base, levelId: 20, stars: 2, money: 455, served: 31, lost: 1, unlockedLevel: null },
+      win60: { ...base, levelId: 60, stars: 2, money: 655, served: 13, lost: 1, unlockedLevel: null },
       lostGoal: { ...base, levelId: 9, result: 'lost', reason: 'goal', stars: 0, money: 142, served: 11, lost: 2, newBest: false, unlockedLevel: null },
       lostHearts: { ...base, levelId: 13, result: 'lost', reason: 'hearts', stars: 0, money: 88, served: 6, lost: 3, newBest: false, unlockedLevel: null },
       endless: { mode: 'endless', result: 'lost', reason: 'hearts', stars: 0, money: 233, served: 19, lost: 3, newBest: false, unlockedEndless: false, unlockedLevel: null, coinsTotal, stage: 6 },

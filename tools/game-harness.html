@@ -37,8 +37,9 @@
     ?level=1..20        campaign level (default 1)      ?mode=endless   endless run
     ?seed=123           fixed engine seed               ?lang=de|en     UI language
     ?fresh=1            start from an empty save        ?tutorial=0|1   mark the level-1 tutorial as seen / unseen
-    ?owned=all          own all 16 ingredients          ?upgrades=max   buy every upgrade (decor included)
-    ?quality=1|2        quality level for owned items   ?new=kiwi,mint  "NEW" badges for these ids
+    ?owned=all          open every level (endless: all  ?upgrades=max   buy every upgrade (decor included)
+                        ingredients; a level: its own)
+    ?quality=1|2        quality level for every item    ?new=kiwi,mint  "NEW" badges for these ids
     ?best=250           endless best score              ?speed=4        simulation speed (window.__acaiSpeed)
     ?mute=1             never unlock audio              ?log=0          hide the go() log
 -->
@@ -52,7 +53,7 @@
   import { initStage } from '../js/stage.js';
   import { setLang } from '../js/i18n.js';
   import { loadSave, resetSave, updateSave, getSave } from '../js/save.js';
-  import { INGREDIENTS, UPGRADES } from '../js/data.js';
+  import { INGREDIENTS, UPGRADES, LEVELS } from '../js/data.js';
   import { audio } from '../js/audio.js';
   import { gameScreen } from '../js/game-view.js';
 
@@ -65,10 +66,10 @@
   loadSave();
   if (q.get('fresh') === '1') resetSave();
   updateSave((d) => {
-    if (q.get('owned') === 'all') d.owned = INGREDIENTS.map((i) => i.id);
+    // ingredients come with the levels: "all" opens every level (a campaign level still plays with its own)
+    if (q.get('owned') === 'all') for (let id = 1; id < LEVELS.length; id++) d.stars[id] = d.stars[id] || 1;
     if (q.get('upgrades') === 'max') for (const u of UPGRADES) d.upgrades[u.id] = u.levels.length;
-    if (q.has('quality')) for (const id of d.owned) d.ingLevels[id] = Math.max(0, Math.min(2, num('quality', 0)));
-    if (q.has('new')) d.newIngredients = q.get('new').split(',').filter((id) => d.owned.includes(id));
+    if (q.has('quality')) for (const i of INGREDIENTS) d.ingLevels[i.id] = Math.max(0, Math.min(2, num('quality', 0)));
     if (q.has('best')) d.endlessBest = num('best', 0);
     if (q.get('tutorial') === '0') d.seenIntros.basics = true;
     if (q.get('tutorial') === '1') delete d.seenIntros.basics;
@@ -114,6 +115,7 @@
     ? { mode: 'endless' }
     : { mode: 'campaign', levelId: num('level', 1) };
   if (q.has('seed')) params.seed = num('seed', 1);
+  if (q.has('new')) params.featured = q.get('new').split(',').filter(Boolean);
   window.__harness = { calls, render, go, params, getSave };
   render(params);
 </script>

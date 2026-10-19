@@ -21,6 +21,7 @@ import path from 'node:path';
 import {
   startServer, launchBrowser, collectConsoleErrors, assertNoConsoleErrors, dragBetween, pinch, trackpadPinch, e2eOutDir,
 } from './helpers.mjs';
+import { ENDLESS_UNLOCK_LEVEL } from '../../js/data.js';
 
 const PORT = Number(process.env.E2E_PORT) || 8090;
 const FONTS = process.env.E2E_FONTS === 'real' ? 'real' : 'stub';
@@ -95,7 +96,7 @@ const snap = (page) => page.evaluate(() => {
     }),
     bowls: g.bowls.map((b) => ({ cup: b.cup, base: b.base, mid: [...b.mid], top: [...b.top], uid: b.uid })),
     blenders: g.blenders.map((b) => ({ state: b.state, base: b.base, portions: b.portions, maxPortions: b.maxPortions })),
-    slots: g.matcha ? g.matcha.slots.map((s) => ({ state: s.state, fruit: s.fruit })) : [],
+    slots: g.matcha ? g.matcha.slots.map((s) => ({ state: s.state, fruit: s.fruit, extras: [...s.extras] })) : [],
   };
 });
 
@@ -113,34 +114,36 @@ const POURABLE = ['ready', 'overflowing'];
 function plan(s) {
   const waiting = s.seats.filter((c) => c && c.state === 'waiting').sort((a, b) => a.patience - b.patience);
 
-  // matcha
+  // matcha: the fruit from the matcha bar into an empty glass, its extras on it, the finished glass to the guest
   const usedSlots = new Set();
+  const fits = (x, d) => x.state !== 'empty' && x.fruit === d.fruit && x.extras.every((e) => d.extras.includes(e));
   for (const c of waiting) {
-    const fruit = c.order.matcha;
-    if (!fruit || c.delivered.matcha) continue;
-    const ready = s.slots.findIndex((x, i) => !usedSlots.has(i) && x.state === 'ready' && x.fruit === fruit);
-    if (ready >= 0) return { kind: 'serveGlass', slot: ready, cust: c.id };
-    const mixing = s.slots.findIndex((x, i) => !usedSlots.has(i) && x.state === 'mixing' && x.fruit === fruit);
-    if (mixing >= 0) {
-      usedSlots.add(mixing);
+    const d = c.order.matcha;
+    if (!d || c.delivered.matcha) continue;
+    const own = s.slots.findIndex((x, i) => !usedSlots.has(i) && fits(x, d));
+    if (own >= 0) {
+      usedSlots.add(own);
+      const x = s.slots[own];
+      const extra = d.extras.find((e) => !x.extras.includes(e));
+      if (extra) return { kind: 'addExtra', slot: own, extra };
+      if (x.state === 'ready') return { kind: 'serveGlass', slot: own, cust: c.id };
       continue;
     }
     const empty = s.slots.findIndex((x) => x.state === 'empty');
-    if (empty >= 0) return { kind: 'loadGlass', slot: empty, fruit };
-    const unwanted = s.slots.findIndex((x) => x.state === 'ready' && !waiting.some((w) => w.order.matcha === x.fruit && !w.delivered.matcha));
+    if (empty >= 0) return { kind: 'loadGlass', slot: empty, fruit: d.fruit };
+    const unwanted = s.slots.findIndex((x) => x.state === 'ready' && !waiting.some((w) => w.order.matcha && !w.delivered.matcha && fits(x, w.order.matcha)));
     if (unwanted >= 0) return { kind: 'trashGlass', slot: unwanted };
   }
 
   // bowls: serve a finished one, otherwise assign on-track bowls to customers
-  for (const c of waiting) {
-    if (c.delivered.bowl) continue;
+  const bowlWaiting = waiting.filter((c) => c.order.bowl && !c.delivered.bowl);
+  for (const c of bowlWaiting) {
     const bi = s.bowls.findIndex((b) => matches(b, c.order.bowl));
     if (bi >= 0) return { kind: 'serveBowl', bowl: bi, cust: c.id };
   }
   const assigned = new Map();
   const needBowl = [];
-  for (const c of waiting) {
-    if (c.delivered.bowl) continue;
+  for (const c of bowlWaiting) {
     const bi = s.bowls.findIndex((b, i) => !assigned.has(i) && onTrack(b, c.order.bowl));
     if (bi >= 0) assigned.set(bi, c);
     else needBowl.push(c);
@@ -202,6 +205,8 @@ function dragFor(a, s) {
       return { from: `[data-blender="${a.blender}"]`, to: '[data-trash]', ok: [(x) => window.__acaiGame.blenders[x.i].state === 'empty', { i: a.blender }] };
     case 'loadGlass':
       return { from: `[data-bin="${a.fruit}"]`, to: `[data-matcha-slot="${a.slot}"]`, ok: [(x) => window.__acaiGame.matcha.slots[x.i].state !== 'empty', { i: a.slot }] };
+    case 'addExtra':
+      return { from: `[data-bin="${a.extra}"]`, to: `[data-matcha-slot="${a.slot}"]`, ok: [(x) => window.__acaiGame.matcha.slots[x.i].extras.includes(x.id), { i: a.slot, id: a.extra }] };
     case 'serveGlass':
     case 'trashGlass':
       return {
@@ -310,37 +315,60 @@ async function mouseCampaign(srv) {
       assert(saved.seenIntros.basics === true, 'tutorial not marked as seen');
     }, page);
 
-    await check('results → map → shop: buy strawberry', async () => {
+    await check('results → map → shop: a quality star for the banana; the strawberry is still to come', async () => {
       await press(page, '.results-actions [data-action="map"]');
       await screenIs(page, 'map');
       const lvl2 = await page.getAttribute('.map-level[data-level="2"]', 'data-state');
       assert(lvl2 === 'current', `level 2 node state is "${lvl2}"`);
       await press(page, '.screen-map [data-action="shop"]');
       await screenIs(page, 'shop');
+      const straw = await page.getAttribute('[data-shop-item="strawberry"]', 'data-state');
+      assert(straw === 'locked', `strawberry card state "${straw}" before its level`);
       const before = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).coins, SAVE_KEY);
-      await press(page, '[data-buy="ing"][data-id="strawberry"]');
-      await page.waitForFunction(() => document.querySelector('[data-shop-item="strawberry"]')?.dataset.state === 'upgrade', null, { timeout: 3000 });
+      await press(page, '[data-buy="ing"][data-id="banana"]');
+      await page.waitForFunction(() => document.querySelector('[data-shop-item="banana"] .card-quality')?.getAttribute('aria-label')?.includes('1'), null, { timeout: 3000 });
       const saved = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), SAVE_KEY);
-      assert(saved.owned.includes('strawberry'), 'strawberry not owned after purchase');
-      assert(saved.newIngredients.includes('strawberry'), 'strawberry not flagged as new');
-      assert(saved.coins === before - 70, `coins ${before} → ${saved.coins}, expected −70`);
+      assert(saved.ingLevels.banana === 1, 'banana has no quality star after the purchase');
+      assert(saved.coins === before - 60, `coins ${before} → ${saved.coins}, expected −60`);
       const pill = await page.getAttribute('.sc-coins', 'data-coins');
       assert(pill === String(Math.floor(saved.coins)), `coin pill data-coins="${pill}", wallet ${saved.coins}`);
     }, page);
 
-    await check('level 2 starts with strawberry on the shelf and a NEU badge, quit via pause menu', async () => {
+    await check('level 2 brings nothing new (no NEU badge), quit via pause menu', async () => {
       await press(page, '[data-action="back"]');
       await startLevel(page, 2);
-      const badge = await page.textContent('[data-bin="strawberry"] .g-new');
-      assert(badge === 'NEU', `strawberry badge text "${badge}"`);
-      const others = await page.$$eval('.g-new', (els) => els.length);
-      assert(others === 1, `${others} NEW badges, expected 1`);
+      const badges = await page.$$eval('.g-new', (els) => els.length);
+      assert(badges === 0, `${badges} NEW badges in level 2, which brings no ingredient`);
+      assert(!(await page.$('[data-bin="strawberry"]')), 'strawberry on the shelf before its level');
       assert(!(await page.$('[data-tutorial-step]')), 'tutorial shown again in level 2');
       await sleep(1500);
       await quitViaPause(page, false, 'map');
       const saved = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), SAVE_KEY);
-      assert(saved.newIngredients.includes('strawberry'), 'quitting a level must not consume the NEW flag');
       assert(!saved.stars['2'], 'aborted level 2 recorded stars');
+    }, page);
+
+    await check('level 3 brings the strawberry: its card says so, it stands on the shelf with a NEU badge', async () => {
+      await page.evaluate((k) => {
+        const d = JSON.parse(localStorage.getItem(k));
+        d.stars['2'] = 1;
+        localStorage.setItem(k, JSON.stringify(d));
+      }, SAVE_KEY);
+      await page.reload();
+      await screenIs(page, 'title');
+      await press(page, '[data-action="play"]');
+      await screenIs(page, 'map');
+      await press(page, '.map-level[data-level="3"]');
+      await page.waitForSelector('[data-prelevel] .prelevel-new', { timeout: 5000 });
+      const fresh = await page.getAttribute('.prelevel-new', 'data-new-ingredients');
+      assert(fresh === 'strawberry', `level 3 card lists "${fresh}" as new`);
+      await press(page, '[data-prelevel] [data-action="start"]');
+      await screenIs(page, 'game');
+      await page.waitForFunction(() => !!window.__acaiGame, null, { timeout: 5000 });
+      const badge = await page.textContent('[data-bin="strawberry"] .g-new');
+      assert(badge === 'NEU', `strawberry badge text "${badge}"`);
+      const others = await page.$$eval('.g-new', (els) => els.length);
+      assert(others === 1, `${others} NEW badges, expected 1`);
+      await quitViaPause(page, false, 'map');
     }, page);
 
     await check('mouse run: no console errors', async () => assertNoConsoleErrors(errors, 'mouse run'));
@@ -386,11 +414,11 @@ async function touchCampaign(srv) {
 
 function injectedSave() {
   const stars = {};
-  for (let i = 1; i <= 10; i++) stars[i] = i % 3 === 0 ? 2 : 3;
+  for (let i = 1; i <= ENDLESS_UNLOCK_LEVEL; i++) stars[i] = i % 3 === 0 ? 2 : 3;
   return {
-    version: 1, coins: 5000, owned: ['acai', 'banana', 'granola', 'honey'], ingLevels: {}, upgrades: {},
-    stars, endlessBest: 0, newIngredients: [], seenIntros: { basics: true }, settings: { lang: 'de', music: true, sfx: true },
-    stats: { served: 0, earned: 0, played: 10 },
+    version: 2, coins: 5000, ingLevels: {}, upgrades: {},
+    stars, endlessBest: 0, seenIntros: { basics: true }, settings: { lang: 'de', music: true, sfx: true },
+    stats: { served: 0, earned: 0, played: ENDLESS_UNLOCK_LEVEL },
   };
 }
 
@@ -409,7 +437,7 @@ async function endlessAndLanguage(srv) {
     await check('endless: unlocked on the title, starts and is played (≥ 2 customers)', async () => {
       await screenIs(page, 'title');
       const locked = await page.getAttribute('.screen-title [data-action="endless"]', 'aria-disabled');
-      assert(locked === 'false', 'endless still locked with stars 1–10');
+      assert(locked === 'false', `endless still locked with stars 1–${ENDLESS_UNLOCK_LEVEL}`);
       const coins = await page.getAttribute('.sc-coins', 'data-coins');
       assert(coins === '5000', `coin pill data-coins="${coins}"`);
       await press(page, '.screen-title [data-action="endless"]');
@@ -701,12 +729,12 @@ async function twoTabs(srv) {
     }, tabB);
 
     await check('two tabs: a purchase in B keeps A\'s win, and A shows both after a reload', async () => {
-      await press(tabB, '[data-buy="ing"][data-id="coconut"]');
-      await tabB.waitForFunction(() => document.querySelector('[data-shop-item="coconut"]')?.dataset.state === 'upgrade', null, { timeout: 3000 });
+      await press(tabB, '[data-buy="ing"][data-id="honey"]');
+      await tabB.waitForFunction(() => JSON.parse(localStorage.getItem('acaiFever.save.v1')).ingLevels?.honey === 1, null, { timeout: 3000 });
       const saved = await tabB.evaluate((k) => JSON.parse(localStorage.getItem(k)), SAVE_KEY);
       assert(saved.stars['2'] === 3, `A's 3-star win was overwritten (stars ${JSON.stringify(saved.stars)})`);
       assert(saved.coins === 300, `coins ${saved.coins}, expected 200 + 150 − 50`);
-      assert(saved.owned.includes('coconut'), 'coconut not owned');
+      assert(saved.ingLevels.honey === 1, 'honey has no quality star');
       assert(saved.stats.played === 1, `stats.played ${saved.stats.played}`);
 
       await tabA.reload();

@@ -307,7 +307,7 @@ const SQUEEZE_GAP = 3;
 const MBAR_X0 = 962;
 const MBAR_W = { mfruit: 74, mextra: 66 };
 const MBAR_GAP = 4;
-const MBAR_TOP = { mfruit: 204, mextra: 304 };
+const MBAR_TOP = { mfruit: 212, mextra: 304 }; // the fruit row a little lower: clear of the glasses' boxes
 // The cup arm: a rail along the pass's front, its carriage hanging from it, a telescopic rod down to the
 // gripper. Work y of the gripper's pads (a cup's middle): on the top cup in the dispenser, a cup carried
 // along (behind the cups that stand there), a cup standing on a spot.
@@ -316,7 +316,6 @@ const ARM_CAR_TOP = -16; // armCarriageSVG (64 × 40): its rollers on the tube
 const ARM_ROD_TOP = ARM_CAR_TOP + 36;
 const ARM_PAD = { rest: 50, disp: 100, high: 38, lift: 80, spot: 112 };
 const ARM_GRIP_PAD = 46; // the pads' y in armGripSVG (100 × 56)
-const ARM_CUP_MID = 70; // a cup's middle in bowlSVG(BOWL_SIZE)
 const ARM_HOME_SPEED = 700; // px/s back to the dispenser when idle
 const SHELF_LABEL_HALF = 72;
 const FREEZER_W = 284;
@@ -512,7 +511,8 @@ class GameView {
     const tutorial = this.levelId === 1 && !save.seenIntros?.basics;
     const seed = Number.isFinite(p.seed) ? p.seed : ((Date.now() ^ Math.floor(performance.now() * 1000)) >>> 0) || 1;
     // a level plays with what has arrived by it, the ones new in it marked; endless with all the player has
-    this.featured = new Set(this.levelId > 1 ? unlockedIn(this.levelId) : []);
+    // (params.featured: a test hook, tools/game-harness.html ?new=)
+    this.featured = new Set(Array.isArray(p.featured) ? p.featured : this.levelId > 1 ? unlockedIn(this.levelId) : []);
     this.game = createGame({
       mode: this.mode,
       level: this.level,
@@ -794,9 +794,10 @@ class GameView {
       }
       const { lnum: ln, stars, fresh } = badges;
       const up = PANTRY_VIEW.h - BIN_H; // the art box reaches this far above the bin
-      // (in a scaled bin the art shrinks toward its foot, the middle of the bin's bottom edge)
+      // (in a scaled bin the art shrinks toward its foot, the middle of the bin's bottom edge: the badges move in with
+      // it; in a squeezed row only sideways – the stickers keep their heights, clear of the badges they sit by)
       const sx = (v) => Math.round(w / 2 + (v - BIN_W / 2) * k);
-      const sy = (v) => Math.round(BIN_H - (BIN_H + up - v) * k);
+      const sy = (v) => (matchaSide ? Math.round(BIN_H - (BIN_H + up - v) * k) : v);
       const css = { 'lnum-x': sx(ln[0]), 'lnum-y': sy(ln[1]) - up, 'stars-x': sx(stars[0]), 'stars-y': sy(stars[1]) - up, 'new-y': sy(fresh.top) - up };
       if ('left' in fresh) css['new-l'] = sx(fresh.left);
       else css['new-r'] = Math.round(fresh.right * k);
@@ -1118,7 +1119,9 @@ class GameView {
         // long as it stands on the riser (drag.js enlarges ghosts by 1.12)
         ghost: () => scoopSVG(id, pantryKind(artOf(id)) === 'bottle' ? 110 : 84),
         onTap: () => this.hint(node, tapHint),
-        reach: BIN_REACH, // a press on the raised hit area that slides a little is still a hold, never a drop on the cup above
+        // a press on the raised hit area that slides a little is still a hold, never a drop on the cup above (the
+        // matcha bar's bins have none: the glasses stand right above them)
+        reach: node.classList.contains('g-mbin') ? 0 : BIN_REACH,
       });
     }
 
@@ -1900,7 +1903,7 @@ class GameView {
       const fill = s.state === 'mixing' ? Math.round(pourFill(s.progress) * 12) / 12 : null;
       const puree = s.state === 'mixing' ? Math.round(pureeFill(s.progress) * 8) / 8 : 1;
       const stream = !this.k3d;
-      const extras = s.extras.join();
+      const extras = (s.extras || []).join();
       patch(v.art, `${s.state}|${s.fruit}|${fill}|${puree}|${extras}`, () => matchaGlassSVG(s.fruit, s.state, v.glass, { fill, puree, stream, from: MATCHA_POUR_FROM, extras: s.extras }));
       // like a finished bowl, a glass that is just what a waiting guest ordered glows
       const match = s.state !== 'empty' && this.game.seats.some((c) => c && ACTIVE.has(c.state) && !c.delivered.matcha && matchaMatchesOrder(s, c.order.matcha));

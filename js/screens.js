@@ -151,7 +151,7 @@ registerStrings({
     'results.newStars': 'Neue Bestleistung!',
     'results.unlockedLevel': 'Level {n} freigeschaltet!',
     'results.unlockedEndless': 'Endlos-Modus freigeschaltet!',
-    'results.allDone': 'Alle 20 Level geschafft!',
+    'results.allDone': 'Alle {n} Level geschafft!',
     'results.keepCoins': 'Deine Münzen behältst du trotzdem.',
     'results.total': 'Kontostand',
     'results.next': 'Weiter',
@@ -289,7 +289,7 @@ registerStrings({
     'results.newStars': 'New personal best!',
     'results.unlockedLevel': 'Level {n} unlocked!',
     'results.unlockedEndless': 'Endless mode unlocked!',
-    'results.allDone': 'All 20 levels complete!',
+    'results.allDone': 'All {n} levels complete!',
     'results.keepCoins': 'You keep your coins anyway.',
     'results.total': 'Balance',
     'results.next': 'Next',
@@ -1404,7 +1404,7 @@ function resultNotes(r) {
   if (r.mode === 'campaign' && r.result === 'won' && r.newBest) notes.push(['stars', starSVG(true, 28), t('results.newStars')]);
   if (r.unlockedLevel) notes.push(['level', ICON.map(28), t('results.unlockedLevel', { n: r.unlockedLevel })]);
   if (r.unlockedEndless) notes.push(['endless', ICON.endless(30), t('results.unlockedEndless')]);
-  if (r.mode === 'campaign' && r.result === 'won' && r.levelId >= LEVELS.length) notes.push(['all', starSVG(true, 28), t('results.allDone')]);
+  if (r.mode === 'campaign' && r.result === 'won' && r.levelId >= LEVELS.length) notes.push(['all', starSVG(true, 28), t('results.allDone', { n: LEVELS.length })]);
   if (r.mode === 'campaign' && r.result === 'lost' && r.money > 0) notes.push(['keep', coinSVG(28), t('results.keepCoins')]);
   return notes.map(([kind, icon, text]) => `<li class="results-note note-${kind}">${icon}<span>${esc(text)}</span></li>`).join('');
 }
