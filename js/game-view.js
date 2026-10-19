@@ -20,6 +20,9 @@ import { blenderLook, blenderBadgeAt, blenderBox, pourFill, brewPhase } from './
 import { PANTRY_VIEW, pantryKind, pantryHasFront, pantryTop, pantryBadges } from './pantry3d.js';
 import { createDragManager } from './drag.js';
 import defaultAudio from './audio.js';
+import { ICON } from './icons.js';
+import { isBleed } from './stage.js';
+import { buzz, HAPTIC } from './haptics.js';
 import {
   getSave, kitchenStats, recordLevelResult, recordEndless, markIntroSeen, setSetting,
 } from './save.js';
@@ -57,6 +60,9 @@ registerStrings({
     'game.new': 'NEU',
     'game.plus': '+{n}',
     'game.tip': '+{n} Trinkgeld',
+    'game.praise.perfect': 'Perfekt!',
+    'game.praise.great': 'Super!',
+    'game.combo': 'Combo ×{n}!',
     'game.served': 'Bedient',
     'game.order': 'Bestellung',
     'game.trash': 'Mülleimer',
@@ -160,6 +166,9 @@ registerStrings({
     'game.new': 'NEW',
     'game.plus': '+{n}',
     'game.tip': '+{n} tip',
+    'game.praise.perfect': 'Perfect!',
+    'game.praise.great': 'Great!',
+    'game.combo': 'Combo ×{n}!',
     'game.served': 'Served',
     'game.order': 'Order',
     'game.trash': 'Trash can',
@@ -238,6 +247,10 @@ registerStrings({
 const STAGE_W = 1280;
 const WORK_Y = 338; // work area top (the pass ends here); station coordinates below are relative to it
 const WORK_H = 462;
+// full bleed (js/stage.js): the wall, the pass and the worktop are drawn this much wider on either side and taller
+// (above the wall, below the cabinet), to run on into the bands round the stage (css/game.css .is-wide-art)
+const BLEED_X = 360;
+const BLEED_Y = 200;
 const SEAT_X = [null, [640], [420, 860], [270, 640, 1010], [200, 493, 787, 1080]];
 // Blenders stand at the back of the left column, about twice as tall as a cup: a 150 × 210 hit box
 // (css/game.css) with the front of the motor base on its bottom edge (stage y 548); two of them
@@ -303,6 +316,10 @@ const CHIP_ROW = 3; // chips side by side under a cup: two rows of 3 hold MAX_BO
 const LAYER_NUM = { base: 1, mid: 2, top: 3 };
 const MOODS = ['happy', 'neutral', 'impatient', 'angry'];
 const STAMP_MS = 1700;
+const PRAISE_PERFECT = 0.75; // patience left when served: "Perfekt!" from here, "Super!" from PRAISE_GREAT
+const PRAISE_GREAT = 0.45;
+const SPARKLES = 10;
+const LABEL_LEVELS = 3; // name tags and layer labels stay on in the first levels; later they show on hover or while held
 const MAX_FRAME_DT = 0.25;
 const STILL_SETTLE_MS = 200; // a new pixel ratio draws the containers again once it has held this long
 // Progress bars (patience, blender/matcha timers, blender ring) write on one shared cadence:
@@ -361,7 +378,7 @@ function fmtClock(sec) {
 }
 
 // One-shot feedback classes (shake, squash, pop …) are removed again after their animation.
-const ANIM_MS = { 'is-reject': 450, 'is-squash': 350, 'is-pop': 450, 'is-wobble': 500, 'is-hop': 500, 'is-bump': 300, 'is-breaking': 650 };
+const ANIM_MS = { 'is-quake': 450, 'is-reject': 450, 'is-squash': 350, 'is-pop': 450, 'is-wobble': 500, 'is-hop': 500, 'is-bump': 300, 'is-breaking': 650 };
 
 function restartAnim(node, cls) {
   if (!node) return;
@@ -385,6 +402,15 @@ function bowlOnTrack(bowl, order) {
 
 function nextMissing(bowl, order) {
   return order.mid.find((id) => !bowl.mid.includes(id)) || order.top.find((id) => !bowl.top.includes(id)) || null;
+}
+
+// A guest's bust in its mood; with open eyes (neutral, impatient) a second picture with the eyes shut lies on top
+// and shows for a blink now and then (css/game.css .g-blink), each guest on a beat of their own.
+function figureMarkup(v, mood) {
+  const pic = customerSVG(v.look, mood, 160);
+  if (mood !== 'neutral' && mood !== 'impatient') return pic;
+  const delay = ((v.id * 1.37) % 4).toFixed(2);
+  return `${pic}<span class="g-blink" style="--blink-at:-${delay}s">${customerSVG(v.look, mood, 160, true)}</span>`;
 }
 
 // ------------------------------------------------------------------ the view
@@ -414,6 +440,7 @@ class GameView {
     this.barTick = true;
     this.frozenAnims = null;
     this.animT = 0; // clock of the 3D appliance animations (stops while paused)
+    this.streak = 0; // guests served in a row without one leaving angry (the combo; feedback only, no coins)
     this.lid = { x: 0, v: 0 }; // trash lid and freezer cold-air springs (0 closed / still … 1 open / taking)
     this.door = { x: 0, v: 0 };
 
@@ -456,6 +483,7 @@ class GameView {
     this.tut = tutorial ? { key: '', done: false, finished: false } : null;
     // the appliances are 3D (WebGL) with the upgraded models; without WebGL the drawn art stays
     this.k3d = has3D();
+    this.wideArt = isBleed();
     this.look = blenderLook(save.upgrades);
     window.__acaiGame = this.game;
   }
@@ -468,7 +496,9 @@ class GameView {
     if (this.k3d) root.classList.add('is-3d');
     if (g.matcha) root.classList.add('has-matcha');
     if (this.tut) root.classList.add('has-tutorial');
-    root.append(this.buildScene(), el('div', 'g-counter'), this.buildWork(), this.buildHud());
+    if (this.wideArt) root.classList.add('is-wide-art');
+    if (this.mode === 'endless' || this.levelId > LABEL_LEVELS) root.classList.add('is-quiet-labels');
+    root.append(this.buildScene(), el('div', 'g-counter'), this.buildWork(), el('div', 'g-vignette'), this.buildHud());
     this.fxEl = el('div', 'g-fx');
     this.tutEl = el('div', 'g-tut');
     this.bannerEl = el('div', 'g-banner', { 'aria-live': 'polite' });
@@ -501,7 +531,7 @@ class GameView {
     const g = this.game;
     const work = el('div', 'g-work');
     const top = el('div', 'g-worktop');
-    top.innerHTML = counterSVG(STAGE_W, WORK_H);
+    top.innerHTML = counterSVG(STAGE_W, WORK_H, this.wideArt ? { bleed: BLEED_X, below: BLEED_Y } : undefined);
     work.append(top);
 
     // blenders; the status badge (ring while blending, ✓, !, spoiled) sits over the right end of the
@@ -783,19 +813,28 @@ class GameView {
     const panel = el('div', 'panel g-pause-panel');
     this.pauseTitle = el('h2', 'title-text g-pause-title');
     const btns = el('div', 'g-pause-btns');
+    // icon + label; the label is a span of its own so a language switch leaves the icon alone
+    const pauseBtn = (cls, action, icon) => {
+      const b = el('button', `btn ${cls}`, { type: 'button', 'data-action': action });
+      b.innerHTML = `${icon}<span class="g-btn-label"></span>`;
+      return b;
+    };
     this.pauseButtons = {
-      resume: el('button', 'btn green', { type: 'button', 'data-action': 'resume' }),
-      restart: el('button', 'btn', { type: 'button', 'data-action': 'restart' }),
-      quit: el('button', 'btn pink', { type: 'button', 'data-action': 'quit' }),
+      resume: pauseBtn('green', 'resume', ICON.play(34)),
+      restart: pauseBtn('', 'restart', ICON.retry(34)),
+      quit: pauseBtn('pink', 'quit', this.mode === 'endless' ? ICON.flag(34) : ICON.map(34)),
     };
     btns.append(this.pauseButtons.resume, this.pauseButtons.restart, this.pauseButtons.quit);
     // campaign: leaving forfeits the round (endless banks it instead, see exitRun)
     this.pauseNote = el('p', 'g-pause-note', { hidden: '' });
     const toggles = el('div', 'g-toggles');
-    this.toggleBtns = {
-      music: el('button', 'btn small cream g-toggle', { type: 'button', 'data-toggle': 'music' }),
-      sfx: el('button', 'btn small cream g-toggle', { type: 'button', 'data-toggle': 'sfx' }),
+    // icon switches: the icon shows the state (crossed out when off), the label names the channel
+    const toggle = (key) => {
+      const b = el('button', 'btn small cream g-toggle', { type: 'button', 'data-toggle': key });
+      b.innerHTML = '<span class="g-toggle-ico"></span><span class="g-btn-label"></span><span class="g-toggle-led" aria-hidden="true"></span>';
+      return b;
     };
+    this.toggleBtns = { music: toggle('music'), sfx: toggle('sfx') };
     toggles.append(this.toggleBtns.music, this.toggleBtns.sfx);
     panel.append(this.pauseTitle, btns, this.pauseNote, toggles);
     ov.append(panel);
@@ -807,7 +846,7 @@ class GameView {
   // outer order bubbles would hide all but for slivers); drawn again on a language switch (the board's title).
   drawWall(seats) {
     this.wallSeats = seats;
-    this.wallEl.innerHTML = shopSceneSVG(1280, 330, { seats });
+    this.wallEl.innerHTML = shopSceneSVG(1280, 330, this.wideArt ? { seats, bleed: BLEED_X, above: BLEED_Y } : { seats });
   }
 
   // All language-dependent static text (also used on language change).
@@ -827,9 +866,9 @@ class GameView {
     this.clockEl.setAttribute('aria-label', t('game.aria.time'));
     for (const v of this.custViews.values()) v.bubble.setAttribute('aria-label', this.bubbleLabel(v.c));
     setText(this.pauseTitle, t('game.pause'));
-    setText(this.pauseButtons.resume, t('game.resume'));
-    setText(this.pauseButtons.restart, t('game.restart'));
-    setText(this.pauseButtons.quit, t(this.mode === 'endless' ? 'game.endShift' : 'game.quitMap'));
+    setText(this.pauseButtons.resume.querySelector('.g-btn-label'), t('game.resume'));
+    setText(this.pauseButtons.restart.querySelector('.g-btn-label'), t('game.restart'));
+    setText(this.pauseButtons.quit.querySelector('.g-btn-label'), t(this.mode === 'endless' ? 'game.endShift' : 'game.quitMap'));
     setText(this.pauseNote, t('game.quitLoses'));
     this.updateToggles();
     this.bannerEl?.replaceChildren(); // a banner in the old language just disappears
@@ -846,8 +885,15 @@ class GameView {
     for (const [key, btn] of Object.entries(this.toggleBtns)) {
       const on = s[key] !== false;
       btn.setAttribute('aria-pressed', String(on));
+      btn.setAttribute('aria-label', `${t(`game.${key}`)}: ${t(on ? 'game.on' : 'game.off')}`);
       btn.classList.toggle('is-off', !on);
-      setText(btn, `${t(`game.${key}`)}: ${t(on ? 'game.on' : 'game.off')}`);
+      const ico = btn.querySelector('.g-toggle-ico');
+      const sig = `${key}:${on}`;
+      if (ico._sig !== sig) {
+        ico._sig = sig;
+        ico.innerHTML = key === 'music' ? (on ? ICON.note(36) : ICON.noteOff(36)) : (on ? ICON.soundOn(38) : ICON.soundOff(38));
+      }
+      setText(btn.querySelector('.g-btn-label'), t(`game.${key}`));
     }
   }
 
@@ -1046,6 +1092,7 @@ class GameView {
     }
     if (r.targetEl) {
       this.audio.sfx('reject');
+      buzz(HAPTIC.reject);
       restartAnim(r.targetEl, 'is-reject');
       if (r.reason) this.toast(t(`reason.${r.reason}`), r.targetEl, 'bad');
       return;
@@ -1053,6 +1100,7 @@ class GameView {
     const w = r.pos && this.canAct() ? this.wrongStation(r) : null;
     if (w) {
       this.audio.sfx('reject');
+      buzz(HAPTIC.reject);
       restartAnim(w.el, 'is-reject');
       this.toast(t(w.key), w.el, 'bad');
     } else {
@@ -1252,7 +1300,9 @@ class GameView {
     this.audio.loop('blender', false);
     this.audio.resume();
     if (window.__acaiGame === this.game) delete window.__acaiGame;
-    this.root.remove();
+    // in the router's screen container (data-screen) the café stays as it is: the container leaves through the
+    // transition (js/curtain.js) and goes with it; rendered straight into a page (the test harness), it goes now
+    if (!this.container.dataset?.screen) this.root.remove();
   }
 
   // ---------------------------------------------------------------- main loop
@@ -1300,12 +1350,16 @@ class GameView {
       case 'customerPaid':
         a.sfx('coin');
         a.sfx('happy');
+        this.streak += 1;
+        buzz(this.streak >= 3 ? HAPTIC.combo : HAPTIC.pay);
         this.payFx(ev);
         if (this.tut && !this.tut.done) this.tut.done = true;
         break;
       case 'customerLost':
         a.sfx('angry');
         a.sfx('heart');
+        this.streak = 0;
+        buzz(HAPTIC.lost);
         this.lostFx(ev);
         break;
       case 'partialDelivery':
@@ -1476,7 +1530,7 @@ class GameView {
       v.el.classList.add(`is-${c.state}`);
     }
     const mood = MOODS.includes(c.mood) ? c.mood : 'neutral';
-    if (patch(v.fig, `${mood}`, () => customerSVG(v.look, mood, 160)) || v.mood !== mood) {
+    if (patch(v.fig, `${mood}`, () => figureMarkup(v, mood)) || v.mood !== mood) {
       v.mood = mood;
       v.bubble.dataset.mood = mood;
     }
@@ -1857,6 +1911,12 @@ class GameView {
     this.float(t('game.plus', { n: coins(total) }), face.cx, face.y + 46, 'is-money');
     if (ev.tip > 0) this.later(() => this.float(t('game.tip', { n: coins(ev.tip) }), face.cx, face.y + 88, 'is-tip'), 160);
     restartAnim(v?.el.querySelector('.g-figure'), 'is-hop');
+    // praise for a quick hand (patience left), a sparkle burst round the happy face, the combo of guests in a row
+    const left = v?.c?.maxPatience ? v.c.patience / v.c.maxPatience : 0;
+    const praise = left >= PRAISE_PERFECT ? 'perfect' : left >= PRAISE_GREAT ? 'great' : '';
+    if (praise) this.later(() => this.float(t(`game.praise.${praise}`), face.cx, face.y - 4, `is-praise is-${praise}`), 240);
+    this.sparkles(face.cx, face.y + 30);
+    if (this.streak >= 2) this.combo(this.streak);
     if (reducedMotion() || typeof Element.prototype.animate !== 'function') {
       restartAnim(this.moneyEl, 'is-bump');
       return;
@@ -1896,6 +1956,34 @@ class GameView {
     }
   }
 
+  sparkles(x, y) {
+    if (reducedMotion()) return;
+    const box = el('div', 'g-sparkles');
+    box.style.left = `${Math.round(x)}px`;
+    box.style.top = `${Math.round(y)}px`;
+    let html = '';
+    for (let i = 0; i < SPARKLES; i++) {
+      const a = Math.round((360 / SPARKLES) * i + (i % 2 ? 12 : -6));
+      const d = 64 + (i % 3) * 22;
+      html += `<i class="c${i % 3}" style="--a:${a}deg;--d:${d}px;--s:${(0.7 + (i % 4) * 0.15).toFixed(2)};--w:${(i % 3) * 40}ms"></i>`;
+    }
+    box.innerHTML = html;
+    this.fxEl.append(box);
+    this.later(() => box.remove(), 900);
+  }
+
+  // "Combo ×3!" over the middle of the pass (under a banner that sits there); it grows with the streak
+  combo(n) {
+    this.comboEl?.remove();
+    const node = el('div', `g-combo ${n >= 5 ? 'is-hot' : ''} ${this.bannerEl.childElementCount ? 'is-low' : ''}`);
+    node.textContent = t('game.combo', { n });
+    node.style.setProperty('--k', String(Math.min(1.35, 1 + (n - 2) * 0.07)));
+    this.fxEl.append(node);
+    this.comboEl = node;
+    if (n >= 3) this.audio.sfx('star');
+    this.later(() => node.remove(), 1500);
+  }
+
   lostFx(ev) {
     const v = this.custViews.get(ev.customerId);
     if (v) {
@@ -1908,6 +1996,11 @@ class GameView {
       this.later(() => broken.remove(), 1400);
     }
     restartAnim(this.heartsEl, 'is-reject');
+    // the whole café shakes and flashes red at the edges
+    restartAnim(this.root, 'is-quake');
+    const flash = el('div', 'g-hurt');
+    this.fxEl.append(flash);
+    this.later(() => flash.remove(), 700);
   }
 
   banner(title, text, ms = 3600, cls = '') {

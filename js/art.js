@@ -1,15 +1,15 @@
 // Art for Açaí Fever – every export returns an inline <svg> string. Pure module (no DOM access):
 // the same input always draws the same picture (pseudo-randomness is derived from a hash of the
-// input). This module draws the HUD icons, logo and map in the cartoon style and re-exports the
-// realistic food, kitchen and guest art (js/art-food.js, js/art-kitchen.js, js/art-guests.js), so
+// input). This module draws the HUD icons, logo and title counter in the cartoon style and re-exports the
+// level map (js/art-map.js) and the realistic food, kitchen and guest art (js/art-food.js, js/art-kitchen.js,
+// js/art-guests.js), so
 // the screens import every picture from here. Shared gradients: artDefsSVG() (js/svg.js).
 
 import { registerStrings, t } from './i18n.js';
 import { cupArt } from './art-food.js';
 import {
-  INK, WHITE, PINK, LAGOON, MANGO, CREAM, WOOD, WOOD_D, SHADE_DIR, FONT, f, uid, rngFor, lighten,
-  darken, esc, ow, svgWrap, stroke, op, circle, ellipse, path, rect, g, line, tube, shape, gloss,
-  rrect, crescent, ball, bigLeaf, polyPath, starPoints, sparkle, puffs, frond,
+  INK, WHITE, PINK, MANGO, CREAM, SHADE_DIR, FONT, f, uid, rngFor, esc, ow, svgWrap, stroke, op, circle, path, rect, g, line,
+  tube, shape, gloss, rrect, crescent, bigLeaf, polyPath, starPoints, sparkle,
 } from './svg.js';
 
 export {
@@ -22,6 +22,9 @@ export {
 } from './art-kitchen.js';
 export { customerSVG, randomLook, lookFromSeed, LOOK_OPTIONS } from './art-guests.js';
 export { artDefsSVG, ART_DEFS_ID } from './svg.js';
+export {
+  mapRegionSVG, mapBackgroundSVG, mapLevelPos, mapRoadData, MAP_W, MAP_H, MAP_BLEED, MAP_REGIONS,
+} from './art-map.js';
 
 registerStrings({
   de: { 'art.menu': 'Menü', 'art.neon': 'Açaí', 'art.logoTop': 'Açaí', 'art.logoBottom': 'Fever' },
@@ -86,28 +89,6 @@ export function lockSVG(size = 40) {
 }
 
 // ======================================================================
-// Palm tree (level map)
-// ======================================================================
-function palmTree(x, y, h, lean, sw, frondLen = 90) {
-  const tx = x + lean;
-  const ty = y - h;
-  const cx = x + lean * 0.15;
-  const cy = y - h * 0.5;
-  let rings = '';
-  for (let i = 1; i < 9; i++) {
-    const k = i / 9;
-    const px = (1 - k) * (1 - k) * x + 2 * k * (1 - k) * cx + k * k * tx;
-    const py = (1 - k) * (1 - k) * y + 2 * k * (1 - k) * cy + k * k * ty;
-    rings += line(`M${f(px - 8 + k * 3)} ${f(py)}q${f(8 - k * 3)} 4 ${f(16 - k * 6)} 0`, darken(WOOD, 0.3), 2);
-  }
-  let s = shape(`M${x - 10} ${y}Q${f(cx - 8)} ${f(cy)} ${f(tx - 5)} ${f(ty)}L${f(tx + 5)} ${f(ty)}Q${f(cx + 8)} ${f(cy)} ${x + 10} ${y}Z`, WOOD, sw, rings);
-  const greens = ['#2fbf71', '#23a35e', '#36cf7c'];
-  [-168, -128, -92, -52, -14, 22, 160].forEach((deg, i) => { s += frond(tx, ty, frondLen * (i % 2 ? 0.95 : 1.05), frondLen * 0.2, deg, greens[i % 3], sw, 0.3); });
-  s += ball(tx - 6, ty + 6, 7, '#8e4f22', '#5a3d1c', sw) + ball(tx + 7, ty + 7, 7, '#8e4f22', '#5a3d1c', sw);
-  return s;
-}
-
-// ======================================================================
 // Logo (viewBox 560×300)
 // ======================================================================
 export function logoSVG(width = 560) {
@@ -132,69 +113,70 @@ export function logoSVG(width = 560) {
 }
 
 // ======================================================================
-// Level map background (1280×800): sunny beach promenade
+// App icon (viewBox 512×512, a full square – the system rounds it): the logo's cup with its leaves on the açaí
+// sunburst. maskable: the cup stays inside the central 80 % circle that every mask keeps.
 // ======================================================================
-export function mapBackgroundSVG(width = 1280, height = 800) {
-  const W = 1280;
-  const H = 800;
-  const sw = 3;
-  const sky = uid('sky');
-  const sea = uid('sea');
-  let s = `<defs><linearGradient id="${sky}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fd6ff"/><stop offset="1" stop-color="#cdf4ff"/></linearGradient>` +
-    `<linearGradient id="${sea}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1fb0c9"/><stop offset="1" stop-color="#5fe0e0"/></linearGradient></defs>`;
-  s += rect(0, 0, W, 210, 0, `url(#${sky})`);
-  s += circle(1090, 92, 100, '#fff7c2', op(0.3)) + circle(1090, 92, 72, '#fff7c2', op(0.45)) + ball(1090, 92, 48, '#ffe066', '#ffcf3a', sw, 0.5);
-  s += puffs([[170, 92, 26], [204, 76, 34], [242, 90, 26], [210, 100, 22]], WHITE, sw);
-  s += puffs([[560, 60, 18], [584, 50, 24], [612, 62, 18]], WHITE, sw);
-  s += puffs([[860, 120, 20], [890, 106, 28], [924, 118, 20]], WHITE, sw);
-  s += line('M380 70q8 -8 16 0q8 -8 16 0M700 110q6 -6 12 0q6 -6 12 0M440 140q6 -6 12 0q6 -6 12 0', INK, 2.5);
-  s += rect(0, 200, W, 150, 0, `url(#${sea})`) + rect(0, 200, W, 8, 0, '#178fb0');
-  s += path('M250 206Q330 168 410 206Z', '#ffe2a6', stroke(sw)) + palmTree(334, 196, 46, 10, 2.2, 34);
-  let waves = '';
-  const rng = rngFor('map-waves');
-  for (let i = 0; i < 26; i++) {
-    const x = rng.next() * W;
-    const y = 222 + rng.next() * 100;
-    waves += `M${f(x)} ${f(y)}q10 -7 20 0`;
+export function appIconSVG(size = 512, { maskable = false } = {}) {
+  const bg = uid('icon');
+  const k = maskable ? 1.5 : 1.85;
+  let s = `<defs><radialGradient id="${bg}" cx="0.5" cy="0.42" r="0.75"><stop offset="0" stop-color="#b56ae0"/><stop offset="0.45" stop-color="#6c2a8f"/><stop offset="1" stop-color="#3b1556"/></radialGradient></defs>`;
+  s += rect(0, 0, 512, 512, 0, `url(#${bg})`);
+  let rays = '';
+  for (let i = 0; i < 24; i++) {
+    const a0 = (i / 24) * Math.PI * 2;
+    const a1 = a0 + Math.PI / 24;
+    rays += `M256 215L${f(256 + Math.cos(a0) * 520)} ${f(215 + Math.sin(a0) * 520)}L${f(256 + Math.cos(a1) * 520)} ${f(215 + Math.sin(a1) * 520)}Z`;
   }
-  s += line(waves, WHITE, 2.5, op(0.65));
-  // sailboat in open sea right of node 16 (clear of level nodes, star pills and the road bulge),
-  // drawn after the wave strokes so no wave crosses its sails
-  s += g('translate(400 0)', path('M760 246H820L810 260H770Z', WHITE, stroke(sw)) + path('M790 244V200L824 244Z', PINK, stroke(sw)) + path('M788 244V210L764 244Z', MANGO, stroke(sw)));
-  // shore foam + sand
-  let foam = 'M0 336';
-  for (let x = 0; x < W; x += 80) foam += `Q${x + 40} 318 ${x + 80} 336`;
-  s += path(`${foam}V800H0Z`, '#f3d394');
-  let sand = 'M0 352';
-  for (let x = 0; x < W; x += 80) sand += `Q${x + 40} 338 ${x + 80} 352`;
-  s += path(`${foam}V350H0Z`, WHITE, op(0.9)) + line(foam, INK, 2, op(0.25));
-  s += path(`${sand}V800H0Z`, '#ffe2a6');
-  for (const [x, y, rx, ry] of [[320, 470, 160, 30], [940, 560, 190, 34], [600, 690, 220, 30], [120, 610, 120, 24], [1150, 420, 120, 22]]) s += ellipse(x, y, rx, ry, '#fbd590', op(0.55));
-  const dots = rngFor('map-sand');
-  let grains = '';
-  for (let i = 0; i < 90; i++) grains += circle(dots.next() * W, 370 + dots.next() * 360, 1.6, '#e9c27a', op(0.7));
-  s += grains;
-  // boardwalk along the bottom edge
-  let boards = '';
-  for (let x = 0; x < W; x += 46) boards += line(`M${x} 742V800`, darken(WOOD, 0.28), 2);
-  s += shape(`M-4 740H${W + 4}V804H-4Z`, WOOD, sw, boards + line(`M0 750H${W}`, lighten(WOOD, 0.3), 3, op(0.6)));
-  for (let x = 40; x < W; x += 200) s += rect(x - 6, 714, 12, 30, 3, WOOD_D, stroke(sw));
-  let rope = `M34 718`;
-  for (let x = 40; x < W; x += 200) rope += `Q${x + 100} 740 ${x + 200} 718`;
-  s += line(rope, '#e9d3a8', 3.5) + line(rope, INK, 1, op(0.4));
-  // beach props near the edges
-  const canopy = 'M-72 0A72 40 0 0 1 72 0Q54 11 36 0Q18 11 0 0Q-18 11 -36 0Q-54 11 -72 0Z';
-  const stripes = path('M0 -40A72 40 0 0 0 -72 0Q-54 11 -36 0Q-18 -22 0 -40Z', PINK) + path('M0 -40Q4 -20 0 0Q18 11 36 0Q18 -22 0 -40Z', PINK);
-  s += g('translate(132 596) rotate(-10) scale(0.8)', line('M0 -36V112', '#9aa7b6', 5) + line('M0 -36V112', INK, 1.2, op(0.4)) +
-    shape(canopy, CREAM, sw, stripes + line('M-48 -24Q-30 -38 -8 -38', WHITE, 3, op(0.6))) + circle(0, -42, 4, PINK, stroke(sw * 0.8)));
-  s += g('rotate(-8 170 670)', shape(rrect(110, 640, 120, 56, 8), LAGOON, sw, line('M130 640V696M150 640V696', WHITE, 6, op(0.8))));
-  // beach ball on open sand between road rows 1 and 2 (no level node, star pill or road nearby)
-  s += ball(540, 600, 22, WHITE, '#d9d2e0', sw) + path('M540 578A22 22 0 0 1 562 600H540Z', PINK) + path('M540 622A22 22 0 0 1 518 600H540Z', LAGOON) + circle(540, 600, 22, 'none', stroke(sw));
-  const starfish = (x, y, k, deg) => g(`translate(${x} ${y}) rotate(${deg}) scale(${k})`, path(polyPath(starPoints(0, 0, 16, 7)), '#ff8a5c', stroke(sw / k)) + circle(0, 0, 2, '#ffd0b8'));
-  s += starfish(380, 420, 1, 12) + starfish(1180, 520, 0.8, -20) + starfish(860, 760, 0.7, 30);
-  const shell = (x, y, deg) => g(`translate(${x} ${y}) rotate(${deg})`, path('M0 10L-12 -2Q0 -16 12 -2Z', '#ffd6e6', stroke(2.4)) + line('M0 10L-6 -6M0 10V-9M0 10L6 -6', '#e8a0bd', 1.6));
-  // shells sit in the sand pockets between road rows (the old spots hid under node 15 and the left road loop)
-  s += shell(350, 600, -10) + shell(945, 460, 15) + shell(560, 770, 0);
-  s += palmTree(62, 700, 310, 64, sw, 110) + palmTree(1222, 690, 290, -60, sw, 104);
-  return svgWrap(width, height, W, H, s, ' preserveAspectRatio="xMidYMid slice"');
+  s += path(rays, WHITE, op(0.08));
+  const sw = 3.2;
+  const cx = 256;
+  const cy = maskable ? 262 : 282;
+  s += g(`translate(${cx} ${cy}) scale(${k})`,
+    bigLeaf(18, -70, 82, 46, -62, '#2fbf71', sw) + bigLeaf(26, -64, 66, 38, -14, '#23a35e', sw) + bigLeaf(10, -64, 72, 38, -120, '#36cf7c', sw) +
+    g('translate(-104 -112) rotate(6 100 100)', cupArt({ base: 'acai', mid: ['banana', 'strawberry', 'blueberry'], top: ['coconut', 'honey', 'mint'] })));
+  s += sparkle(maskable ? 128 : 92, maskable ? 150 : 110, maskable ? 16 : 22, WHITE, stroke(2.4)) + sparkle(maskable ? 390 : 420, maskable ? 372 : 400, maskable ? 12 : 16, WHITE, stroke(2.4));
+  return svgWrap(size, size, 512, 512, s);
+}
+
+// ======================================================================
+// Title screen counter (1280×116 on the stage): a marble top with a rounded front edge over a fluted açaí-purple
+// front and a brass foot rail – the café's counter the title guest leans on. bleed / below: drawn that much
+// further to either side and down (seen in full bleed on wider or taller screens); the picture is
+// (1280 + 2·bleed) × (116 + below) px with the stage's x 0 at `bleed`.
+// ======================================================================
+export function titleCounterSVG(bleed = 0, below = 0) {
+  const X0 = -bleed;
+  const X1 = 1280 + bleed;
+  const H = 116 + below;
+  const sw = 3;
+  const top = uid('ctop');
+  const rail = uid('crail');
+  let s = `<defs><linearGradient id="${top}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffaf2"/><stop offset="1" stop-color="#f2e2cc"/></linearGradient>` +
+    `<linearGradient id="${rail}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset="0.45" stop-color="#ffc93c"/><stop offset="1" stop-color="#b9780f"/></linearGradient></defs>`;
+  // fluted front: rounded açaí-purple staves, lit from the left
+  s += rect(X0, 30, X1 - X0, H - 30, 0, '#4a1a66');
+  for (let x = -Math.ceil(bleed / 32) * 32; x < X1; x += 32) {
+    s += rect(x + 2, 34, 28, H - 34, 12, '#6c2a8f') + rect(x + 5, 38, 8, H - 42, 4, '#9b4fc4', op(0.75)) + rect(x + 22, 38, 6, H - 42, 3, '#3b1556', op(0.45));
+  }
+  // brass foot rail on its brackets
+  for (let x = 96 - Math.ceil(bleed / 216) * 216; x < X1; x += 216) s += shape(rrect(x - 7, 90, 14, 22, 3), '#c98a1c', sw * 0.8);
+  s += shape(rrect(X0 - 10, 84, X1 - X0 + 20, 14, 7), `url(#${rail})`, sw, line(`M${X0} 88H${X1}`, WHITE, 2.4, op(0.7)));
+  // the slab's shadow on the front, then the marble top with a rounded edge
+  s += rect(X0, 30, X1 - X0, 12, 0, '#14061e', op(0.35));
+  s += rect(X0 - 4, 0, X1 - X0 + 8, 32, 0, `url(#${top})`);
+  const rng = rngFor('title-marble');
+  let veins = '';
+  let veins2 = '';
+  for (let i = 0; i < 9 + Math.round(bleed / 90); i++) {
+    const x = X0 + rng.next() * (X1 - X0);
+    const y = 4 + rng.next() * 16;
+    const d = `M${f(x)} ${f(y)}c${f(30 + rng.next() * 30)} ${f(-6 + rng.next() * 12)} ${f(50 + rng.next() * 40)} ${f(-4 + rng.next() * 10)} ${f(90 + rng.next() * 60)} ${f(-3 + rng.next() * 8)}`;
+    if (i % 3) veins += d;
+    else veins2 += d;
+  }
+  s += line(veins, '#e9b9d0', 1.6, op(0.55)) + line(veins2, '#c9b0e6', 1.3, op(0.55));
+  s += rect(X0 - 4, 22, X1 - X0 + 8, 10, 0, '#e3cdb2', op(0.75)) + line(`M${X0} 23H${X1}`, WHITE, 2, op(0.8));
+  s += line(`M${X0} 1.5H${X1}`, INK, sw) + line(`M${X0} 31H${X1}`, INK, sw * 0.8);
+  s += line(`M${X0} 6H${X1}`, WHITE, 3, op(0.9));
+  return svgWrap(X1 - X0, H, X1 - X0, H, g(`translate(${bleed} 0)`, s));
 }

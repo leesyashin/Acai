@@ -587,7 +587,7 @@ function irisAt(cx, dx, L, small = false) {
     circle(x, y, small ? 0.95 : 1.25, '#120a08') + circle(x - 1, y - 1.2, 0.85, WHITE) + circle(x + 1, y + 0.8, 0.35, WHITE, op(0.7));
 }
 
-function eyes(L, P, mood, k) {
+function eyes(L, P, mood, k, blink = false) {
   const lid = (cx, side) => {
     const o = cx + side * 5.9;
     const i = cx - side * 5.4;
@@ -595,6 +595,15 @@ function eyes(L, P, mood, k) {
   };
   const lash = (cx, side) => `M${f(cx + side * 5.7)} ${f(EYE.y)}L${f(cx + side * 7.3)} ${f(EYE.y - 1.7)}`;
   const crease = (cx, side) => `M${f(cx + side * 5)} ${f(EYE.y - 2.6)}C${f(cx + side * 2.6)} ${f(EYE.y - 5)} ${f(cx - side * 2.8)} ${f(EYE.y - 5)} ${f(cx - side * 4.6)} ${f(EYE.y - 2.2)}`;
+  if (blink && (mood === 'neutral' || mood === 'impatient')) {
+    // a blink: the lids shut in a soft downward curve, lashes at the outer corners
+    let s = '';
+    for (const [cx, side] of [[EYE.l, -1], [EYE.r, 1]]) {
+      s += line(`M${f(cx - 5.6)} ${f(EYE.y)}Q${f(cx)} ${f(EYE.y + 3.2)} ${f(cx + 5.6)} ${f(EYE.y)}`, P.lid, 1.5 * k);
+      s += line(lash(cx, side), P.lid, 0.9 * k) + line(crease(cx, side), P.skinShade, 0.8, op(0.7));
+    }
+    return s;
+  }
   if (mood === 'happy') {
     // laughing: closed, upward-arched lids, the cheeks pushed up under them
     let s = '';
@@ -685,7 +694,7 @@ function mouth(mood, P, sw, k) {
   }
 }
 
-function face(L, P, mood, sw, k) {
+function face(L, P, mood, sw, k, blink = false) {
   let s = path(HEAD, P.skin);
   let shade = path('M103 50C103.6 66 101 82 92 90.6C98 92 108 80 108 62Z', P.skinShade, op(0.55)); // the side away from the light
   shade += ellipse(62.6, 82, 4, 7.4, P.skinShade, op(0.25)); // under the left cheekbone
@@ -700,7 +709,7 @@ function face(L, P, mood, sw, k) {
   s += gloss(69.4, 46.6, 7, 2.6, -18, sheen) + gloss(80, 90.2, 3, 1, 0, sheen);
   if (sheen > 0.2) s += gloss(65.4, 72.4, 3.6, 1.6, -25, 0.18) + gloss(78.6, 70, 0.9, 2.6, 0, 0.18);
   s += nose(P);
-  s += eyes(L, P, mood, k);
+  s += eyes(L, P, mood, k, blink);
   s += brows(mood, P, k);
   s += path(HEAD, 'none', stroke(sw, P.skinLine));
   return s;
@@ -836,13 +845,15 @@ const GUEST_LINE = '#4a2f3e';
 // 12–24 KB a picture: enough for the guests of a level (4 seats × their moods) and the menus' guests
 const memoGuest = memoTable(64);
 
-export function customerSVG(look, mood = 'neutral', size = 160) {
+// blink: the same picture with the eyes shut (neutral and impatient only – a laugh and anger squeeze them anyway)
+export function customerSVG(look, mood = 'neutral', size = 160, blink = false) {
   const L = normLook(look);
   const m = MOODS.includes(mood) ? mood : 'neutral';
-  return memoGuest(`guest|${JSON.stringify(L)}|${m}|${size}`, () => withInk(GUEST_LINE, () => drawGuest(L, m, size)));
+  const b = !!blink && (m === 'neutral' || m === 'impatient');
+  return memoGuest(`guest|${JSON.stringify(L)}|${m}|${size}|${b}`, () => withInk(GUEST_LINE, () => drawGuest(L, m, size, b)));
 }
 
-function drawGuest(L, mood, size) {
+function drawGuest(L, mood, size, blink = false) {
   const [x0, y0, vw, vh] = size < 100 ? CROP : [0, 0, 160, 160];
   const sw = ow(vw, size, 0.9, 4) * 0.38;
   const k = Math.max(1, Math.min(2, (vw / Math.max(1, size)) * 0.9)); // features a little bolder in small pictures
@@ -858,7 +869,7 @@ function drawGuest(L, mood, size) {
   let h = hairSide(L, P, hw);
   if (!EARS_HIDDEN.includes(L.hairStyle)) h += ears(L, P, hw);
   else if (drops && !dropsOver) h += earDrops(L.hairStyle, k);
-  h += face(L, P, mood, hw, k);
+  h += face(L, P, mood, hw, k, blink);
   if (L.accessory === 'beard') h += beard(L, P, hw);
   h += mouth(mood, P, hw, k);
   h += hairFront(L, P, hw);

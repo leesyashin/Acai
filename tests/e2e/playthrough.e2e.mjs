@@ -534,6 +534,31 @@ async function noPageZoom(srv) {
         assert(prevented, 'iOS gesturestart is not cancelled');
       }, page);
 
+      await check(`${label}: full bleed – the art fills the bands, the top bar sits at the window's edges`, async () => {
+        const r = await page.evaluate(() => {
+          const wrap = document.getElementById('stage-wrap').getBoundingClientRect();
+          const bar = document.querySelector('.sc-topbar').getBoundingClientRect();
+          const counter = document.querySelector('.title-counter').getBoundingClientRect();
+          return {
+            bleed: document.documentElement.classList.contains('is-bleed'),
+            page: [document.documentElement.scrollWidth, document.documentElement.scrollHeight, innerWidth, innerHeight],
+            wrap: { left: wrap.left, top: wrap.top },
+            bar: { left: bar.left, top: bar.top },
+            counter: { left: counter.left, right: counter.right, bottom: counter.bottom },
+          };
+        });
+        assert(r.bleed, 'no full bleed on a touch device');
+        assert(r.page[0] <= r.page[2] && r.page[1] <= r.page[3], `the wide art widens the page (${r.page.join(' / ')})`);
+        if (r.wrap.left >= 30) {
+          assert(r.counter.left <= 0 && r.counter.right >= w, `the title counter does not run into the side bands (${JSON.stringify(r.counter)})`);
+          assert(r.bar.left < r.wrap.left, `top bar not at the window's left edge (${r.bar.left} vs stage ${r.wrap.left})`);
+        }
+        if (r.wrap.top >= 30) {
+          assert(r.counter.bottom >= h, `the title counter does not run into the bottom band (${JSON.stringify(r.counter)})`);
+          assert(r.bar.top < r.wrap.top, `top bar not at the window's top edge (${r.bar.top} vs stage ${r.wrap.top})`);
+        }
+      }, page);
+
       await check(`${label}: touch taps still work`, async () => {
         await press(page, '[data-action="play"]', true);
         await screenIs(page, 'map');
@@ -579,6 +604,7 @@ async function macBook(srv) {
       await screenIs(page, 'title');
       const r = await wrapRect(page);
       assert(r.left >= 30, `no side band at 1470×832 (stage-wrap ${JSON.stringify(r)})`);
+      assert(!(await page.evaluate(() => document.documentElement.classList.contains('is-bleed'))), 'a mouse window must stay framed, not full bleed');
       for (const [what, p] of [['on the stage', { x: viewport.width / 2, y: 400 }], ['in the side band', { x: r.left / 2, y: 400 }]]) {
         const scale = await trackpadPinch(page, p);
         assert(scale === 1, `pinch ${what}: page zoomed to ${scale}×`);

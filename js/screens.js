@@ -13,10 +13,13 @@ import {
 } from './save.js';
 import {
   logoSVG, bowlSVG, ingredientIcon, packIcon, matchaGlassSVG, customerSVG, lookFromSeed, blenderSVG, matchaMachineSVG,
-  decorSVG, coinSVG, starSVG, heartSVG, clockSVG, lockSVG, mapBackgroundSVG,
+  decorSVG, coinSVG, starSVG, heartSVG, clockSVG, lockSVG, titleCounterSVG,
+  mapRegionSVG, mapLevelPos, mapRoadData, MAP_H, MAP_BLEED, MAP_REGIONS,
   MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE,
 } from './art.js';
 import { pictureMarkup } from './art3d.js';
+import { ICON, INK } from './icons.js';
+import { hasHaptics, buzz, HAPTIC } from './haptics.js';
 import { blenderLook, BLENDER_MODELS } from './kitchen3d.js';
 
 registerStrings({
@@ -51,6 +54,11 @@ registerStrings({
     'map.start': 'Los geht’s!',
     'map.shopHint': 'Du hast {n} Münzen – im Shop wartet etwas Neues!',
     'map.toShop': 'Zum Shop',
+    'map.region.beach': 'Am Strand',
+    'map.region.town': 'Stadtpromenade',
+    'map.region.forest': 'Regenwald',
+    'map.regionLevels': 'Level {a}–{b}',
+    'map.regionFrom': 'ab Level {n}',
     'map.new': 'Neu',
     'intro.basics.title': 'So geht’s',
     'intro.basics.text': 'Zieh die Açaí-Packung in den Mixer und stell eine leere Bowl vom Stapel hin. Ist die Basis fertig, zieh den Mixer auf die Bowl, leg die bestellten Zutaten darauf und bring die Bowl zum Gast.',
@@ -102,6 +110,7 @@ registerStrings({
     'settings.language': 'Sprache',
     'settings.music': 'Musik',
     'settings.sfx': 'Sounds',
+    'settings.haptics': 'Vibration',
     'settings.on': 'An',
     'settings.off': 'Aus',
     'settings.stats': 'Statistik',
@@ -177,6 +186,11 @@ registerStrings({
     'map.start': 'Let’s go!',
     'map.shopHint': 'You have {n} coins – something new is waiting in the shop!',
     'map.toShop': 'To the shop',
+    'map.region.beach': 'On the beach',
+    'map.region.town': 'Town promenade',
+    'map.region.forest': 'Rainforest',
+    'map.regionLevels': 'Levels {a}–{b}',
+    'map.regionFrom': 'from level {n}',
     'map.new': 'New',
     'intro.basics.title': 'How to play',
     'intro.basics.text': 'Drag the açaí pack into the blender and put an empty bowl down from the stack. When the base is ready, drag the blender onto the bowl, add the ordered ingredients and hand the bowl to the customer.',
@@ -228,6 +242,7 @@ registerStrings({
     'settings.language': 'Language',
     'settings.music': 'Music',
     'settings.sfx': 'Sounds',
+    'settings.haptics': 'Vibration',
     'settings.on': 'On',
     'settings.off': 'Off',
     'settings.stats': 'Statistics',
@@ -376,45 +391,6 @@ const shake = (el) => restartClass(el, 'sc-shake');
 // =====================================================================
 // Icons that art.js does not provide (same ink-outline cartoon style)
 // =====================================================================
-const INK = '#2a1236';
-const svg48 = (body, size, cls = '') => `<svg class="sc-icon ${cls}" viewBox="0 0 48 48" width="${size}" height="${size}" aria-hidden="true" focusable="false" stroke-linejoin="round" stroke-linecap="round">${body}</svg>`;
-// Outlined stroke: thick ink line with a coloured line on top.
-const duo = (d, color = '#fff', w = 5) => `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w + 6}"/><path d="${d}" fill="none" stroke="${color}" stroke-width="${w}"/>`;
-
-function gearPath() {
-  const pts = [];
-  const teeth = 8;
-  for (let i = 0; i < teeth * 2; i++) {
-    const a0 = (i / (teeth * 2)) * Math.PI * 2;
-    const a1 = ((i + 1) / (teeth * 2)) * Math.PI * 2;
-    const r = i % 2 ? 15.5 : 21;
-    for (const a of [a0 + 0.06, a1 - 0.06]) pts.push(`${(24 + Math.cos(a) * r).toFixed(1)} ${(24 + Math.sin(a) * r).toFixed(1)}`);
-  }
-  return `M${pts.join('L')}Z`;
-}
-const GEAR = gearPath();
-
-const ICON = {
-  back: (s = 36) => svg48('<path d="M5 24L22 8V17H42V31H22V40Z" fill="#fff" stroke="#2a1236" stroke-width="3.5"/>', s),
-  next: (s = 36) => svg48('<path d="M43 24L26 8V17H6V31H26V40Z" fill="#fff" stroke="#2a1236" stroke-width="3.5"/>', s),
-  close: (s = 30) => svg48(duo('M13 13L35 35M35 13L13 35', '#fff', 6), s),
-  play: (s = 40) => svg48('<path d="M14 7L41 24L14 41Z" fill="#fff" stroke="#2a1236" stroke-width="3.5"/>', s),
-  check: (s = 26) => svg48(duo('M11 25L20 34L37 14', '#fff', 6), s),
-  gear: (s = 40) => svg48(`<path d="${GEAR}" fill="#fff" stroke="#2a1236" stroke-width="3.2"/><circle cx="24" cy="24" r="7" fill="#18c2c9" stroke="#2a1236" stroke-width="3.2"/>`, s),
-  soundOn: (s = 40) => svg48('<path d="M6 18H14L25 8V40L14 30H6Z" fill="#fff" stroke="#2a1236" stroke-width="3.2"/>' + duo('M31 17Q36 24 31 31', '#18c2c9', 4) + duo('M36 11Q45 24 36 37', '#18c2c9', 4), s),
-  soundOff: (s = 40) => svg48('<path d="M6 18H14L25 8V40L14 30H6Z" fill="#ddd3e4" stroke="#2a1236" stroke-width="3.2"/>' + duo('M31 18L43 30M43 18L31 30', '#ff4d4d', 4), s),
-  note: (s = 36) => svg48('<path d="M18 34V10L40 6V30" fill="none" stroke="#2a1236" stroke-width="4"/><ellipse cx="13" cy="35" rx="7" ry="5.5" fill="#ff3d8b" stroke="#2a1236" stroke-width="3"/><ellipse cx="35" cy="31" rx="7" ry="5.5" fill="#ff3d8b" stroke="#2a1236" stroke-width="3"/>', s),
-  shop: (s = 40) => svg48('<path d="M9 22H39V41H9Z" fill="#fff4df" stroke="#2a1236" stroke-width="3.2"/><path d="M20 41V30H28V41" fill="#18c2c9" stroke="#2a1236" stroke-width="3"/>'
-    + '<path d="M5 10H43L45 20Q41 26 37 20Q33 26 29 20Q25 26 21 20Q17 26 13 20Q9 26 3 20Z" fill="#ff3d8b" stroke="#2a1236" stroke-width="3.2"/><path d="M17 10L15.5 21M29 10L30.5 21" stroke="#fff" stroke-width="3"/>', s),
-  endless: (s = 40) => svg48(duo('M24 24C19 15 8 15 8 24C8 33 19 33 24 24C29 15 40 15 40 24C40 33 29 33 24 24Z', '#ffd23f', 5), s),
-  retry: (s = 36) => svg48(duo('M36 30A13 13 0 1 1 33 15', '#fff', 5) + '<path d="M27 6L39 12L30 21Z" fill="#fff" stroke="#2a1236" stroke-width="3"/>', s),
-  map: (s = 36) => svg48('<path d="M5 11L17 7L31 12L43 8V37L31 41L17 36L5 40Z" fill="#fff4df" stroke="#2a1236" stroke-width="3.2"/><path d="M17 7V36M31 12V41" stroke="#2a1236" stroke-width="3"/><path d="M9 30Q16 20 24 26T39 17" fill="none" stroke="#ff3d8b" stroke-width="3" stroke-dasharray="1 5"/>', s),
-  home: (s = 36) => svg48('<path d="M5 23L24 7L43 23H38V41H10V23Z" fill="#fff" stroke="#2a1236" stroke-width="3.2"/><path d="M20 41V29H28V41" fill="#ffb627" stroke="#2a1236" stroke-width="3"/>', s),
-  trash: (s = 32) => svg48('<path d="M10 14H38L35 42H13Z" fill="#fff" stroke="#2a1236" stroke-width="3.2"/><path d="M7 12H41M19 12V7H29V12" fill="none" stroke="#2a1236" stroke-width="3.2"/>', s),
-  bolt: (s = 40) => svg48('<path d="M28 3L9 27H22L18 45L39 19H26Z" fill="#ffd23f" stroke="#2a1236" stroke-width="3.2"/>', s),
-  globe: (s = 34) => svg48('<circle cx="24" cy="24" r="18" fill="#18c2c9" stroke="#2a1236" stroke-width="3.2"/><path d="M6 24H42M24 6C14 16 14 32 24 42C34 32 34 16 24 6Z" fill="none" stroke="#2a1236" stroke-width="3"/>', s),
-};
-
 // =====================================================================
 // Shared pieces
 // =====================================================================
@@ -547,9 +523,9 @@ const title = {
         `<span class="title-floater" style="left:${f.x}px;top:${f.y}px;--r:${f.r}deg;--d:${(i * 0.37).toFixed(2)}s">${ingredientIcon(f.id, f.s)}</span>`).join('')}</div>
       <div class="title-guest" aria-hidden="true">
         <div class="title-bubble">${esc(t('screen.order'))}</div>
-        <div class="title-guest-body">${customerSVG(TITLE_GUEST, 'happy', 250)}</div>
+        <div class="title-guest-body">${customerSVG(TITLE_GUEST, 'neutral', 250)}<span class="title-face is-blink">${customerSVG(TITLE_GUEST, 'neutral', 250, true)}</span><span class="title-face is-laugh">${customerSVG(TITLE_GUEST, 'happy', 250)}</span></div>
       </div>
-      <div class="title-counter" aria-hidden="true"></div>
+      <div class="title-counter" aria-hidden="true">${titleCounterSVG(360, 200)}</div>
       <div class="title-bowl" aria-hidden="true"><div class="title-bowl-inner">${bowlSVG({ base: 'acai', mid: ['banana', 'strawberry', 'blueberry'], top: ['coconut', 'honey'] }, 240)}</div></div>
       <div class="title-drink" aria-hidden="true">${matchaGlassSVG('mango', 'ready', 120)}</div>
       <div class="sc-topbar">
@@ -563,7 +539,7 @@ const title = {
       <h1 class="title-logo">${logoSVG(600)}<span class="sc-sr">Açaí Fever</span></h1>
       <p class="title-tagline">${esc(t('screen.tagline'))}</p>
       <nav class="title-menu">
-        <button class="btn pink title-play" type="button" data-action="play">${ICON.play(46)}<span>${esc(t('screen.play'))}</span></button>
+        <button class="btn pink title-play btn-shine" type="button" data-action="play">${ICON.play(46)}<span>${esc(t('screen.play'))}</span></button>
         <div class="title-row">
           <button class="btn purple title-endless ${endlessOpen ? '' : 'is-locked'}" type="button" data-action="endless" aria-disabled="${!endlessOpen}">
             ${endlessOpen ? ICON.endless(42) : lockSVG(38)}<span class="sc-btn-stack"><span>${esc(t('screen.endless'))}</span>${endlessSub}</span>
@@ -619,36 +595,7 @@ const title = {
 // =====================================================================
 // Level map
 // =====================================================================
-const MAP_ROWS = [668, 528, 388, 248];
-const MAP_COLS = [250, 445, 640, 835, 1030];
-const MAP_WAVE = 14;
 const MAP_BADGES = { 7: 'matcha', 10: 'endless' };
-
-function levelPos(index) {
-  const row = Math.floor(index / 5);
-  const col = index % 5;
-  return { x: MAP_COLS[row % 2 ? 4 - col : col], y: MAP_ROWS[row] + (col % 2 ? -MAP_WAVE : MAP_WAVE) };
-}
-
-function mapPathData(count) {
-  let d = '';
-  for (let i = 0; i < count; i++) {
-    const b = levelPos(i);
-    if (i === 0) {
-      d += `M${b.x - 150} ${b.y + 20}C${b.x - 90} ${b.y + 20} ${b.x - 70} ${b.y} ${b.x} ${b.y}`;
-      continue;
-    }
-    const a = levelPos(i - 1);
-    if (Math.abs(a.y - b.y) > 60) {
-      const bulge = a.x > STAGE_W / 2 ? 128 : -128;
-      d += `C${a.x + bulge} ${a.y} ${b.x + bulge} ${b.y} ${b.x} ${b.y}`;
-    } else {
-      const mx = (a.x + b.x) / 2;
-      d += `C${mx} ${a.y} ${mx} ${b.y} ${b.x} ${b.y}`;
-    }
-  }
-  return d;
-}
 
 // The first unlocked level without stars – the one that pulses on the map.
 function nextPlayableLevel() {
@@ -664,12 +611,12 @@ function mapBadge(levelId) {
 }
 
 function levelNode(level, index, currentId) {
-  const { x, y } = levelPos(index);
+  const { x, y } = mapLevelPos(index);
   const unlocked = isLevelUnlocked(level.id);
   const stars = levelStars(level.id);
   const state = !unlocked ? 'locked' : level.id === currentId ? 'current' : stars > 0 ? 'done' : 'open';
   const label = unlocked ? t('map.levelAria', { n: level.id, stars }) : t('map.levelLockedAria', { n: level.id });
-  return `<button class="map-level is-${state}" type="button" style="left:${x - 55}px;top:${y - 50}px" data-level="${level.id}" data-state="${state}" aria-label="${esc(label)}"${unlocked ? '' : ' aria-disabled="true"'}>
+  return `<button class="map-level is-${state}" type="button" style="left:${x - 55 + MAP_BLEED}px;top:${y - 50}px" data-level="${level.id}" data-state="${state}" aria-label="${esc(label)}"${unlocked ? '' : ' aria-disabled="true"'}>
     <span class="map-disc"><span class="map-num">${level.id}</span>${unlocked ? '' : `<span class="map-lock">${lockSVG(34)}</span>`}</span>
     ${unlocked ? `<span class="map-stars">${repeat(3, (k) => starSVG(k < stars, 26))}</span>` : ''}
     ${mapBadge(level.id)}
@@ -681,24 +628,81 @@ function endlessButton(cls = '') {
   return `<button class="btn small purple ${cls} ${open ? '' : 'is-locked'}" type="button" data-action="endless" aria-disabled="${!open}">${open ? ICON.endless(34) : lockSVG(30)}<span>${esc(t('screen.endless'))}</span></button>`;
 }
 
+// A sign at the start of each region (beside its first level): its name and levels, or from which level it opens.
+function regionSign(r) {
+  const p = mapLevelPos(r.first - 1);
+  const open = isLevelUnlocked(r.first);
+  const x = (p.x < 640 ? p.x + 250 : p.x - 250) + MAP_BLEED;
+  return `<div class="map-sign map-sign-${r.id} ${open ? '' : 'is-locked'}" style="left:${x}px;top:${p.y + 34}px">
+    <b>${esc(t(`map.region.${r.id}`))}</b><small>${open ? esc(t('map.regionLevels', { a: r.first, b: r.last })) : `${lockSVG(20)}${esc(t('map.regionFrom', { n: r.first }))}`}</small>
+  </div>`;
+}
+
+// The player on the map: a pin with a bowl, bobbing over the level that is up next.
+function mapAvatar(levelId) {
+  const { x, y } = mapLevelPos(levelId - 1);
+  return `<div class="map-avatar" style="left:${x + MAP_BLEED}px;top:${y - 64}px" aria-hidden="true"><span class="map-avatar-pin">${bowlSVG({ base: 'acai', mid: ['banana', 'strawberry'], top: ['honey'] }, 58)}</span></div>`;
+}
+
+// Drag-to-scroll for a mouse (touch pans natively, a wheel or trackpad scrolls): a press that moves more than a
+// few px scrolls the map and swallows the click that follows.
+function dragScroll(el, scope) {
+  let drag = null;
+  scope.listen(el, 'pointerdown', (e) => {
+    if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    drag = { y: e.clientY, top: el.scrollTop, moved: false, k: el.getBoundingClientRect().height / el.clientHeight || 1 };
+  });
+  scope.listen(window, 'pointermove', (e) => {
+    if (!drag) return;
+    const dy = (e.clientY - drag.y) / drag.k;
+    if (!drag.moved && Math.abs(dy) < 6) return;
+    drag.moved = true;
+    el.scrollTop = drag.top - dy;
+  });
+  scope.listen(window, 'pointerup', () => {
+    if (drag?.moved) {
+      const swallow = (ev) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+      };
+      el.addEventListener('click', swallow, { capture: true, once: true });
+      setTimeout(() => el.removeEventListener('click', swallow, { capture: true }), 0);
+    }
+    drag = null;
+  });
+}
+
 const map = {
   render(container, params = {}, ctx = {}) {
     const scope = createScope();
     const currentId = nextPlayableLevel();
-    const fullPath = mapPathData(LEVELS.length);
     const doneCount = currentId ? currentId : LEVELS.length;
+    const avatarAt = currentId || LEVELS.filter((l) => isLevelUnlocked(l.id)).pop()?.id || 1;
     container.innerHTML = `
-      <div class="map-bg" aria-hidden="true">${mapBackgroundSVG(STAGE_W, STAGE_H)}</div>
-      <svg class="map-path" viewBox="0 0 ${STAGE_W} ${STAGE_H}" width="${STAGE_W}" height="${STAGE_H}" aria-hidden="true" focusable="false">
-        <path d="${fullPath}" class="map-road-shadow"/>
-        <path d="${fullPath}" class="map-road-edge"/>
-        <path d="${fullPath}" class="map-road"/>
-        <path d="${mapPathData(doneCount)}" class="map-road-done"/>
-        <path d="${fullPath}" class="map-road-dots"/>
-      </svg>
-      <div class="map-nodes">${LEVELS.map((l, i) => levelNode(l, i, currentId)).join('')}</div>
+      <div class="map-scroll" data-scroll>
+        <div class="map-canvas" style="height:${MAP_H}px">
+          ${MAP_REGIONS.map((r) => `<div class="map-region map-region-${r.id} ${isLevelUnlocked(r.first) ? '' : 'is-locked'}" style="top:${r.top}px;height:${r.bottom - r.top}px" aria-hidden="true">${mapRegionSVG(r.id)}</div>`).join('')}
+          <svg class="map-path" viewBox="${-MAP_BLEED} 0 ${STAGE_W + 2 * MAP_BLEED} ${MAP_H}" width="${STAGE_W + 2 * MAP_BLEED}" height="${MAP_H}" aria-hidden="true" focusable="false">
+            <path d="${mapRoadData(LEVELS.length)}" class="map-road-shadow"/>
+            <path d="${mapRoadData(LEVELS.length)}" class="map-road-edge"/>
+            <path d="${mapRoadData(LEVELS.length)}" class="map-road"/>
+            <path d="${mapRoadData(doneCount)}" class="map-road-done"/>
+            <path d="${mapRoadData(LEVELS.length)}" class="map-road-dots"/>
+          </svg>
+          ${MAP_REGIONS.map(regionSign).join('')}
+          <div class="map-nodes">${LEVELS.map((l, i) => levelNode(l, i, currentId)).join('')}</div>
+          ${mapAvatar(avatarAt)}
+        </div>
+      </div>
       ${header({ title: t('map.title'), right: `${starsPill()}${coinsPill()}<button class="btn small lagoon" type="button" data-action="shop">${ICON.shop(34)}<span>${esc(t('screen.shop'))}</span>${shopBadge()}</button>${endlessButton()}` })}`;
     bindCoins(container, scope);
+
+    // open on the level that is up next (or the one asked for), in the middle of the window
+    const scroller = container.querySelector('.map-scroll');
+    const focusId = params.openLevel || avatarAt;
+    const target = mapLevelPos(focusId - 1).y - scroller.clientHeight / 2 + 30;
+    scroller.scrollTop = Math.max(0, Math.min(MAP_H - scroller.clientHeight, target));
+    dragScroll(scroller, scope);
 
     let closeModal = null;
     const open = (id, opts) => {
@@ -845,7 +849,7 @@ export function openPreLevel(container, levelId, ctx = {}, opts = {}) {
       ${showHint ? `<div class="prelevel-hint">${coinSVG(40)}<p>${esc(t('map.shopHint', { n: coinsText(getSave().coins) }))}</p>
         <button class="btn small lagoon" type="button" data-action="shop">${ICON.shop(30)}<span>${esc(t('map.toShop'))}</span></button></div>` : ''}
       <div class="prelevel-actions">
-        <button class="btn green prelevel-start" type="button" data-action="start">${ICON.play(40)}<span>${esc(t('map.start'))}</span></button>
+        <button class="btn green prelevel-start btn-shine" type="button" data-action="start">${ICON.play(40)}<span>${esc(t('map.start'))}</span></button>
       </div>
     </section>`;
   container.append(overlay);
@@ -1088,7 +1092,7 @@ const shop = {
     let tab = SHOP_TABS.includes(params.tab) ? params.tab : 'ingredients';
     let lastBuy = { id: null, at: -Infinity };
     container.innerHTML = `
-      <div class="shop-awning" aria-hidden="true">${awningSVG()}</div>
+      <div class="shop-awning" aria-hidden="true">${awningSVG(STAGE_W + 2 * 384)}</div>
       ${header({ title: t('shop.title'), right: coinsPill() })}
       <div class="sc-tabs shop-tabs" role="tablist" aria-label="${esc(t('shop.title'))}">${SHOP_TABS.map((id) =>
         `<button class="sc-tab" type="button" role="tab" id="shop-tab-${id}" data-tab="${id}" aria-controls="shop-panel">${tabIcon(id)}<span>${esc(t(`shop.tab.${id}`))}</span></button>`).join('')}</div>
@@ -1232,6 +1236,10 @@ const settings = {
             <span class="settings-label" id="settings-sfx-label">${ICON.soundOn(36)}<span>${esc(t('settings.sfx'))}</span></span>
             ${switchButton('sfx', !!s.sfx, 'settings-sfx-label')}
           </div>
+          ${hasHaptics() ? `<div class="settings-row">
+            <span class="settings-label" id="settings-haptics-label">${ICON.vibrate(36)}<span>${esc(t('settings.haptics'))}</span></span>
+            ${switchButton('haptics', s.haptics !== false, 'settings-haptics-label')}
+          </div>` : ''}
           <div class="settings-about">
             <div class="settings-about-art">${logoSVG(220)}</div>
             <div><h2>${esc(t('settings.about'))}</h2><p>${esc(t('settings.aboutText'))}</p></div>
@@ -1273,7 +1281,8 @@ const settings = {
         const on = btn.getAttribute('aria-checked') !== 'true';
         setSetting(key, on);
         if (key === 'music') ctx.audio?.setMusic?.(on);
-        else ctx.audio?.setSfx?.(on);
+        else if (key === 'sfx') ctx.audio?.setSfx?.(on);
+        else if (key === 'haptics' && on) buzz(HAPTIC.pay);
         btn.setAttribute('aria-checked', String(on));
         sfx(ctx, 'click');
       },
@@ -1291,6 +1300,7 @@ const settings = {
         resetSave();
         setSetting('music', keep.music);
         setSetting('sfx', keep.sfx);
+        setSetting('haptics', keep.haptics);
         sfx(ctx, 'trash');
         ctx.go('settings', { ...params, resetDone: true });
       },
@@ -1366,7 +1376,7 @@ function resultButtons(r) {
     btn('shop', 'lagoon', ICON.shop(34), t('results.shop')),
     btn('retry', hasNext ? 'purple' : 'pink', ICON.retry(34), t('results.retry')),
   ];
-  if (hasNext) out.push(btn('next', 'green results-next', ICON.next(34), t('results.next')));
+  if (hasNext) out.push(btn('next', 'green results-next btn-shine', ICON.next(34), t('results.next')));
   return out.join('');
 }
 

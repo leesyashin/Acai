@@ -79,6 +79,8 @@ async function main() {
           await page.reload();
           await page.waitForFunction(() => window.__acaiScreen?.() === 'title');
           await page.evaluate(() => document.fonts.ready);
+          // the loading screen (js/curtain.js) covers the title for a moment
+          await page.waitForFunction(() => document.getElementById('curtain')?.hidden !== false, null, { timeout: 8000 });
         };
         const go = async (name, params) => {
           await page.evaluate(([n, p]) => window.__acaiGo(n, p), [name, params]);

@@ -237,6 +237,24 @@ async function mainFlow(browser, base) {
     await assertNoOverflow(page, 'map');
   });
 
+  await check('map: three regions with signs, the player pin over level 1, a wheel scrolls the map', async () => {
+    eq(await page.locator('.map-region').count(), 3, 'regions');
+    eq(await page.locator('.map-sign').count(), 3, 'region signs');
+    eq(await page.locator('.map-region.is-locked').count(), 2, 'regions not reached yet');
+    const pin = await page.locator('.map-avatar').boundingBox();
+    const disc = await page.locator('.map-level[data-level="1"] .map-disc').boundingBox();
+    assert(Math.abs(pin.x + pin.width / 2 - (disc.x + disc.width / 2)) < 4, 'the pin is not over level 1');
+    assert(pin.y + pin.height <= disc.y + 4, 'the pin is not above level 1');
+    const top = () => page.evaluate(() => document.querySelector('.map-scroll').scrollTop);
+    const before = await top();
+    assert(before > 0, 'the map does not open at level 1 near its bottom');
+    const box = await page.locator('#stage').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.wheel(0, -500);
+    await page.waitForFunction((b) => document.querySelector('.map-scroll').scrollTop < b, before, { timeout: 2000 });
+    await page.evaluate((b) => { document.querySelector('.map-scroll').scrollTop = b; }, before);
+  });
+
   await check('map: locked node rejects with a hint', async () => {
     await clickDisabled(page, '.map-level[data-level="2"]');
     assert((await toastText(page)).includes('Level 1'), 'toast should name level 1');

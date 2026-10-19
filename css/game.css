@@ -6,6 +6,7 @@
   --g-orange: #ff8a3d;
   --g-label: #2b2d33;
   --g-soft-shadow: 0 6px 14px rgba(40, 24, 50, 0.18);
+  --hud-purple: linear-gradient(180deg, #b36ae0 0, #7a33a3 55%, #5e2384 100%);
   --l-base: var(--acai-2);
   --l-mid: var(--leaf);
   --l-top: var(--pitaya);
@@ -16,7 +17,7 @@
   --l-mid-edge: rgba(47, 191, 113, 0.3);
   --l-top-tint: #ffe3ee;
   --l-top-edge: rgba(255, 61, 139, 0.26);
-  background: var(--cream);
+  --screen-bg: var(--cream);
   font-family: var(--font-ui);
   color: var(--ink);
 }
@@ -81,6 +82,10 @@
     radial-gradient(70px 32px at 91px 128px, rgba(74, 44, 20, 0.2), rgba(74, 44, 20, 0) 100%);
   pointer-events: none;
 }
+.screen-game .g-blink { position: absolute; inset: 0; opacity: 0; pointer-events: none; animation: g-blink 4.6s steps(1, end) var(--blink-at, 0s) infinite; }
+.screen-game .g-blink svg { display: block; }
+/* two quick blinks in a cycle: shut for ~0.14 s each */
+@keyframes g-blink { 0%, 100% { opacity: 0; } 46% { opacity: 1; } 49% { opacity: 0; } 88% { opacity: 1; } 91% { opacity: 0; } }
 .screen-game .g-cust.is-waiting .g-figure { animation: g-idle 2.8s ease-in-out infinite; }
 .screen-game .g-cust.is-waiting[data-state="waiting"] .g-bubble[data-mood="angry"] { animation: g-nag 0.7s ease-in-out infinite; }
 .screen-game .g-cust.is-arriving.from-left { animation: g-walk-in-l 0.6s ease-out both; }
@@ -292,7 +297,7 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0 2px, transparent 2px),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='640' height='48' viewBox='0 0 640 48'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cpath d='M-10 34C60 18 110 44 180 26S300 6 360 22S470 40 520 20S600 6 650 30' stroke='%23a99e91' stroke-opacity='.3' stroke-width='1.3'/%3E%3Cpath d='M120 50C160 34 200 38 250 18S330 2 400 9' stroke='%23b9b0a5' stroke-opacity='.35' stroke-width='.8'/%3E%3Cpath d='M440 -2C462 14 494 20 536 46' stroke='%23b4aa9e' stroke-opacity='.3' stroke-width='.7'/%3E%3Cpath d='M30 -2C50 10 70 12 96 6S140 4 170 16' stroke='%23c2b9ae' stroke-opacity='.3' stroke-width='.6'/%3E%3C/g%3E%3C/svg%3E") 0 2px / 640px 40px repeat-x,
     radial-gradient(ellipse 45% 160% at 26% 0%, rgba(255, 255, 255, 0.8), transparent 70%),
-    linear-gradient(180deg, #ece8e2 0%, #f6f4f0 40%, #fdfcfa 52%);
+    linear-gradient(180deg, #efe4da 0%, #f9f2eb 40%, #fffbf7 52%);
   border-top: 1px solid #a99f92;
   pointer-events: none;
 }
@@ -323,6 +328,14 @@
   z-index: 3;
 }
 .screen-game .g-worktop { position: absolute; inset: 0; pointer-events: none; }
+/* depth: the corners of the café fall off into a warm shade (over the work area and the guests, under the HUD) */
+.screen-game .g-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: radial-gradient(ellipse 82% 78% at 50% 46%, transparent 62%, rgba(90, 36, 50, 0.2) 100%);
+}
 .screen-game .g-worktop svg { width: 100%; height: 100%; }
 .screen-game .g-art { position: relative; }
 
@@ -785,6 +798,36 @@
 .screen-game .is-wobble { animation: g-wobble 0.45s ease-in-out; }
 .screen-game .is-hop { animation: g-hop 0.45s ease-out; }
 
+/* ------------------------------------------------------------ full bleed (css/base.css, js/stage.js)
+   The wall, the pass and the worktop are drawn wider and taller (js/game-view.js BLEED_X / BLEED_Y) and run on into the
+   bands round the stage; the HUD moves to the window's edges; the vignette, the red flash and the stamp cover all. */
+.screen-game.is-wide-art .g-wall { inset: auto; left: -360px; top: -200px; width: 2000px; height: 530px; }
+.screen-game.is-wide-art .g-worktop { inset: auto; left: -360px; top: 0; width: 2000px; height: 662px; }
+.screen-game.is-wide-art .g-worktop svg { width: 2000px; height: 662px; }
+html.is-bleed .screen-game .g-scene { overflow: visible; }
+html.is-bleed .screen-game .g-counter { left: calc(-1 * var(--bx, 0px)); width: calc(1280px + 2 * var(--bx, 0px)); }
+html.is-bleed .screen-game :is(.g-vignette, .g-hurt, .g-stamp) { inset: calc(-1 * var(--by, 0px)) calc(-1 * var(--bx, 0px)); }
+html.is-bleed .screen-game .g-hud {
+  left: calc(-1 * var(--bx, 0px));
+  top: calc(var(--safe-t, 0px) - var(--by, 0px));
+  width: calc(1280px + 2 * var(--bx, 0px));
+  padding-left: calc(12px + var(--safe-l, 0px));
+  padding-right: calc(12px + var(--safe-r, 0px));
+}
+
+/* ------------------------------------------------------------ quiet labels
+   From level 4 on (and in endless) the name tags and layer labels step back, as in a shop game the player knows by
+   now: a container's name shows while the pointer rests on it (mouse) or while something is taken from it, and a
+   new ingredient (its "NEU" sticker) keeps its name. The layer numbers on the containers stay. The labels keep their
+   boxes (opacity only), so the layout does not move. */
+.screen-game.is-quiet-labels :is(.g-pack, .g-bin, .g-stack) .g-name,
+.screen-game.is-quiet-labels :is(.g-shelf-label, .g-freezer-label) { opacity: 0; transition: opacity 0.18s ease; }
+.screen-game.is-quiet-labels :is(.g-pack, .g-bin, .g-stack).drag-source .g-name,
+.screen-game.is-quiet-labels .g-bin:has(.g-new) .g-name { opacity: 1; }
+@media (hover: hover) and (pointer: fine) {
+  .screen-game.is-quiet-labels :is(.g-pack, .g-bin, .g-stack):hover .g-name { opacity: 1; }
+}
+
 /* ------------------------------------------------------------ HUD (y 0–66) */
 .screen-game .g-hud {
   position: absolute;
@@ -809,16 +852,16 @@
   padding: 0;
   display: grid;
   place-items: center;
-  border: 2px solid rgba(255, 255, 255, 0.85);
+  border: 3px solid var(--ink);
   border-radius: 50%;
-  background: linear-gradient(180deg, #9a4cc7 0, var(--acai-2) 100%);
-  box-shadow: 0 4px 0 #4a1a66, 0 8px 14px rgba(40, 20, 50, 0.3);
+  background: var(--hud-purple);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.45), inset 0 -4px 0 rgba(42, 18, 54, 0.25), 0 4px 0 var(--ink), 0 9px 14px rgba(40, 20, 50, 0.3);
   cursor: pointer;
   touch-action: manipulation;
   transition: translate 0.08s ease, box-shadow 0.08s ease;
 }
 .screen-game .g-pause-btn::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; }
-.screen-game .g-pause-btn:active { translate: 0 3px; box-shadow: 0 1px 0 #4a1a66, 0 4px 8px rgba(40, 20, 50, 0.3); }
+.screen-game .g-pause-btn:active { translate: 0 3px; scale: 0.95; box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.45), 0 1px 0 var(--ink), 0 4px 8px rgba(40, 20, 50, 0.3); }
 .screen-game .g-pause-btn:focus-visible { outline: 4px solid var(--mango); outline-offset: 3px; }
 .screen-game .g-pill {
   height: 48px;
@@ -827,32 +870,45 @@
   align-items: center;
   gap: 6px;
   padding: 0 16px;
-  border: 2px solid rgba(255, 255, 255, 0.9);
+  border: 3px solid var(--ink);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.93);
-  box-shadow: 0 6px 16px rgba(40, 20, 50, 0.22), inset 0 -2px 0 rgba(43, 45, 51, 0.08);
+  background: linear-gradient(180deg, #fffdf8 0, #f6ead6 100%);
+  box-shadow: inset 0 2px 0 #fff, inset 0 -4px 0 rgba(142, 79, 34, 0.14), 0 4px 0 var(--ink), 0 9px 14px rgba(40, 20, 50, 0.25);
+  color: var(--ink);
   font-family: var(--font-display);
   font-size: 25px;
   line-height: 1;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.screen-game .g-level { background: linear-gradient(180deg, #9a4cc7 0, var(--acai-2) 100%); color: var(--white); }
+.screen-game .g-level, .screen-game .g-clock.is-closed {
+  background: var(--hud-purple);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.4), inset 0 -4px 0 rgba(42, 18, 54, 0.25), 0 4px 0 var(--ink), 0 9px 14px rgba(40, 20, 50, 0.25);
+  color: var(--white);
+  -webkit-text-stroke: 1.5px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 2px 0 var(--ink);
+}
 .screen-game .g-hearts { gap: 2px; padding: 0 10px; }
 .screen-game .g-heart { display: block; width: 30px; height: 30px; }
 .screen-game .g-heart.is-breaking { animation: g-heart-break 0.6s ease-out; }
 .screen-game .g-money { margin-left: auto; padding: 0 18px 0 6px; gap: 8px; }
+/* the coin sticks out over the pill's left edge, like a game's currency counter */
+.screen-game .g-money-coin { display: block; width: 38px; height: 38px; margin-left: -12px; scale: 1.3; filter: drop-shadow(0 2px 0 var(--ink)); }
+.screen-game .g-money-coin svg { display: block; }
 .screen-game[data-mode="campaign"] .g-money { height: 56px; }
 .screen-game .g-money.is-bump { animation: g-bump 0.25s ease-out; }
 .screen-game .g-money-num { min-width: 52px; font-size: 28px; font-weight: 400; text-align: right; }
 .screen-game .g-goalbar {
   position: relative;
   width: 250px;
-  height: 14px;
+  height: 18px;
+  box-sizing: border-box;
   margin: 0 14px 0 6px;
+  border: 2.5px solid var(--ink);
   border-radius: 999px;
-  background: #ece5dc;
-  box-shadow: inset 0 1px 3px rgba(40, 24, 50, 0.3);
+  background: #5a3a6c;
+  box-shadow: inset 0 3px 3px rgba(20, 6, 30, 0.4);
 }
 /* campaign: lift the bar (and its marks) so the goal amounts below fit inside the pill */
 .screen-game[data-mode="campaign"] .g-goalbar { translate: 0 -6px; }
@@ -860,7 +916,7 @@
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--mango-2) 0 40%, var(--mango) 40% 100%);
+  background: linear-gradient(180deg, #fff3b8 0 22%, #ffc93c 22% 70%, #f0951c 70%);
   transform-origin: 0 50%;
   transform: scaleX(0);
   transition: transform 0.15s linear;
@@ -902,20 +958,20 @@
 .screen-game .g-clock.is-closed .g-clock-text { font-size: 19px; letter-spacing: 0; }
 .screen-game .g-clock-ico { display: block; width: 34px; height: 34px; }
 .screen-game .g-clock.is-urgent { background: var(--danger); color: var(--white); animation: pulse 1s ease-in-out infinite; }
-.screen-game .g-clock.is-closed { background: linear-gradient(180deg, #9a4cc7 0, var(--acai-2) 100%); color: var(--white); font-size: 22px; }
+.screen-game .g-clock.is-closed { font-size: 22px; }
 
 /* ------------------------------------------------------------ effects */
 .screen-game .g-fx { position: absolute; inset: 0; z-index: 40; pointer-events: none; }
-/* cards and toasts in the café: light frosted panels instead of the menus' thick outline */
+/* cards and toasts in the café: the menus' ink outline and lip, a little finer */
 .screen-game .panel {
-  background: rgba(255, 252, 248, 0.97);
-  border: 2px solid rgba(255, 255, 255, 0.95);
-  box-shadow: 0 12px 30px rgba(40, 20, 50, 0.3), 0 0 0 1px rgba(43, 45, 51, 0.12);
+  background: var(--paper);
+  border: 2.5px solid var(--ink);
+  box-shadow: 0 6px 0 var(--ink), 0 16px 30px rgba(40, 20, 50, 0.3);
 }
 .screen-game .g-toast {
-  border: 2px solid rgba(255, 255, 255, 0.95);
+  border: 2px solid var(--ink);
   border-radius: 14px;
-  box-shadow: 0 8px 20px rgba(40, 20, 50, 0.3);
+  box-shadow: 0 4px 0 var(--ink), 0 10px 20px rgba(40, 20, 50, 0.3);
 }
 .screen-game .g-toast.bad { background: linear-gradient(180deg, #ff6e6e 0, #e5404f 100%); }
 .screen-game .g-toast {
@@ -953,6 +1009,74 @@
   100% { transform: translateY(-70px) scale(1); opacity: 0; }
 }
 .screen-game .g-float.is-heart { animation: g-heart-float 1.3s ease-out forwards; }
+/* praise over the happy guest: big, tilted, in the layer colours */
+.screen-game .g-float.is-praise { font-size: 44px; rotate: -7deg; color: var(--pitaya); -webkit-text-stroke: 3.5px var(--ink); text-shadow: 0 5px 0 var(--ink); }
+.screen-game .g-float.is-praise.is-great { font-size: 38px; color: var(--lagoon); }
+/* sparkles bursting from the face of a guest who just paid */
+.screen-game .g-sparkles { position: absolute; width: 0; height: 0; }
+.screen-game .g-sparkles i {
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  background: var(--mango);
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: g-sparkle 0.75s cubic-bezier(0.2, 0.8, 0.4, 1) var(--w) both;
+}
+.screen-game .g-sparkles i.c1 { background: #fff; }
+.screen-game .g-sparkles i.c2 { background: var(--pitaya); }
+@keyframes g-sparkle {
+  0% { transform: rotate(var(--a)) translateY(0) scale(0.2); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) scale(var(--s)) rotate(90deg); opacity: 0; }
+}
+/* the combo of guests served in a row, over the middle of the pass (clear of faces and bubbles) */
+.screen-game .g-combo {
+  position: absolute;
+  left: 640px;
+  top: 312px;
+  translate: -50% -50%;
+  padding: 6px 22px 4px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffe27a 0, var(--mango) 60%, #f0951c 100%);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6), 0 5px 0 var(--ink), 0 12px 22px rgba(40, 20, 50, 0.35);
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 1;
+  color: var(--white);
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
+  white-space: nowrap;
+  z-index: 2;
+  animation: g-combo 1.4s cubic-bezier(0.3, 1.5, 0.5, 1) both;
+}
+.screen-game .g-combo.is-low { top: 400px; }
+.screen-game .g-combo.is-hot { background: linear-gradient(180deg, #ff8fbf 0, var(--pitaya) 60%, #d81b6a 100%); }
+@keyframes g-combo {
+  0% { scale: 0.3; opacity: 0; rotate: -8deg; }
+  14% { scale: calc(var(--k) * 1.12); opacity: 1; rotate: 3deg; }
+  24% { scale: var(--k); rotate: -2deg; }
+  80% { scale: var(--k); opacity: 1; translate: -50% -50%; }
+  100% { scale: var(--k); opacity: 0; translate: -50% -90%; }
+}
+/* a guest walked out: red flash at the edges, the café shakes (not the worktop, where something may be carried) */
+.screen-game .g-hurt {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 55%, rgba(255, 40, 60, 0.45) 100%);
+  animation: g-fade-out 0.6s ease-out both;
+}
+.screen-game.is-quake :is(.g-scene, .g-counter, .g-hud) { animation: g-quake 0.42s ease-out; }
+@keyframes g-quake {
+  0%, 100% { translate: 0 0; }
+  15% { translate: -9px 3px; }
+  30% { translate: 8px -3px; }
+  45% { translate: -6px 2px; }
+  60% { translate: 5px -1px; }
+  80% { translate: -2px 0; }
+}
 .screen-game .g-flycoin { position: absolute; width: 30px; height: 30px; will-change: transform; }
 
 /* banner (non-blocking) – sits on the counter strip so customers' faces (y≈205–257) and bubbles (y 67–179) stay visible */
@@ -1059,9 +1183,23 @@
 .screen-game .g-pause-btns .btn { width: 100%; }
 .screen-game .g-pause-note { margin: -4px 0 0; font-size: 17px; font-weight: 800; line-height: 1.25; text-align: center; color: var(--ink-soft); text-wrap: balance; }
 .screen-game .g-pause-note[hidden] { display: none; }
+.screen-game .g-pause-btns .btn { justify-content: flex-start; padding-left: 26px; gap: 16px; }
+.screen-game .g-pause-btns .btn .g-btn-label { flex: 1; text-align: center; margin-right: 34px; }
 .screen-game .g-toggles { display: flex; gap: 12px; width: 100%; }
-.screen-game .g-toggle { flex: 1; min-height: 64px; font-size: 21px; }
-.screen-game .g-toggle.is-off { background: #e3d9ea; color: var(--ink-soft); }
+.screen-game .g-toggle { flex: 1; min-height: 64px; font-size: 22px; gap: 8px; padding-inline: 12px; }
+.screen-game .g-toggle-ico { display: grid; place-items: center; width: 38px; height: 38px; }
+/* a little lamp: green while the channel is on */
+.screen-game .g-toggle-led {
+  width: 14px;
+  height: 14px;
+  margin-left: 2px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #b9ffd6 0, var(--leaf) 55%, var(--leaf-2) 100%);
+  box-shadow: 0 0 8px rgba(47, 191, 113, 0.9);
+}
+.screen-game .g-toggle.is-off { background-color: #e3d9ea; color: var(--ink-soft); }
+.screen-game .g-toggle.is-off .g-toggle-led { background: #b8acc4; box-shadow: none; }
 
 /* ------------------------------------------------------------ game over stamp */
 .screen-game .g-stamp {
@@ -1149,7 +1287,11 @@
   .screen-game .g-tut-arrow,
   .screen-game .g-tut-ring,
   .screen-game .g-tut-point,
+  .screen-game .g-blink,
+  .screen-game .g-combo,
+  .screen-game.is-quake :is(.g-scene, .g-counter, .g-hud),
   .screen-game .g-float { animation: none !important; }
+  .screen-game .g-hurt { display: none; }
   .screen-game .g-cust.is-leavingHappy,
   .screen-game .g-cust.is-leavingAngry { opacity: 0.4; transition: opacity 0.3s linear; }
   .screen-game .g-decor-item,

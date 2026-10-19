@@ -471,19 +471,21 @@ const STOCK_LIFT = 16;
 
 // Terrazzo chips on the worktop, in perspective: sampled evenly on the slab, projected toward a
 // horizon far above the screen, so they get smaller and flatter toward the back.
-function terrazzo(W, edgeY) {
+function terrazzo(W, edgeY, bleed = 0) {
   const rng = rngFor('terrazzo');
   const A = -900;
   const B = edgeY - A;
   const zFar = B / -A;
-  const cols = ['#fbf9f5', '#fbf9f5', '#c4bbb0', '#a59b90', '#d8a7b8', '#b9a6cf', '#a9cbb6', '#77706a'];
+  const span = 680 + bleed;
+  // warm terrazzo: cream and blush chips, a few in the café's colours (pitaya, açaí, mint, mango)
+  const cols = ['#fffbf5', '#fffbf5', '#e6c3ab', '#c79d84', '#ff9fc2', '#c5a2e8', '#97dcb7', '#ffc56b', '#8a6656'];
   const by = cols.map(() => '');
-  for (let i = 0; i < 1500; i++) {
+  for (let i = 0, n = Math.round((1500 * span) / 680); i < n; i++) {
     const z = 1 + rng.next() * (zFar - 1);
-    const X = 640 + (rng.next() * 2 - 1) * (680 * z);
+    const X = 640 + (rng.next() * 2 - 1) * (span * z);
     const x = 640 + (X - 640) / z;
     const y = A + B / z;
-    if (x < -8 || x > W + 8) continue;
+    if (x < -8 - bleed || x > W + 8 + bleed) continue;
     const big = rng.next();
     const R = (big < 0.76 ? 0.9 + rng.next() * 1.2 : big < 0.97 ? 2.2 + rng.next() * 2.2 : 4.4 + rng.next() * 2.6) / z;
     const squash = 0.44 / z;
@@ -496,7 +498,7 @@ function terrazzo(W, edgeY) {
     }
     by[Math.floor(rng.next() * cols.length)] += `${d}Z`;
   }
-  return cols.map((c, i) => (by[i] ? path(by[i], c, op(c === '#fbf9f5' ? 0.95 : 0.7)) : '')).join('');
+  return cols.map((c, i) => (by[i] ? path(by[i], c, op(c === '#fffbf5' ? 0.95 : 0.72)) : '')).join('');
 }
 
 // --- stock on the open shelves (drawn standing on the shelf floor just below the screen, y = base)
@@ -552,20 +554,36 @@ function stock() {
   return s;
 }
 
-function underCounter(W, C, H) {
-  let s = rect(0, C, W, H - C, 0, '#5a4334') + rect(0, C, W, H - C, 0, paint('down-dark'), op(0.6));
+// More stock in the compartments beyond the stage (full bleed), drawn like stock()'s.
+function stockBeyond(base) {
+  let s = stockCrate(-330, base, 110, 40, stockIcon('banana', -344, 368, 0.7) + stockIcon('banana', -298, 366, 0.66));
+  s += kraftBag(-190, base, 62, 58, 'GRANOLA') + stockIcon('coconut', -100, 400, 0.6);
+  s += stockCrate(1300, base, 82, 34, stockIcon('mango', 1292, 392, 0.5) + stockIcon('kiwi', 1330, 396, 0.48));
+  s += stockCrate(1420, base, 110, 40, stockIcon('strawberry', 1414, 392, 0.52) + stockIcon('blueberry', 1452, 400, 0.44) + stockIcon('strawberry', 1488, 394, 0.5));
+  return s;
+}
+
+function underCounter(X0, X1, C, H) {
+  const W = X1 - X0;
+  // the compartments go on beyond the stage in the same rhythm
+  const posts = [...SHELF_POSTS];
+  while (posts[0] - 216 > X0 - 216) posts.unshift(posts[0] - 216);
+  while (posts[posts.length - 1] + 216 < X1 + 216) posts.push(posts[posts.length - 1] + 216);
+  let s = rect(X0, C, W, H - C, 0, '#5a4334') + rect(X0, C, W, H - C, 0, paint('down-dark'), op(0.6));
   // LED strip under the apron: warm light falling on the stock
-  for (let i = 0; i < SHELF_POSTS.length - 1; i++) {
-    const cx = (SHELF_POSTS[i] + SHELF_POSTS[i + 1]) / 2;
-    s += ellipse(cx, C + 14, (SHELF_POSTS[i + 1] - SHELF_POSTS[i]) * 0.55, 44, paint('warm-glow'), op(0.9));
+  for (let i = 0; i < posts.length - 1; i++) {
+    if (posts[i + 1] < X0 || posts[i] > X1) continue;
+    const cx = (posts[i] + posts[i + 1]) / 2;
+    s += ellipse(cx, C + 14, (posts[i + 1] - posts[i]) * 0.55, 44, paint('warm-glow'), op(0.9));
   }
-  s += g(`translate(0 ${C - STOCK_TOP - STOCK_LIFT})`, stock());
+  s += g(`translate(0 ${C - STOCK_TOP - STOCK_LIFT})`, stock() + (X0 < 0 ? stockBeyond(456) : ''));
   // oak posts between the compartments, the apron under the worktop edge
-  for (const x of SHELF_POSTS) {
+  for (const x of posts) {
+    if (x < X0 - 5 || x > X1 + 5) continue;
     s += rect(x - 5, C, 10, H - C, 0, '#c99b63') + rect(x - 5, C, 10, H - C, 0, paint('cyl')) + line(`M${x - 4.4} ${C}V${H}`, '#8f6331', 1, op(0.6));
   }
-  s += rect(0, C, W, 10, 0, '#c99b63') + rect(0, C, W, 10, 0, paint('down'), op(0.7)) + line(`M0 ${C + 10}H${W}`, '#3b2a22', 1.2, op(0.5));
-  s += rect(0, C, W, 4, 0, '#3b2a22', op(0.35));
+  s += rect(X0, C, W, 10, 0, '#c99b63') + rect(X0, C, W, 10, 0, paint('down'), op(0.7)) + line(`M${X0} ${C + 10}H${X1}`, '#3b2a22', 1.2, op(0.5));
+  s += rect(X0, C, W, 4, 0, '#3b2a22', op(0.35));
   return s;
 }
 
@@ -594,36 +612,44 @@ function worktopDecor() {
 }
 registerDefs('<clipPath id="af-clip-basket"><path d="M984 292C986 318 1010 334 1046 334C1082 334 1106 318 1108 292Z"/></clipPath>');
 
-export function counterSVG(width = COUNTER_W, height = COUNTER_H) {
+// bleed / below: the worktop and the cabinet run on that far to either side and down (full bleed on wider or
+// taller screens); then the picture is (1280 + 2·bleed) × (462 + below) px, drawn 1:1 with x 0 at `bleed`.
+export function counterSVG(width = COUNTER_W, height = COUNTER_H, { bleed = 0, below = 0 } = {}) {
   const W = COUNTER_W;
-  const H = COUNTER_H;
+  const H = COUNTER_H + below;
+  const X0 = -bleed;
+  const X1 = W + bleed;
   const E = COUNTER_EDGE_Y;
   const C = E + COUNTER_LIP;
   const topId = uid('ctr');
   const lipId = uid('ctr');
-  let s = `<defs><linearGradient id="${topId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#d4ccc1"/><stop offset="0.22" stop-color="#e0d9cf"/><stop offset="1" stop-color="#ebe6de"/></linearGradient>` +
-    `<linearGradient id="${lipId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbfaf7"/><stop offset="0.3" stop-color="#ece7e0"/><stop offset="0.75" stop-color="#d0c8bd"/><stop offset="1" stop-color="#a99f93"/></linearGradient></defs>`;
+  // a warm cream stone (peach in the shadow of the pass, lighter toward the player)
+  let s = `<defs><linearGradient id="${topId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3c4ae"/><stop offset="0.22" stop-color="#efd8c6"/><stop offset="1" stop-color="#f7e9dc"/></linearGradient>` +
+    `<linearGradient id="${lipId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffaf4"/><stop offset="0.3" stop-color="#f5e6d8"/><stop offset="0.75" stop-color="#dcc1ab"/><stop offset="1" stop-color="#b08d74"/></linearGradient></defs>`;
   // worktop
-  s += rect(0, 0, W, E, 0, `url(#${topId})`);
-  s += terrazzo(W, E);
+  s += rect(X0, 0, X1 - X0, E, 0, `url(#${topId})`);
+  s += terrazzo(W, E, bleed);
   // the pendant lamps reflected in the polished stone, the pass's shadow along the far edge
   for (const [x, rx] of [[150, 150], [380, 170], [900, 170], [1160, 150]]) s += ellipse(x, 84, rx, 32, paint('glow'), op(0.38));
-  s += rect(0, 0, W, 40, 0, paint('up-dark'), op(0.55)) + rect(0, 0, W, 8, 0, '#3b2a22', op(0.18));
+  // warm light of the pendant lamps pooling in the middle of the worktop
+  s += ellipse(640, 150, 520, 120, paint('warm-glow'), op(0.35));
+  s += rect(X0, 0, X1 - X0, 40, 0, paint('up-dark'), op(0.55)) + rect(X0, 0, X1 - X0, 8, 0, '#3b2a22', op(0.18));
   s += g(`translate(${DECOR_AT.x} ${DECOR_AT.y}) scale(${DECOR_AT.scale}) translate(-1046 -334)`, worktopDecor());
   // cabinet: open shelves with the stock, the freezer's front panel on the left
-  s += underCounter(W, C, H);
+  s += underCounter(X0, X1, C, H);
   const fp = `M18 ${C}H298V${H + 4}H18Z`;
   s += path(fp, '#eef0f1') + path(fp, paint('steel-v'), op(0.5)) + path(fp, 'none', stroke(1, '#8f99a4'));
   s += rect(18, C, 280, 12, 0, paint('up-dark'), op(0.8));
   let vents = '';
-  for (let x = 40; x < 280; x += 10) vents += `M${x} ${H - 9}V${H - 3}`;
+  for (let x = 40; x < 280; x += 10) vents += `M${x} ${COUNTER_H - 9}V${COUNTER_H - 3}`; // at the stage's bottom edge
   s += line(vents, '#5b6570', 2.2, op(0.55));
   // rounded front edge of the worktop, casting its shadow on the cabinet
-  s += rect(0, E, W, COUNTER_LIP, 0, `url(#${lipId})`);
-  s += line(`M0 ${E + 0.8}H${W}`, WHITE, 1.6, op(0.95));
-  s += line(`M0 ${E + 4}H${W}`, WHITE, 1, op(0.35));
-  s += rect(0, C, W, 10, 0, paint('up-dark'), op(0.7));
-  return svgWrap(width, height, W, H, s, ' preserveAspectRatio="none"');
+  s += rect(X0, E, X1 - X0, COUNTER_LIP, 0, `url(#${lipId})`);
+  s += line(`M${X0} ${E + 0.8}H${X1}`, WHITE, 1.6, op(0.95));
+  s += line(`M${X0} ${E + 4}H${X1}`, WHITE, 1, op(0.35));
+  s += rect(X0, C, X1 - X0, 10, 0, paint('up-dark'), op(0.7));
+  if (!bleed && !below) return svgWrap(width, height, W, H, s, ' preserveAspectRatio="none"');
+  return svgWrap(X1 - X0, H, X1 - X0, H, g(`translate(${bleed} 0)`, s));
 }
 
 // ======================================================================
@@ -747,11 +773,11 @@ const LAMPS = [[WIN_CX - 50, 30], [WIN_CX + 50, 30]];
 // A soft shadow cast on the wall by a thing hanging or standing in front of it (offset to the lower right).
 const wallShadow = (d, dx = 5, dy = 7) => g(`translate(${dx} ${dy})`, path(d, '#4a3018', op(0.08)) + g('translate(2 2)', path(d, '#4a3018', op(0.06))));
 
-function pendant(x, len, ids) {
+function pendant(x, len, ids, top = 0) {
   const y = len;
   let s = path(`M${x - 20} ${y + 24}L${x - 96} 236H${x + 96}L${x + 20} ${y + 24}Z`, `url(#${ids.cone})`); // light falling on the wall
   s += ellipse(x, y + 26, 84, 62, `url(#${ids.glow})`);
-  s += line(`M${x} 0V${y}`, '#2c2622', 1.4) + rect(x - 3, y - 3, 6, 5, 1.5, '#3c352f');
+  s += line(`M${x} ${-top}V${y}`, '#2c2622', 1.4) + rect(x - 3, y - 3, 6, 5, 1.5, '#3c352f');
   const shade = `M${x - 23} ${y + 24}C${x - 22} ${y + 8} ${x - 12} ${y + 1} ${x} ${y + 1}C${x + 12} ${y + 1} ${x + 22} ${y + 8} ${x + 23} ${y + 24}Z`;
   s += path(shade, '#35302b', stroke(0.8, '#14110f')) + path(shade, paint('sph-soft'));
   s += line(`M${x - 15} ${y + 9}Q${x - 8} ${y + 3.6} ${x + 2} ${y + 3.4}`, WHITE, 1.3, op(0.3));
@@ -889,19 +915,20 @@ function windowSill() {
     path(rrect(a, y - 6, b - a, 11, 2.5), '#ece4d6', stroke(0.8, '#b3a691')) + rect(a + 0.5, y + 0.4, b - a - 1, 4, 0, '#d6cab6') + line(`M${a + 3} ${y - 5.2}H${b - 3}`, WHITE, 1, op(0.8));
 }
 
-function wainscot(W, H, ids) {
+function wainscot(X0, X1, H, ids) {
+  const W = X1 - X0;
   // fluted oak: each reed lit on its left, shaded on its right; dimmer at the bottom near the pass
-  let s = rect(0, RAIL_Y + 10, W, H - RAIL_Y - 10, 0, '#c4a27b');
+  let s = rect(X0, RAIL_Y + 10, W, H - RAIL_Y - 10, 0, '#c4a27b');
   let hi = '';
   let lo = '';
-  for (let x = 0; x < W; x += 12) {
+  for (let x = X0 - (((X0 % 12) + 12) % 12); x < X1; x += 12) {
     hi += `M${x + 3} ${RAIL_Y + 10}V${H}`;
     lo += `M${x + 10.5} ${RAIL_Y + 10}V${H}`;
   }
   s += line(hi, '#dcc29d', 2.6, op(0.55)) + line(lo, '#987650', 1.6, op(0.45));
-  s += rect(0, RAIL_Y + 10, W, H - RAIL_Y - 10, 0, `url(#${ids.panel})`);
+  s += rect(X0, RAIL_Y + 10, W, H - RAIL_Y - 10, 0, `url(#${ids.panel})`);
   // the rail, and the soft shadow it casts on the reeds
-  s += rect(0, RAIL_Y, W, 10, 0, '#8d6a4b') + rect(0, RAIL_Y, W, 2.4, 0, '#c29a72') + rect(0, RAIL_Y + 7.6, W, 2.4, 0, '#5e4330');
+  s += rect(X0, RAIL_Y, W, 10, 0, '#8d6a4b') + rect(X0, RAIL_Y, W, 2.4, 0, '#c29a72') + rect(X0, RAIL_Y + 7.6, W, 2.4, 0, '#5e4330');
   return s;
 }
 
@@ -924,9 +951,15 @@ function shelf(ids) {
 
 // seats: the guests in front of it – with 4, whose outer order bubbles (x 6–312, 968–1274) would hide the
 // chalkboard and the shelf all but for awkward slivers, the wall leaves both out.
-export function shopSceneSVG(width = 1280, height = 330, { seats = 3 } = {}) {
+// bleed / above: the plain wall (plaster, wainscot, cornice) runs on that far to either side and up (full bleed on
+// wider or taller screens); then the picture is (1280 + 2·bleed) × (330 + above) px, drawn 1:1 with the stage's
+// (0, 0) at (bleed, above).
+export function shopSceneSVG(width = 1280, height = 330, { seats = 3, bleed = 0, above = 0 } = {}) {
   const W = 1280;
   const H = 330;
+  const X0 = -bleed;
+  const X1 = W + bleed;
+  const Y0 = -above;
   // ids local to this picture (one wall per screen); all named af-wall-… / af-glow-… / af-sky-… / af-sea-… / af-win-…
   const ids = { wall: uid('wall'), shaft: uid('wall'), vig: uid('wall'), panel: uid('wall'), under: uid('wall'), jamb: uid('wall'), cone: uid('glow'), glow: uid('glow'), bloom: uid('glow'), sky: uid('sky'), sea: uid('sea') };
   const winClip = uid('win');
@@ -945,7 +978,7 @@ export function shopSceneSVG(width = 1280, height = 330, { seats = 3 } = {}) {
     `<linearGradient id="${ids.sea}" x1="0" y1="0" x2="0" y2="1">${st([[0, '#7fbcc4'], [1, '#a9d4d1']])}</linearGradient>` +
     `<clipPath id="${winClip}"><rect x="${WIN_IN.x0}" y="${WIN_IN.y0}" width="${WIN_IN.x1 - WIN_IN.x0}" height="${WIN_IN.y1 - WIN_IN.y0}"/></clipPath></defs>`;
   // plaster: warm greige, soft trowel marks and fine grain, a slanted patch of light from the top left
-  s += rect(0, 0, W, H, 0, `url(#${ids.wall})`);
+  s += rect(X0, Y0, X1 - X0, H - Y0, 0, `url(#${ids.wall})`);
   const rng = rngFor('wall-texture');
   let marks = '';
   for (let i = 0; i < 46; i++) marks += ellipse(rng.next() * W, 20 + rng.next() * 206, 24 + rng.next() * 54, 6 + rng.next() * 12, rng.next() < 0.6 ? '#ffffff' : '#b49c80', op(0.07) + tf(`rotate(${f(rng.next() * 16 - 8)})`));
@@ -955,16 +988,33 @@ export function shopSceneSVG(width = 1280, height = 330, { seats = 3 } = {}) {
     const r = 0.5 + rng.next() * 0.7;
     grain += `M${f(rng.next() * W)} ${f(16 + rng.next() * 210)}a${f(r)} ${f(r)} 0 1 0 ${f(r * 2)} 0a${f(r)} ${f(r)} 0 1 0 ${f(-r * 2)} 0`;
   }
+  // the same texture on the wall beyond the stage (full bleed), its own random series so the stage stays as it was
+  if (bleed || above) {
+    const more = rngFor('wall-texture-bleed');
+    const n = Math.round(((X1 - X0) * (H - Y0)) / (W * H) * 40);
+    for (let i = 0; i < n; i++) {
+      const x = X0 + more.next() * (X1 - X0);
+      const y = Y0 + more.next() * (RAIL_Y - Y0);
+      if (x > 0 && x < W && y > 0) continue;
+      s += ellipse(x, y, 24 + more.next() * 54, 6 + more.next() * 12, more.next() < 0.6 ? '#ffffff' : '#b49c80', op(0.07));
+    }
+  }
   s += path(grain, '#9e8668', op(0.16));
   s += ellipse(300, 110, 430, 120, `url(#${ids.shaft})`, tf('rotate(24 300 110)'));
   s += cafeWindow(winClip, ids);
   if (seats < 4) s += chalkBoard() + shelf(ids);
-  s += wainscot(W, H, ids) + windowSill();
+  s += wainscot(X0, X1, H, ids) + windowSill();
   // ceiling: a dark oak cornice, its shadow on the wall
-  s += rect(0, 12, W, 18, 0, `url(#${ids.under})`) + rect(0, 0, W, 12, 0, '#5a4232') + rect(0, 10, W, 2, 0, '#7d604a');
-  for (const [x, len] of LAMPS) s += pendant(x, len, ids);
+  s += rect(X0, 12, X1 - X0, 18, 0, `url(#${ids.under})`) + rect(X0, 0, X1 - X0, 12, 0, '#5a4232') + rect(X0, 10, X1 - X0, 2, 0, '#7d604a');
+  for (const [x, len] of LAMPS) s += pendant(x, len, ids, above);
   s += rect(0, 0, W, H, 0, `url(#${ids.vig})`);
-  return svgWrap(width, height, W, H, s, ' preserveAspectRatio="xMidYMid slice"');
+  if (!bleed && !above) return svgWrap(width, height, W, H, s, ' preserveAspectRatio="xMidYMid slice"');
+  // beyond the stage the wall falls off into shade, from about the vignette's edge outwards
+  const fall = uid('wall');
+  s += `<defs><linearGradient id="${fall}" x1="0" y1="0" x2="1" y2="0">${st([[0, '#4a3420', 0.32], [1, '#4a3420', 0.08]])}</linearGradient></defs>`;
+  if (bleed) s += rect(X0, Y0, -X0, H - Y0, 0, `url(#${fall})`) + rect(W, Y0, X1 - W, H - Y0, 0, `url(#${fall})`, tf(`rotate(180 ${f(W + bleed / 2)} ${f((H + Y0) / 2)})`));
+  if (above) s += rect(0, Y0, W, -Y0, 0, '#4a3420', op(0.1));
+  return svgWrap(X1 - X0, H - Y0, X1 - X0, H - Y0, g(`translate(${bleed} ${above})`, s));
 }
 
 // Small stack of cups for the shelf (same drawing as the counter stack, without a shadow).

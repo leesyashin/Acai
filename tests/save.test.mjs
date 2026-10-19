@@ -68,7 +68,7 @@ describe('defaults & loading', () => {
     assert.equal(d.endlessBest, 0);
     assert.deepEqual(d.newIngredients, []);
     assert.deepEqual(d.seenIntros, {});
-    assert.deepEqual(d.settings, { lang: detectLang(), music: true, sfx: true });
+    assert.deepEqual(d.settings, { lang: detectLang(), music: true, sfx: true, haptics: true });
     assert.ok(LANGS.includes(d.settings.lang));
     assert.deepEqual(d.stats, { served: 0, earned: 0, played: 0 });
     assert.equal(save.getSave(), d);
@@ -95,7 +95,7 @@ describe('defaults & loading', () => {
     const d = fresh({ coins: 50, owned: ['pitaya'], settings: { lang: 'en' }, stars: { 1: 2 }, stats: { served: 4 } });
     assert.equal(d.coins, 50);
     for (const id of [...START_OWNED, 'pitaya']) assert.ok(d.owned.includes(id), id);
-    assert.deepEqual(d.settings, { lang: 'en', music: true, sfx: true });
+    assert.deepEqual(d.settings, { lang: 'en', music: true, sfx: true, haptics: true });
     assert.deepEqual(d.stats, { served: 4, earned: 0, played: 0 });
     assert.deepEqual(d.stars, { 1: 2 });
     assert.equal(d.endlessBest, 0);
@@ -148,9 +148,10 @@ describe('defaults & loading', () => {
     d = fresh({ owned: ['acai', 'kiwi'], newIngredients: ['nope', 7, 'kiwi', 'kiwi', 'mango'] });
     assert.deepEqual(d.newIngredients, ['kiwi'], 'only known, owned ingredients, once each');
 
-    d = fresh({ settings: { lang: 'en', music: 'no', sfx: 0 } });
-    assert.deepEqual(d.settings, { lang: 'en', music: true, sfx: true }, 'only an explicit false mutes');
+    d = fresh({ settings: { lang: 'en', music: 'no', sfx: 0, haptics: 'off' } });
+    assert.deepEqual(d.settings, { lang: 'en', music: true, sfx: true, haptics: true }, 'only an explicit false mutes');
     assert.equal(fresh({ settings: { music: false } }).settings.music, false);
+    assert.equal(fresh({ settings: { haptics: false } }).settings.haptics, false, 'vibration off stays off');
     assert.deepEqual(fresh({ seenIntros: ['basics'] }).seenIntros, {});
     assert.equal(fresh({ endlessBest: '99' }).endlessBest, 0);
   });

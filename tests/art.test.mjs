@@ -59,11 +59,15 @@ test('every shared gradient or clip path a picture uses is defined in artDefsSVG
     art.counterSVG(1280, 462), art.freezerSVG('well', 284, 186), art.freezerSVG('rim', 284, 186), art.riserSVG(400, 62),
     ...ALL_IDS.filter((id) => INGREDIENTS.find((i) => i.id === id).layer !== 'base').map((id) => art.scoopSVG(id, 84)),
     ...['plants', 'jukebox', 'seating', 'neon'].map((id) => art.decorSVG(id, 118)),
+    // full bleed, the title, the map, the app icon, a blink
+    art.shopSceneSVG(1280, 330, { seats: 3, bleed: 360, above: 200 }), art.counterSVG(1280, 462, { bleed: 360, below: 200 }),
+    art.titleCounterSVG(360, 200), ...art.MAP_REGIONS.map((r) => art.mapRegionSVG(r.id)),
+    art.appIconSVG(512), art.appIconSVG(512, { maskable: true }), art.customerSVG(7, 'neutral', 160, true),
   ];
   const used = new Set(pictures.flatMap(refs));
   assert.ok(used.size > 10, 'the art uses the shared paints');
   // ids made per picture (uid) live in the picture's own <defs>
-  const local = (id) => /^af-(wall|glow|sky|sea|win|logoA|logoB|ctr)-/.test(id);
+  const local = (id) => /^af-(wall|glow|sky|sea|win|logoA|logoB|ctr|ctop|crail|grass|water|icon)-/.test(id);
   for (const id of used) if (!local(id)) assert.ok(defined.has(id), `url(#${id}) is not in artDefsSVG()`);
   assert.equal(new Set([...defs.matchAll(/id="([^"]+)"/g)].map((m) => m[1])).size, [...defs.matchAll(/id="/g)].length, 'duplicate ids in the defs');
 });
@@ -200,4 +204,50 @@ test('decor casts its shadow on the café wall only, not on a shop card', () => 
     assert.ok(wall.includes('#3a2414'), `${id}: a shadow on the wall`);
     assert.ok(!card.includes('#3a2414') && card.length < wall.length, `${id}: no wall shadow on its own`);
   }
+});
+
+// ------------------------------------------------------------------ level map, full bleed, title, icon
+test('level map: the nodes keep apart, stay on the screen, each region holds its levels, the road comes from below', () => {
+  const pos = Array.from({ length: 20 }, (_, i) => art.mapLevelPos(i));
+  for (const p of pos) assert.ok(p.x >= 110 && p.x <= 1170 && p.y > 150 && p.y < art.MAP_H - 120, `node at ${p.x},${p.y} too close to an edge`);
+  for (let i = 0; i < pos.length; i++) {
+    for (let j = i + 1; j < pos.length; j++) {
+      // a node is 110 × 130 px (disc and stars below it)
+      const apart = Math.abs(pos[i].x - pos[j].x) >= 112 || Math.abs(pos[i].y - pos[j].y) >= 122;
+      assert.ok(apart, `levels ${i + 1} and ${j + 1} overlap`);
+    }
+  }
+  const regions = [...art.MAP_REGIONS].sort((a, b) => a.top - b.top);
+  assert.equal(regions[0].top, 0);
+  assert.equal(regions.at(-1).bottom, art.MAP_H);
+  for (let i = 1; i < regions.length; i++) assert.equal(regions[i].top, regions[i - 1].bottom, 'regions leave no gap');
+  for (const r of art.MAP_REGIONS) {
+    for (let id = r.first; id <= r.last; id++) {
+      const { y } = pos[id - 1];
+      assert.ok(y > r.top + 40 && y < r.bottom - 40, `level ${id} is not inside the ${r.id} region`);
+    }
+  }
+  assert.equal(art.MAP_REGIONS.reduce((n, r) => n + r.last - r.first + 1, 0), 20, 'every level in one region');
+  assert.match(art.mapRoadData(20), new RegExp(`^M-?[\\d.]+ ${art.MAP_H + 60}C`), 'the road starts below the map');
+  for (const r of art.MAP_REGIONS) {
+    const svg = art.mapRegionSVG(r.id);
+    assert.match(svg, new RegExp(`width="${1280 + 2 * art.MAP_BLEED}" height="${r.bottom - r.top}"`), `${r.id}: drawn for the full map width`);
+  }
+});
+
+test('full bleed: the wall, the worktop and the title counter can be drawn wider and taller; plain calls stay as they were', () => {
+  const size = (svg) => svg.match(/<svg[^>]*\bwidth="([\d.]+)" height="([\d.]+)"/).slice(1).map(Number);
+  assert.deepEqual(size(art.shopSceneSVG(1280, 330, { seats: 2, bleed: 360, above: 200 })), [2000, 530]);
+  assert.deepEqual(size(art.counterSVG(1280, 462, { bleed: 360, below: 200 })), [2000, 662]);
+  assert.deepEqual(size(art.titleCounterSVG(360, 200)), [2000, 316]);
+  assert.deepEqual(size(art.shopSceneSVG(1280, 330, { seats: 2 })), [1280, 330]);
+  assert.deepEqual(size(art.counterSVG(1280, 462)), [1280, 462]);
+  assert.deepEqual(size(art.titleCounterSVG()), [1280, 116]);
+});
+
+test('guests blink with open eyes only; the app icon is a square, the maskable one keeps a margin', () => {
+  for (const mood of ['neutral', 'impatient']) assert.notEqual(art.customerSVG(3, mood, 160, true), art.customerSVG(3, mood, 160), `${mood}: no blink`);
+  for (const mood of ['happy', 'angry']) assert.equal(art.customerSVG(3, mood, 160, true), art.customerSVG(3, mood, 160), `${mood}: eyes are shut or squeezed anyway`);
+  assert.match(art.appIconSVG(192), /viewBox="0 0 512 512" width="192" height="192"/);
+  assert.notEqual(art.appIconSVG(512, { maskable: true }), art.appIconSVG(512));
 });
