@@ -1,6 +1,7 @@
-// Soundtrack of the promo film (tools/promo): the game's own music (124 BPM, its chords, melody
-// and instruments from js/audio.js) arranged as a punchy ad cut, plus the game's sound effects and
-// a few promo effects (whooshes, risers, impacts) at the cue times the film registered.
+// Soundtrack of the promo film (tools/promo): the game's own music (its chords, melody and instruments
+// from js/audio.js – the 124 BPM game track, or the 96 BPM menu bossa when the film says track: 'menu')
+// arranged as a punchy ad cut, plus the game's sound effects and a few promo effects (whooshes, risers,
+// impacts, notification pings, a record scratch …) at the cue times the film registered.
 //   const buffer = await renderScore(film)    // stereo AudioBuffer, 48 kHz
 //   const wav = wavBytes(buffer)              // 16-bit PCM WAV as Uint8Array
 
@@ -8,8 +9,6 @@ import { synthKit } from '../../js/audio.js';
 
 const { tone, noise, chime, brass, mtof, INST, SFX, LOOPS, TRACKS, harmonyBelow } = synthKit;
 
-const GAME = TRACKS.game;
-const SCALE = GAME.scale;
 const TAIL = 1.2;
 
 // chord in the same voicing as the game's tracks: bass in E2–D#3, close voicings from G3 / C4
@@ -26,6 +25,14 @@ const CH = {
   Dm7: chord(2, [0, 3, 7, 10]),
   G7: chord(7, [0, 4, 7, 10]),
   Cmaj: chord(0, [0, 4, 7, 11]),
+  Em: chord(4, [0, 3, 7]),
+  Dm: chord(2, [0, 3, 7]),
+  E: chord(4, [0, 4, 7]),
+  Am7: chord(9, [0, 3, 7, 10]),
+  Fmaj7: chord(5, [0, 4, 7, 11]),
+  Gm7: chord(7, [0, 3, 7, 10]),
+  C7: chord(0, [0, 4, 7, 10]),
+  Bbmaj7: chord(10, [0, 4, 7, 11]),
 };
 
 // ------------------------------------------------------------------ extra instruments
@@ -76,7 +83,7 @@ const X = {
     noise(v, { ft: 'bandpass', f: 1800, f2: 6000, slide: 0.1, q: 2, a: 0.05, peak: 0.45 * g, decay: 0.07 });
   },
   pop(v, pitch = 0, g = 1) {
-    const f = 520 * Math.pow(2, (SCALE[pitch % 7] + 12 * Math.floor(pitch / 7)) / 12);
+    const f = 520 * Math.pow(2, (TRACKS.game.scale[pitch % 7] + 12 * Math.floor(pitch / 7)) / 12);
     tone(v, { f, f2: f * 2.2, slide: 0.05, a: 0.002, peak: 0.6 * g, decay: 0.07 });
     tone(v, { type: 'triangle', f: f * 2, a: 0.001, peak: 0.12 * g, decay: 0.04 });
   },
@@ -98,6 +105,47 @@ const X = {
     INST.kick(v, 0.7 * g);
     X.crash(v, 0.14 * g, 0.8);
   },
+  // a soft glass ting on step `pitch` of the scale (C major from C6), for things landing one by one
+  ting(v, pitch = 0, g = 1) {
+    const m = 84 + TRACKS.game.scale[pitch % 7] + 12 * Math.floor(pitch / 7);
+    INST.vibes(v, m - 12, 0.32 * g, 0.4);
+    chime(v, { f: mtof(m), peak: 0.1 * g, decay: 0.9, partials: [[1, 1, 1], [2, 0.18, 0.5]] });
+  },
+  // the phone's notification sound: two bright notes
+  ping(v, g = 1) {
+    chime(v, { f: mtof(88), peak: 0.2 * g, decay: 0.5, partials: [[1, 1, 1], [2, 0.2, 0.5], [3, 0.06, 0.3]] });
+    chime(v, { at: 0.09, f: mtof(93), peak: 0.22 * g, decay: 0.7, partials: [[1, 1, 1], [2, 0.2, 0.5], [3, 0.06, 0.3]] });
+  },
+  // the phone vibrating on the table
+  buzz(v, g = 1, len = 0.32) {
+    tone(v, { type: 'sawtooth', f: 62, a: 0.01, hold: len, peak: 0.3 * g, decay: 0.05, filter: { type: 'lowpass', f: 320, q: 2 }, am: { rate: 34, depth: 0.7 } });
+    noise(v, { ft: 'bandpass', f: 180, q: 2, a: 0.01, hold: len, peak: 0.25 * g, decay: 0.05 });
+  },
+  // a record scratch (the music stops)
+  scratch(v, g = 1) {
+    noise(v, { ft: 'bandpass', f: 600, f2: 3200, slide: 0.09, q: 3, a: 0.004, hold: 0.06, peak: 0.6 * g, decay: 0.03 });
+    noise(v, { at: 0.1, ft: 'bandpass', f: 2800, f2: 400, slide: 0.16, q: 3, a: 0.004, hold: 0.12, peak: 0.55 * g, decay: 0.06 });
+    tone(v, { type: 'sawtooth', f: 180, f2: 520, slide: 0.09, a: 0.003, hold: 0.06, peak: 0.12 * g, decay: 0.03, filter: { type: 'bandpass', f: 900, q: 1.5 } });
+    tone(v, { at: 0.1, type: 'sawtooth', f: 480, f2: 90, slide: 0.16, a: 0.003, hold: 0.12, peak: 0.12 * g, decay: 0.08, filter: { type: 'bandpass', f: 700, q: 1.5 } });
+  },
+  // crickets in the empty café: a few short high chirps
+  cricket(v, g = 1) {
+    for (let i = 0; i < 3; i++) {
+      tone(v, { at: i * 0.075, f: 4300, a: 0.004, hold: 0.035, peak: 0.07 * g, decay: 0.02, am: { rate: 90, depth: 0.9 } });
+    }
+  },
+  // a firework: the launch whistle, the bang and its crackle
+  firework(v, g = 1) {
+    tone(v, { f: 900, f2: 2400, slide: 0.35, a: 0.05, hold: 0.25, peak: 0.05 * g, decay: 0.05 });
+    tone(v, { at: 0.4, f: 120, f2: 40, slide: 0.3, a: 0.002, peak: 0.6 * g, decay: 0.5 });
+    noise(v, { at: 0.4, ft: 'lowpass', f: 2400, f2: 300, slide: 0.4, a: 0.002, peak: 0.45 * g, decay: 0.5 });
+    for (let i = 0; i < 9; i++) noise(v, { at: 0.55 + i * 0.07 + (i % 3) * 0.013, ft: 'highpass', f: 5000, a: 0.001, peak: 0.12 * g, decay: 0.02 });
+  },
+  // a soft liquid pour (the satisfying cut)
+  glug(v, g = 1, len = 1) {
+    noise(v, { ft: 'bandpass', f: 520, f2: 900, slide: len, q: 4, a: 0.1, hold: len, peak: 0.18 * g, decay: 0.2, am: { rate: 11, depth: 0.5 } });
+    noise(v, { ft: 'lowpass', f: 400, a: 0.1, hold: len, peak: 0.12 * g, decay: 0.2 });
+  },
   confetti(v, g = 1) {
     noise(v, { ft: 'bandpass', f: 1600, q: 0.8, a: 0.001, peak: 0.6 * g, decay: 0.05 });
     tone(v, { f: 420, f2: 90, slide: 0.08, a: 0.001, peak: 0.4 * g, decay: 0.1 });
@@ -108,29 +156,44 @@ const X = {
 
 // ------------------------------------------------------------------ music
 // The film gives its music bar by bar (film.music): { style, g, chords, mel, harmony, fill, lead }.
-// g: i takes chords and melody of bar i of the game's track; chords: ['Am', 'E7'] (one per half bar)
-// and mel: i name them instead; lead: false leaves the melody out. Styles: hook (stabs on the beats),
-// intro (half-time, soft), groove, drop (groove + brass hit), tension, end (the final chord).
-function resolveBar(m) {
+// g: i takes chords and melody of bar i of the film's track (film.track: 'game' or 'menu'); chords:
+// ['Am', 'E7'] (one per half bar) and mel: i name them instead; lead: false leaves the melody out.
+// Styles: hook (stabs on the beats), intro (half-time, soft), groove, drop (groove + brass hit),
+// tension, build (four on the floor with a snare roll, roll: 1 eighths, 2 sixteenths), lofi (soft
+// boom-bap, keys and vibes, vinyl crackle), sad (a lonely, slightly out-of-tune piano), rest (silence)
+// and end (the final chord: chord names it, default Cmaj; soft leaves out the big hit).
+function resolveBar(m, tr) {
   let chords = null;
   if (m.chords) chords = m.chords.map((n) => CH[n]);
-  else if (m.g !== undefined) chords = [GAME.chords[m.g], GAME.chords[m.g]];
+  else if (m.g !== undefined) chords = [tr.chords[m.g], tr.chords[m.g]];
   if (chords && chords.length === 1) chords = [chords[0], chords[0]];
   const mel = m.lead === false ? undefined : m.mel !== undefined ? m.mel : m.g;
-  return { ...m, chords, mel: mel === undefined || mel === null ? null : GAME.melody[mel] };
+  return { ...m, chords, mel: mel === undefined || mel === null ? null : tr.melody[mel] };
 }
 
-function arrangeMusic(c, bus, beat, music) {
+// the hiss and the odd click of an old record over one bar
+function vinyl(v, len, seed, g = 1) {
+  noise(v, { ft: 'highpass', f: 5200, a: 0.02, hold: len, peak: 0.018 * g, decay: 0.05 });
+  noise(v, { ft: 'bandpass', f: 1200, q: 0.6, a: 0.02, hold: len, peak: 0.01 * g, decay: 0.05 });
+  for (let i = 0; i < 7; i++) {
+    const at = ((seed * 7 + i * 13) % 29) / 29 * len;
+    noise(v, { at, ft: 'highpass', f: 2500, a: 0.0005, peak: (0.05 + ((seed + i) % 3) * 0.03) * g, decay: 0.006 });
+  }
+}
+
+function arrangeMusic(c, bus, beat, music, tr) {
   const sd = beat / 4;
   const swing = 0.1;
-  const bars = music.map(resolveBar);
+  const bars = music.map((m) => resolveBar(m, tr));
   const { drums, bass, keys, lead, pump } = bus;
   const at = (out, t) => ({ ctx: c, out, t });
   bars.forEach((bar, bi) => {
     const t0 = bi * 4 * beat;
+    if (bar.style === 'lofi' || bar.style === 'sad') vinyl(at(drums, t0), beat * 4, bi + 3, bar.style === 'sad' ? 1.4 : 1);
     for (let s = 0; s < 16; s++) {
       const t = t0 + s * sd + (s % 2 ? swing * sd : 0);
       const ch = bar.chords ? bar.chords[s < 8 ? 0 : 1] : null;
+      if (bar.style === 'rest') continue;
       if (bar.style === 'hook') {
         const hk = [CH.C, CH.G, CH.Am, CH.F][s >> 2];
         if (s % 4 === 0) {
@@ -146,15 +209,68 @@ function arrangeMusic(c, bus, beat, music) {
         continue;
       }
       if (bar.style === 'end') {
+        const fin = CH[bar.chord || 'Cmaj'];
         if (s === 0) {
-          X.impact(at(drums, t), 0.9);
-          for (const m of CH.Cmaj.hi) INST.vibes(at(keys, t), m, 0.16, beat * 3);
-          for (const m of CH.C.lo) INST.keys(at(keys, t), m, 0.1, beat * 3);
-          X.sub(at(bass, t), 36, beat * 2.5, 0.55);
-          INST.bass(at(bass, t), 48, 0.5, beat * 2);
+          if (bar.soft) INST.kick(at(drums, t), 0.4);
+          else X.impact(at(drums, t), 0.9);
+          for (const m of fin.hi) INST.vibes(at(keys, t), m, 0.16, beat * 3);
+          for (const m of fin.lo) INST.keys(at(keys, t), m, 0.1, beat * 3);
+          X.sub(at(bass, t), fin.bass - 12 >= 33 ? fin.bass - 12 : fin.bass, beat * 2.5, bar.soft ? 0.35 : 0.55);
+          INST.bass(at(bass, t), fin.bass, 0.5, beat * 2);
         }
         if (s === 2 || s === 3 || s === 6) INST.conga(at(drums, t), s === 6 ? 62 : 57, 0.18);
         if (s < 8) INST.shaker(at(drums, t), s % 2 ? 0.05 : 0.09, (s * 0.13) % 0.8);
+        continue;
+      }
+      if (bar.style === 'lofi') {
+        if (s === 0 || s === 10) INST.kick(at(drums, t), s ? 0.42 : 0.55);
+        if (s === 7) INST.kick(at(drums, t), 0.22);
+        if (s === 4 || s === 12) {
+          INST.rim(at(drums, t), 0.16);
+          X.snare(at(drums, t), 0.07);
+          INST.clap(at(drums, t), 0.08);
+        }
+        if (s % 2 === 0) X.hat(at(drums, t), s % 4 ? 0.035 : 0.055);
+        INST.shaker(at(drums, t), s % 4 === 2 ? 0.06 : 0.025, (s * 0.37) % 0.8);
+        if (s === 0) INST.bass(at(bass, t), ch.bass, 0.42, sd * 6);
+        if (s === 8) INST.bass(at(bass, t), ch.bass, 0.32, sd * 3);
+        if (s === 11) INST.bass(at(bass, t), ch.bass + 7, 0.26, sd * 3);
+        if (s === 0 || s === 8) X.sub(at(bass, t), ch.bass - 12 + (ch.bass < 45 ? 12 : 0), beat * 1.6, 0.18);
+        if (s === 0 || s === 6 || s === 10) for (const m of ch.lo) INST.keys(at(keys, t), m, s ? 0.05 : 0.07, sd * 4);
+        const n = bar.mel && bar.mel.at[s];
+        if (n) {
+          INST.vibes(at(lead, t), n.m, 0.3, n.d * sd);
+          INST.marimba(at(lead, t), n.m - 12, 0.1);
+        }
+        continue;
+      }
+      if (bar.style === 'sad') {
+        // an old upright, a little out of tune
+        if (s === 0 || s === 8) {
+          for (const m of ch.lo) {
+            tone(at(keys, t), { type: 'triangle', f: mtof(m), a: 0.012, hold: beat * 1.2, peak: 0.07, decay: 0.9, vib: { rate: 0.7, depth: mtof(m) * 0.006 } });
+          }
+          INST.bass(at(bass, t), ch.bass, 0.3, beat * 1.6);
+        }
+        if (s === 0) INST.kick(at(drums, t), 0.22);
+        if (s === 12) INST.rim(at(drums, t), 0.08);
+        const n = bar.mel && bar.mel.at[s];
+        if (n) tone(at(lead, t), { type: 'triangle', f: mtof(n.m - 12), a: 0.01, hold: n.d * sd * 0.5, peak: 0.16, decay: 0.7, vib: { rate: 0.9, depth: mtof(n.m - 12) * 0.009 } });
+        continue;
+      }
+      if (bar.style === 'build') {
+        if (s % 4 === 0) {
+          INST.kick(at(drums, t), 0.72);
+          pumpAt(pump, t, beat);
+        }
+        const roll = bar.roll || 1;
+        if (roll >= 2 || s % 2 === 0) X.snare(at(drums, t), 0.05 + (s / 15) * (roll >= 2 ? 0.2 : 0.12));
+        X.hat(at(drums, t), s % 2 ? 0.05 : 0.08);
+        if (s % 2 === 0) INST.bass(at(bass, t), ch.bass + (s % 8 === 4 ? 12 : 0), 0.42, sd * 1.5);
+        if (s === 0 || s === 8) X.pad(at(keys, t), ch, beat * 2 - 0.08, 0.07);
+        if (s % 4 === 2) for (const m of ch.hi) INST.marimba(at(keys, t), m, 0.08);
+        const n = bar.mel && bar.mel.at[s];
+        if (n) INST.steel(at(lead, t), n.m, 0.38);
         continue;
       }
       const tension = bar.style === 'tension';
@@ -196,7 +312,7 @@ function arrangeMusic(c, bus, beat, music) {
       const n = bar.mel && bar.mel.at[s];
       if (n) {
         INST.steel(at(lead, t), n.m, soft ? 0.34 : 0.44);
-        if (bar.harmony) INST.marimba(at(lead, t), harmonyBelow(n.m, SCALE, ch), 0.22);
+        if (bar.harmony) INST.marimba(at(lead, t), harmonyBelow(n.m, tr.scale, ch), 0.22);
         INST.marimba(at(lead, t), n.m - 12, 0.14);
       }
     }
@@ -286,7 +402,7 @@ export async function renderScore(film, { sampleRate = 48000, music = true, effe
   const seconds = film.duration + TAIL;
   const c = new OfflineAudioContext(2, Math.ceil(seconds * sampleRate), sampleRate);
   const mix = buildMix(c);
-  if (music) arrangeMusic(c, mix, film.beat, film.music);
+  if (music) arrangeMusic(c, mix, film.beat, film.music, TRACKS[film.track] || TRACKS.game);
   for (const q of effects ? film.cues : []) {
     const t = Math.max(0, q.t);
     const g = q.gain ?? 1;
@@ -299,7 +415,8 @@ export async function renderScore(film, { sampleRate = 48000, music = true, effe
     }
     const v = { ctx: c, out: mix.fx, t };
     if (q.name === 'riser') X.riser(v, q.len || 1, g);
-    else if (q.name === 'pop' || q.name === 'upgrade') X[q.name](v, q.pitch || 0, g);
+    else if (q.name === 'pop' || q.name === 'upgrade' || q.name === 'ting') X[q.name](v, q.pitch || 0, g);
+    else if (q.name === 'buzz' || q.name === 'glug') X[q.name](v, g, q.len);
     else if (X[q.name]) X[q.name](v, g);
   }
   for (const l of effects ? film.loops : []) {

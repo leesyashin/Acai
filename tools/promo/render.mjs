@@ -2,9 +2,12 @@
 // Renders the promo film (tools/promo/promo.html) to a TikTok-ready MP4: 1080×1920, H.264 + AAC.
 //
 //   node tools/promo/render.mjs [out.mp4] [options]
-//     --version hype    the cut: hype (fast motion design), mix (calmer, steps in real gameplay) or
-//                       gameplay (mostly real gameplay); mix and gameplay record footage first if
-//                       tools/promo/footage/main is missing (see capture.mjs, --recapture to redo)
+//     --version hype    the cut: hype (fast motion design), mix (calmer, steps in real gameplay),
+//                       gameplay (mostly real gameplay), combo (hype + gameplay) – these three record
+//                       footage first if tools/promo/footage/main is missing (see capture.mjs,
+//                       --recapture to redo) – or the motion films satisfying (slow ASMR bowl build),
+//                       orders (phone notification chaos), journey (a ride up the level map) and
+//                       glowup (day 1 vs. day 100)
 //     --footage main    which recording in tools/promo/footage to use
 //     --lang de|en      language of the texts (default de)
 //     --fps 30          frames per second of the video (default 30)
@@ -26,6 +29,7 @@ import path from 'node:path';
 import { startServer } from '../serve.mjs';
 import { launchBrowser, collectConsoleErrors } from '../../tests/e2e/helpers.mjs';
 import { captureGameplay, FOOTAGE_DIR } from './capture.mjs';
+import * as DATA from '../../js/data.js';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -43,6 +47,7 @@ const SHUTTER = 0.5; // the sub-frames cover half the frame interval (a 180° sh
 const WORKERS = Math.max(1, Number(opt('workers', 3)));
 const STILLS = opt('stills', '') ? opt('stills', '').split(',').map(Number) : null;
 const KEEP = flag('keep');
+const FOOTAGE_CUTS = ['mix', 'gameplay', 'combo']; // the cuts with real gameplay (CUTS[…].footage in film.js)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function run(cmd, argv, { input = null, quiet = true } = {}) {
@@ -65,17 +70,22 @@ const SAVE_KEY = 'acaiFever.save.v1';
 const ALL_ING = ['acai', 'pitaya', 'spirulina', 'banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi',
   'honey', 'coconut', 'chia', 'peanut', 'chocolate', 'mint', 'cacao'];
 
-// A busy moment of level 14 (four guests, two blenders, filled bowls, matcha), at 2× pixels.
+// The level of the screenshot: the first with four seats and matcha (40 since the rebalance, 14 before).
+const SHOT_LEVEL = DATA.LEVELS.find((l) => l.seats >= 4 && (l.matchaChance ?? 1) > 0)?.id ?? 14;
+
+// A busy moment of SHOT_LEVEL (four guests, two blenders, filled bowls, matcha), at 2× pixels.
 async function gameShot(url, lang) {
   const b = await launchBrowser({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, fonts: 'real', locale: lang === 'en' ? 'en-US' : 'de-DE' });
   try {
     const { page } = b;
     const stars = {};
-    for (let i = 1; i <= 14; i++) stars[i] = 3;
+    for (let i = 1; i < SHOT_LEVEL; i++) stars[i] = 3;
+    // every level's tutorial already seen, so none covers the kitchen
+    const seenIntros = Object.fromEntries(DATA.LEVELS.filter((l) => l.intro).map((l) => [l.intro, true]));
     const save = {
       version: 1, coins: 2380, owned: ALL_ING.slice(), ingLevels: { acai: 2, pitaya: 1, banana: 1, strawberry: 2, mango: 1 },
-      upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, matchaSlots: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
-      stars, endlessBest: 512, newIngredients: [], seenIntros: { basics: true }, settings: { lang, music: false, sfx: false },
+      upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, matchaSlots: 1, cupArm: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
+      stars, endlessBest: 512, newIngredients: [], seenIntros: { basics: true, ...seenIntros }, settings: { lang, music: false, sfx: false },
       stats: { served: 640, earned: 6400, played: 20 },
     };
     await page.goto(`${url}index.html`);
@@ -83,37 +93,44 @@ async function gameShot(url, lang) {
     await page.reload();
     await page.waitForFunction(() => window.__acaiScreen?.() === 'title');
     await page.evaluate(() => document.fonts.ready);
-    await page.evaluate(() => window.__acaiGo('game', { mode: 'campaign', levelId: 14, seed: 5 }));
+    await page.evaluate((id) => window.__acaiGo('game', { mode: 'campaign', levelId: id, seed: 5 }), SHOT_LEVEL);
     await sleep(700);
     await page.evaluate(() => { window.__acaiSpeed = 6; });
-    await page.waitForFunction(() => window.__acaiGame.seats.filter((c) => c && c.state === 'waiting').length >= 4, null, { timeout: 30000 });
+    // every seat taken
+    await page.waitForFunction(() => {
+      const g = window.__acaiGame;
+      return g.seats.length > 0 && g.seats.every((c) => c && c.state === 'waiting');
+    }, null, { timeout: 30000 });
+    // each move on its own: a move the engine refuses (another level, another API) only leaves its part out
     await page.evaluate(async () => {
       window.__acaiSpeed = 1;
       const e = await import('/js/engine.js');
       const g = window.__acaiGame;
-      e.loadBlender(g, 0, 'acai');
-      e.loadBlender(g, 1, 'pitaya');
-      const c = g.seats.filter(Boolean);
-      c[1].patience = c[1].maxPatience * 0.5;
-      c[2].patience = c[2].maxPatience * 0.28;
-      c[3].patience = c[3].maxPatience * 0.1;
+      const tryDo = (fn) => { try { fn(); } catch { /* left out */ } };
+      tryDo(() => e.loadBlender(g, 0, 'acai'));
+      if (g.blenders[1]) tryDo(() => e.loadBlender(g, 1, 'pitaya'));
+      g.seats.filter(Boolean).forEach((c, i) => { if (i) c.patience = c.maxPatience * [1, 0.5, 0.28, 0.1][i]; });
     });
     await page.evaluate(() => { window.__acaiSpeed = 3; });
-    await page.waitForFunction(() => window.__acaiGame.blenders.every((x) => x.state === 'ready'), null, { timeout: 15000 });
+    await page.waitForFunction(() => window.__acaiGame.blenders.every((x) => x.state === 'ready' || x.state === 'empty'), null, { timeout: 15000 });
     await page.evaluate(async () => {
       window.__acaiSpeed = 1;
       const e = await import('/js/engine.js');
       const g = window.__acaiGame;
-      for (let i = 0; i < g.bowls.length; i++) e.placeCup(g, i);
-      e.pourBlender(g, 0, 0);
-      for (const id of ['banana', 'strawberry', 'honey']) e.addIngredient(g, 0, id);
-      e.pourBlender(g, 1, 1);
-      for (const id of ['mango', 'kiwi', 'coconut', 'chia']) e.addIngredient(g, 1, id);
-      e.pourBlender(g, 0, 2);
-      e.addIngredient(g, 2, 'blueberry');
-      if (g.matcha) {
-        e.loadMatcha(g, 0, 'strawberry');
-        e.loadMatcha(g, 1, 'mango');
+      const tryDo = (fn) => { try { fn(); } catch { /* left out */ } };
+      for (let i = 0; i < g.bowls.length; i++) tryDo(() => e.placeCup(g, i));
+      tryDo(() => e.pourBlender(g, 0, 0));
+      for (const id of ['banana', 'strawberry', 'honey']) tryDo(() => e.addIngredient(g, 0, id));
+      tryDo(() => e.pourBlender(g, 1, 1));
+      for (const id of ['mango', 'kiwi', 'coconut', 'chia']) tryDo(() => e.addIngredient(g, 1, id));
+      tryDo(() => e.pourBlender(g, 0, 2));
+      tryDo(() => e.addIngredient(g, 2, 'blueberry'));
+      if (g.matcha && e.loadMatcha) {
+        // the matcha fruits by their old ids, else by their own ('mStrawberry')
+        for (const [slot, fruit] of [[0, 'strawberry'], [1, 'mango']]) {
+          tryDo(() => e.loadMatcha(g, slot, fruit));
+          tryDo(() => e.loadMatcha(g, slot, `m${fruit[0].toUpperCase()}${fruit.slice(1)}`));
+        }
       }
     });
     await sleep(1400);
@@ -186,9 +203,15 @@ async function main() {
   const started = Date.now();
   const pages = [];
   try {
-    const shot = opt('shot', '') ? `data:image/png;base64,${readFileSync(opt('shot')).toString('base64')}` : await gameShot(srv.url, LANG);
-    console.log(`game screenshot ready (${Math.round(shot.length / 1024)} KB)`);
-    if (VERSION !== 'hype' && (flag('recapture') || !existsSync(path.join(FOOTAGE_DIR, FOOTAGE, 'clip.json')))) {
+    // without a screenshot the films show the live game in an iframe
+    let shot = null;
+    try {
+      shot = opt('shot', '') ? `data:image/png;base64,${readFileSync(opt('shot')).toString('base64')}` : await gameShot(srv.url, LANG);
+      console.log(`game screenshot ready (${Math.round(shot.length / 1024)} KB)`);
+    } catch (err) {
+      console.warn(`no game screenshot (${String(err.message).split('\n')[0]}) – using the live game`);
+    }
+    if (FOOTAGE_CUTS.includes(VERSION) && (flag('recapture') || !existsSync(path.join(FOOTAGE_DIR, FOOTAGE, 'clip.json')))) {
       console.log('recording gameplay (tools/promo/capture.mjs) …');
       const clip = await captureGameplay({ url: srv.url, out: path.join(FOOTAGE_DIR, FOOTAGE), lang: LANG, seconds: 48 });
       console.log(`gameplay: ${clip.frames} frames, ${clip.actions.length} moves`);
