@@ -99,9 +99,12 @@ Fenster mit tiefer Laibung und hellem Tageslicht, eine Kreidetafel, ein Wandrega
 weiche Schatten – und bleibt bewusst ruhig, damit Gäste und Bestellblasen davor gut lesbar sind. Bei 4 Gästen fehlen
 Tafel und Regal, die die äußeren Bestellblasen sonst bis auf schmale Streifen verdecken würden.
 
-**Level-Karte:** Die Karte ist eine lange Strecke zum Hochscrollen (Finger, Mausrad/Trackpad oder mit der Maus ziehen) durch drei
-Gegenden: **Am Strand** (Level 1–7, mit Meer, Rettungsturm und Palmen), die **Stadtpromenade** (Level 8–14, bunte Häuser mit Markisen,
-Brunnen, Eiswagen) und den **Regenwald** (Level 15–20, Açaí-Palmen, Fluss mit Wasserfall, Tukan). Gegenden, die du noch nicht erreicht
+**Level-Karte:** Die Karte ist eine lange Strecke zum Hochscrollen (Finger, Mausrad/Trackpad oder mit der Maus ziehen) durch sechs
+Gegenden mit je 10 Leveln: **Am Strand** (Level 1–10, mit Meer, Steg, Strandbar, Rettungsturm und Palmen), die **Stadtpromenade**
+(Level 11–20, bunte Häuser mit Markisen, Brunnen, Eiswagen, Café-Tische), den **Regenwald** (Level 21–30, Açaí-Palmen, Fluss mit
+Wasserfall, Tukan), die **Teeplantage** (Level 31–40, Teeterrassen, Teehaus mit Matcha-Schild, Koi-Teich, rote Brücke, Kirschbäume),
+den **Hafen** (Level 41–50, Kai mit Booten, Kran, Leuchtturm, Fischstand) und den **Nachtmarkt** (Level 51–60, Marktstände unter
+Lampions, Riesenrad, Feuerwerk über dem Finale und der Açaí-Stand ganz oben). Gegenden, die du noch nicht erreicht
 hast, liegen im Dunst; ein Schild am Anfang jeder Gegend sagt, ab welchem Level sie aufgeht. Eine Spielfigur (eine Stecknadel mit
 Açaí-Becher) schwebt über dem Level, das als Nächstes dran ist, und die Karte öffnet sich genau dort.
 
