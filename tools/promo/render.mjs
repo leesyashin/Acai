@@ -90,34 +90,41 @@ async function gameShot(url, lang) {
     await page.evaluate(() => window.__acaiGo('game', { mode: 'campaign', levelId: 14, seed: 5 }));
     await sleep(700);
     await page.evaluate(() => { window.__acaiSpeed = 6; });
-    await page.waitForFunction(() => window.__acaiGame.seats.filter((c) => c && c.state === 'waiting').length >= 4, null, { timeout: 30000 });
+    // every seat taken (four at level 14 now; the level may get fewer seats as the game is rebalanced)
+    await page.waitForFunction(() => {
+      const g = window.__acaiGame;
+      return g.seats.length > 0 && g.seats.every((c) => c && c.state === 'waiting');
+    }, null, { timeout: 30000 });
+    // each move on its own: a move the engine refuses (another level, another API) only leaves its part out
     await page.evaluate(async () => {
       window.__acaiSpeed = 1;
       const e = await import('/js/engine.js');
       const g = window.__acaiGame;
-      e.loadBlender(g, 0, 'acai');
-      e.loadBlender(g, 1, 'pitaya');
-      const c = g.seats.filter(Boolean);
-      c[1].patience = c[1].maxPatience * 0.5;
-      c[2].patience = c[2].maxPatience * 0.28;
-      c[3].patience = c[3].maxPatience * 0.1;
+      const tryDo = (fn) => { try { fn(); } catch { /* left out */ } };
+      tryDo(() => e.loadBlender(g, 0, 'acai'));
+      if (g.blenders[1]) tryDo(() => e.loadBlender(g, 1, 'pitaya'));
+      g.seats.filter(Boolean).forEach((c, i) => { if (i) c.patience = c.maxPatience * [1, 0.5, 0.28, 0.1][i]; });
     });
     await page.evaluate(() => { window.__acaiSpeed = 3; });
-    await page.waitForFunction(() => window.__acaiGame.blenders.every((x) => x.state === 'ready'), null, { timeout: 15000 });
+    await page.waitForFunction(() => window.__acaiGame.blenders.every((x) => x.state === 'ready' || x.state === 'empty'), null, { timeout: 15000 });
     await page.evaluate(async () => {
       window.__acaiSpeed = 1;
       const e = await import('/js/engine.js');
       const g = window.__acaiGame;
-      for (let i = 0; i < g.bowls.length; i++) e.placeCup(g, i);
-      e.pourBlender(g, 0, 0);
-      for (const id of ['banana', 'strawberry', 'honey']) e.addIngredient(g, 0, id);
-      e.pourBlender(g, 1, 1);
-      for (const id of ['mango', 'kiwi', 'coconut', 'chia']) e.addIngredient(g, 1, id);
-      e.pourBlender(g, 0, 2);
-      e.addIngredient(g, 2, 'blueberry');
-      if (g.matcha) {
-        e.loadMatcha(g, 0, 'strawberry');
-        e.loadMatcha(g, 1, 'mango');
+      const tryDo = (fn) => { try { fn(); } catch { /* left out */ } };
+      for (let i = 0; i < g.bowls.length; i++) tryDo(() => e.placeCup(g, i));
+      tryDo(() => e.pourBlender(g, 0, 0));
+      for (const id of ['banana', 'strawberry', 'honey']) tryDo(() => e.addIngredient(g, 0, id));
+      tryDo(() => e.pourBlender(g, 1, 1));
+      for (const id of ['mango', 'kiwi', 'coconut', 'chia']) tryDo(() => e.addIngredient(g, 1, id));
+      tryDo(() => e.pourBlender(g, 0, 2));
+      tryDo(() => e.addIngredient(g, 2, 'blueberry'));
+      if (g.matcha && e.loadMatcha) {
+        // the matcha fruits by their old ids, else by their own ('mStrawberry')
+        for (const [slot, fruit] of [[0, 'strawberry'], [1, 'mango']]) {
+          tryDo(() => e.loadMatcha(g, slot, fruit));
+          tryDo(() => e.loadMatcha(g, slot, `m${fruit[0].toUpperCase()}${fruit.slice(1)}`));
+        }
       }
     });
     await sleep(1400);
