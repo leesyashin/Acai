@@ -208,7 +208,7 @@ test('decor casts its shadow on the café wall only, not on a shop card', () => 
 
 // ------------------------------------------------------------------ level map, full bleed, title, icon
 test('level map: the nodes keep apart, stay on the screen, each region holds its levels, the road comes from below', () => {
-  const pos = Array.from({ length: 20 }, (_, i) => art.mapLevelPos(i));
+  const pos = Array.from({ length: 60 }, (_, i) => art.mapLevelPos(i));
   for (const p of pos) assert.ok(p.x >= 110 && p.x <= 1170 && p.y > 150 && p.y < art.MAP_H - 120, `node at ${p.x},${p.y} too close to an edge`);
   for (let i = 0; i < pos.length; i++) {
     for (let j = i + 1; j < pos.length; j++) {
@@ -227,8 +227,10 @@ test('level map: the nodes keep apart, stay on the screen, each region holds its
       assert.ok(y > r.top + 40 && y < r.bottom - 40, `level ${id} is not inside the ${r.id} region`);
     }
   }
-  assert.equal(art.MAP_REGIONS.reduce((n, r) => n + r.last - r.first + 1, 0), 20, 'every level in one region');
-  assert.match(art.mapRoadData(20), new RegExp(`^M-?[\\d.]+ ${art.MAP_H + 60}C`), 'the road starts below the map');
+  assert.equal(art.MAP_REGIONS.reduce((n, r) => n + r.last - r.first + 1, 0), 60, 'every level in one region');
+  assert.deepEqual(art.MAP_REGIONS.map((r) => r.id), ['beach', 'town', 'forest', 'tea', 'harbor', 'night'], 'six regions from the bottom up');
+  for (const r of art.MAP_REGIONS) assert.equal(r.last - r.first + 1, 10, `${r.id}: ten levels`);
+  assert.match(art.mapRoadData(60), new RegExp(`^M-?[\\d.]+ ${art.MAP_H + 60}C`), 'the road starts below the map');
   for (const r of art.MAP_REGIONS) {
     const svg = art.mapRegionSVG(r.id);
     assert.match(svg, new RegExp(`width="${1280 + 2 * art.MAP_BLEED}" height="${r.bottom - r.top}"`), `${r.id}: drawn for the full map width`);

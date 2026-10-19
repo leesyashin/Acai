@@ -237,10 +237,10 @@ async function mainFlow(browser, base) {
     await assertNoOverflow(page, 'map');
   });
 
-  await check('map: three regions with signs, the player pin over level 1, a wheel scrolls the map', async () => {
-    eq(await page.locator('.map-region').count(), 3, 'regions');
-    eq(await page.locator('.map-sign').count(), 3, 'region signs');
-    eq(await page.locator('.map-region.is-locked').count(), 2, 'regions not reached yet');
+  await check('map: six regions with signs, the player pin over level 1, a wheel scrolls the map', async () => {
+    eq(await page.locator('.map-region').count(), 6, 'regions');
+    eq(await page.locator('.map-sign').count(), 6, 'region signs');
+    eq(await page.locator('.map-region.is-locked').count(), 5, 'regions not reached yet');
     const pin = await page.locator('.map-avatar').boundingBox();
     const disc = await page.locator('.map-level[data-level="1"] .map-disc').boundingBox();
     assert(Math.abs(pin.x + pin.width / 2 - (disc.x + disc.width / 2)) < 4, 'the pin is not over level 1');

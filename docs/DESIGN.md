@@ -162,7 +162,8 @@ js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, wh
 js/art-kitchen.js     realistic kitchen art: work counter, freezer, risers, café back wall, decor; blender, matcha machine,
                       trash and freezer as the SVG fallback of the 3D models
 js/art-guests.js      the guests: looks (randomLook, lookFromSeed) and realistic busts in four moods (customerSVG)
-js/art-map.js         the level map: three regions (beach, town promenade, rainforest), node positions, the road
+js/art-map.js         the level map: six regions of ten levels (beach, town promenade, rainforest, tea plantation, harbour,
+                      night market), node positions, the road
 js/art.js             HUD icons, logo, title counter, app icon; re-exports the map, food, kitchen + guest art (screens import from here)
 js/geo3d.js           3D math, mesh builders (lathe – also fluted or warped –, rounded box, tube, liquid surface) and materials – pure
 js/kitchen3d.js       3D models of the appliances as scene descriptions (blender tiers, matcha machine, bin, freezer) – pure
@@ -408,9 +409,15 @@ titleCounterSVG(bleed = 0, below = 0) // the title screen's counter (1280×116):
                                       // foot rail; bleed / below draw it wider and deeper (full bleed)
 appIconSVG(size, {maskable})          // the app icon (512 square): the logo's cup on the açaí sunburst; maskable keeps it in
                                       // the central 80 % (tools/icons.mjs draws icons/ from it)
-mapRegionSVG(id), MAP_REGIONS         // the level map (js/art-map.js): 'beach' (levels 1–7: sea, boardwalk, lifeguard tower,
-                                      // palms), 'town' (8–14: houses with awnings, lamps, a fountain, an ice-cream cart),
-                                      // 'forest' (15–20: açaí palms, a river from a waterfall, a toucan); each MAP_W + 2·MAP_BLEED
+mapRegionSVG(id), MAP_REGIONS         // the level map (js/art-map.js), ten levels per region: 'beach' (levels 1–10: sea, jetty,
+                                      // volleyball net, beach bar, boardwalk, lifeguard tower, palms), 'town' (11–20: houses with
+                                      // awnings, lamps, a fountain, an ice-cream cart, café tables), 'forest' (21–30: açaí palms,
+                                      // a river from a waterfall, a toucan, a basket of berries), 'tea' (31–40: terraced tea rows,
+                                      // a bamboo fence, the "Matcha" tea house, stone lanterns, cherry trees, a koi pond whose
+                                      // stream feeds the waterfall, a red bridge), 'harbor' (41–50: a quay between two basins,
+                                      // boats, a crane, a lighthouse, a fish stall, containers, lantern strings), 'night' (51–60:
+                                      // market stalls under lanterns, a ferris wheel, fireworks and the açaí bar at the
+                                      // finale, a brick wall along its bottom); each MAP_W + 2·MAP_BLEED
                                       // wide, MAP_REGIONS gives their tops/bottoms in map px (MAP_H in all)
 mapLevelPos(i), mapRoadData(count)    // centre of level node i (stage x, map y); the road from below the map through the
                                       // first `count` nodes (a smooth curve)
@@ -650,8 +657,8 @@ ctx = { go, audio, t, screen /* current name */, rerender /* true on a language 
   3D renderer is compiled (at least 0.9 s, at most 4 s), then fades open; `html.is-booting` pauses the title's entrance
   animations under it. It never takes the pointer: a tap, a key or a change of screen opens it at once.
 - **Level map**: a scroller (`.map-scroll`, `data-scroll`, as wide as the map art and reaching into the bands) over the
-  three regions; it opens with the level that is up next (or `openLevel`) in the middle. A region not reached yet lies
-  in a light haze; a sign beside its first level names it ("Am Strand – Level 1–7", "Stadtpromenade – ab Level 8"). The
+  six regions; it opens with the level that is up next (or `openLevel`) in the middle. A region not reached yet lies
+  in a light haze; a sign beside its first level names it ("Am Strand – Level 1–10", "Stadtpromenade – ab Level 11"). The
   player is a pin with a bowl, bobbing over the next level. A mouse drags the map (a drag swallows the click after it).
 
 ### 4.7 Gameplay screen layout (stage px, 1280 × 800)

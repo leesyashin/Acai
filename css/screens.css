@@ -557,7 +557,8 @@ html.is-bleed .sc-topbar {
 
 /* ================================================================ map */
 .screen-map { --screen-bg: #ffe2a6; }
-/* the map scrolls up through its regions (js/art-map.js): beach, town promenade, rainforest. The scroller is as wide
+/* the map scrolls up through its regions (js/art-map.js): beach, town promenade, rainforest, tea plantation, harbour,
+   night market. The scroller is as wide
    as the art (MAP_BLEED on either side, seen on wide screens) and reaches into the bands above and below too; touch
    pans it natively, a wheel or trackpad scrolls it (js/stage.js lets those wheels through), a mouse drags it. */
 .map-scroll {
