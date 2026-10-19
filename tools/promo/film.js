@@ -1,7 +1,8 @@
-// The promo films of Açaí Fever (tools/promo): 9:16 TikTok ads that introduce the game in 25–39
-// seconds. They run at 124 BPM like the game's own music and every cut sits on the beat. CUTS holds
-// the versions: 'hype' (fast motion design), 'mix' (calmer, the steps shown in real gameplay),
-// 'gameplay' (mostly real gameplay with a follow camera) and 'combo' (hype, then real gameplay).
+// The promo films of Açaí Fever (tools/promo): 9:16 TikTok ads that introduce the game in 18–39
+// seconds. They run at 124 BPM like the game's own music (a cut may set its own bpm) and every cut sits
+// on the beat. CUTS holds the versions: 'hype' (fast motion design), 'mix' (calmer, the steps shown in
+// real gameplay), 'gameplay' (mostly real gameplay with a follow camera) and 'combo' (hype, then real
+// gameplay); the films in EXTRA add their own cuts and scenes ('satisfying', 'orders', 'journey', 'glowup').
 //
 //   const film = buildFilm(frameEl, { lang, shot, version, footage });   // builds every scene once
 //   await film.seek(t)            // puts the whole frame at time t (seconds)
@@ -20,10 +21,18 @@ import { createRng } from '../../js/rng.js';
 import { clamp, lerp, prog, ease, spring, jiggle, decay, bump, wob, arc } from './motion.js';
 import { Sprite, Title, Burst, Ring, View3D, div, touchMarkup, setTouch, progressRingMarkup, setProgressRing } from './kit.js';
 import { FootageView, followPath, camOn, fitCam, placeSounds } from './footage.js';
+import * as satisfying from './film-satisfying.js';
+import * as orders from './film-orders.js';
+import * as journey from './film-journey.js';
+import * as glowup from './film-glowup.js';
 
 export const BPM = 124;
-export const BEAT = 60 / BPM;
+// the beat of the cut being built (cut.bpm, else BPM)
+let BEAT = 60 / BPM;
 const b = (n) => n * BEAT;
+
+// films in their own modules: each exports CUTS and scenes(ctx) (scene builders like SCENES below)
+const EXTRA = [satisfying, orders, journey, glowup];
 
 const COPY = {
   de: {
@@ -225,6 +234,7 @@ export const CUTS = {
     ],
   },
 };
+for (const m of EXTRA) Object.assign(CUTS, m.CUTS);
 
 const ALL_IDS = INGREDIENTS.map((i) => i.id);
 const PLAY_ICON = '<svg width="78" height="84" viewBox="0 0 78 84"><path d="M10 8L70 42L10 76Z" fill="#fff" stroke="#2a1236" stroke-width="8" stroke-linejoin="round"/></svg>';
@@ -375,6 +385,7 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
   const C = COPY[lang] || COPY.de;
   const cut = CUTS[version] || CUTS.hype;
   if (cut.footage && !footage) throw new Error(`the '${version}' cut needs gameplay footage (tools/promo/capture.mjs)`);
+  BEAT = 60 / (cut.bpm || BPM);
   const fx = new Fx(cut.energy ?? 1);
   const path = footage ? followPath(footage.clip) : null;
   const cues = [];
@@ -384,11 +395,13 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
 
   // ---------------------------------------------------------------- layers
   frame.innerHTML = '';
+  // a theme restyles the background (promo.css: .theme-cream, .theme-phone …)
+  frame.className = cut.theme ? `theme-${cut.theme}` : '';
   const bg = div(frame, 'layer bg-base');
   const rays = div(bg, 'bg-rays');
   const tints = {};
-  for (const name of ['red', 'night', 'pink', 'lagoon', 'mango']) tints[name] = div(bg, `layer bg-tint ${name}`);
-  const floatLayer = div(bg, 'layer');
+  for (const name of ['red', 'night', 'pink', 'lagoon', 'mango', 'gold', 'grey']) tints[name] = div(bg, `layer bg-tint ${name}`);
+  const floatLayer = div(bg, 'layer floaters');
   const cam = div(frame, 'layer');
   cam.id = 'cam';
   const vignette = div(frame, 'layer fx-vignette');
@@ -1366,6 +1379,13 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
     };
   };
 
+  // ================================================================ the films in their own modules
+  const ctx = {
+    lang, C, fx, cue, loops, b, beat: BEAT, shot, frame, TRANS, SCENES,
+    popIn, subPill, chip, guest, patienceBar, moodOf, stepHeader, confettiBurst, sparkleSVG, counterBandSVG, orderBubble, PLAY_ICON,
+  };
+  for (const m of EXTRA) Object.assign(SCENES, m.scenes(ctx));
+
   // ================================================================ assemble the cut
   let at = 0;
   for (const [name, beats, opts = {}] of cut.scenes) {
@@ -1427,7 +1447,7 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
   }
 
   cues.sort((p, q) => p.t - q.t);
-  return { duration, seek, cues, loops, beat: BEAT, bpm: BPM, music: cut.music, version };
+  return { duration, seek, cues, loops, beat: BEAT, bpm: 60 / BEAT, music: cut.music, track: cut.track || 'game', version };
 }
 
 // ------------------------------------------------------------------ art made for the film

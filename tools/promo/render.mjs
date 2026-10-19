@@ -2,9 +2,12 @@
 // Renders the promo film (tools/promo/promo.html) to a TikTok-ready MP4: 1080×1920, H.264 + AAC.
 //
 //   node tools/promo/render.mjs [out.mp4] [options]
-//     --version hype    the cut: hype (fast motion design), mix (calmer, steps in real gameplay) or
-//                       gameplay (mostly real gameplay); mix and gameplay record footage first if
-//                       tools/promo/footage/main is missing (see capture.mjs, --recapture to redo)
+//     --version hype    the cut: hype (fast motion design), mix (calmer, steps in real gameplay),
+//                       gameplay (mostly real gameplay), combo (hype + gameplay) – these three record
+//                       footage first if tools/promo/footage/main is missing (see capture.mjs,
+//                       --recapture to redo) – or the motion films satisfying (slow ASMR bowl build),
+//                       orders (phone notification chaos), journey (a ride up the level map) and
+//                       glowup (day 1 vs. day 100)
 //     --footage main    which recording in tools/promo/footage to use
 //     --lang de|en      language of the texts (default de)
 //     --fps 30          frames per second of the video (default 30)
@@ -43,6 +46,7 @@ const SHUTTER = 0.5; // the sub-frames cover half the frame interval (a 180° sh
 const WORKERS = Math.max(1, Number(opt('workers', 3)));
 const STILLS = opt('stills', '') ? opt('stills', '').split(',').map(Number) : null;
 const KEEP = flag('keep');
+const FOOTAGE_CUTS = ['mix', 'gameplay', 'combo']; // the cuts with real gameplay (CUTS[…].footage in film.js)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function run(cmd, argv, { input = null, quiet = true } = {}) {
@@ -186,9 +190,15 @@ async function main() {
   const started = Date.now();
   const pages = [];
   try {
-    const shot = opt('shot', '') ? `data:image/png;base64,${readFileSync(opt('shot')).toString('base64')}` : await gameShot(srv.url, LANG);
-    console.log(`game screenshot ready (${Math.round(shot.length / 1024)} KB)`);
-    if (VERSION !== 'hype' && (flag('recapture') || !existsSync(path.join(FOOTAGE_DIR, FOOTAGE, 'clip.json')))) {
+    // without a screenshot the films show the live game in an iframe
+    let shot = null;
+    try {
+      shot = opt('shot', '') ? `data:image/png;base64,${readFileSync(opt('shot')).toString('base64')}` : await gameShot(srv.url, LANG);
+      console.log(`game screenshot ready (${Math.round(shot.length / 1024)} KB)`);
+    } catch (err) {
+      console.warn(`no game screenshot (${String(err.message).split('\n')[0]}) – using the live game`);
+    }
+    if (FOOTAGE_CUTS.includes(VERSION) && (flag('recapture') || !existsSync(path.join(FOOTAGE_DIR, FOOTAGE, 'clip.json')))) {
       console.log('recording gameplay (tools/promo/capture.mjs) …');
       const clip = await captureGameplay({ url: srv.url, out: path.join(FOOTAGE_DIR, FOOTAGE), lang: LANG, seconds: 48 });
       console.log(`gameplay: ${clip.frames} frames, ${clip.actions.length} moves`);
