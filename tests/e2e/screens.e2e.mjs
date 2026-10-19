@@ -424,13 +424,13 @@ async function mainFlow(browser, base) {
 
   await check('settings: reset needs two steps and keeps language + audio settings', async () => {
     await page.click('[data-action="reset"]');
-    assert((await text(page, '.settings-reset p')).startsWith('Really delete'), 'confirm text');
+    assert((await text(page, '.settings-reset p')).startsWith('Start over'), 'confirm text');
     await page.click('[data-action="reset-cancel"]');
     eq((await saveState(page)).coins > 0, true, 'cancel keeps progress');
     await page.click('[data-action="reset"]');
     await page.click('[data-action="reset-confirm"]');
     await waitScreen(page, 'settings');
-    eq(await toastText(page), 'Progress deleted.', 'toast');
+    eq(await toastText(page), 'New game started!', 'toast');
     const s = await saveState(page);
     eq([s.coins, s.stars, s.upgrades, s.settings.lang, s.settings.music], [0, {}, {}, 'en', false], 'save after reset');
   });

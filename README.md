@@ -138,7 +138,9 @@ wie die Menüs.
 wird es schwerer (mehr Plätze, mehr Gäste, größere Bestellungen). Gespielt wird, bis alle Herzen weg sind
 oder du im Pausenmenü die Schicht beendest – deine Münzen und dein Highscore werden gespeichert.
 
-Fortschritt, Sprache und Ton-Einstellungen werden im Browser gespeichert (`localStorage`).
+Fortschritt, Sprache und Ton-Einstellungen werden im Browser gespeichert (`localStorage`). Von vorne anfangen:
+**Einstellungen** (Zahnrad oben rechts im Titelbild) → **Neues Spiel** – Münzen, Sterne und Einkäufe werden gelöscht,
+Sprache und Ton bleiben.
 
 ## Auf dem MacBook spielen
 
@@ -360,7 +362,7 @@ A customer who runs out of patience leaves and costs you a **heart** – 0 heart
 20 campaign levels with 1–3 **stars** (money goals); coins are kept even when you lose and buy new ingredients
 (4 at start, 16 total), quality, kitchen upgrades and decor in the **shop**. **Endless mode** unlocks after
 level 10 and gets harder every 30 seconds; end the shift from the pause menu at any time – coins and your best
-score are saved.
+score are saved. To start over: **Settings** (gear on the title screen) → **New game**.
 
 **Run locally** (Node.js 22+):
 

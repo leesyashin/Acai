@@ -66,6 +66,7 @@ async function main() {
         const shot = async (name) => {
           if (ONLY && !ONLY.some((o) => name.includes(o))) return;
           await sleep(60);
+          await page.waitForFunction(() => !document.querySelector('img.art3d.is-pending'), null, { timeout: 15000 });
           const file = path.join(OUT, `${size.tag}-${lang}-${name}.png`);
           await page.screenshot({ path: file });
           shots.push(file);
