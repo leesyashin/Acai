@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import { startServer, reuseServer, collectConsoleErrors, e2eOutDir, STAGE_W } from './helpers.mjs';
+import { LEVELS, ENDLESS_UNLOCK_LEVEL, MATCHA_LEVEL, ING, UPGRADES } from '../../js/data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const PORT = Number(process.env.SCREENS_E2E_PORT || process.env.E2E_PORT) || 8090;
@@ -204,7 +205,7 @@ async function mainFlow(browser, base) {
     eq(await page.evaluate(() => document.documentElement.lang), 'de', 'html lang');
     eq(await page.evaluate(() => window.__acaiAudio?.state?.().requestedTrack ?? 'menu'), 'menu', 'requested music');
     assert(await page.locator('[data-action="endless"][aria-disabled="true"]').count() === 1, 'endless should be locked');
-    eq(await text(page, '.title-endless small'), 'Gewinne Level 10', 'endless lock note');
+    eq(await text(page, '.title-endless small'), `Gewinne Level ${ENDLESS_UNLOCK_LEVEL}`, 'endless lock note');
     await assertTouchTargets(page, 'title');
     await assertNoOverflow(page, 'title');
   });
@@ -217,7 +218,7 @@ async function mainFlow(browser, base) {
 
   await check('title: locked endless shakes and explains', async () => {
     await clickDisabled(page, '[data-action="endless"]');
-    assert((await toastText(page)).includes('Level 10'), 'toast should mention level 10');
+    assert((await toastText(page)).includes(`Level ${ENDLESS_UNLOCK_LEVEL}`), `toast should mention level ${ENDLESS_UNLOCK_LEVEL}`);
     eq(await screenName(page), 'title', 'screen');
   });
 
@@ -229,18 +230,18 @@ async function mainFlow(browser, base) {
     await waitScreen(page, 'map');
   });
 
-  await check('map: 20 nodes, level 1 current, level 2 locked', async () => {
-    eq(await page.locator('[data-level]').count(), 20, 'node count');
+  await check('map: 60 nodes, level 1 current, level 2 locked', async () => {
+    eq(await page.locator('[data-level]').count(), 60, 'node count');
     eq(await page.getAttribute('.map-level[data-level="1"]', 'data-state'), 'current', 'level 1 state');
     eq(await page.getAttribute('.map-level[data-level="2"]', 'data-state'), 'locked', 'level 2 state');
     await assertTouchTargets(page, 'map');
     await assertNoOverflow(page, 'map');
   });
 
-  await check('map: three regions with signs, the player pin over level 1, a wheel scrolls the map', async () => {
-    eq(await page.locator('.map-region').count(), 3, 'regions');
-    eq(await page.locator('.map-sign').count(), 3, 'region signs');
-    eq(await page.locator('.map-region.is-locked').count(), 2, 'regions not reached yet');
+  await check('map: six regions with signs, the player pin over level 1, a wheel scrolls the map', async () => {
+    eq(await page.locator('.map-region').count(), 6, 'regions');
+    eq(await page.locator('.map-sign').count(), 6, 'region signs');
+    eq(await page.locator('.map-region.is-locked').count(), 5, 'regions not reached yet');
     const pin = await page.locator('.map-avatar').boundingBox();
     const disc = await page.locator('.map-level[data-level="1"] .map-disc').boundingBox();
     assert(Math.abs(pin.x + pin.width / 2 - (disc.x + disc.width / 2)) < 4, 'the pin is not over level 1');
@@ -266,7 +267,7 @@ async function mainFlow(browser, base) {
     await page.waitForSelector('.prelevel');
     eq(await text(page, '#prelevel-title'), 'Level 1', 'title');
     const goals = await page.locator('.prelevel-goal-amount').allInnerTexts();
-    eq(goals.map((g) => g.trim()), ['45', '65', '85'], 'goal amounts');
+    eq(goals.map((g) => g.trim()), LEVELS[0].goals.map(String), 'goal amounts');
     assert((await text(page, '.prelevel-facts')).includes('1:30'), 'duration shown');
     assert((await text(page, '.prelevel-facts')).includes('2 Plätze'), 'seats shown');
     assert((await text(page, '.prelevel-intro h4')).includes('So geht’s'), 'basics intro shown');
@@ -303,16 +304,19 @@ async function mainFlow(browser, base) {
     await waitScreen(page, 'shop');
   }, () => page.evaluate(() => window.__acaiGo('shop', { back: 'map' })));
 
-  await check('shop: buy a new ingredient (coins, state, toast)', async () => {
+  await check('shop: ingredients come with the levels – one still to come says which; an arrived one gets a quality star', async () => {
     eq(await page.getAttribute('.sc-coins', 'data-coins'), '1000', 'pill before');
-    await page.click('[data-shop-item="strawberry"] [data-buy]');
-    eq(await page.getAttribute('[data-shop-item="strawberry"]', 'data-state'), 'upgrade', 'strawberry state');
-    eq(await page.getAttribute('.sc-coins', 'data-coins'), '930', 'pill after');
-    assert((await toastText(page)).includes('Erdbeere'), 'toast names strawberry');
+    eq(await page.getAttribute('[data-shop-item="strawberry"]', 'data-state'), 'locked', 'strawberry not here yet');
+    eq(await page.locator('[data-shop-item="strawberry"] [data-buy]').count(), 0, 'nothing to buy');
+    assert((await text(page, '[data-shop-item="strawberry"]')).includes(`Kommt mit Level ${ING.strawberry.unlock}`), 'says its level');
+    const cost = ING.banana.upgradeCosts[0];
+    await page.click('[data-shop-item="banana"] [data-buy]');
+    eq(await page.getAttribute('.sc-coins', 'data-coins'), String(1000 - cost), 'pill after');
+    assert((await toastText(page)).includes('Banane'), 'toast names the banana');
     const s = await saveState(page);
-    assert(s.owned.includes('strawberry') && s.coins === 930, 'save updated');
+    assert(s.ingLevels.banana === 1 && s.coins === 1000 - cost, 'save updated');
     await sleep(700);
-    eq(await text(page, '.sc-coins-value'), '930', 'pill count-up finished');
+    eq(await text(page, '.sc-coins-value'), String(1000 - cost), 'pill count-up finished');
   });
 
   await check('shop: quality upgrade (keyboard keeps focus on the card) and max state', async () => {
@@ -329,12 +333,12 @@ async function mainFlow(browser, base) {
   await check('shop: not enough coins → red price, shake, toast, nothing bought', async () => {
     await setCoins(page, 10);
     await sleep(50);
-    eq(await page.getAttribute('[data-shop-item="spirulina"] [data-buy]', 'aria-disabled'), 'true', 'disabled look');
-    await clickDisabled(page, '[data-shop-item="spirulina"] [data-buy]');
-    assert(await page.locator('[data-shop-item="spirulina"].sc-shake').count() === 1, 'card shakes');
+    eq(await page.getAttribute('[data-shop-item="acai"] [data-buy]', 'aria-disabled'), 'true', 'disabled look');
+    await clickDisabled(page, '[data-shop-item="acai"] [data-buy]');
+    assert(await page.locator('[data-shop-item="acai"].sc-shake').count() === 1, 'card shakes');
     eq(await toastText(page), 'Nicht genug Münzen!', 'toast');
     const s = await saveState(page);
-    assert(!s.owned.includes('spirulina') && s.coins === 10, 'nothing bought');
+    assert(!s.ingLevels.acai && s.coins === 10, 'nothing bought');
     await assertTouchTargets(page, 'shop ingredients');
     await assertNoOverflow(page, 'shop ingredients');
   });
@@ -345,7 +349,7 @@ async function mainFlow(browser, base) {
     eq(await page.getAttribute('[data-tab="kitchen"]', 'aria-selected'), 'true', 'tab selected');
     eq(await page.getAttribute('[data-upgrade="matchaSlots"]', 'data-state'), 'locked', 'matcha slots locked');
     await clickDisabled(page, '[data-upgrade="matchaSlots"] [data-buy]');
-    assert((await toastText(page)).includes('Level 7'), 'locked toast');
+    assert((await toastText(page)).includes(`Level ${MATCHA_LEVEL}`), 'locked toast');
     await page.click('[data-upgrade="bowlSlots"] [data-buy]');
     eq(await page.locator('[data-upgrade="bowlSlots"] .upg-pips i.on').count(), 1, 'one pip');
     eq((await saveState(page)).upgrades.bowlSlots, 1, 'saved upgrade');
@@ -428,7 +432,7 @@ async function mainFlow(browser, base) {
     await waitScreen(page, 'settings');
     eq(await toastText(page), 'Progress deleted.', 'toast');
     const s = await saveState(page);
-    eq([s.coins, s.owned.length, s.upgrades, s.settings.lang, s.settings.music], [0, 4, {}, 'en', false], 'save after reset');
+    eq([s.coins, s.stars, s.upgrades, s.settings.lang, s.settings.music], [0, {}, {}, 'en', false], 'save after reset');
   });
 
   await check('title: English texts, quick language toggle back to German', async () => {
@@ -523,19 +527,18 @@ async function touchFlow(browser, base) {
     await page.waitForFunction(() => document.getElementById('rotate-hint').hidden);
   });
 
-  await check('shop (touch): a double tap buys a new ingredient once, not its quality upgrade too', async () => {
+  await check('shop (touch): a double tap buys a quality star once, not the second one too', async () => {
     await setCoins(page, 400);
     await page.evaluate(() => window.__acaiGo('shop', { back: 'map' }));
     await waitScreen(page, 'shop');
-    const btn = '[data-shop-item="strawberry"] [data-buy]';
+    const btn = '[data-shop-item="granola"] [data-buy]';
     const price = Number((await text(page, btn)).replace(/\D/g, ''));
     await cdpTap(page, btn);
     await sleep(150);
     await cdpTap(page, btn);
     await sleep(100);
     const s = await saveState(page);
-    assert(s.owned.includes('strawberry'), 'strawberry bought');
-    eq(s.ingLevels.strawberry ?? 0, 0, 'no quality level bought by the second tap');
+    eq(s.ingLevels.granola ?? 0, 1, 'one quality star, not two from the second tap');
     eq(s.coins, 400 - price, 'coins');
   });
 
@@ -612,7 +615,7 @@ async function harnessFlow(browser, base) {
   await check('results lostGoal: reason with goal, keep-coins note, no "Weiter"', async () => {
     await open('screen=results&variant=lostGoal');
     eq(await text(page, '#results-title'), 'Level 9 verloren', 'headline');
-    assert((await text(page, '.results-sub')).includes('160'), 'goal amount in reason');
+    assert((await text(page, '.results-sub')).includes(String(LEVELS[8].goals[0])), 'goal amount in reason');
     assert((await text(page, '.results-notes')).includes('Münzen behältst du'), 'keep coins note');
     eq(await page.locator('[data-action="next"]').count(), 0, 'no next button');
     eq(await page.locator('.results-star.is-filled').count(), 0, 'no stars');
@@ -636,35 +639,46 @@ async function harnessFlow(browser, base) {
     eq((await log()).at(-1), ['game', { mode: 'endless' }], 'retry endless');
   });
 
-  await check('results win20: no next level, all-done note', async () => {
-    await open('screen=results&variant=win20&lang=en');
+  await check('results win60: no next level, all-done note', async () => {
+    await open('screen=results&variant=win60&lang=en');
     eq(await page.locator('[data-action="next"]').count(), 0, 'no next');
-    assert((await text(page, '.results-notes')).includes('All 20 levels complete!'), 'all done');
+    assert((await text(page, '.results-notes')).includes('All 60 levels complete!'), 'all done');
   });
 
   await check('harness map with progress: done/current/locked states, endless unlocked', async () => {
-    await open('screen=map&stars=1-10&coins=50');
-    eq(await page.getAttribute('[data-level="10"]', 'data-state'), 'done', 'level 10 done');
-    eq(await page.getAttribute('[data-level="11"]', 'data-state'), 'current', 'level 11 current');
-    eq(await page.getAttribute('[data-level="12"]', 'data-state'), 'locked', 'level 12 locked');
+    await open(`screen=map&stars=1-${ENDLESS_UNLOCK_LEVEL}&coins=50`);
+    const n = ENDLESS_UNLOCK_LEVEL;
+    eq(await page.getAttribute(`[data-level="${n}"]`, 'data-state'), 'done', `level ${n} done`);
+    eq(await page.getAttribute(`[data-level="${n + 1}"]`, 'data-state'), 'current', `level ${n + 1} current`);
+    eq(await page.getAttribute(`[data-level="${n + 2}"]`, 'data-state'), 'locked', `level ${n + 2} locked`);
     eq(await page.getAttribute('.sc-header [data-action="endless"]', 'aria-disabled'), 'false', 'endless open');
     await page.click('.sc-header [data-action="endless"]');
     eq((await log()).at(-1), ['game', { mode: 'endless' }], 'endless params');
   });
 
-  await check('harness pre-level 12 (English): four seats intro', async () => {
-    await open('screen=prelevel&level=12&stars=1-11&lang=en');
+  const fourSeats = LEVELS.find((l) => l.intro === 'fourSeats').id;
+  await check(`harness pre-level ${fourSeats} (English): four seats intro`, async () => {
+    await open(`screen=prelevel&level=${fourSeats}&stars=1-${fourSeats - 1}&lang=en`);
     assert((await text(page, '.prelevel-intro h4')).includes('Full house'), 'intro title');
     eq(await page.locator('.prelevel-seats svg').count(), 4, 'four seat icons');
-    await assertNoOverflow(page, 'pre-level 12 en');
+    await assertNoOverflow(page, `pre-level ${fourSeats} en`);
+  });
+
+  await check('harness pre-level 11: the matcha intro and the new matcha fruits', async () => {
+    await open(`screen=prelevel&level=${MATCHA_LEVEL}&stars=1-${MATCHA_LEVEL - 1}`);
+    assert((await text(page, '.prelevel-intro h4')).includes('Matcha'), 'matcha intro');
+    const fresh = (await page.getAttribute('.prelevel-new', 'data-new-ingredients')).split(' ');
+    eq(fresh, Object.values(ING).filter((i) => i.unlock === MATCHA_LEVEL).map((i) => i.id), 'the new ingredients');
+    assert((await text(page, '.prelevel-new')).includes('Erdbeeren'), 'named');
+    await assertNoOverflow(page, 'pre-level matcha');
   });
 
   await check('harness shop (English, all owned + maxed) has no overflow', async () => {
-    await open('screen=shop&owned=all&quality=max&upgrades=max&coins=99999&stars=1-20:3&lang=en');
-    eq(await page.locator('[data-shop-item][data-state="max"]').count(), 16, 'all maxed');
+    await open(`screen=shop&owned=all&quality=max&upgrades=max&coins=99999&stars=1-${LEVELS.length}:3&lang=en`);
+    eq(await page.locator('[data-shop-item][data-state="max"]').count(), Object.keys(ING).length, 'all maxed');
     await assertNoOverflow(page, 'shop maxed en');
     await page.click('[data-tab="kitchen"]');
-    eq(await page.locator('[data-upgrade][data-state="max"]').count(), 5, 'kitchen maxed');
+    eq(await page.locator('[data-upgrade][data-state="max"]').count(), UPGRADES.filter((u) => u.cat === 'kitchen').length, 'kitchen maxed');
     await assertNoOverflow(page, 'kitchen maxed en');
   });
 

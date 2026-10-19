@@ -1,15 +1,16 @@
 // Simulated player for balance tests. Plays only through the public engine API.
 // Every drag costs `actionTime` seconds (perception + drag), between actions the
 // engine is ticked in small steps. Strategy: most impatient customer first, one
-// reserved bowl per customer, blenders kept busy with the bases that are needed,
-// empty spots get a cup from the stack whenever there is nothing more urgent to do.
+// reserved bowl and one reserved glass per customer, blenders kept busy with the bases
+// that are needed, empty spots get a cup from the stack whenever there is nothing more
+// urgent to do (unless the cup arm does that).
 
 import {
-  createGame, tick, drainEvents, loadBlender, pourBlender, addIngredient, trashBowl,
+  createGame, tick, drainEvents, loadBlender, pourBlender, addIngredient, trashBowl, matchaMatchesOrder,
   cleanBlender, loadMatcha, trashMatcha, serveBowl, serveMatcha, bowlMatchesOrder, placeCup,
 } from '../../js/engine.js';
 import {
-  getKitchenStats, getLevel, MATCHA_LEVEL, START_OWNED, ING, UPG, LEVELS, INGREDIENTS, UPGRADES,
+  getKitchenStats, getLevel, MATCHA_LEVEL, ING, UPG, LEVELS, INGREDIENTS, UPGRADES, ownedAt, unlockedIn,
 } from '../../js/data.js';
 
 const STEP = 0.05;
@@ -27,8 +28,13 @@ function activeCustomers(game) {
   return game.seats.filter(isActive).sort((a, b) => a.patience - b.patience);
 }
 
-const needsBowl = (c) => !c.delivered.bowl;
+const needsBowl = (c) => !!c.order.bowl && !c.delivered.bowl;
 const needsMatcha = (c) => !!c.order.matcha && !c.delivered.matcha;
+
+// Can the drink in this slot still become the ordered one (same fruit, no extra it should not have)?
+function drinkCompatible(slot, drink) {
+  return slot.state !== 'empty' && slot.fruit === drink.fruit && slot.extras.every((id) => drink.extras.includes(id));
+}
 
 // Can this (partial) bowl still become the ordered bowl?
 export function bowlCompatible(bowl, order) {
@@ -108,9 +114,10 @@ function serveAction(game, mem, customers) {
     if (needsBowl(c) && idx !== undefined && bowlMatchesOrder(game.bowls[idx], c.order.bowl)) {
       return act(() => serveBowl(game, idx, c.id));
     }
-    if (needsMatcha(c) && game.matcha) {
-      const slot = game.matcha.slots.findIndex((s) => s.state === 'ready' && s.fruit === c.order.matcha);
-      if (slot >= 0) return act(() => serveMatcha(game, slot, c.id));
+    const slot = mem.slotOf.get(c.id);
+    if (needsMatcha(c) && slot !== undefined) {
+      const s = game.matcha.slots[slot];
+      if (s.state === 'ready' && matchaMatchesOrder(s, c.order.matcha)) return act(() => serveMatcha(game, slot, c.id));
     }
   }
   return null;
@@ -131,23 +138,43 @@ function blenderAction(game, mem, customers) {
   return null;
 }
 
-function matchaAction(game, customers) {
+// Keeps customer → glass reservations stable between decisions.
+function assignSlots(game, mem, customers) {
+  if (!game.matcha) return;
+  const slots = game.matcha.slots;
+  const wanted = new Map(customers.filter(needsMatcha).map((c) => [c.id, c]));
+  for (const [cid, idx] of mem.slotOf) {
+    const c = wanted.get(cid);
+    if (!c || (slots[idx].state !== 'empty' && !drinkCompatible(slots[idx], c.order.matcha))) mem.slotOf.delete(cid);
+  }
+  for (const c of wanted.values()) {
+    if (mem.slotOf.has(c.id)) continue;
+    const used = new Set(mem.slotOf.values());
+    const own = slots.findIndex((s, i) => !used.has(i) && drinkCompatible(s, c.order.matcha));
+    const free = slots.findIndex((s, i) => !used.has(i) && s.state === 'empty');
+    const idx = own >= 0 ? own : free;
+    if (idx >= 0) mem.slotOf.set(c.id, idx);
+  }
+}
+
+function matchaAction(game, mem, customers) {
   if (!game.matcha) return null;
   const slots = game.matcha.slots;
-  const pending = slots.filter((s) => s.state !== 'empty').map((s) => s.fruit);
   for (const c of customers) {
     if (!needsMatcha(c)) continue;
-    const covered = pending.indexOf(c.order.matcha);
-    if (covered >= 0) {
-      pending.splice(covered, 1);
-      continue;
-    }
-    const empty = slots.findIndex((s) => s.state === 'empty');
-    if (empty >= 0) return act(() => loadMatcha(game, empty, c.order.matcha));
-    const unwanted = slots.findIndex((s) => s.state === 'ready'
-      && !customers.some((o) => needsMatcha(o) && o.order.matcha === s.fruit));
-    if (unwanted >= 0) return act(() => trashMatcha(game, unwanted));
+    const idx = mem.slotOf.get(c.id);
+    if (idx === undefined) continue;
+    const s = slots[idx];
+    const d = c.order.matcha;
+    if (s.state === 'empty') return act(() => loadMatcha(game, idx, d.fruit));
+    const extra = d.extras.find((id) => !s.extras.includes(id));
+    if (extra) return act(() => loadMatcha(game, idx, extra));
   }
+  // a glass nobody can use any more blocks its slot
+  const used = new Set(mem.slotOf.values());
+  const junk = slots.findIndex((s, i) => !used.has(i) && s.state !== 'empty'
+    && !customers.some((o) => needsMatcha(o) && drinkCompatible(s, o.order.matcha)));
+  if (junk >= 0 && customers.some((o) => needsMatcha(o) && !mem.slotOf.has(o.id))) return act(() => trashMatcha(game, junk));
   return null;
 }
 
@@ -197,6 +224,7 @@ function rescueAction(game, mem, onlyUrgent) {
 
 // Spare moment: a cup on every empty spot, the ones reserved for a customer first.
 function cupAction(game, mem) {
+  if (game.arm) return null;
   const reserved = [...mem.bowlOf.values()];
   const order = [...reserved, ...game.bowls.map((b, i) => i)];
   const idx = order.find((i) => !game.bowls[i].cup);
@@ -216,12 +244,13 @@ function preloadAction(game, mem) {
 
 export function chooseAction(game, mem) {
   const customers = activeCustomers(game);
-  for (const c of customers) mem.lastBase = c.order.bowl.base;
+  for (const c of customers) if (c.order.bowl) mem.lastBase = c.order.bowl.base;
   assignBowls(game, mem, customers);
+  assignSlots(game, mem, customers);
   return serveAction(game, mem, customers)
     || rescueAction(game, mem, true)
     || blenderAction(game, mem, customers)
-    || matchaAction(game, customers)
+    || matchaAction(game, mem, customers)
     || pourAction(game, mem, customers)
     || bowlWorkAction(game, mem, customers)
     || rescueAction(game, mem, false)
@@ -229,22 +258,23 @@ export function chooseAction(game, mem) {
     || cupAction(game, mem);
 }
 
+// owned / featured default to what the level brings (endless: what has arrived by `reached`).
 export function playLevel({
-  level, endless = false, owned = START_OWNED, ingLevels = {}, upgrades = {},
-  seed = 1, actionTime = 1.3, maxTime = 900, matcha, featured = [],
+  level, endless = false, reached = 20, owned, ingLevels = {}, upgrades = {},
+  seed = 1, actionTime = 1.3, maxTime = 900, matcha, featured,
 } = {}) {
   const lvl = typeof level === 'number' ? getLevel(level) : level;
   const game = createGame({
     mode: endless ? 'endless' : 'campaign',
     level: lvl,
-    owned,
+    owned: owned || ownedAt(endless ? reached : lvl.id),
     ingLevels,
     kitchen: getKitchenStats(upgrades),
     matcha: matcha ?? (endless || (lvl && lvl.id >= MATCHA_LEVEL)),
     seed,
-    featured,
+    featured: featured || (endless ? [] : unlockedIn(lvl.id)),
   });
-  const mem = { bowlOf: new Map(), lastBase: null };
+  const mem = { bowlOf: new Map(), slotOf: new Map(), lastBase: null };
   let actions = 0;
   let ruined = 0;
   while (game.status === 'playing' && game.time < maxTime) {
@@ -274,40 +304,37 @@ export function playLevel({
 }
 
 // ------------------------------------------------------------------ expected progression
-// What a typical player owns when starting a level (used by the balance test).
+// What a typical player has bought in the shop when starting a level (used by the balance test).
+// Ingredients are not bought: every level brings its own (js/data.js ownedAt).
 export const SCHEDULE = [
-  { from: 1, ingredients: [], upgrades: {}, quality: [] },
-  { from: 3, ingredients: ['strawberry', 'coconut'], upgrades: { blenderSpeed: 1 }, quality: [] },
-  { from: 5, ingredients: ['chia', 'blueberry'], upgrades: { bowlSlots: 1 }, quality: [] },
-  { from: 7, ingredients: ['pitaya', 'mango'], upgrades: { plants: 1 }, quality: [] },
-  { from: 10, ingredients: ['peanut'], upgrades: { blenderSpeed: 2, jug: 1, matchaSlots: 1 }, quality: [] },
-  { from: 13, ingredients: ['kiwi', 'chocolate'], upgrades: { blender2: 1, bowlSlots: 2, jukebox: 1 }, quality: [] },
-  {
-    from: 16, ingredients: ['spirulina', 'mint', 'cacao'], upgrades: { blenderSpeed: 3, seating: 1 },
-    quality: ['acai', 'banana', 'granola', 'strawberry'],
-  },
+  { from: 1, upgrades: {}, quality: [] },
+  { from: 4, upgrades: { blenderSpeed: 1 }, quality: [] },
+  { from: 7, upgrades: { cupArm: 1 }, quality: [] },
+  { from: 10, upgrades: { bowlSlots: 1, plants: 1 }, quality: [] },
+  { from: 14, upgrades: { matchaSlots: 1 }, quality: ['acai'] },
+  { from: 18, upgrades: { jug: 1, blenderSpeed: 2 }, quality: ['banana'] },
+  { from: 23, upgrades: { blender2: 1, bowlSlots: 2, jukebox: 1 }, quality: [] },
+  { from: 28, upgrades: { cupArm: 2 }, quality: ['granola', 'strawberry', 'mStrawberry'] },
+  { from: 34, upgrades: { blenderSpeed: 3, seating: 1 }, quality: ['honey', 'mBanana', 'pitaya'] },
+  { from: 42, upgrades: { neon: 1 }, quality: ['blueberry', 'coconut', 'ice', 'mMango'] },
+  { from: 50, upgrades: {}, quality: ['chia', 'mango', 'vanilla', 'peanut', 'kiwi'] },
 ];
 
-// Inventory for a level: { owned, upgrades, ingLevels, featured (bought right before it) }.
+// Purchases for a level: { upgrades, ingLevels }.
 export function inventoryForLevel(levelId) {
-  const owned = START_OWNED.slice();
   const upgrades = {};
   const ingLevels = {};
-  let featured = [];
   for (const tier of SCHEDULE) {
     if (tier.from > levelId) break;
-    owned.push(...tier.ingredients);
     Object.assign(upgrades, tier.upgrades);
     for (const id of tier.quality) ingLevels[id] = 1;
-    featured = tier.from === levelId ? tier.ingredients.slice() : [];
   }
-  return { owned, upgrades, ingLevels, featured };
+  return { upgrades, ingLevels };
 }
 
-// Shop price of one schedule tier (ingredients + upgrade levels + quality level 1).
+// Shop price of one schedule tier (upgrade levels + quality level 1).
 export function tierCost(tier) {
   let sum = 0;
-  for (const id of tier.ingredients) sum += ING[id].cost;
   for (const [id, lvl] of Object.entries(tier.upgrades)) {
     const prev = SCHEDULE.filter((t) => t.from < tier.from).reduce((m, t) => Math.max(m, t.upgrades[id] || 0), 0);
     for (let i = prev; i < lvl; i++) sum += UPG[id].levels[i].cost;
@@ -318,39 +345,27 @@ export function tierCost(tier) {
 
 // ------------------------------------------------------------------ meta progression
 // Shopping order: the SCHEDULE tiers first, then every remaining upgrade level and quality star
-// by price. Items are { kind: 'ing'|'upg'|'q', id, lvl } (lvl = level to reach).
+// by price. Items are { kind: 'upg'|'q', id, lvl } (lvl = level to reach).
 function shoppingList() {
   const list = [];
   for (const tier of SCHEDULE) {
-    for (const id of tier.ingredients) list.push({ kind: 'ing', id });
-    for (const [id, lvl] of Object.entries(tier.upgrades)) list.push({ kind: 'upg', id, lvl });
-    for (const id of tier.quality) list.push({ kind: 'q', id, lvl: 1 });
+    for (const [id, lvl] of Object.entries(tier.upgrades)) list.push({ kind: 'upg', id, lvl, from: tier.from });
+    for (const id of tier.quality) list.push({ kind: 'q', id, lvl: 1, from: tier.from });
   }
   const rest = [];
-  for (const ing of INGREDIENTS) {
-    if (ing.cost) rest.push({ kind: 'ing', id: ing.id, cost: ing.cost });
-    ing.upgradeCosts.forEach((cost, i) => rest.push({ kind: 'q', id: ing.id, lvl: i + 1, cost }));
-  }
+  for (const ing of INGREDIENTS) ing.upgradeCosts.forEach((cost, i) => rest.push({ kind: 'q', id: ing.id, lvl: i + 1, cost }));
   for (const u of UPGRADES) u.levels.forEach((l, i) => rest.push({ kind: 'upg', id: u.id, lvl: i + 1, cost: l.cost }));
   rest.sort((a, b) => a.cost - b.cost);
   return [...list, ...rest];
 }
 
-// Buys down the list until the next item is too expensive (the player saves up for it).
-// Mutates inv; returns the ingredients bought (they are "new" in the next level).
+// Buys down the list until the next item is too expensive (the player saves up for it). Items
+// that are not there yet (an ingredient that arrives later, a locked upgrade) are skipped.
 function shop(inv, list, levelId) {
-  const bought = [];
+  const owned = new Set(ownedAt(levelId));
   for (const item of list) {
-    if (item.kind === 'ing') {
-      if (inv.owned.includes(item.id)) continue;
-      if (inv.coins < ING[item.id].cost) break;
-      inv.coins -= ING[item.id].cost;
-      inv.owned.push(item.id);
-      bought.push(item.id);
-      continue;
-    }
     if (item.kind === 'upg' && (UPG[item.id].requiresLevel || 0) > levelId) continue;
-    if (item.kind === 'q' && !inv.owned.includes(item.id)) continue;
+    if (item.kind === 'q' && !owned.has(item.id)) continue;
     const levels = item.kind === 'upg' ? inv.upgrades : inv.ingLevels;
     const costs = item.kind === 'upg' ? UPG[item.id].levels.map((l) => l.cost) : ING[item.id].upgradeCosts;
     let short = false;
@@ -365,25 +380,23 @@ function shop(inv, list, levelId) {
     }
     if (short) break;
   }
-  return bought;
 }
 
 // A player who plays the campaign in order, banks the coins of every attempt (won or lost, like
 // save.recordLevelResult), shops before each attempt and replays a level until it is won.
-export function playCampaign({ actionTime = 1.3, seed = 1000, maxAttempts = 40 } = {}) {
-  const inv = { coins: 0, owned: START_OWNED.slice(), upgrades: {}, ingLevels: {} };
+export function playCampaign({ actionTime = 1.3, seed = 1000, maxAttempts = 40, levels = LEVELS } = {}) {
+  const inv = { coins: 0, upgrades: {}, ingLevels: {} };
   const list = shoppingList();
   const attempts = {};
   let plays = 0;
   let nextSeed = seed;
-  for (const lvl of LEVELS) {
+  for (const lvl of levels) {
     attempts[lvl.id] = 0;
     let won = false;
     while (!won && attempts[lvl.id] < maxAttempts) {
-      const featured = shop(inv, list, lvl.id);
+      shop(inv, list, lvl.id);
       const r = playLevel({
-        level: lvl, owned: inv.owned, upgrades: inv.upgrades, ingLevels: inv.ingLevels,
-        featured, seed: nextSeed++, actionTime,
+        level: lvl, upgrades: inv.upgrades, ingLevels: inv.ingLevels, seed: nextSeed++, actionTime,
       });
       inv.coins += r.money;
       attempts[lvl.id]++;

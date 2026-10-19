@@ -4,7 +4,7 @@
 // shapes are filled with their colour and shaded with the shared gradients from svg.js
 // (light from the top left), thin outlines in a darker shade of the fill. Pure module.
 
-import { ING } from './data.js';
+import { ING, artOf } from './data.js';
 import {
   WHITE, f, rngFor, memo, mix, lighten, svgWrap, stroke, op, tf, circle, ellipse, path, rect, g, line,
   rrect, smoothClosed, smoothOpen, polyPath, paint, lit, litEllipse, litCircle, softShadow, edge,
@@ -797,8 +797,12 @@ function unknownIcon() {
   return circle(50, 50, 32, '#d8cde0', stroke(1.5, '#8e7aa0'));
 }
 
+// (a matcha fruit is drawn as the bowl fruit it is cut from)
 function iconBody(id) {
-  return ING[id] && ICONS[id] ? ICONS[id]() : unknownIcon();
+  if (!ING[id]) return unknownIcon();
+  if (EXTRA_ICONS[id]) return EXTRA_ICONS[id]();
+  const art = artOf(id);
+  return ICONS[art] ? ICONS[art]() : unknownIcon();
 }
 
 export function ingredientIcon(id, size = 64) {
@@ -1407,10 +1411,15 @@ function containerDrawn(id, front) {
 }
 
 // The ingredient's container with what is in it, drawn (no WebGL): w × w·112/96 px.
+// A matcha fruit stands in the tray of the bowl fruit it is cut from; the extras have their own.
 export function binSVG(id, w = 84) {
   const h = Math.round((w * PV.h) / PV.w);
   return memo(`bin|${id}|${w}`, () => {
-    const body = pantryKind(id) ? containerDrawn(id, false) + fillOf(id) + containerDrawn(id, true) : g('translate(26 30) scale(0.44)', iconBody(id));
+    const art = artOf(id);
+    let body;
+    if (EXTRA_BINS[id]) body = EXTRA_BINS[id]();
+    else if (pantryKind(art)) body = containerDrawn(art, false) + fillOf(art) + containerDrawn(art, true);
+    else body = g('translate(26 30) scale(0.44)', iconBody(id));
     return svgWrap(w, h, PV.w, PV.h, body);
   });
 }
@@ -1418,9 +1427,10 @@ export function binSVG(id, w = 84) {
 // What lies in or on the ingredient's container, drawn over its 3D picture (same box as binSVG); ''
 // when all of it is 3D (honey, chia, peanut butter, chocolate).
 export function binFillSVG(id, w = 84) {
-  if (!pantryTop(id)) return '';
+  const art = artOf(id);
+  if (!pantryTop(art)) return '';
   const h = Math.round((w * PV.h) / PV.w);
-  return memo(`binfill|${id}|${w}`, () => svgWrap(w, h, PV.w, PV.h, fillOf(id)));
+  return memo(`binfill|${art}|${w}`, () => svgWrap(w, h, PV.w, PV.h, fillOf(art)));
 }
 
 // ======================================================================
@@ -1520,13 +1530,15 @@ export function cupSpotSVG(size = 150) {
 
 // ======================================================================
 // Matcha glass (viewBox 100×100): a tall clear tumbler with a thick base, its bottom at y = 95.
-// A fruit matcha is an iced matcha latte in three layers: the fruit's purée at the bottom, milk,
-// then the matcha with a little foam on top, ice cubes, a paper straw and the fruit on the rim.
+// A fruit matcha is an iced matcha latte in layers: the fruit goes in as pieces and the machine
+// purées it (opts.puree), then milk and matcha run in on top (opts.fill); a ready one has a paper
+// straw and the fruit on the rim. Extras show in the glass: ice cubes in the drink, vanilla syrup
+// running down the inside of the glass, a cap of cold foam on top.
 // ======================================================================
 // (the kiwi's a vivid green with big black seeds, clearly apart from the olive matcha over it, even at
 // the order bubble's 64 px, BUBBLE_GLASS in js/game-view.js)
 const MATCHA_FRUIT_COLORS = { banana: '#f3d35c', strawberry: '#e5384f', blueberry: '#5d3f9e', mango: '#ffa623', kiwi: '#4fbf3f' };
-const fruitColor = (id) => MATCHA_FRUIT_COLORS[id] || MATCHA_FRUIT_COLORS.strawberry;
+const fruitColor = (id) => MATCHA_FRUIT_COLORS[artOf(id)] || MATCHA_FRUIT_COLORS.strawberry;
 // the seeds in a kiwi or strawberry purée (the others: lighter fibres): colour, size
 const PUREE_SEEDS = { kiwi: ['#16130b', 1.5], strawberry: ['#ffe08a', 1] };
 export const matchaFruitColorOf = fruitColor;
@@ -1547,13 +1559,32 @@ export const MATCHA_MILK = (PUREE_Y - MILK_Y) / (PUREE_Y - FULL_Y);
 export const MATCHA_STRAW = { x0: 56.6, y0: FULL_Y + 1.5, x1: 67, y1: 9, w: 6 };
 
 function garnish(id, x, y) {
-  const rng = rngFor(`garnish-${id}`);
-  if (id === 'banana') return bananaSlice(x, y, 9, rng, 0.9);
-  if (id === 'strawberry') return strawberryHalf(x, y, 9, rng);
-  if (id === 'kiwi') return kiwiSlice(x, y, 9, rng, 0.9);
-  if (id === 'mango') return mangoCube(x - 2, y + 2, 5.5, rng) + mangoCube(x + 6, y - 2, 5, rng);
-  if (id === 'blueberry') return blueberry(x - 4, y + 1, 4.6) + blueberry(x + 5, y - 1, 4.6) + blueberry(x + 1, y - 6, 4.2);
+  const fruit = artOf(id);
+  const rng = rngFor(`garnish-${fruit}`);
+  if (fruit === 'banana') return bananaSlice(x, y, 9, rng, 0.9);
+  if (fruit === 'strawberry') return strawberryHalf(x, y, 9, rng);
+  if (fruit === 'kiwi') return kiwiSlice(x, y, 9, rng, 0.9);
+  if (fruit === 'mango') return mangoCube(x - 2, y + 2, 5.5, rng) + mangoCube(x + 6, y - 2, 5, rng);
+  if (fruit === 'blueberry') return blueberry(x - 4, y + 1, 4.6) + blueberry(x + 5, y - 1, 4.6) + blueberry(x + 1, y - 6, 4.2);
   return '';
+}
+
+// The cut fruit lying on the glass's floor before the machine purées it (k: 1 whole … 0 gone).
+function fruitPieces(id, k) {
+  if (k <= 0) return '';
+  const fruit = artOf(id);
+  const rng = rngFor(`pieces-${fruit}`);
+  const draw = {
+    banana: (x, y, s) => bananaSlice(x, y, s * 1.15, rng, 0.62),
+    strawberry: (x, y, s) => strawberryHalf(x, y, s, rng),
+    mango: (x, y, s) => mangoCube(x, y, s * 0.62, rng),
+    blueberry: (x, y, s) => blueberry(x, y, s * 0.5),
+    kiwi: (x, y, s) => kiwiSlice(x, y, s, rng, 0.62),
+  }[fruit] || ((x, y, s) => circle(x, y, s * 0.5, fruitColor(id)));
+  const spots = [[38, 81, 9], [52, 83, 9.5], [64, 80, 8.5], [45, 74, 9], [58, 73, 8.5], [51, 66, 8]];
+  let s = '';
+  for (const [x, y, size] of spots) s += draw(x, y, size * (0.45 + 0.55 * k));
+  return k < 1 ? `<g opacity="${f(Math.max(0.25, k))}">${s}</g>` : s;
 }
 
 // A band of liquid inside the glass from y0 (top) down to y1, its top surface an ellipse.
@@ -1570,60 +1601,87 @@ const surfaceRy = (y) => GL.ry * (glassX(y) / GL.rx) * 0.82;
 // One ice cube in the glass (seen through the side): a rounded, slightly turned square.
 function iceCube(x, y, s, rot) {
   const d = rrect(-s, -s, s * 2, s * 2, s * 0.38);
-  let b = path(d, '#ffffff', op(0.24) + stroke(0.7, '#ffffff'));
-  b += path(rrect(-s * 0.7, -s * 0.72, s * 1.1, s * 0.5, s * 0.2), '#ffffff', op(0.42));
-  b += line(`M${f(s * 0.55)} ${f(-s * 0.4)}L${f(s * 0.62)} ${f(s * 0.55)}`, '#b9d3dc', 0.8, op(0.6));
+  let b = path(d, '#ffffff', op(0.32) + stroke(0.8, '#ffffff'));
+  b += path(rrect(-s * 0.7, -s * 0.72, s * 1.1, s * 0.5, s * 0.2), '#ffffff', op(0.55));
+  b += line(`M${f(s * 0.55)} ${f(-s * 0.4)}L${f(s * 0.62)} ${f(s * 0.55)}`, '#9cc6d6', 0.9, op(0.75));
   return g(`translate(${f(x)} ${f(y)}) rotate(${rot})`, b);
 }
 
-// opts.fill (mixing): how much of the milk and matcha is in (0–1; the purée is in from the start);
-// while it runs in, the glass draws the stream from above unless opts.stream is false (the 3D
-// machine pours its own); opts.from: the y (of the 100 viewBox) the stream starts at – the drawn
-// machine's nozzle tip (MATCHA_POUR_FROM), else the top of the box.
+// opts.fill (mixing): how much of the milk and matcha is in (0–1); opts.puree: how far the machine has
+// puréed the fruit (0 pieces … 1 smooth; a ready glass and a pouring one are smooth); while the matcha
+// runs in, the glass draws the stream from above unless opts.stream is false (the 3D machine pours
+// its own); opts.from: the y (of the 100 viewBox) the stream starts at – the drawn machine's nozzle tip
+// (MATCHA_POUR_FROM), else the top of the box; opts.extras: the extras in the glass.
 export function matchaGlassSVG(fruitId = null, state = 'ready', size = 70, opts = null) {
   const st = state === 'mixing' || state === 'ready' ? state : 'empty';
   const fill = st === 'ready' ? 1 : st === 'mixing' ? Math.round(Math.max(0, Math.min(1, Number(opts?.fill) || 0)) * 12) / 12 : 0;
+  const puree = st === 'ready' || fill > 0 ? 1 : st === 'mixing' ? Math.round(Math.max(0, Math.min(1, Number(opts?.puree ?? 1))) * 8) / 8 : 0;
   const stream = st === 'mixing' && fill > 0 && !(opts && opts.stream === false);
   const from = stream ? Math.round(Math.max(0, Math.min(GL.top, Number(opts?.from) || 0)) * 10) / 10 : 0;
-  return memo(`mg|${fruitId}|${st}|${size}|${fill}|${stream}|${from}`, () => drawMatchaGlass(fruitId, st, size, fill, stream, from));
+  const extras = st === 'empty' ? [] : (opts?.extras || []).filter((id) => ING[id]?.layer === 'mextra').slice().sort();
+  return memo(`mg|${fruitId}|${st}|${size}|${fill}|${puree}|${stream}|${from}|${extras.join()}`, () => drawMatchaGlass(fruitId, st, size, fill, puree, stream, from, extras));
 }
 
-function drawMatchaGlass(fruitId, state, size, fill, stream, from) {
-  const fruit = ING[fruitId]?.matcha ? fruitId : 'strawberry';
+function drawMatchaGlass(fruitId, state, size, fill, puree, stream, from, extras) {
+  const fruit = ING[fruitId]?.layer === 'mfruit' ? fruitId : 'mStrawberry';
   const C = MATCHA_COLORS;
+  const has = (id) => extras.includes(id);
   let s = softShadow(51, 95.5, 27, 4.2);
   // the far wall and the inside of the glass
   s += path(GLASS_BODY, paint('plastic-in', '#eaf6fa'), op(0.9));
   const full = state !== 'empty';
-  const top = full ? PUREE_Y - (PUREE_Y - FULL_Y) * fill : GL.floor;
+  const top = !full ? GL.floor : fill > 0 ? PUREE_Y - (PUREE_Y - FULL_Y) * fill : PUREE_Y + (GL.floor - PUREE_Y) * (1 - puree);
+  if (has('vanilla')) {
+    // vanilla syrup running down the inside of the far wall, gathering on the floor
+    for (const [x0, w] of [[37, 1.6], [47, 1.2], [60, 1.5]]) {
+      s += line(`M${x0} ${GL.top + 3}C${x0 + 1.5} ${GL.top + 18} ${x0 - 1.5} ${GL.top + 34} ${x0 + 0.8} ${GL.floor - 3}`, '#d9952f', w, op(0.75));
+    }
+    s += path(liquidBand(GL.floor - 2.4, GL.floor), '#c98222', op(0.8));
+  }
   if (full) {
-    // purée at the bottom (a few seeds or fibres of the fruit), milk, then matcha with its foam
+    // purée at the bottom (a few seeds or fibres of the fruit); while the machine works, the pieces
+    // turn into it and a whirl shows
     const pc = fruitColor(fruit);
-    s += path(liquidBand(PUREE_Y, GL.floor), pc) + path(liquidBand(PUREE_Y, GL.floor), paint('cyl'));
-    const rng = rngFor(`puree-${fruit}`);
-    const [dot, k] = PUREE_SEEDS[fruit] || [lighten(pc, 0.4), 1];
-    for (let i = 0; i < 9; i++) {
-      const y = PUREE_Y + 3 + rng.next() * (GL.floor - PUREE_Y - 5);
-      s += ellipse(50 + (rng.next() - 0.5) * 2 * (glassX(y) - 6), y, 0.9 * k, 0.6 * k, dot, op(0.75));
+    if (puree > 0) {
+      const pTop = fill > 0 ? PUREE_Y : top;
+      s += path(liquidBand(pTop, GL.floor), pc) + path(liquidBand(pTop, GL.floor), paint('cyl'));
+      const rng = rngFor(`puree-${artOf(fruit)}`);
+      const [dot, k] = PUREE_SEEDS[artOf(fruit)] || [lighten(pc, 0.4), 1];
+      for (let i = 0; i < 9; i++) {
+        const y = PUREE_Y + 3 + rng.next() * (GL.floor - PUREE_Y - 5);
+        if (y < pTop + 1.5) continue;
+        s += ellipse(50 + (rng.next() - 0.5) * 2 * (glassX(y) - 6), y, 0.9 * k, 0.6 * k, dot, op(0.75));
+      }
+      s += ellipse(50, pTop, glassX(pTop) - 2.2, surfaceRy(pTop), lighten(pc, 0.18));
+    }
+    if (state === 'mixing' && fill === 0) {
+      s += fruitPieces(fruit, 1 - puree);
+      if (puree > 0 && puree < 1) {
+        // the whirl of the blend
+        const cy = top + (GL.floor - top) * 0.45;
+        s += path(`M38 ${f(cy)}C42 ${f(cy - 5)} 58 ${f(cy - 5)} 62 ${f(cy)}M41 ${f(cy + 4)}C45 ${f(cy + 1)} 55 ${f(cy + 1)} 59 ${f(cy + 4)}`, 'none', stroke(1.3, '#ffffff') + op(0.7));
+      }
     }
     if (fill > 0) {
       const milkTop = Math.max(top, MILK_Y);
       s += path(liquidBand(milkTop, PUREE_Y + 1.5), C.milk) + path(liquidBand(milkTop, PUREE_Y + 1.5), paint('cyl-soft'), op(0.45));
       // the purée bleeds a little into the milk
-      s += path(liquidBand(PUREE_Y - 2.5, PUREE_Y + 1.5), mix(pc, C.milk, 0.55), op(0.75));
+      s += path(liquidBand(PUREE_Y - 2.5, PUREE_Y + 1.5), mix(fruitColor(fruit), C.milk, 0.55), op(0.75));
       if (top < MILK_Y) {
         s += path(liquidBand(top, MILK_Y + 1), C.matcha) + path(liquidBand(top, MILK_Y + 1), paint('cyl'));
         // a cloudy edge where the matcha meets the milk
         s += path(liquidBand(MILK_Y - 1, MILK_Y + 3.5), mix(C.matcha, C.milk, 0.55), op(0.85));
         s += path(liquidBand(MILK_Y + 2, MILK_Y + 5.5), mix(C.matcha, C.milk, 0.8), op(0.6));
       }
-      // ice cubes in the upper part of the liquid
-      const ice = [[42, 7, 5.6, -14], [57, 12, 5.2, 18], [47, 19, 4.8, 8]];
-      for (const [x, dy, r, rot] of ice) if (top + dy + r < PUREE_Y) s += iceCube(x, top + dy, r, rot);
       // the surface: foam on the matcha, milk while only milk is in
       const sc = top < MILK_Y ? C.foam : mix(C.milk, '#ffffff', 0.4);
       s += ellipse(50, top, glassX(top) - 2.2, surfaceRy(top), sc) + ellipse(48, top - 0.4, glassX(top) - 8, surfaceRy(top) * 0.55, '#ffffff', op(0.35));
       if (top < MILK_Y) for (const [x, dx] of [[38, 0], [60, 1], [52, -1]]) s += circle(x + dx, top + 0.4, 0.9, '#ffffff', op(0.6));
+    }
+    if (has('ice')) {
+      // ice cubes float at the top of what is in the glass
+      const ice = [[41, 2, 6.2, -14], [58, 5, 5.8, 18], [49, 11, 5.4, 8]];
+      for (const [x, dy, r, rot] of ice) s += iceCube(x, Math.min(GL.floor - r - 1, top + dy + 1), r, rot);
     }
   }
   if (stream) {
@@ -1633,6 +1691,14 @@ function drawMatchaGlass(fruitId, state, size, fill, stream, from) {
     const jet = `M47.6 ${f(from)}H52.4L51.8 ${f(yEnd)}H48.2Z`;
     s += path(jet, col) + path(jet, paint('cyl'));
     s += ellipse(50, yEnd, 5.5, 1.6, lighten(col, 0.4));
+  }
+  if (full && has('foam')) {
+    // a thick cap of cold foam on the drink, domed a little over its surface
+    const y0 = Math.max(GL.top + 1, top - 6);
+    const cap = `M${f(50 - glassX(y0) + 2)} ${f(y0)}C${f(50 - glassX(y0) + 4)} ${f(y0 - 6)} ${f(50 + glassX(y0) - 4)} ${f(y0 - 6)} ${f(50 + glassX(y0) - 2)} ${f(y0)}L${f(50 + glassX(top + 3) - 2.2)} ${f(top + 3)}A${f(glassX(top + 3) - 2.2)} ${f(surfaceRy(top + 3))} 0 0 1 ${f(50 - glassX(top + 3) + 2.2)} ${f(top + 3)}Z`;
+    s += path(cap, '#fbf8f1') + path(cap, paint('sph-soft'), op(0.6));
+    s += ellipse(47, y0 - 2.6, glassX(y0) - 10, 1.6, '#ffffff', op(0.9));
+    for (const [x, dy, r] of [[39, 1, 0.9], [55, 2.5, 1.1], [62, 0.5, 0.8], [46, 3, 0.7]]) s += circle(x, y0 + dy, r, '#e6dccb', op(0.8));
   }
   // the straw and the fruit on the rim of a ready glass (the straw stands in the drink, behind the front wall)
   if (state === 'ready') {
@@ -1651,7 +1717,7 @@ function drawMatchaGlass(fruitId, state, size, fill, stream, from) {
   }
   // the near wall: clear glass, condensation, highlights, the thick base
   s += path(GLASS_BODY, paint('glass', '#ffffff'), op(0.55));
-  if (full) {
+  if (full && fill > 0) {
     const rng = rngFor(`drops-matcha-${fruit}`);
     for (let i = 0; i < 10; i++) {
       const y = Math.max(top + 3, GL.top + 6) + rng.next() * (GL.floor - Math.max(top + 3, GL.top + 6));
@@ -1670,6 +1736,195 @@ function drawMatchaGlass(fruitId, state, size, fill, stream, from) {
   s += path(`M${50 - GL.rx} ${GL.top + 0.9}A${GL.rx} ${GL.ry} 0 0 0 ${50 + GL.rx} ${GL.top + 0.9}`, 'none', stroke(0.7, '#7f9fab') + op(0.7));
   if (state === 'ready') s += garnish(fruit, 30, GL.top - 2);
   return svgWrap(size, size, 100, 100, s);
+}
+
+// ======================================================================
+// Matcha bar extras: ice cubes, vanilla syrup and cold foam – their icons (viewBox 100×100), their
+// containers on the counter (drawn into the bin box like binSVG) and what the player carries
+// ======================================================================
+const ICE = { fill: '#e6f6fc', edge: '#86bdd2', hi: '#ffffff', shade: '#b4dbec' };
+const SYRUP = { col: '#e0a242', deep: '#b9761c', dark: '#7d4c10', glass: '#fbf3e2' };
+const CREAM = { col: '#fdfbf5', shade: '#e9e1cf', line: '#bdb19a' };
+
+// An ice cube seen from the front: a rounded block, its top face lit, a cold blue shade below.
+function iceBlock(x, y, s, rot = 0) {
+  const d = rrect(-s, -s, 2 * s, 2 * s, s * 0.34);
+  let b = path(d, ICE.fill, stroke(Math.max(0.8, s * 0.08), ICE.edge));
+  b += path(rrect(-s * 0.8, -s * 0.82, s * 1.35, s * 0.62, s * 0.24), ICE.hi, op(0.85));
+  b += path(`M${f(-s * 0.72)} ${f(s * 0.62)}Q0 ${f(s * 0.92)} ${f(s * 0.74)} ${f(s * 0.5)}`, 'none', stroke(s * 0.16, ICE.shade) + op(0.85));
+  b += line(`M${f(s * 0.62)} ${f(-s * 0.3)}L${f(s * 0.7)} ${f(s * 0.3)}`, ICE.edge, s * 0.07, op(0.6));
+  b += circle(s * 0.35, -s * 0.05, s * 0.1, ICE.hi);
+  return g(`translate(${f(x)} ${f(y)}) rotate(${rot})`, b);
+}
+
+// A dollop of cold foam: soft round puffs with a curl on top.
+function foamDollop(x, y, s) {
+  const puffs = [[-0.62, 0.18, 0.5], [0.62, 0.2, 0.5], [0, 0.26, 0.62], [-0.3, -0.22, 0.48], [0.32, -0.2, 0.46], [0, -0.58, 0.36]];
+  let b = '';
+  for (const [dx, dy, r] of puffs) b += circle(dx * s, dy * s, r * s, CREAM.col, stroke(Math.max(0.6, s * 0.035), CREAM.line));
+  for (const [dx, dy, r] of puffs) b += circle(dx * s, dy * s, r * s * 0.94, CREAM.col);
+  b += path(`M${f(-0.15 * s)} ${f(-0.8 * s)}Q${f(0.05 * s)} ${f(-1.08 * s)} ${f(0.18 * s)} ${f(-0.86 * s)}`, 'none', stroke(s * 0.1, CREAM.col) + ` stroke-linecap="round"`);
+  b += path(`M${f(-0.9 * s)} ${f(0.36 * s)}Q0 ${f(0.72 * s)} ${f(0.9 * s)} ${f(0.38 * s)}`, 'none', stroke(s * 0.1, CREAM.shade) + op(0.9));
+  b += ellipse(-0.3 * s, -0.36 * s, 0.2 * s, 0.1 * s, '#ffffff') + ellipse(0.2 * s, -0.66 * s, 0.1 * s, 0.06 * s, '#ffffff');
+  return g(`translate(${f(x)} ${f(y)})`, b);
+}
+
+// A pump bottle of syrup: square-shouldered glass, amber syrup, a label with a vanilla flower, the black pump.
+function syrupBottle(x, y, h, wide = 1) {
+  const k = h / 100;
+  const X = (v) => f(x + v * k * wide);
+  const Y = (v) => f(y + v * k);
+  const body = `M${X(-17)} ${Y(-58)}Q${X(-17)} ${Y(-66)} ${X(-9)} ${Y(-68)}V${Y(-74)}H${X(9)}V${Y(-68)}Q${X(17)} ${Y(-66)} ${X(17)} ${Y(-58)}V${Y(-5)}Q${X(17)} ${Y(0)} ${X(12)} ${Y(0)}H${X(-12)}Q${X(-17)} ${Y(0)} ${X(-17)} ${Y(-5)}Z`;
+  let s = path(body, SYRUP.glass, stroke(1.1 * k + 0.4, SYRUP.dark));
+  s += path(`M${X(-15.5)} ${Y(-54)}H${X(15.5)}V${Y(-5)}Q${X(15.5)} ${Y(-1.5)} ${X(11)} ${Y(-1.5)}H${X(-11)}Q${X(-15.5)} ${Y(-1.5)} ${X(-15.5)} ${Y(-5)}Z`, SYRUP.col);
+  s += path(`M${X(-15.5)} ${Y(-54)}H${X(15.5)}V${Y(-50)}H${X(-15.5)}Z`, lighten(SYRUP.col, 0.35), op(0.8));
+  s += path(body, paint('cyl'), op(0.75));
+  // label
+  s += path(rrect(x - 13 * k * wide, y - 44 * k, 26 * k * wide, 26 * k, 4 * k), '#fffaf0', stroke(0.8 * k + 0.3, SYRUP.deep));
+  s += vanillaFlower(x, y - 32 * k, 7.5 * k * Math.min(wide, 1.3));
+  s += line(`M${X(-9)} ${Y(-22)}H${X(9)}`, SYRUP.deep, 1.4 * k + 0.3);
+  // pump: collar, stem, head with its spout
+  s += path(rrect(x - 11 * k * wide, y - 82 * k, 22 * k * wide, 9 * k, 2 * k), '#2d2a28') + path(rrect(x - 11 * k * wide, y - 82 * k, 22 * k * wide, 9 * k, 2 * k), paint('cyl'), op(0.7));
+  s += path(rrect(x - 3 * k * wide, y - 96 * k, 6 * k * wide, 15 * k, 1.5 * k), '#3b3836');
+  s += path(`M${X(-8)} ${Y(-100)}H${X(6)}Q${X(9)} ${Y(-100)} ${X(9)} ${Y(-97)}V${Y(-94)}H${X(-8)}Z`, '#2d2a28');
+  s += path(`M${X(-8)} ${Y(-99.5)}H${X(-22)}Q${X(-25)} ${Y(-99.5)} ${X(-25)} ${Y(-96.5)}V${Y(-94.5)}H${X(-21)}V${Y(-96)}H${X(-8)}Z`, '#2d2a28');
+  s += line(`M${X(-14)} ${Y(-60)}V${Y(-8)}`, WHITE, 2.2 * k + 0.4, op(0.55));
+  return s;
+}
+
+// The vanilla orchid: five pale yellow petals round a darker throat.
+function vanillaFlower(x, y, r) {
+  let s = '';
+  for (let i = 0; i < 5; i++) {
+    const a = -90 + i * 72;
+    s += ellipse(x, y - r * 0.55, r * 0.32, r * 0.6, '#f6e7a4', stroke(r * 0.06, '#c9a43c') + tf(`rotate(${a} ${f(x)} ${f(y)})`));
+  }
+  return s + circle(x, y, r * 0.26, '#e0a242') + circle(x, y, r * 0.12, '#8a5a12');
+}
+
+const EXTRA_ICONS = {
+  ice() {
+    return softShadow(50, 88, 38, 6) + iceBlock(32, 68, 17, -9) + iceBlock(68, 70, 16, 11) + iceBlock(50, 44, 18, 5);
+  },
+  vanilla() {
+    return softShadow(50, 93, 30, 5) + syrupBottle(54, 94, 90, 1.45);
+  },
+  foam() {
+    // a dollop of cold foam on a small saucer
+    let s = softShadow(50, 88, 38, 6);
+    s += ellipse(50, 80, 38, 10, '#ffffff', stroke(1.2, '#b9b3a8')) + ellipse(50, 79, 30, 7, '#f1ede6');
+    return s + foamDollop(50, 58, 26);
+  },
+};
+
+// Their containers on the counter (bin box, viewBox PV): a steel bucket of ice with its scoop, the
+// syrup's pump bottle, a steel milk jug crowned with cold foam. The ground line is y = PV.ay.
+const EXTRA_BINS = {
+  ice() {
+    const y = PV.ay;
+    let s = softShadow(50, y + 1, 36, 6);
+    const body = `M13 ${y - 46}L21 ${y - 3}A27 6 0 0 0 75 ${y - 3}L83 ${y - 46}Z`;
+    s += ellipse(48, y - 46, 35, 9, '#5f6a75');
+    s += ellipse(48, y - 46, 32, 7.4, '#8b96a0');
+    // the heap of ice in the bucket
+    s += iceBlock(30, y - 50, 9, -12) + iceBlock(47, y - 54, 10, 6) + iceBlock(65, y - 50, 9, 14) + iceBlock(38, y - 60, 8.5, 18) + iceBlock(57, y - 63, 8.5, -8);
+    s += path(body, paint('steel', '#d5dbe0'), stroke(0.9, '#5f6a75')) + path(body, paint('cyl'), op(0.35));
+    s += line(`M14 ${y - 30}C30 ${y - 25} 66 ${y - 25} 82 ${y - 30}`, '#7d8892', 1.2, op(0.7));
+    s += path(`M13 ${y - 46}A35 9 0 0 0 83 ${y - 46}`, 'none', stroke(3.2, '#eef2f5'));
+    s += path(`M13 ${y - 46}A35 9 0 0 0 83 ${y - 46}`, 'none', stroke(0.8, '#5f6a75'));
+    // ice in front over the rim, and the scoop's handle sticking out
+    s += iceBlock(42, y - 45, 7.5, 24) + iceBlock(58, y - 44, 7, -16);
+    s += line(`M70 ${y - 56}L88 ${y - 80}`, '#5f6a75', 5.4, ' stroke-linecap="round"') + line(`M70 ${y - 56}L88 ${y - 80}`, '#eef2f5', 3.2, ' stroke-linecap="round"');
+    // two handles on the sides
+    s += path(`M12 ${y - 40}Q4 ${y - 38} 8 ${y - 30}`, 'none', stroke(2.2, '#7d8892'));
+    s += path(`M84 ${y - 40}Q92 ${y - 38} 88 ${y - 30}`, 'none', stroke(2.2, '#7d8892'));
+    return s;
+  },
+  vanilla() {
+    const y = PV.ay;
+    return softShadow(50, y + 1, 22, 5) + syrupBottle(48, y, 92);
+  },
+  foam() {
+    const y = PV.ay;
+    let s = softShadow(48, y + 1, 30, 6);
+    // steel milk jug: wider at the foot, a spout on the left, the handle on the right
+    const body = `M22 ${y - 52}L18 ${y - 6}Q18 ${y} 26 ${y}H70Q78 ${y} 78 ${y - 6}L72 ${y - 52}Z`;
+    s += path(`M74 ${y - 46}C92 ${y - 46} 94 ${y - 14} 76 ${y - 12}`, 'none', stroke(6, '#5f6a75')) + path(`M74 ${y - 46}C92 ${y - 46} 94 ${y - 14} 76 ${y - 12}`, 'none', stroke(3.6, '#e2e7ea'));
+    s += path(body, paint('steel', '#d5dbe0'), stroke(0.9, '#5f6a75')) + path(body, paint('cyl'), op(0.3));
+    s += path(`M22 ${y - 52}L12 ${y - 60}L26 ${y - 58}Z`, '#c9d0d6', stroke(0.9, '#5f6a75'));
+    s += ellipse(47, y - 52, 25, 6, '#5f6a75');
+    // the foam heaped over the rim
+    s += foamDollop(47, y - 64, 22);
+    s += line(`M25 ${y - 46}L23 ${y - 10}`, WHITE, 2.6, op(0.6));
+    return s;
+  },
+};
+
+// What the player carries from them (viewBox 100×100).
+const EXTRA_SCOOPS = {
+  ice() {
+    // the steel scoop with a few cubes
+    let s = softShadow(46, 86, 32, 6);
+    s += path('M58 60L92 78Q96 80 94 84Q92 87 88 85L54 68Z', paint('steel', '#cfd6dc'), stroke(1, '#5f6a75'));
+    s += path('M14 50Q14 76 40 78Q62 78 64 58L60 44Z', paint('steel-v', '#cfd6dc'), stroke(1.2, '#5f6a75'));
+    s += iceBlock(30, 50, 11, -10) + iceBlock(50, 46, 11, 12) + iceBlock(40, 34, 10, 4);
+    s += path('M14 50Q14 76 40 78Q62 78 64 58', 'none', stroke(1.2, '#5f6a75'));
+    return s;
+  },
+  vanilla() {
+    // the pump bottle, a drop of syrup hanging from its spout
+    let s = softShadow(52, 94, 18, 4);
+    s += g('rotate(-12 52 92)', syrupBottle(52, 92, 80));
+    s += path('M27 31C27 35 25 37 25.5 40A2.6 2.6 0 0 0 30.6 40C31 37 29 35 29 31Z', SYRUP.col, stroke(0.7, SYRUP.dark));
+    return s;
+  },
+  foam() {
+    return spoon(foamDollop(42, 46, 17));
+  },
+};
+
+// ======================================================================
+// The cup dispenser built into the counter (viewBox 120×120): the cups stacked upside down in a steel
+// collar, their bases up – only the top of the stack shows over the worktop. They are the cups of
+// bowlSVG at 0.6 of its scale, so cupDispenserSVG(w) holds the cups of bowlSVG(w) .
+// ======================================================================
+export function cupDispenserSVG(w = 96) {
+  return memo(`disp|${w}`, () => {
+    const cx = 60;
+    const k = 0.6;
+    const rim = { rx: 64 * k, ry: 19 * k };
+    const base = { rx: 42 * k, ry: 14 * k };
+    const collarY = 104;
+    const step = 6;
+    const topRim = collarY - 2 * step; // the rim of the top cup; two more peek out under it
+    const baseY = topRim - (182 - 50) * k; // its base, at the top
+    const wall = (yb, yr, rx0) => `M${f(cx - base.rx)} ${f(yb)}L${f(cx - rx0)} ${f(yr)}A${f(rx0)} ${f(rim.ry)} 0 0 0 ${f(cx + rx0)} ${f(yr)}L${f(cx + base.rx)} ${f(yb)}A${f(base.rx)} ${f(base.ry)} 0 0 0 ${f(cx - base.rx)} ${f(yb)}Z`;
+    let s = softShadow(62, collarY + 4, 52, 9);
+    // the collar: the hole in the worktop, its far half behind the cups
+    s += ellipse(cx, collarY, 52, 13, paint('steel', '#cfd6dc'), stroke(1, '#5f6a75'));
+    s += ellipse(cx, collarY + 0.5, 46, 10.5, '#2d3338');
+    // the stack: lower cups first, each rim a little lower and wider
+    for (let i = 2; i >= 0; i--) {
+      const yr = topRim + i * step;
+      const rx = rim.rx + i * 1.2;
+      const body = wall(baseY + i * step, yr, rx);
+      s += path(body, paint('plastic-in', '#eaf6fa'), op(0.95)) + path(body, paint('plastic', '#ffffff'), op(0.95));
+      s += path(`M${f(cx - rx)} ${f(yr)}A${f(rx)} ${f(rim.ry)} 0 0 0 ${f(cx + rx)} ${f(yr)}`, 'none', stroke(i ? 2.4 : 3.2, '#ffffff') + op(0.95));
+      s += path(`M${f(cx - rx + 1)} ${f(yr - 1.6)}A${f(rx - 1)} ${f(rim.ry)} 0 0 0 ${f(cx + rx - 1)} ${f(yr - 1.6)}`, 'none', stroke(0.8, '#88a9b6') + op(0.7));
+      s += path(body, 'none', stroke(0.9, '#8fb0bd') + op(0.5));
+    }
+    // the top cup's base: a flat disc with its ring
+    s += ellipse(cx, baseY, base.rx, base.ry, '#f3fafc', stroke(1, '#8fb0bd') + op(0.95));
+    s += ellipse(cx, baseY, base.rx - 4, base.ry - 3, 'none', stroke(1.2, '#a9c6d1') + op(0.8));
+    s += ellipse(cx - 8, baseY - 1.5, 10, 2.4, '#ffffff', op(0.8));
+    // highlights down the top cup
+    s += line(`M${f(cx - base.rx + 5)} ${f(baseY + 6)}L${f(cx - rim.rx + 7)} ${f(topRim - 6)}`, WHITE, 3.4, op(0.55));
+    s += line(`M${f(cx + base.rx - 4)} ${f(baseY + 6)}L${f(cx + rim.rx - 6)} ${f(topRim - 6)}`, WHITE, 1.6, op(0.5));
+    // the collar's near half over the foot of the stack
+    s += path(`M${cx - 52} ${collarY}A52 13 0 0 0 ${cx + 52} ${collarY}L${cx + 46} ${collarY + 0.5}A46 10.5 0 0 1 ${cx - 46} ${collarY + 0.5}Z`, paint('steel', '#cfd6dc'), stroke(0.9, '#5f6a75'));
+    s += path(`M${cx - 50} ${collarY + 2}A50 12 0 0 0 ${cx + 50} ${collarY + 2}`, 'none', stroke(1.2, '#ffffff') + op(0.7));
+    return svgWrap(w, w, 120, 120, s);
+  });
 }
 
 // ======================================================================
@@ -1714,8 +1969,10 @@ function pouringBottle() {
   return s + g('rotate(-148 50 50) translate(0 -8)', bottle);
 }
 
-export function scoopSVG(id, size = 84) {
+export function scoopSVG(item, size = 84) {
+  const id = artOf(item);
   return memo(`scoop|${id}|${size}`, () => {
+    if (EXTRA_SCOOPS[id]) return svgWrap(size, size, 100, 100, EXTRA_SCOOPS[id]());
     const rng = rngFor(`scoop-${id}`);
     let s = '';
     const hand = HANDFUL[id];

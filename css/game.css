@@ -17,6 +17,9 @@
   --l-mid-edge: rgba(47, 191, 113, 0.3);
   --l-top-tint: #ffe3ee;
   --l-top-edge: rgba(255, 61, 139, 0.26);
+  --l-matcha: #7f9f37;
+  --l-matcha-tint: #eef4dc;
+  --l-matcha-edge: rgba(127, 159, 55, 0.4);
   --screen-bg: var(--cream);
   font-family: var(--font-ui);
   color: var(--ink);
@@ -204,7 +207,13 @@
   border-radius: 1px;
   background: rgba(42, 18, 54, 0.16);
 }
+.screen-game .g-order-drink.is-alone { margin-left: 0; }
+.screen-game .g-order-drink.is-alone::before { display: none; }
+/* the glass with the drink's extras in a row under it (a drink without extras: the glass alone, centred) */
+.screen-game .g-drink-col { display: flex; flex-direction: column; align-items: center; }
 .screen-game .g-drink-wrap { position: relative; display: block; margin: 0 14px 0 -12px; }
+.screen-game .g-drink-extras { display: flex; gap: 1px; margin: -4px 0 0 -2px; }
+.screen-game .g-ico-mextra { --tint: var(--l-matcha-tint); --edge: var(--l-matcha-edge); }
 .screen-game .g-drink-fruit {
   position: absolute;
   left: 47px;
@@ -476,20 +485,20 @@
 .screen-game .g-pack .g-quality,
 .screen-game .g-pack .g-new { z-index: 3; }
 
-/* cup stack + bowl spots (x 330–940, y 340–528): the cups stand on the line of the stack's bottom cup, their content
-   chips below them, drawn over the granola jar's lid in the row in front (it reaches up to y 515) */
+/* cup dispenser + bowl spots (x 330–940, y 340–528): the cups stand on the line of the dispenser's collar, their
+   content chips below them, drawn over the granola jar's lid in the row in front (it reaches up to y 515); the
+   dispenser holds its cups upside down in the counter, so it is far lower than a stack of cups standing on it */
 .screen-game .g-stack {
   position: absolute;
-  top: 2px;
-  width: 105px;
-  height: 182px;
+  width: 120px;
+  height: 138px;
   display: flex;
   flex-direction: column;
   align-items: center;
   border-radius: 18px;
 }
-.screen-game .g-stack .g-art { width: 105px; height: 162px; transform-origin: 50% 100%; }
-.screen-game .g-stack .g-name { margin-top: 2px; }
+.screen-game .g-stack .g-art { width: 120px; height: 120px; transform-origin: 50% 87%; }
+.screen-game .g-stack .g-name { margin-top: -8px; position: relative; z-index: 1; }
 .screen-game .g-bowl {
   position: absolute;
   top: 42px;
@@ -547,6 +556,7 @@
   pointer-events: none;
 }
 .screen-game .g-bowl.is-match .g-match { display: block; animation: pop-in 0.3s ease-out both; }
+.screen-game .g-slot.is-match .g-art { filter: drop-shadow(0 0 7px rgba(47, 191, 113, 0.95)); }
 
 /* ingredient containers in two rows on slim oak risers (x from 330, left and width set by the view): fruits &
    crunch y 542–642 behind toppings & sauces y 642–742; a row's containers (hit boxes y +0–84) stand on its riser,
@@ -592,6 +602,16 @@
 }
 .screen-game .g-shelf-label-mid { background: var(--l-mid); }
 .screen-game .g-shelf-label-top { background: var(--l-top); }
+.screen-game .g-shelf-label-mfruit,
+.screen-game .g-shelf-label-mextra { background: var(--l-matcha); }
+/* the matcha bar's rows start at its left end (js/game-view.js MBAR_X0); right under the glasses on the machine its
+   bins have no raised hit area (the glass above takes a press there) */
+.screen-game .g-shelf-mfruit,
+.screen-game .g-shelf-mextra { justify-content: flex-start; }
+.screen-game .g-mbin::before { display: none; }
+/* a bin narrower than its container's picture (a squeezed row, the matcha bar): the picture scaled down toward its
+   foot, the middle of the bin's bottom edge (js/game-view.js buildShelf places the badges to match) */
+.screen-game .g-bin[style*="--k"] .g-art { left: calc(50% - 48px); transform: scale(var(--k)); transform-origin: 48px 112px; }
 .screen-game .g-bin {
   position: relative;
   width: 96px;
@@ -666,7 +686,7 @@
 .screen-game .g-slot {
   position: absolute;
   width: 96px;
-  height: calc(var(--glass) + 34px);
+  height: calc(var(--glass) + 26px);
   border-radius: 20px;
   pointer-events: auto;
 }
@@ -680,7 +700,7 @@
 }
 /* a glass's timer lies on the worktop just under the drip tray's front, like the blenders' bars (a glass under a
    nozzle stands still while it brews) */
-.screen-game .g-slot .g-timer { left: 10px; right: 10px; top: auto; bottom: -5px; height: 10px; }
+.screen-game .g-slot .g-timer { left: 10px; right: 10px; top: auto; bottom: -13px; height: 10px; }
 .screen-game .g-slot[data-state="ready"] .g-art { filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.95)); }
 /* a glass that just got ready flashes its glow and pops only a little: its straw ends ≈4 px under the collar */
 .screen-game .g-slot .g-art.is-pop { animation: g-pop-glass 0.4s ease-out; }
@@ -727,18 +747,40 @@
   box-shadow: var(--g-soft-shadow);
 }
 
-/* trash can: on the floor in front of the cabinet, bottom right (y 664–800) */
+/* the cup arm (shop upgrade): a rail along the pass's front, the carriage on it, a telescopic rod down to the
+   gripper (js/game-view.js updateArm moves them). Behind the cups and the dispenser while it carries a cup along
+   the row, in front of them while it takes one out of the dispenser or puts one down on a free spot. */
+.screen-game .g-arm { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
+.screen-game .g-arm.is-front { z-index: 4; }
+.screen-game .g-arm-rail { position: absolute; }
+.screen-game .g-arm-car { position: absolute; left: 0; top: 0; will-change: transform; }
+.screen-game .g-arm-body { position: absolute; left: -32px; top: -16px; width: 64px; height: 40px; z-index: 1; }
+.screen-game .g-arm-rod {
+  position: absolute;
+  left: -5px;
+  top: 18px;
+  width: 10px;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(90deg, #6f7a85 0, #e9eef2 30%, #fdfefe 45%, #b9c2ca 70%, #7d8892 100%);
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12);
+}
+.screen-game .g-arm-grip { position: absolute; left: 0; top: 0; will-change: transform; }
+.screen-game .g-arm-claw { position: absolute; left: -50px; top: 0; width: 100px; height: 56px; }
+/* the carried cup: its middle (y 70 of the 120 px cup) between the pads, flipped about it */
+.screen-game .g-arm-cup { position: absolute; left: -60px; top: -24px; width: 120px; height: 120px; transform-origin: 50% 58.3%; }
+
+/* trash can: on the floor in front of the cabinet, bottom right (y 668–800), beside the matcha bar's extras */
 .screen-game .g-trash {
   position: absolute;
-  left: 1136px;
-  top: 326px;
-  width: 136px;
-  height: 136px;
+  left: 1172px;
+  top: 330px;
+  width: 104px;
+  height: 132px;
   display: grid;
   place-items: center;
   border-radius: 28px;
 }
-.screen-game .g-trash .g-art { width: 134px; height: 134px; transform-origin: 50% 100%; }
+.screen-game .g-trash .g-art { width: 102px; height: 102px; transform-origin: 50% 100%; }
 
 /* ------------------------------------------------------------ 3D appliances (js/art3d.js, WebGL)
    Each station holds a canvas drawn by the shared renderer; its size and the world origin inside it
@@ -756,7 +798,8 @@
 /* matcha machine: the glasses stand on its drip trays */
 .screen-game .g-machine .g-slot { z-index: 1; }
 /* pedal bin: the canvas reaches above the hit area so the lid can open */
-.screen-game.is-3d .g-trash .g-art { position: absolute; left: -9px; top: -72px; width: 153px; height: 209px; transform-origin: 76px 191px; }
+/* (the canvas has its view's size; the bin is drawn at 0.76 of it, its foot where the bigger one stood) */
+.screen-game.is-3d .g-trash .g-art { position: absolute; left: -24px; top: -72px; width: 153px; height: 209px; transform-origin: 76px 191px; transform: scale(0.76); }
 
 /* ------------------------------------------------------------ drag & drop feedback (js/drag.js) */
 .screen-game [data-dnd-source] { cursor: grab; }
