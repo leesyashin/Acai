@@ -3,8 +3,9 @@
 Ein Zeitmanagement-Spiel im Stil von *Cooking Fever* für den Browser: Du arbeitest in einem modernen
 Açaí-Café. Deine Gäste bestellen Bowls – serviert in durchsichtigen Plastikbechern, in denen man die
 Schichten sieht – und später Frucht-Matcha; du stellst sie per **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
-Maus am PC, auf dem **MacBook im Browser** (Maus oder Trackpad) und (verkleinert) auf dem Handy. Deutsch und Englisch, Soundeffekte und Musik
-werden synthetisch erzeugt – es gibt keine Bild- oder Audiodateien. Die Küchengeräte (Mixer, Matcha-Maschine,
+Maus am PC, auf dem **MacBook im Browser** (Maus oder Trackpad) und (verkleinert) auf dem Handy – und lässt sich dort **wie eine App
+installieren** (Vollbild, eigenes Icon, offline spielbar). Deutsch und Englisch, Soundeffekte und Musik
+werden synthetisch erzeugt – es gibt keine Audiodateien, und die einzigen Bilddateien sind die App-Icons, die aus dem Code gezeichnet werden. Die Küchengeräte (Mixer, Matcha-Maschine,
 Mülleimer, Gefriertruhe) sind echte 3D-Modelle, die per WebGL im Browser gerendert und animiert werden; jedes
 Upgrade bringt ein neues Modell.
 
@@ -98,6 +99,21 @@ Fenster mit tiefer Laibung und hellem Tageslicht, eine Kreidetafel, ein Wandrega
 weiche Schatten – und bleibt bewusst ruhig, damit Gäste und Bestellblasen davor gut lesbar sind. Bei 4 Gästen fehlen
 Tafel und Regal, die die äußeren Bestellblasen sonst bis auf schmale Streifen verdecken würden.
 
+**Level-Karte:** Die Karte ist eine lange Strecke zum Hochscrollen (Finger, Mausrad/Trackpad oder mit der Maus ziehen) durch drei
+Gegenden: **Am Strand** (Level 1–7, mit Meer, Rettungsturm und Palmen), die **Stadtpromenade** (Level 8–14, bunte Häuser mit Markisen,
+Brunnen, Eiswagen) und den **Regenwald** (Level 15–20, Açaí-Palmen, Fluss mit Wasserfall, Tukan). Gegenden, die du noch nicht erreicht
+hast, liegen im Dunst; ein Schild am Anfang jeder Gegend sagt, ab welchem Level sie aufgeht. Eine Spielfigur (eine Stecknadel mit
+Açaí-Becher) schwebt über dem Level, das als Nächstes dran ist, und die Karte öffnet sich genau dort.
+
+**Spielgefühl:** Wer schnell bedient, bekommt Lob über dem Gast („Perfekt!“, „Super!“) und Glitzer; wer mehrere Gäste hintereinander
+zufriedenstellt, sieht eine **Combo** („Combo ×3!“) über der Theke – sie ist nur zur Freude da und bringt keine Extramünzen. Geht ein
+Gast wütend, wackelt das Café und die Ränder blitzen rot. Gäste blinzeln ab und zu. Ab Level 4 verschwinden die Namensschilder unter den
+Behältern und die Regal-Beschriftungen (dann kennst du die Zutaten); mit der Maus über einem Behälter oder beim Herausnehmen zeigt er
+seinen Namen, neue Zutaten („NEU“) behalten ihn. Auf Android-Handys vibriert das Spiel kurz dazu (abschaltbar unter Einstellungen →
+Vibration). Beim Start zeigt ein Ladebildschirm Logo und Ladebalken; zwischen den Menüs blendet das Spiel über, vor und nach einem Level
+schließt sich kurz ein Açaí-Vorhang. Die Knöpfe sind glänzend wie in einem Handyspiel, und das HUD im Spiel hat denselben kräftigen Look
+wie die Menüs.
+
 **Endlos-Modus:** Nach Level 10 wird der Endlos-Modus freigeschaltet: kein Zeitlimit, alle 30 Sekunden
 wird es schwerer (mehr Plätze, mehr Gäste, größere Bestellungen). Gespielt wird, bis alle Herzen weg sind
 oder du im Pausenmenü die Schicht beendest – deine Münzen und dein Highscore werden gespeichert.
@@ -115,6 +131,16 @@ installieren (Safari ab Version 14.1). Das Spiel passt sich jeder Fenstergröße
 - **Kein versehentliches Zoomen oder Zurückblättern:** Pinch-Zoom, ⌘/Ctrl + Scrollen und das Wischen mit zwei Fingern
   sind im Spiel abgeschaltet, damit ein laufendes Level nicht aus Versehen verloren geht.
 - Musik und Sounds starten nach dem ersten Klick (das verlangt der Browser).
+
+## Als App auf Handy oder Tablet
+
+Im Browser <https://leesyashin.github.io/Acai/> öffnen und das Spiel zum Home-Bildschirm hinzufügen – auf dem **iPhone/iPad** in Safari
+über *Teilen → Zum Home-Bildschirm*, auf **Android** in Chrome über das Menü *App installieren* (oder *Zum Startbildschirm hinzufügen*).
+Dann startet es mit eigenem Icon im Vollbild ohne Browserleisten, im Querformat, und läuft nach dem ersten Spielen auch **offline**.
+
+Auf Handys und Tablets (und in der installierten App) füllt das Spiel den ganzen Bildschirm: Die Bühne bleibt gleich groß, aber Café-Wand,
+Arbeitsplatte, Karte und Menü-Hintergründe laufen bis an die Ränder weiter, und die Anzeigen (Münzen, Herzen, Zeit, Zurück-Knopf) sitzen
+an den Bildschirmkanten – nicht hinter der Notch. Am Desktop-Browser bleibt das gerahmte Bild mit lila Rand.
 
 ## Lokal starten
 
@@ -138,6 +164,7 @@ Ohne Server spielen: `npm run build` ausführen und danach **`dist/acai-fever.ht
 |---|---|
 | `npm start` | Statischer Server (`tools/serve.mjs`) auf Port 8080, ohne Caching. Anderer Port: `node tools/serve.mjs 3000` |
 | `npm test` | Unit-Tests mit `node --test` (Engine, Bestellungen, Daten, Speicherstand, Übersetzungen, Audio, Grafik, 3D-Geometrie, -Modelle und Zutaten-Behälter, Balancing); `node --test tests/` geht auch |
+| `node tools/icons.mjs` | Zeichnet die App-Icons (`icons/*.png`, `icons/icon.svg`) neu aus `appIconSVG` in `js/art.js` – nur nötig, wenn sich das Icon ändert |
 | `npm run build` | Bündelt alles mit esbuild zu `dist/acai-fever.html` (eigenständig, läuft per `file://`) und `dist/artifact.html` (gleicher Inhalt ohne `<html>/<head>/<body>`-Hülle, zum Veröffentlichen als Claude-Artifact). `dist/` liegt im Repository – nach jeder Änderung am Spiel neu bauen, GitHub Pages kopiert es ohne Build |
 | `npm run e2e` | Führt alle Playwright-Skripte `tests/e2e/*.e2e.mjs` nacheinander aus (Chromium, headless, Server auf Port 8090 bzw. `E2E_PORT`; ist der Port belegt, nutzen sie den Server dort nur, wenn er diesen Stand ausliefert). Filter: `npm run e2e -- playthrough` |
 

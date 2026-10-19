@@ -1,6 +1,7 @@
 # Publishes the game on GitHub Pages (Settings → Pages → Source: GitHub Actions) on every push to
-# main: the game as it runs in development (index.html, css/, js/ as ES modules), the single-file
-# build from dist/ and the 3D appliance preview. The unit tests run first.
+# main: the game as it runs in development (index.html, css/, js/ as ES modules) with what makes it an
+# installable web app (manifest.webmanifest, sw.js, icons/), the single-file build from dist/ and the 3D
+# appliance preview. The unit tests run first.
 name: Deploy to GitHub Pages
 
 on:
@@ -34,7 +35,7 @@ jobs:
       - name: Collect the site
         run: |
           mkdir -p _site/tools
-          cp -r index.html css js _site/
+          cp -r index.html manifest.webmanifest sw.js css js icons _site/
           cp dist/acai-fever.html _site/
           cp tools/appliances-3d.html _site/tools/
       - uses: actions/configure-pages@v5

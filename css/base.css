@@ -31,6 +31,10 @@
   --r-md: 18px;
   --r-lg: 28px;
   --outline: 3px solid var(--ink);
+  /* buttons: gloss over the colour, bevel inside the outline, soft drop shadow under the lip */
+  --btn-gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 48%, rgba(42, 18, 54, 0.14));
+  --btn-bevel: inset 0 -5px 0 rgba(42, 18, 54, 0.2), inset 0 2px 0 rgba(255, 255, 255, 0.55);
+  --btn-drop: 0 12px 18px rgba(30, 0, 50, 0.28);
 
   color-scheme: light;
 }
@@ -60,6 +64,8 @@ body {
 }
 
 #app {
+  position: relative;
+  overflow: hidden; /* full bleed: art drawn wider than the window ends here, it never widens the page */
   box-sizing: border-box;
   height: 100%;
   width: 100%;
@@ -101,14 +107,46 @@ body {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  background: var(--screen-bg, transparent); /* each screen sets --screen-bg, so full bleed can carry it to the edges */
 }
 
-/* ------------------------------------------------------------ buttons */
+/* ------------------------------------------------------------ full bleed (js/stage.js: touch devices, installed app)
+   No frame round the stage: the screens run on into the bands up to the window's edges. A screen's background
+   (--screen-bg) moves to a backdrop that reaches --bx / --by beyond the stage; art that is drawn wider (walls, counters,
+   the map) shows there; overlays cover the whole window; bars and HUDs move to the window's edges, clear of a notch
+   (--safe-*: the safe-area insets in stage px). */
+#stage {
+  --safe-l: calc(env(safe-area-inset-left, 0px) / var(--stage-scale, 1));
+  --safe-r: calc(env(safe-area-inset-right, 0px) / var(--stage-scale, 1));
+  --safe-t: calc(env(safe-area-inset-top, 0px) / var(--stage-scale, 1));
+}
+html.is-bleed #app { padding: 0; }
+html.is-bleed #stage-wrap { overflow: visible; border-radius: 0; box-shadow: none; }
+html.is-bleed #stage { overflow: visible; }
+html.is-bleed .screen { overflow: visible; background: none; }
+html.is-bleed .screen::before {
+  content: "";
+  position: absolute;
+  inset: calc(-1 * var(--by, 0px)) calc(-1 * var(--bx, 0px));
+  z-index: -1;
+  background: var(--screen-bg, none);
+  pointer-events: none;
+}
+html.is-bleed .overlay { inset: calc(-1 * var(--by, 0px)) calc(-1 * var(--bx, 0px)); }
+
+/* ------------------------------------------------------------ buttons
+   Glossy candy buttons: a light top and darker bottom inside the colour, a soft highlight band across the
+   upper third (::after) and a bevel along the bottom edge, on the thick ink outline and its 6px lip. The
+   highlight sits under the label (z-index -1 inside the button's own stacking context). Coloured buttons
+   carry white lettering with an ink outline. Pressing sinks the button onto its lip and squeezes it a little. */
 .btn {
+  position: relative;
+  isolation: isolate;
   appearance: none;
   border: var(--outline);
   border-radius: var(--r-md);
-  background: var(--mango);
+  background-color: var(--mango);
+  background-image: var(--btn-gloss);
   color: var(--ink);
   font-family: var(--font-display);
   font-size: 30px;
@@ -117,7 +155,7 @@ body {
   padding: 16px 30px 14px;
   min-height: 64px;
   min-width: 64px;
-  box-shadow: 0 6px 0 var(--ink);
+  box-shadow: var(--btn-bevel), 0 6px 0 var(--ink), var(--btn-drop);
   cursor: pointer;
   transform: translateY(0);
   transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
@@ -127,24 +165,60 @@ body {
   gap: 10px;
   touch-action: manipulation;
 }
+.btn::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 4px;
+  height: 36%;
+  max-height: 34px;
+  z-index: -1;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.06));
+  pointer-events: none;
+}
 .btn:hover { filter: brightness(1.06); }
-.btn:active, .btn.pressed { transform: translateY(5px); box-shadow: 0 1px 0 var(--ink); }
+.btn:active, .btn.pressed { transform: translateY(5px) scale(0.97); box-shadow: var(--btn-bevel), 0 1px 0 var(--ink); }
 .btn:focus-visible { outline: 4px solid var(--lagoon); outline-offset: 4px; }
 .btn[disabled], .btn.disabled {
   filter: grayscale(0.7) brightness(0.92);
   cursor: not-allowed;
   transform: none;
-  box-shadow: 0 6px 0 var(--ink);
+  box-shadow: var(--btn-bevel), 0 6px 0 var(--ink), var(--btn-drop);
 }
-.btn.pink { background: var(--pitaya); color: var(--white); }
-.btn.green { background: var(--leaf); color: var(--white); }
-.btn.lagoon { background: var(--lagoon); color: var(--white); }
-.btn.purple { background: var(--acai-2); color: var(--white); }
-.btn.cream { background: var(--cream); }
-.btn.small { font-size: 22px; padding: 10px 18px 8px; min-height: 52px; border-radius: 14px; box-shadow: 0 4px 0 var(--ink); }
-.btn.small:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+.btn.pink { background-color: var(--pitaya); color: var(--white); }
+.btn.green { background-color: var(--leaf); color: var(--white); }
+.btn.lagoon { background-color: var(--lagoon); color: var(--white); }
+.btn.purple { background-color: var(--acai-2); color: var(--white); }
+.btn.cream { background-color: var(--cream); }
+.btn:is(.pink, .green, .lagoon, .purple) {
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 2px 0 rgba(42, 18, 54, 0.55);
+}
+.btn.small { font-size: 22px; padding: 10px 18px 8px; min-height: 52px; border-radius: 14px; box-shadow: var(--btn-bevel), 0 4px 0 var(--ink), var(--btn-drop); }
+.btn.small:is(.pink, .green, .lagoon, .purple) { -webkit-text-stroke-width: 1.5px; }
+.btn.small::after { left: 6px; right: 6px; top: 3px; }
+.btn.small:active { transform: translateY(3px) scale(0.97); box-shadow: var(--btn-bevel), 0 1px 0 var(--ink); }
 .btn.icon { padding: 8px; width: 64px; height: 64px; }
 .btn svg { display: block; flex: none; }
+
+/* A light streak that sweeps across the main call to action every few seconds: a gradient moving inside a
+   layer as big as the button (nothing reaches outside the button, so its scroll size stays its own). */
+.btn-shine::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(105deg, transparent 42%, rgba(255, 255, 255, 0.6) 49%, rgba(255, 255, 255, 0.75) 50%, rgba(255, 255, 255, 0.6) 51%, transparent 58%) no-repeat;
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  animation: btn-shine 3.4s ease-in-out 1.2s infinite;
+  pointer-events: none;
+}
+@keyframes btn-shine { 0% { background-position: 100% 0; } 38%, 100% { background-position: 0 0; } }
 
 /* ------------------------------------------------------------ panels */
 .panel {
@@ -212,6 +286,100 @@ body {
 
 .anim-pop { animation: pop-in 0.35s ease-out both; }
 .anim-shake { animation: shake 0.4s ease-in-out; }
+
+/* ------------------------------------------------------------ transitions and loading screen (js/curtain.js)
+   #stage-leaving: the old screen, scaled like #stage and on top of it, while it fades out (between menus) or while
+   the curtain closes over it (to and from the game). #curtain: the açaí curtain over the whole window – an iris that
+   closes, a bouncing bowl, then it fades open; at boot it is the loading screen (logo, bar). Neither takes the pointer. */
+#stage-leaving {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1280px;
+  height: 800px;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+#stage-leaving:empty { display: none; }
+#stage-leaving > .screen.is-leaving { animation: screen-leave 0.22s ease-in both; }
+
+#curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 42%, var(--acai-3) 0, var(--acai-2) 32%, var(--acai) 75%);
+}
+#curtain[hidden] { display: none; }
+#curtain.is-closing { animation: curtain-close 0.28s cubic-bezier(0.5, 0, 0.75, 0.4) both; }
+#curtain.is-opening { animation: curtain-open 0.34s ease-in both; }
+.curtain-sun {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 260vmax;
+  height: 260vmax;
+  margin: -130vmax 0 0 -130vmax;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.075) 0deg 8deg, transparent 8deg 16deg);
+  animation: spin 60s linear infinite;
+}
+.curtain-bowl {
+  position: relative;
+  width: min(30vmin, 170px);
+  filter: drop-shadow(0 10px 0 rgba(20, 6, 30, 0.35));
+  animation: curtain-bowl 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+.curtain-bowl svg { display: block; width: 100%; height: auto; }
+
+.splash {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: min(3vmin, 22px);
+  width: min(86vw, 620px);
+}
+.splash-logo { width: 100%; filter: drop-shadow(0 10px 0 rgba(20, 6, 30, 0.35)); animation: title-logo-in-base 0.6s cubic-bezier(0.3, 1.5, 0.5, 1) both; }
+.splash-logo svg { display: block; width: 100%; height: auto; }
+.splash-bar {
+  position: relative;
+  width: 72%;
+  height: min(4.2vmin, 30px);
+  box-sizing: border-box;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #5a3a6c;
+  box-shadow: inset 0 4px 4px rgba(20, 6, 30, 0.45), 0 5px 0 var(--ink);
+  overflow: hidden;
+}
+.splash-bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #fff3b8 0 22%, #ffc93c 22% 70%, #f0951c 70%);
+  transform-origin: 0 50%;
+  transform: scaleX(0.04);
+  transition: transform 0.35s ease-out;
+}
+.splash-text {
+  margin: 0;
+  color: var(--cream);
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-size: min(3.2vmin, 22px);
+  text-shadow: 0 2px 0 rgba(20, 6, 30, 0.6);
+}
+/* the title waits under the loading screen: its entrance animations play when the curtain opens */
+html.is-booting .screen-title, html.is-booting .screen-title * { animation-play-state: paused !important; }
+
+@keyframes screen-leave { to { opacity: 0; transform: scale(1.03); } }
+@keyframes curtain-close { from { clip-path: circle(0% at 50% 50%); } to { clip-path: circle(75% at 50% 50%); } }
+@keyframes curtain-open { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.12); } }
+@keyframes curtain-bowl { from { transform: translateY(40px) scale(0.4) rotate(-10deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes title-logo-in-base { from { transform: scale(0.6) rotate(-4deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
 
 /* ------------------------------------------------------------ rotate hint */
 #rotate-hint {

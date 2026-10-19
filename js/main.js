@@ -10,6 +10,7 @@ import { screens } from './screens.js';
 import { gameScreen } from './game-view.js';
 import { warm3D, prepareStills } from './art3d.js';
 import { PANTRY_PICTURES } from './pantry3d.js';
+import { initCurtain, transition, splash } from './curtain.js';
 
 registerStrings({
   de: {
@@ -47,6 +48,7 @@ export function go(name, params = {}) {
 }
 
 function navigate(name, params, rerender) {
+  const from = current?.name ?? null;
   teardown();
   if (!SCREENS[name]) {
     console.error(`[router] unknown screen "${name}"`);
@@ -56,6 +58,9 @@ function navigate(name, params, rerender) {
   const container = document.createElement('div');
   container.className = `screen screen-${name}`;
   container.dataset.screen = name;
+  // the old screen leaves through a transition (js/curtain.js) – outside #stage, the new one is there at once
+  const old = stageEl.firstElementChild;
+  if (old && !rerender && SCREENS[from]) transition(old, from, name);
   stageEl.replaceChildren(container);
   current = { name, params, cleanup: null };
   const track = musicFor(name);
@@ -178,6 +183,16 @@ function initRotateHint() {
   onLangChange(draw);
 }
 
+// ------------------------------------------------------------------ installed web app
+// Offline play for the installed app (sw.js): only the real site – index.html with its manifest, on https –
+// never the single-file builds (no manifest link) or a local dev server.
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator) || location.protocol !== 'https:' || !document.querySelector('link[rel="manifest"]')) return;
+  const register = () => navigator.serviceWorker.register('sw.js').catch((err) => console.warn('[sw] not registered', err));
+  if (document.readyState === 'complete') register();
+  else window.addEventListener('load', register, { once: true });
+}
+
 // ------------------------------------------------------------------ boot
 function start(data) {
   if (started) return;
@@ -187,6 +202,7 @@ function start(data) {
   audio.setSfx(save.settings.sfx);
   audio.setMusic(save.settings.music);
   stageEl = initStage(document.getElementById('app'), document.getElementById('stage-wrap'), document.getElementById('stage'));
+  initCurtain(document.getElementById('stage-wrap'));
   document.addEventListener('pointerdown', onGesture, { capture: true });
   document.addEventListener('keydown', onGesture, { capture: true });
   onLangChange(rerenderCurrent);
@@ -194,12 +210,16 @@ function start(data) {
   window.__acaiGo = go;
   window.__acaiScreen = () => current?.name ?? null;
   go('title');
-  // compile the 3D renderer while the title shows: the first 3D picture (level card, shop, game)
-  // must not stall a tap or an opening animation; then draw the ingredient containers ahead
-  requestAnimationFrame(() => setTimeout(() => {
+  // the loading screen covers the title until the fonts are in and the 3D renderer is compiled: the first 3D
+  // picture (level card, shop, game) must not stall a tap or an opening animation; then the ingredient
+  // containers are drawn ahead while the title shows
+  const warm = new Promise((resolve) => requestAnimationFrame(() => setTimeout(() => {
     warm3D();
+    resolve();
     prepareStills('pantry', PANTRY_PICTURES);
-  }, 0));
+  }, 0)));
+  splash([document.fonts?.ready, warm]);
+  registerServiceWorker();
 }
 
 const hot = window.claude?.hot;

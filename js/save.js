@@ -25,7 +25,7 @@ export function defaultSave() {
     endlessBest: 0,
     newIngredients: [],
     seenIntros: {},
-    settings: { lang: detectLang(), music: true, sfx: true },
+    settings: { lang: detectLang(), music: true, sfx: true, haptics: true },
     stats: { served: 0, earned: 0, played: 0 },
   };
 }
@@ -49,6 +49,7 @@ function merge(raw) {
   if (!LANGS.includes(out.settings.lang)) out.settings.lang = d.settings.lang;
   out.settings.music = out.settings.music !== false; // only an explicit false mutes
   out.settings.sfx = out.settings.sfx !== false;
+  out.settings.haptics = out.settings.haptics !== false;
   const stats = obj(raw.stats);
   out.stats = {};
   for (const k of Object.keys(d.stats)) out.stats[k] = amount(stats[k]);

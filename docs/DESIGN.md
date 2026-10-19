@@ -136,12 +136,19 @@ ingredient has 2 quality upgrades (value ×1.3, ×1.6, rounded up to 0.5 so ever
 ## 4. Architecture
 
 ```
-index.html            full HTML page; loads css/*.css + js/main.js (type=module)
+index.html            full HTML page; loads css/*.css + js/main.js (type=module); links the web app manifest and icons
+manifest.webmanifest  installable web app: name, landscape, fullscreen, icons (§4.10)
+sw.js                 service worker of the installed app: offline play (§4.10)
+icons/                app icons as PNG + SVG, drawn by tools/icons.mjs from appIconSVG (the game's only image files)
 css/base.css          tokens, fonts, buttons, panels, shared animations, #app/#stage scaling shell
 css/screens.css       title, map, shop, settings, pre-level modal, results
 css/game.css          gameplay screen (HUD, scene, customers, stations, bins, bowls, drag ghost, tutorial)
-js/main.js            boot: load save, set language, init stage + audio, screen router, hot-reload hook
-js/stage.js           fixed 1280×800 logical stage scaled to fit; client→stage coordinate mapping
+js/main.js            boot: load save, set language, init stage + audio, screen router, hot-reload hook, loading screen,
+                      service worker registration
+js/stage.js           fixed 1280×800 logical stage scaled to fit (framed, or full bleed on touch devices); client→stage mapping
+js/curtain.js         screen transitions (açaí curtain to/from the game, fade between menus) and the loading screen
+js/icons.js           outlined UI icons for buttons (menus and the pause menu)
+js/haptics.js         short vibrations on touch devices that have the Vibration API (setting "Vibration")
 js/i18n.js            t(key, params), registerStrings({de,en}), setLang/getLang/onLangChange
 js/data.js            INGREDIENTS, LEVELS, UPGRADES, constants, getKitchenStats(), endlessConfig(), price helpers
 js/save.js            persistent progress (localStorage with in-memory fallback) + shop/progress actions
@@ -155,7 +162,8 @@ js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, wh
 js/art-kitchen.js     realistic kitchen art: work counter, freezer, risers, café back wall, decor; blender, matcha machine,
                       trash and freezer as the SVG fallback of the 3D models
 js/art-guests.js      the guests: looks (randomLook, lookFromSeed) and realistic busts in four moods (customerSVG)
-js/art.js             HUD icons, logo, map; re-exports the food, kitchen + guest art (screens import from here)
+js/art-map.js         the level map: three regions (beach, town promenade, rainforest), node positions, the road
+js/art.js             HUD icons, logo, title counter, app icon; re-exports the map, food, kitchen + guest art (screens import from here)
 js/geo3d.js           3D math, mesh builders (lathe – also fluted or warped –, rounded box, tube, liquid surface) and materials – pure
 js/kitchen3d.js       3D models of the appliances as scene descriptions (blender tiers, matcha machine, bin, freezer) – pure
 js/pantry3d.js        3D models of the ingredient containers (stainless pans, jars, squeeze bottle, coconut, wood) – pure
@@ -165,6 +173,7 @@ js/audio.js           WebAudio synthesized SFX + music loops (no audio files)
 js/game-view.js       gameplay screen: DOM from engine state, drag wiring, HUD, pause, tutorial, FX
 js/screens.js         menu screens: title, map, shop, settings, pre-level modal, results
 tools/build.mjs       esbuild bundle → dist/acai-fever.html (standalone) + dist/artifact.html
+tools/icons.mjs       draws icons/*.png + icons/icon.svg from appIconSVG (run again after changing the icon)
 tests/*.test.mjs      node --test unit tests (engine, orders, data, save, i18n, audio, art, 3D geometry + models + containers, balance simulation)
 tests/e2e/*.e2e.mjs   Playwright scripts (drag, gameplay, screens, playthrough, appliances, layout, build) – `npm run e2e`
 ```
@@ -194,8 +203,19 @@ as well as on `#stage`, plus cancelled `gesturestart`/`gesturechange`/`gestureen
 trackpad) (`initStage`). On a MacBook, touch-action does not reach the trackpad: Chrome, Edge and Firefox deliver a
 pinch as ctrl+wheel events and a two-finger swipe sideways navigates back, so `initStage` cancels every `wheel`
 event (non-passive listener on `window`) and `html, body` carry `overscroll-behavior: none`; a Force Touch press
-(`webkitmouseforcewillbegin`) is cancelled too, so it never opens Look Up mid-drag. A scrollable list added later
-needs its own `touch-action: pan-y` and an exception in that wheel listener.
+(`webkitmouseforcewillbegin`) is cancelled too, so it never opens Look Up mid-drag. A scroller (the level map) carries
+`data-scroll` and `touch-action: pan-y`; the wheel listener lets a plain vertical wheel over it through (no ctrl/⌘).
+
+**Framed or full bleed.** On a fine pointer (desktop, MacBook) the stage is framed: rounded corners and a shadow on the
+açaí-purple page, 8/16 px of padding. On touch devices (`(pointer: coarse)`) and in the installed app
+(`display-mode: standalone | fullscreen`) `html.is-bleed` is set: no padding, no frame, and the screens' art runs on
+into the bands round the stage up to the window's edges, like a native game – the stage itself (its scale, its 1280×800
+box, `toStage`) is the same in both. `fit()` sets `--bx` / `--by` on `#stage`: the stage px the window reaches beyond
+the stage on either side (0 when framed); `--safe-l/-r/-t` are the safe-area insets in stage px. With them a screen's
+background (`--screen-bg`) moves to a backdrop as big as the window, overlays cover the window, the bars (title top bar,
+headers, the game HUD) sit at the window's edges, and art drawn wider – the café wall and worktop (`BLEED_X` 360 / `BLEED_Y`
+200), the title counter, the shop awning, the map – shows in the bands. The #stage-wrap rect stays the stage's box, so the
+bands remain touch areas without zoom.
 
 ### 4.2 Engine (`js/engine.js`) – contract
 
@@ -384,7 +404,22 @@ freezerSVG('well'|'rim', w, h)        // chest freezer in the counter (284×186)
 riserSVG(w, h)                        // oak riser an ingredient row stands on (drawn 1:1; its 16 px front edge, ending
                                       // 3 px above the bottom, carries the layer label)
 logoSVG(width)                        // "Açaí Fever" logo with bowl
+titleCounterSVG(bleed = 0, below = 0) // the title screen's counter (1280×116): marble top, fluted açaí-purple front, brass
+                                      // foot rail; bleed / below draw it wider and deeper (full bleed)
+appIconSVG(size, {maskable})          // the app icon (512 square): the logo's cup on the açaí sunburst; maskable keeps it in
+                                      // the central 80 % (tools/icons.mjs draws icons/ from it)
+mapRegionSVG(id), MAP_REGIONS         // the level map (js/art-map.js): 'beach' (levels 1–7: sea, boardwalk, lifeguard tower,
+                                      // palms), 'town' (8–14: houses with awnings, lamps, a fountain, an ice-cream cart),
+                                      // 'forest' (15–20: açaí palms, a river from a waterfall, a toucan); each MAP_W + 2·MAP_BLEED
+                                      // wide, MAP_REGIONS gives their tops/bottoms in map px (MAP_H in all)
+mapLevelPos(i), mapRoadData(count)    // centre of level node i (stage x, map y); the road from below the map through the
+                                      // first `count` nodes (a smooth curve)
 ```
+The café wall and the work counter take `{ bleed, above }` / `{ bleed, below }` too: the plain wall (plaster, wainscot,
+cornice, lamp cords), the worktop and the cabinet with its compartments run on that far (the picture is then drawn 1:1,
+the stage's origin at `(bleed, above)`); without them they are the 1280-wide pictures they always were.
+`customerSVG(look, mood, size, blink)`: blink draws neutral and impatient eyes shut (the game and the title lay it over
+the open-eyed picture for a blink now and then).
 Look: shapes are filled with their colour and shaded with the shared overlay gradients (`url(#af-sph)`,
 `af-cyl`, `af-plastic`, `af-steel` …, light from the top left), thin outlines in a darker shade of the fill.
 Everything on the counter is seen from the player's side, from above at an angle (Cooking Fever's view): round
@@ -606,6 +641,18 @@ ctx = { go, audio, t, screen /* current name */, rerender /* true on a language 
   endless adds `best` and `stage` (0-based engine stage; the results screen shows `stage + 1`).
 - Test hooks: `window.__acaiGo(name, params)`, `window.__acaiScreen()`, `window.__acaiGame` (live game),
   `window.__acaiSpeed` (simulation speed multiplier, tests only).
+- **Transitions** (`js/curtain.js`, purely visual): the router switches screens at once – `#stage > [data-screen]` is
+  always the new one –, the old screen moves to `#stage-leaving` (a box scaled like `#stage`, on top, no pointer
+  events, `inert`). Between menus it fades out over the new one (0.22 s); to and from the game the açaí curtain (fixed,
+  the whole window) closes over it like an iris (0.28 s), holds a bouncing bowl for a beat and fades open (0.34 s). A
+  language re-render has no transition; with reduced motion the old screen goes at once.
+- **Loading screen**: at boot the curtain shows the logo and a loading bar over the title until the fonts are in and the
+  3D renderer is compiled (at least 0.9 s, at most 4 s), then fades open; `html.is-booting` pauses the title's entrance
+  animations under it. It never takes the pointer: a tap, a key or a change of screen opens it at once.
+- **Level map**: a scroller (`.map-scroll`, `data-scroll`, as wide as the map art and reaching into the bands) over the
+  three regions; it opens with the level that is up next (or `openLevel`) in the middle. A region not reached yet lies
+  in a light haze; a sign beside its first level names it ("Am Strand – Level 1–7", "Stadtpromenade – ab Level 8"). The
+  player is a pin with a bowl, bobbing over the next level. A mouse drags the map (a drag swallows the click after it).
 
 ### 4.7 Gameplay screen layout (stage px, 1280 × 800)
 ```
@@ -732,14 +779,19 @@ a bowl on the other outer bubble's base cup – both beside their guest – are 
   rail's shadow on it, soft shadows to the lower right and a vignette toward the corners; nothing busy or saturated
   behind the bubbles (y≈67–191 with their tails) or the faces. The guests are drawn with natural proportions (busts:
   head, neck, broad shoulders) in the same light, their clothes in clear colours that stand out against the wall. In
-  front of them: a marble pass with an oak front, a terrazzo worktop in perspective with a rounded front edge and open
-  shelves of stock below, the ingredients in real containers on oak risers (brushed stainless pans of fruit in neat rows, glass jars, a squeeze bottle, a coconut
+  front of them: a marble pass with an oak front, a warm cream terrazzo worktop in perspective (peach in the pass's
+  shadow, cream and blush chips with a few in the café's colours – pitaya, açaí, mint, mango –, the pendant lamps' light
+  pooling in its middle) with a rounded front edge and open shelves of stock below, the ingredients in real containers on oak risers (brushed stainless pans of fruit in neat rows, glass jars, a squeeze bottle, a coconut
   shell, a walnut bowl, a board – 3D, light from the top left like everything else), 3D appliances about twice as tall as a cup (a stand
   blender after a household model – fluted glass jug, tall stainless base with a black glass V display band and a big chrome dial –, a matcha
   machine after a household tea-latte machine – muted olive shell, black front, smoked water tank, a glass tea mill –,
-  stainless freezer and pedal bin) – clean and modern rather than cluttered.
-  HUD pills, toasts and cards in the café are light frosted panels with soft shadows; the order bubbles are opaque white
-  panels with a soft shadow. In the order bubbles every layer keeps its colour – badge 1 açaí purple, 2 leaf green,
+  stainless freezer and pedal bin) – clean and modern rather than cluttered. A soft warm vignette (`.g-vignette`, over
+  the work area and the guests, under the HUD) lets the corners fall off for depth.
+  The HUD speaks the menus' language: cream pills with the 3px ink outline, a 4px ink lip and a soft drop shadow (the
+  level pill and the pause button in glossy açaí purple with outlined white lettering), the money pill's coin sticking
+  out over its left edge, the goal bar a dark track with an ink outline and a glossy mango fill. Toasts and cards in the
+  café (tutorial, banners, pause) have a finer ink outline (2–2.5px) and lip; the order bubbles stay opaque white
+  panels with a soft shadow (no outline). In the order bubbles every layer keeps its colour – badge 1 açaí purple, 2 leaf green,
   3 pitaya pink, like the badges on the freezer and the containers – and its items sit on circles in that colour's
   light tint (the chips under the cups the same); the patience
   bar runs leaf → mango → orange → red with the guest's mood (angry: a red border and a small shake from side to side –
@@ -755,17 +807,36 @@ a bowl on the other outer bubble's base cup – both beside their guest – are 
 - Tokens (base.css): `--acai #3b1556` (deep purple, letterbox/menus), `--acai-2 #6c2a8f`, `--pitaya #ff3d8b`,
   `--mango #ffb627`, `--leaf #2fbf71`, `--lagoon #18c2c9`, `--cream #fff4df`, `--ink #2a1236`,
   `--wood #c97d43`, `--wood-dark #8e4f22`, `--danger #ff4d4d`, `--ok #2fbf71`.
-- Chunky buttons: rounded 18px, thick dark outline (3px `--ink`), bottom shadow 0 6px 0 that compresses on press.
+- Chunky candy buttons: rounded 18px, thick dark outline (3px `--ink`), bottom lip 0 6px 0 that compresses on press
+  (the button also squeezes to 97 %), glossy: a light top and a darker bottom in the colour (`--btn-gloss`), a soft
+  highlight band across the upper third (`::after`, under the label), a bevel inside the outline (`--btn-bevel`) and a
+  drop shadow (`--btn-drop`). Coloured buttons carry white lettering with an ink outline. Override a button's colour
+  with `background-color` (the gloss is its `background-image`). The main call to action (title "Spielen", "Los
+  geht's!", "Weiter") gets `.btn-shine`: a light streak sweeping across it every few seconds. The pause menu's buttons
+  carry icons (play, retry, map / flag); music and sounds are icon switches with a little lamp.
+- Labels in the café: in levels 1–3 every container shows its name tag and the shelves their layer labels; from level 4
+  (and in endless) they step back (`.is-quiet-labels`: opacity only, the layout stays): a name shows while the pointer
+  rests on a container (mouse) or while something is taken from it, and a new ingredient (its "NEU" sticker) keeps its
+  name. The layer numbers on the containers stay.
 - Feedback: pickup scale-up, drop squash, reject shake + red flash + reason toast, coin fly to HUD,
   "+12" floating numbers, blender vibration and vortex while blending (3D), overflow foam + drips + red glow, customer bob.
-- Respect `prefers-reduced-motion` (reduce shakes/bobs, keep state changes).
+  Serving: praise over the happy guest for a quick hand ("Perfekt!" with ≥ 75 % patience left, "Super!" with ≥ 45 %),
+  a burst of sparkles round the face, and from the second guest in a row a "Combo ×n!" pill over the pass (it grows a
+  little with the streak, turns pink from 5, a star sound from 3; under a banner when one is up). The combo is feedback
+  only – it pays nothing extra, so the balance stays as tested. A guest walking out shakes the café (wall, pass, HUD –
+  not the worktop, where something may be in the hand) and flashes the edges red. Guests with open eyes blink now and
+  then; the title guest blinks and laughs every few seconds.
+- Vibration (touch devices with the Vibration API, i.e. Android; setting "Vibration"): a tap when a guest pays, a
+  double tap for a combo from 3, a buzz on a wrong drop, a double knock when a guest walks out (`js/haptics.js`).
+- Respect `prefers-reduced-motion` (reduce shakes/bobs, keep state changes): no transitions, no shake, no red flash, no
+  sparkles; praise and combo stand still.
 
 ### 4.9 Persistence (`js/save.js`)
 Key `acaiFever.save.v1`. Shape:
 ```js
 { version: 1, coins, owned: ['acai','banana','granola','honey'], ingLevels: {}, upgrades: {},
   stars: { [levelId]: 0..3 }, endlessBest: 0, newIngredients: [], seenIntros: {},
-  settings: { lang: 'de'|'en', music: true, sfx: true }, stats: { served, earned, played } }
+  settings: { lang: 'de'|'en', music: true, sfx: true, haptics: true }, stats: { served, earned, played } }
 ```
 - Loading repairs every field (unknown ids dropped, levels clamped to their range as whole numbers,
   amounts finite and ≥ 0, `newIngredients` ⊆ `owned`, only an explicit `false` mutes), so a damaged or
@@ -780,10 +851,18 @@ Key `acaiFever.save.v1`. Shape:
 ### 4.10 Build & hosting
 - Dev: `npm start` (static server on :8080) – ES modules need http(s), not `file://`.
 - GitHub Pages: every push to `main` runs `.github/workflows/pages.yml` (Pages source "GitHub Actions"): unit tests,
-  then it publishes `index.html` + `css/` + `js/` (ES modules, no build step), `dist/acai-fever.html` and
-  `tools/appliances-3d.html` at https://leesyashin.github.io/Acai/.
+  then it publishes `index.html` + `css/` + `js/` (ES modules, no build step) with `manifest.webmanifest`, `sw.js` and
+  `icons/`, `dist/acai-fever.html` and `tools/appliances-3d.html` at https://leesyashin.github.io/Acai/.
+- Installable web app: `index.html` links `manifest.webmanifest` (name, `display: fullscreen`, landscape, açaí purple,
+  icons incl. a maskable one) and the apple-touch-icon, so "Add to Home Screen" gives a real app icon and a window
+  without browser bars (then the screens run full bleed, §4.1). `js/main.js` registers `sw.js` – only on https and only
+  when the page has its manifest (never the single-file builds or a dev server): every file the game loads (same origin
+  and Google Fonts) is cached on the way and answered from the cache next time while a fresh copy is fetched
+  (stale-while-revalidate), so the game runs offline once played; a new `CACHE` name drops the old cache. The icons are
+  drawn from `appIconSVG` by `node tools/icons.mjs` (the game's only image files).
 - `npm run build` → `dist/acai-fever.html` (single self-contained file, works from `file://`) and
   `dist/artifact.html` (same content without doctype/html/head/body wrapper, for publishing as a Claude artifact).
+  The manifest and icon links are left out of both (the standalone page gets the 32 px favicon as a data: URL).
   `dist/` is committed – rebuild it with every change to the game (Pages copies it without building).
 - `npm test` → `node --test "tests/**/*.test.mjs"` (`node --test tests/` also works through `tests/index.js`;
   Node 22 treats a bare directory argument as a module).

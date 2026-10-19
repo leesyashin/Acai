@@ -38,12 +38,15 @@ export function parseIndex(html) {
   const stylesheets = links.filter((tag) => /\brel\s*=\s*["']?stylesheet/i.test(tag));
   const localCss = stylesheets.filter((tag) => !isExternal(attr(tag, 'href') || ''));
   const fontLinks = links.filter((tag) => /fonts\.(googleapis|gstatic)\.com/i.test(attr(tag, 'href') || ''));
+  // the installed web app's manifest and icons (files next to index.html): not for a single file
+  const appLinks = links.filter((tag) => /\brel\s*=\s*["']?(?:manifest|icon|apple-touch-icon)\b/i.test(tag) && !isExternal(attr(tag, 'href') || ''));
   const moduleScript = html.match(/<script\b[^>]*\btype\s*=\s*["']module["'][^>]*>\s*<\/script>/i)?.[0] ?? null;
   const title = html.match(/<title>[\s\S]*?<\/title>/i)?.[0] ?? '<title>Açaí Fever</title>';
   const body = html.match(/<body\b[^>]*>([\s\S]*)<\/body>/i)?.[1] ?? null;
   return {
     localCss: localCss.map((tag) => ({ tag, href: attr(tag, 'href') })),
     fontLinks,
+    appLinks,
     moduleScript,
     title,
     body,
@@ -102,8 +105,12 @@ function removeTag(html, tag) {
   return html.replace(new RegExp(`[ \\t]*${tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[ \\t]*\\r?\\n?`), '');
 }
 
-export function standalonePage(html, parsed, css, js) {
+// favicon: an optional data: URL for the tab icon (the app links to files are left out of a single file)
+export function standalonePage(html, parsed, css, js, favicon = null) {
   let out = html;
+  const [firstApp, ...moreApp] = parsed.appLinks || [];
+  if (firstApp) out = favicon ? replaceOnce(out, firstApp, `<link rel="icon" href="${favicon}">`) : removeTag(out, firstApp);
+  for (const link of moreApp) out = removeTag(out, link);
   const [first, ...rest] = parsed.localCss;
   if (first) out = replaceOnce(out, first.tag, `<style>${escapeInlineStyle(css)}</style>`);
   for (const link of rest) out = removeTag(out, link.tag);
@@ -154,8 +161,10 @@ export async function buildGame({ root = REPO_ROOT, entry = DEFAULT_ENTRY, outDi
   }
 
   const [js, css] = await Promise.all([bundleJs(entryFile), minifyCss(absRoot, parsed.localCss)]);
+  const faviconFile = path.join(absRoot, 'icons', 'favicon-32.png');
+  const favicon = existsSync(faviconFile) ? `data:image/png;base64,${(await readFile(faviconFile)).toString('base64')}` : null;
   const pages = {
-    'acai-fever.html': standalonePage(html, parsed, css, js),
+    'acai-fever.html': standalonePage(html, parsed, css, js, favicon),
     'artifact.html': artifactPage(parsed, css, js),
   };
 

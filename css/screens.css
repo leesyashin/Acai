@@ -31,7 +31,7 @@
 }
 
 :is(.screen-title, .screen-settings, .screen-results) {
-  background: radial-gradient(circle at 50% 38%, var(--acai-3) 0, var(--acai-2) 30%, var(--acai) 72%);
+  --screen-bg: radial-gradient(circle at 50% 38%, var(--acai-3) 0, var(--acai-2) 30%, var(--acai) 72%);
 }
 
 .sc-sunburst {
@@ -74,6 +74,19 @@
   font-size: 46px;
   line-height: 1.12;
   white-space: nowrap;
+}
+/* full bleed: the bars sit at the window's edges, clear of a notch */
+html.is-bleed .sc-header {
+  left: calc(-1 * var(--bx, 0px));
+  right: calc(-1 * var(--bx, 0px));
+  top: calc(var(--safe-t, 0px) - var(--by, 0px));
+  padding-left: calc(24px + var(--safe-l, 0px));
+  padding-right: calc(24px + var(--safe-r, 0px));
+}
+html.is-bleed .sc-topbar {
+  left: calc(22px + var(--safe-l, 0px) - var(--bx, 0px));
+  right: calc(22px + var(--safe-r, 0px) - var(--bx, 0px));
+  top: calc(16px + var(--safe-t, 0px) - var(--by, 0px));
 }
 .sc-header-right {
   margin-left: auto;
@@ -131,7 +144,7 @@
   background: var(--paper);
   border: var(--outline);
   border-radius: 18px;
-  box-shadow: 0 4px 0 var(--ink);
+  box-shadow: var(--btn-bevel), 0 4px 0 var(--ink), var(--btn-drop);
   overflow: hidden;
   flex: none;
 }
@@ -139,7 +152,8 @@
   appearance: none;
   border: 0;
   margin: 0;
-  background: transparent;
+  background-color: transparent;
+  background-image: var(--btn-gloss);
   color: var(--ink);
   font-family: var(--font-display);
   font-size: 26px;
@@ -151,8 +165,8 @@
   touch-action: manipulation;
 }
 .sc-seg-btn + .sc-seg-btn { border-left: var(--outline); }
-.sc-seg-btn.is-on { background: var(--mango); box-shadow: inset 0 -5px 0 rgba(42, 18, 54, 0.18); }
-.sc-seg-btn:not(.is-on):hover { background: var(--cream); }
+.sc-seg-btn.is-on { background-color: var(--mango); box-shadow: inset 0 -5px 0 rgba(42, 18, 54, 0.18); }
+.sc-seg-btn:not(.is-on):hover { background-color: var(--cream); }
 .sc-seg-btn:focus-visible { outline: 4px solid var(--lagoon); outline-offset: -7px; }
 
 /* ribbon banner on top of panels */
@@ -338,20 +352,21 @@
   padding: 2px 22px 2px 10px;
   border: var(--outline);
   border-radius: 18px;
-  background: var(--paper);
+  background-color: var(--paper);
+  background-image: var(--btn-gloss);
   color: var(--ink);
   font-family: var(--font-display);
   font-size: 26px;
   line-height: 1;
   white-space: nowrap;
-  box-shadow: 0 5px 0 var(--ink);
+  box-shadow: var(--btn-bevel), 0 5px 0 var(--ink);
   cursor: pointer;
   transition: transform 0.08s ease, box-shadow 0.08s ease;
   touch-action: manipulation;
 }
-.sc-tab:hover { background: var(--cream); }
-.sc-tab.is-on { background: var(--mango); transform: translateY(-3px); box-shadow: 0 8px 0 var(--ink); }
-.sc-tab:active { transform: translateY(3px); box-shadow: 0 2px 0 var(--ink); }
+.sc-tab:hover { background-color: var(--cream); }
+.sc-tab.is-on { background-color: var(--mango); transform: translateY(-3px); box-shadow: var(--btn-bevel), 0 8px 0 var(--ink), var(--btn-drop); }
+.sc-tab:active { transform: translateY(3px); box-shadow: var(--btn-bevel), 0 2px 0 var(--ink); }
 .sc-tab:focus-visible { outline: 4px solid var(--lagoon); outline-offset: 4px; }
 
 /* price buttons (shop) */
@@ -363,13 +378,13 @@
   white-space: nowrap;
 }
 .sc-price.is-poor {
-  background: #e6dcec;
+  background-color: #e6dcec;
   color: var(--danger);
   -webkit-text-stroke: 0;
 }
 .sc-price.is-poor svg { filter: grayscale(0.6); opacity: 0.75; }
-.sc-price.is-poor:active { transform: none; box-shadow: 0 4px 0 var(--ink); }
-.sc-price.is-locked { font-size: 20px; color: var(--ink-soft); background: #e6dcec; }
+.sc-price.is-poor:active { transform: none; box-shadow: var(--btn-bevel), 0 4px 0 var(--ink), var(--btn-drop); }
+.sc-price.is-locked { font-size: 20px; color: var(--ink-soft); background-color: #e6dcec; }
 .sc-price-up { display: inline-flex; margin-right: -2px; }
 .sc-maxed {
   display: flex;
@@ -441,12 +456,13 @@
   padding: 18px 54px 16px 42px;
   gap: 16px;
   border-radius: 28px;
-  box-shadow: 0 8px 0 var(--ink);
+  box-shadow: inset 0 -7px 0 rgba(42, 18, 54, 0.2), inset 0 3px 0 rgba(255, 255, 255, 0.55), 0 8px 0 var(--ink), 0 0 0 7px rgba(255, 255, 255, 0.14), 0 18px 34px rgba(255, 61, 139, 0.45);
   -webkit-text-stroke: 3px var(--ink);
   paint-order: stroke fill;
   animation: title-pulse 2.2s ease-in-out infinite;
 }
-.title-play:active { box-shadow: 0 2px 0 var(--ink); transform: translateY(6px); animation: none; }
+.title-play:active { box-shadow: var(--btn-bevel), 0 2px 0 var(--ink); transform: translateY(6px) scale(0.97); animation: none; }
+.title-play::after { left: 14px; right: 14px; top: 6px; max-height: 40px; }
 .title-row {
   display: flex;
   gap: 20px;
@@ -460,29 +476,19 @@
   paint-order: stroke fill;
 }
 .title-row .sc-btn-stack small { -webkit-text-stroke: 0; }
-.title-endless.is-locked { background: #7c6a8c; }
+.title-endless.is-locked { background-color: #7c6a8c; }
 .title-endless.is-locked > span { opacity: 0.95; }
 
 .title-counter {
   position: absolute;
-  left: 0;
-  right: 0;
+  left: -360px; /* drawn 360 px wider on either side and 200 px deeper: seen in full bleed */
   top: 684px;
-  bottom: 0;
+  width: 2000px;
+  height: 316px;
   z-index: 3;
-  background: linear-gradient(var(--wood) 0 22px, var(--wood-dark) 22px 28px, #b56c35 28px);
-  border-top: 4px solid var(--ink);
-  box-shadow: 0 -6px 0 rgba(20, 6, 30, 0.25);
+  filter: drop-shadow(0 -6px 0 rgba(20, 6, 30, 0.25));
 }
-.title-counter::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 42px;
-  bottom: 0;
-  background: repeating-linear-gradient(90deg, transparent 0 158px, rgba(42, 18, 54, 0.18) 158px 162px);
-}
+.title-counter svg { display: block; }
 
 .title-bowl {
   position: absolute;
@@ -510,8 +516,15 @@
   top: 452px;
   z-index: 2;
 }
-.title-guest-body { animation: bob 2.4s ease-in-out infinite; }
+.title-guest-body { position: relative; animation: bob 2.4s ease-in-out infinite; }
 .title-guest-body svg { display: block; }
+/* the guest lives: blinks now and then, and every few seconds laughs (the pictures with shut eyes and the laugh
+   lie on top of the smiling one and show in turns) */
+.title-face { position: absolute; inset: 0; opacity: 0; }
+.title-face.is-blink { animation: title-blink 4.2s steps(1, end) 1.4s infinite; }
+.title-face.is-laugh { animation: title-laugh 7.5s steps(1, end) 2.6s infinite; }
+@keyframes title-blink { 0%, 100% { opacity: 0; } 40% { opacity: 1; } 43.5% { opacity: 0; } 86% { opacity: 1; } 89.5% { opacity: 0; } }
+@keyframes title-laugh { 0%, 100% { opacity: 0; } 62% { opacity: 1; } 84% { opacity: 0; } }
 .title-bubble {
   position: absolute;
   right: 150px;
@@ -543,16 +556,80 @@
 }
 
 /* ================================================================ map */
-.screen-map { background: #ffe2a6; }
-.map-bg, .map-path {
+.screen-map { --screen-bg: #ffe2a6; }
+/* the map scrolls up through its regions (js/art-map.js): beach, town promenade, rainforest. The scroller is as wide
+   as the art (MAP_BLEED on either side, seen on wide screens) and reaches into the bands above and below too; touch
+   pans it natively, a wheel or trackpad scrolls it (js/stage.js lets those wheels through), a mouse drags it. */
+.map-scroll {
+  position: absolute;
+  left: -360px;
+  width: 2000px;
+  top: calc(-1 * var(--by, 0px));
+  bottom: calc(-1 * var(--by, 0px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-width: none;
+}
+.map-scroll::-webkit-scrollbar { display: none; }
+.map-canvas { position: relative; width: 2000px; }
+.map-region { position: absolute; left: 0; width: 2000px; overflow: hidden; pointer-events: none; }
+.map-region svg { display: block; }
+/* a region not reached yet lies in a light haze */
+.map-region.is-locked::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgba(246, 238, 252, 0.62), rgba(246, 238, 252, 0.42));
+}
+.map-path {
   position: absolute;
   left: 0;
   top: 0;
-  width: 1280px;
-  height: 800px;
   pointer-events: none;
 }
-.map-bg svg { display: block; }
+.map-sign {
+  position: absolute;
+  translate: -50% 0;
+  display: grid;
+  justify-items: center;
+  padding: 6px 18px 7px;
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffd36b 0, var(--mango) 100%);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.6), 0 4px 0 var(--ink), 0 10px 16px rgba(42, 18, 54, 0.25);
+  white-space: nowrap;
+  pointer-events: none;
+  rotate: -3deg;
+}
+.map-sign b { font-family: var(--font-display); font-weight: 400; font-size: 26px; line-height: 1; color: var(--white); -webkit-text-stroke: 2.5px var(--ink); paint-order: stroke fill; }
+.map-sign small { display: flex; align-items: center; gap: 4px; font-size: 15px; font-weight: 900; }
+.map-sign.is-locked { background: linear-gradient(180deg, #ece4f3 0, #cfc3da 100%); }
+.map-sign.is-locked b { color: #f6f1fa; }
+/* the player: a pin with a bowl, bobbing over the next level */
+.map-avatar {
+  position: absolute;
+  z-index: 2;
+  translate: -50% -100%;
+  pointer-events: none;
+  animation: map-avatar 1.4s ease-in-out infinite;
+}
+.map-avatar-pin {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border: 4px solid var(--ink);
+  border-radius: 50% 50% 50% 0;
+  rotate: -45deg;
+  background: radial-gradient(circle at 40% 35%, #fff 0, var(--cream) 70%);
+  box-shadow: 4px 4px 0 rgba(42, 18, 54, 0.3);
+}
+.map-avatar-pin svg { rotate: 45deg; display: block; }
+@keyframes map-avatar { 0%, 100% { translate: -50% -100%; } 50% { translate: -50% calc(-100% - 12px); } }
+
 .map-path path {
   fill: none;
   stroke-linecap: round;
@@ -565,10 +642,10 @@
 .map-road-dots { stroke: rgba(201, 125, 67, 0.75); stroke-width: 7px; stroke-dasharray: 0 22; }
 
 .screen-map .sc-header {
-  background: linear-gradient(rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+  background: linear-gradient(rgba(255, 250, 240, 0.92) 30%, rgba(255, 250, 240, 0));
 }
 
-.map-nodes { position: absolute; inset: 0; }
+.map-nodes { position: absolute; inset: 0; z-index: 1; }
 .map-level {
   appearance: none;
   position: absolute;
@@ -673,7 +750,7 @@
 .map-level:focus-visible .map-disc { outline: 5px solid var(--lagoon); outline-offset: 5px; }
 .map-level.is-locked:focus-visible .map-disc { outline-color: var(--acai-2); }
 
-.btn.is-locked { background: #8a7a99; }
+.btn.is-locked { background-color: #8a7a99; }
 
 /* "things you can buy" counter on shop buttons */
 .sc-badge {
@@ -850,13 +927,13 @@
 
 /* ================================================================ shop */
 .screen-shop {
-  background:
+  --screen-bg:
     linear-gradient(rgba(255, 255, 255, 0) 60%, rgba(159, 224, 214, 0.55)),
     repeating-linear-gradient(90deg, #ffe6c4 0 76px, #f8d9ad 76px 80px);
 }
 .shop-awning {
   position: absolute;
-  left: 0;
+  left: -384px; /* six scallops more on either side (full bleed) */
   top: 0;
   z-index: 11;
   filter: drop-shadow(0 4px 0 rgba(42, 18, 54, 0.22));
@@ -870,6 +947,9 @@
   top: 49px;
   z-index: 12;
 }
+html.is-bleed .shop-awning { top: calc(-1 * var(--by, 0px)); }
+html.is-bleed .screen-shop .sc-header { top: calc(40px - var(--by, 0px)); }
+html.is-bleed .shop-tabs { left: calc(242px + var(--safe-l, 0px) - var(--bx, 0px)); top: calc(49px - var(--by, 0px)); }
 .shop-body {
   position: absolute;
   left: 20px;
@@ -1261,11 +1341,11 @@ img.art3d { display: block; user-select: none; -webkit-user-drag: none; pointer-
 .settings-reset p { margin: 0 0 12px; font-size: 18px; font-weight: 900; line-height: 1.3; color: var(--danger); }
 .settings-reset-actions { display: flex; gap: 12px; }
 .settings-reset-actions .btn { flex: 1; }
-.settings-danger { background: var(--danger); color: var(--white); }
+.settings-danger { background-color: var(--danger); color: var(--white); }
 
 /* ================================================================ results */
 .screen-results.is-lost {
-  background: radial-gradient(circle at 50% 38%, var(--acai-2) 0, var(--acai) 70%);
+  --screen-bg: radial-gradient(circle at 50% 38%, var(--acai-2) 0, var(--acai) 70%);
 }
 .results-wrap {
   position: absolute;
@@ -1479,7 +1559,7 @@ img.art3d { display: block; user-select: none; -webkit-user-drag: none; pointer-
 #rotate-hint p { margin: 0 0 8px; font-size: 20px; font-weight: 800; color: var(--cream); line-height: 1.35; }
 .rotate-phone-body { transform-origin: 60px 71px; animation: rotate-phone 2.8s ease-in-out infinite; }
 
-.screen-fatal { display: grid; place-items: center; background: var(--acai); }
+.screen-fatal { display: grid; place-items: center; --screen-bg: var(--acai); }
 .fatal-card { display: grid; justify-items: center; gap: 18px; padding: 36px 44px; font-size: 26px; font-weight: 900; text-align: center; }
 .fatal-card p { margin: 0; }
 
@@ -1508,7 +1588,7 @@ img.art3d { display: block; user-select: none; -webkit-user-drag: none; pointer-
 @media (prefers-reduced-motion: reduce) {
   .sc-sunburst, .title-floater, .title-bowl-inner, .title-guest-body, .title-play,
   .results-guest, .results-bowl, .results-next, .map-level.is-current .map-disc,
-  .map-level.is-current .map-disc::before, .rotate-phone-body {
+  .map-level.is-current .map-disc::before, .rotate-phone-body, .title-face, .map-avatar {
     animation: none !important;
   }
   .results-confetti { display: none; }
