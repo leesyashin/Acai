@@ -250,6 +250,28 @@ class Fx {
     this.flashes = [];
     this.lines = [];
     this.spins = [];
+    this.impacts = [];
+    this.glitches = [];
+  }
+
+  // an impact frame: the whole picture as a black-and-white negative for a moment (big hits)
+  impact(t, dur = 0.07) {
+    this.impacts.push({ t, dur });
+  }
+
+  // an RGB split with a jitter for a moment (hard cuts)
+  glitch(t, dur = 0.12, amp = 14) {
+    this.glitches.push({ t, dur, amp });
+  }
+
+  inverted(t) {
+    return this.impacts.some((i) => t >= i.t && t < i.t + i.dur);
+  }
+
+  glitchAt(t) {
+    let a = 0;
+    for (const g of this.glitches) if (t >= g.t && t < g.t + g.dur) a = Math.max(a, g.amp * (1 - (t - g.t) / g.dur));
+    return a;
   }
 
   shake(t, amp, k = 7) {
@@ -315,6 +337,10 @@ const TRANS = {
   softOut: (k) => ({ s: lerp(1, 1.04, ease.inCubic(k)), y: lerp(0, -40, ease.inCubic(k)), o: 1 - ease.inQuad(k) }),
   slideIn: (k) => ({ x: lerp(420, 0, ease.outCubic(k)), o: ease.outQuad(k) }),
   slideOut: (k) => ({ x: lerp(0, -420, ease.inCubic(k)), o: 1 - ease.inQuad(k) }),
+  // the fast cuts: a slam from close, and a zoom through the picture with motion blur
+  slamIn: (k) => ({ s: lerp(1.35, 1, ease.outCubic(k)), o: clamp(k * 5) }),
+  zoomBlurIn: (k) => ({ s: lerp(1.7, 1, ease.outQuart(k)), blur: lerp(22, 0, ease.outQuad(k)) }),
+  zoomBlurOut: (k) => ({ s: lerp(1, 1.9, ease.inQuart(k)), blur: lerp(0, 22, ease.inQuad(k)) }),
 };
 
 // ------------------------------------------------------------------ helpers
@@ -1407,8 +1433,14 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
     const c = fx.cam(t);
     const waits = [];
     // the camera bounces on every beat while the music grooves (the hype cut)
-    const beatPunch = cut.bounce && t > b(cut.bounce[0]) && t < b(cut.bounce[1]) ? 0.012 * decay(t % BEAT, 10) : 0;
-    cam.style.transform = `translate(${c.x.toFixed(2)}px,${c.y.toFixed(2)}px) rotate(${c.r.toFixed(3)}deg) scale(${(c.s + beatPunch).toFixed(4)})`;
+    const beatPunch = cut.bounce && t > b(cut.bounce[0]) && t < b(cut.bounce[1]) ? (cut.bounceAmp ?? 0.012) * decay(t % BEAT, 10) : 0;
+    const gl = fx.glitchAt(t);
+    const jx = gl ? wob(t * 40, 5) * gl * 2 : 0;
+    cam.style.transform = `translate(${(c.x + jx).toFixed(2)}px,${c.y.toFixed(2)}px) rotate(${c.r.toFixed(3)}deg) scale(${(c.s + beatPunch).toFixed(4)})`;
+    const camFilter = gl ? `drop-shadow(${gl.toFixed(1)}px 0 0 rgba(255,0,90,.85)) drop-shadow(${(-gl).toFixed(1)}px 0 0 rgba(0,230,255,.85))` : '';
+    if (cam.style.filter !== camFilter) cam.style.filter = camFilter;
+    const frameFilter = fx.inverted(t) ? 'invert(1) saturate(0) contrast(1.6)' : '';
+    if (frame.style.filter !== frameFilter) frame.style.filter = frameFilter;
     rays.style.transform = `rotate(${fx.raysAt(t).toFixed(2)}deg) scale(${(1 + 0.03 * decay(t % BEAT, 7)).toFixed(4)})`;
     floaters.forEach((f, i) => {
       const y = ((((f.y0 - f.v * t) % 2300) + 2300) % 2300) - 160;
@@ -1419,7 +1451,9 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
     let alarmO = 0;
     for (const s of scenes) {
       const on = t >= s.from && t < s.to;
-      if (s.tint) tintOn[s.tint] = Math.max(tintOn[s.tint] || 0, prog(t, s.from - 0.04, s.from + 0.06) * (1 - prog(t, s.to - 0.06, s.to + 0.04)));
+      // a tint fades in with its scene – except at the very start (the first frame is the thumbnail)
+      const tintIn = s.from <= 0 ? 1 : prog(t, s.from - 0.04, s.from + 0.06);
+      if (s.tint) tintOn[s.tint] = Math.max(tintOn[s.tint] || 0, tintIn * (1 - prog(t, s.to - 0.06, s.to + 0.04)));
       if (!on) {
         if (s.root.style.display !== 'none') s.root.style.display = 'none';
         continue;
@@ -1430,9 +1464,12 @@ export function buildFilm(frame, { lang = 'de', shot = null, version = 'hype', f
       if (s.enter && lt < s.enter[1]) tr = TRANS[s.enter[0]](lt / s.enter[1]);
       const left = s.to - t;
       if (s.leave && left < s.leave[1]) tr = TRANS[s.leave[0]](1 - left / s.leave[1]);
-      const { x = 0, y = 0, s: sc = 1, r = 0, o = 1 } = tr;
+      const { x = 0, y = 0, s: sc = 1, r = 0, o = 1, blur = 0 } = tr;
       s.root.style.transform = x || y || sc !== 1 || r ? `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) rotate(${r.toFixed(2)}deg) scale(${sc.toFixed(4)})` : '';
       s.root.style.opacity = o < 1 ? o.toFixed(3) : '';
+      // a scene's own filter (s.filter) and the motion blur of a transition
+      const filter = `${s.filter || ''}${blur > 0.2 ? ` blur(${blur.toFixed(1)}px)` : ''}`.trim();
+      if (s.root.style.filter !== filter) s.root.style.filter = filter;
       const wait = s.update(lt, t);
       if (wait) waits.push(wait);
       if (s.alarm) alarmO = s.alarm(lt);

@@ -1,9 +1,9 @@
-// The 'glowup' promo film (tools/promo, ?version=glowup): the TikTok meme "day 1 vs. day 100".
-// Day 1 is grey and quiet: one classic blender, one empty cup, four ingredients, no coins, crickets,
-// a fly and the only guest walking out. A record scratch, a "100 days later" card, and the drop: day 100
-// fills the screen beat by beat – Pro Max blenders, the matcha machine, a full house of happy guests,
-// all ingredients, decor, coins pouring in. Then both days side by side with the numbers, and the end
-// card. 124 BPM: a lonely, out-of-tune piano, silence, then the game's groove.
+// The 'glowup' promo film (tools/promo, ?version=glowup): the TikTok meme "day 1 vs. day 100", cut fast.
+// Day 1 is grey and quiet for a second and a half: one classic blender, one empty cup, four
+// ingredients, no coins, crickets, a fly and the only guest walking out. A record scratch, a "100 days
+// later" card, and the drop: day 100 slams in on the half beats – Pro Max blenders, the matcha
+// machine, a full house of happy guests, all ingredients, decor, coins exploding. Then both days side
+// by side with the numbers, and the end card. 124 BPM: a lonely, out-of-tune piano, then the groove.
 
 import {
   logoSVG, bowlSVG, ingredientIcon, coinSVG, heartSVG, starSVG, clockSVG, matchaGlassSVG, decorSVG, MATCHA_SLOT_Y, MATCHA_CUP_SIZE,
@@ -12,12 +12,13 @@ import * as DATA from '../../js/data.js';
 import { VIEWS, MACHINE_SLOT_X, BLENDER_MODELS, fitFrame } from '../../js/kitchen3d.js';
 import { clamp, lerp, prog, ease, spring, jiggle, decay, wob, bump } from './motion.js';
 import { Sprite, Title, Burst, Ring, View3D, div } from './kit.js';
+import { capWords, emojiBurst, sticker } from './tiktok.js';
 
 const COPY = {
   de: {
-    day1: ['Tag 1 in meinem Açaí-Café:'],
+    day1: ['TAG 1', 'IN MEINEM CAFÉ'],
     later: '100 TAGE\nSPÄTER …',
-    day100: ['Tag 100:'],
+    day100: ['TAG 100', 'AUSGEBUCHT'],
     tag1: 'TAG 1',
     tag100: 'TAG 100',
     stats: ['Mixer', 'Zutaten', 'Gäste', 'Münzen'],
@@ -28,9 +29,9 @@ const COPY = {
     num: (n) => n.toLocaleString('de-DE'),
   },
   en: {
-    day1: ['day 1 of running my açaí café:'],
+    day1: ['DAY 1', 'OF MY CAFÉ'],
     later: '100 DAYS\nLATER …',
-    day100: ['day 100:'],
+    day100: ['DAY 100', 'FULLY BOOKED'],
     tag1: 'DAY 1',
     tag100: 'DAY 100',
     stats: ['Blender', 'Ingredients', 'Guests', 'Coins'],
@@ -46,13 +47,12 @@ export const CUTS = {
   glowup: {
     theme: 'glow',
     energy: 1,
-    bounce: [12, 36],
-    scenes: [['guDay1', 8, { enter: null }], ['guLater', 4], ['guDay100', 16], ['guVs', 8], ['guEnd', 8]],
+    bounce: [4, 20],
+    bounceAmp: 0.025,
+    scenes: [['guDay1', 3, { enter: null }], ['guLater', 1], ['guDay100', 8], ['guVs', 4], ['guEnd', 8]],
     music: [
-      { style: 'sad', chords: ['Am', 'F'], mel: null }, { style: 'sad', chords: ['Dm', 'E'], mel: null },
-      { style: 'rest' },
-      { style: 'drop', g: 0 }, { style: 'groove', g: 1 }, { style: 'groove', g: 2 }, { style: 'groove', g: 3, fill: true },
-      { style: 'drop', g: 12, harmony: true }, { style: 'groove', g: 13, harmony: true, fill: true },
+      { style: 'sad', chords: ['Am', 'F'], mel: null, until: 12 },
+      { style: 'drop', g: 0 }, { style: 'groove', g: 1, fill: true }, { style: 'drop', g: 12, harmony: true },
       { style: 'groove', chords: ['Dm7', 'G7'], mel: 15, harmony: true, fill: true }, { style: 'end' },
     ],
   },
@@ -61,9 +61,6 @@ export const CUTS = {
 const START = DATA.START_OWNED || ['acai', 'banana', 'granola', 'honey'];
 const ALL = DATA.INGREDIENTS.map((i) => i.id);
 const COINS = 12480;
-
-// TikTok's text sticker (one rounded box per line)
-const sticker = (root, lines, cls = '') => new Sprite(root, `<div class="tk ${cls}">${lines.map((l) => `<span>${l}</span>`).join('<br>')}</div>`);
 
 const FLY = '<svg width="54" height="40" viewBox="0 0 54 40"><ellipse cx="18" cy="12" rx="13" ry="9" fill="#dff3ff" opacity=".8" stroke="#2a1236" stroke-width="2.5"/>' +
   '<ellipse cx="34" cy="10" rx="12" ry="8" fill="#dff3ff" opacity=".8" stroke="#2a1236" stroke-width="2.5"/><ellipse cx="27" cy="26" rx="13" ry="10" fill="#2a1236"/>' +
@@ -82,8 +79,7 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
 
   // ================================================================ day 1: grey, empty, quiet
   S.guDay1 = (root, from, to) => {
-    root.style.filter = 'saturate(0.35) brightness(0.92)';
-    const cap = sticker(root, C.day1);
+    const cap = capWords(root, [[0, b(1.25), C.day1[0], ''], [b(1.25), b(3), C.day1[1], '']], { y: 300, size: 110 });
     const coins = coinPill(root, 70);
     const counter = new Sprite(root, counterBandSVG());
     const blender = new View3D(root, 'blender', 560);
@@ -92,20 +88,19 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
     const bar = patienceBar(root, 260);
     const cards = START.map((id) => new Sprite(root, `<div class="card" style="transform:scale(.7)">${ingredientIcon(id, 150)}</div>`));
     const fly = new Sprite(root, FLY);
-    const Tl = b(5.5); // the guest gives up and leaves
-    [1.5, 3.5, 6.5].forEach((bt) => cue(from + b(bt), 'cricket', { gain: 0.8 }));
+    const Tl = b(2.1); // the guest gives up and leaves
+    [0.4, 1.6].forEach((bt) => cue(from + b(bt), 'cricket', { gain: 0.9 }));
     cue(from + Tl, 'angry', { kind: 'sfx', gain: 0.6 });
-    cue(from + Tl + 0.3, 'heart', { kind: 'sfx', gain: 0.5 });
+    cue(from + Tl + 0.2, 'heart', { kind: 'sfx', gain: 0.5 });
     return {
-      from, to, tint: 'grey',
+      from, to, tint: 'grey', filter: 'saturate(0.35) brightness(0.92)',
       update(lt) {
-        const cp = popIn(lt, { f: 2, d: 9 });
-        cap.set({ x: 540, y: 300, s: lerp(0.9, 1, Math.min(1, cp.s)), o: cp.o });
+        cap(lt);
         coins.set('0');
         coins.sp.set({ x: 540, y: 470 });
         // the guest waits, gets cross and walks out
-        const k = 1 - prog(lt, 0, Tl) * 0.97;
-        const leave = ease.inBack(prog(lt, Tl, Tl + 0.5));
+        const k = 0.55 - prog(lt, 0, Tl) * 0.53;
+        const leave = ease.inBack(prog(lt, Tl, Tl + 0.35));
         gst.mood(k > 0.6 ? 'neutral' : k > 0.3 ? 'impatient' : 'angry').sp.set({ x: 720 + leave * 600, y: 860 + Math.sin(lt * 3) * 3, r: leave * 20, o: 1 - leave });
         bar.value(k);
         bar.sp.set({ x: 720 + leave * 600, y: 1090, o: 1 - leave });
@@ -125,32 +120,33 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
     const card = new Sprite(root, `<div class="gu-card">${C.later.replace('\n', '<br>')}</div>`);
     const clock = new Sprite(root, clockSVG(260));
     cue(from, 'scratch', { gain: 1 });
-    for (let i = 1; i < 4; i++) cue(from + b(i), 'tick', { kind: 'sfx', alt: i % 2 === 1 });
-    cue(from + b(2), 'riser', { len: b(2), gain: 0.9 });
+    [0.25, 0.5, 0.75].forEach((bt, i) => cue(from + b(bt), 'tick', { kind: 'sfx', alt: i % 2 === 1 }));
+    cue(from + 0.05, 'riser', { len: b(1) - 0.05, gain: 0.9 });
     fx.flash(from, 0.5, 9);
     fx.shake(from, 20, 7);
+    fx.glitch(from, 0.1);
     return {
-      from, to, enter: ['spinIn', 0.16], leave: ['zoomOut', 0.12], tint: 'mango',
+      from, to, enter: ['slamIn', 0.1], leave: ['zoomBlurOut', 0.1], tint: 'mango',
       update(lt) {
-        const p = popIn(lt - 0.05, { f: 2.2, d: 6, rise: 80 });
-        card.set({ x: 540, y: 820 + p.dy, s: p.s * (1 + 0.03 * Math.sin(lt * 9)), r: -4 + Math.sin(lt * 5) * 2 });
+        card.set({ x: 540, y: 820, s: (lt < 0.08 ? lerp(1.8, 0.95, lt / 0.08) : 0.95 + 0.05 * spring(lt - 0.08, 3, 8)) * (1 + 0.04 * Math.sin(lt * 20)), r: -4 + Math.sin(lt * 9) * 2 });
         // the clock races through the hundred days
-        clock.set({ x: 540, y: 1300, r: lt * 1440, s: 1 + 0.08 * decay(lt % b(1), 8) });
+        clock.set({ x: 540, y: 1300, r: lt * 2880, s: 1 + 0.1 * decay(lt % b(0.25), 12) });
       },
     };
   };
 
   // ================================================================ day 100: the café fills up beat by beat
   S.guDay100 = (root, from, to) => {
-    const cap = sticker(root, C.day100);
+    const cap = capWords(root, [[0, b(4), C.day100[0], 'y'], [b(4), b(8), C.day100[1], 'g']], { y: 250, size: 104 });
     const coins = coinPill(root, 84);
+    const money = emojiBurst(root, { emojis: ['💰', '🔥', '🤑', '💜'], x: 540, y: 420, t0: b(4), n: 14, seed: 24 });
     const neon = new Sprite(root, decorSVG('neon', 230, { wall: false }));
     const plants = new Sprite(root, decorSVG('plants', 230, { wall: false }));
     const seeds = [5, 12, 3, 31];
     const gx = [150, 400, 680, 930];
     const guests = seeds.map((s) => guest(root, s, 250));
     const hearts = gx.map((x, i) => new Burst(root, {
-      n: 5, seed: 90 + i, x, y: 690, t0: b(4.5 + i * 0.25), speed: [300, 600], angle: [-150, -30], gravity: -250, drag: 2, life: [0.9, 1.3], scale: [0.5, 0.8],
+      n: 5, seed: 90 + i, x, y: 690, t0: b(2 + i * 0.125), speed: [300, 600], angle: [-150, -30], gravity: -250, drag: 2, life: [0.9, 1.3], scale: [0.5, 0.8],
       html: () => heartSVG(true, 70),
     }));
     const counter = new Sprite(root, counterBandSVG());
@@ -164,55 +160,67 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
     const bowls = [{ base: 'pitaya', mid: ['mango', 'kiwi'], top: ['coconut', 'mint'] }, { base: 'acai', mid: ['banana', 'strawberry', 'blueberry'], top: ['honey'] }]
       .map((bw) => new Sprite(root, bowlSVG(bw, 200)));
     const icons = ALL.map((id) => new Sprite(root, ingredientIcon(id, 104)));
-    const rings = [0, 1, 2, 3].map((i) => new Ring(root, { x: [270, 470, 840, 540][i], y: [1140, 1160, 1150, 760][i], t0: b(i), size: 700, color: '#ffffff', width: 18, dur: 0.45 }));
+    // when things slam in (beats): blender, second blender, matcha machine, guests, ingredients, decor
+    const T = { pro: 0, pro2: 0.5, machine: 1, guests: 1.5, ing: 2, decor: 3, coins: 4, stars: 5, party: 6 };
+    const rings = [0, 1, 2, 3].map((i) => new Ring(root, { x: [270, 470, 840, 540][i], y: [1140, 1160, 1150, 760][i], t0: b([T.pro, T.pro2, T.machine, T.guests][i]), size: 700, color: '#ffffff', width: 18, dur: 0.4 }));
     const rain = new Burst(root, {
-      n: 26, seed: 7, x: 540, y: 300, t0: b(8), speed: [500, 1200], angle: [-170, -10], gravity: 2200, drag: 1.2, life: [1, 1.5], scale: [0.6, 1], spin: [-400, 400],
+      n: 30, seed: 7, x: 540, y: 300, t0: b(T.coins), speed: [600, 1300], angle: [-170, -10], gravity: 2200, drag: 1.2, life: [1, 1.5], scale: [0.6, 1], spin: [-400, 400],
       html: () => coinSVG(80),
     });
     const stars = [0, 1, 2, 3, 4].map(() => new Sprite(root, starSVG(true, 96)));
-    const confetti = confettiBurst(root, { n: 50, seed: 77, x: 540, y: 700, t0: b(12) });
-    // impacts: the café builds itself on the beat
+    const confetti = confettiBurst(root, { n: 50, seed: 77, x: 540, y: 700, t0: b(T.party) });
+    // impacts: the café builds itself on the half beats
     fx.flash(from, 1, 7);
     fx.shake(from, 40, 5);
     fx.speed(from, 1, 2.6);
     fx.spin(from, 160, 2);
-    cue(from, 'impact', { gain: 1 });
-    [1, 2, 3].forEach((i) => {
-      cue(from + b(i), 'upgrade', { gain: 0.8, pitch: i });
-      fx.flash(from + b(i), 0.4, 11);
-      fx.punch(from + b(i), 0.04, 9);
+    fx.impact(from + 0.03);
+    cue(from, 'boom', { gain: 1 });
+    cue(from, 'impact', { gain: 0.7 });
+    [T.pro2, T.machine, T.guests].forEach((bt, i) => {
+      cue(from + b(bt), 'upgrade', { gain: 0.8, pitch: i + 1 });
+      fx.flash(from + b(bt), 0.4, 11);
+      fx.punch(from + b(bt), 0.05, 9);
     });
-    cue(from + b(1) + 0.05, 'blenderStart', { kind: 'sfx', gain: 0.5 });
-    loops.push({ id: 'blender', from: from + b(0.1), to: from + b(16), gain: 0.45 });
-    cue(from + b(2) + 0.05, 'matchaReady', { kind: 'sfx', gain: 0.6 });
-    cue(from + b(3), 'bell', { kind: 'sfx', gain: 0.7 });
-    gx.forEach((_, i) => cue(from + b(3 + i * 0.25), 'happy', { kind: 'sfx', gain: 0.35 }));
-    ALL.forEach((_, i) => { if (i % 2 === 0) cue(from + b(5) + i * 0.04, 'pop', { gain: 0.3, pitch: (i / 2) % 7 }); });
-    cue(from + b(7), 'pop', { gain: 0.5, pitch: 4 });
-    cue(from + b(8), 'purchase', { kind: 'sfx', gain: 0.9 });
-    for (let i = 0; i < 10; i++) cue(from + b(8) + 0.25 + i * 0.07, 'coin', { kind: 'sfx', gain: 0.45 });
-    [0, 0.5, 1, 1.5, 2].forEach((d, i) => cue(from + b(10 + d), 'star', { kind: 'sfx', step: i, gain: 0.7 }));
-    cue(from + b(12), 'confetti', { gain: 0.8 });
-    cue(from + b(15.6), 'whoosh', { gain: 0.7 });
+    cue(from + b(T.pro2) + 0.05, 'blenderStart', { kind: 'sfx', gain: 0.5 });
+    loops.push({ id: 'blender', from: from + b(0.1), to: from + b(8), gain: 0.45 });
+    cue(from + b(T.machine) + 0.05, 'matchaReady', { kind: 'sfx', gain: 0.6 });
+    cue(from + b(T.guests), 'bell', { kind: 'sfx', gain: 0.7 });
+    gx.forEach((_, i) => cue(from + b(T.guests + i * 0.125), 'happy', { kind: 'sfx', gain: 0.35 }));
+    ALL.forEach((_, i) => { if (i % 2 === 0) cue(from + b(T.ing) + i * 0.025, 'pop', { gain: 0.3, pitch: (i / 2) % 7 }); });
+    cue(from + b(T.decor), 'bling', { gain: 0.6 });
+    fx.punch(from + b(T.decor), 0.04, 9);
+    cue(from + b(T.coins), 'boom', { gain: 0.9 });
+    cue(from + b(T.coins), 'purchase', { kind: 'sfx', gain: 0.9 });
+    for (let i = 0; i < 12; i++) cue(from + b(T.coins) + 0.15 + i * 0.06, 'coin', { kind: 'sfx', gain: 0.45 });
+    fx.impact(from + b(T.coins) + 0.03);
+    fx.flash(from + b(T.coins), 0.7, 8);
+    fx.shake(from + b(T.coins), 34, 6);
+    [0, 0.25, 0.5, 0.75, 1].forEach((d, i) => {
+      cue(from + b(T.stars + d), 'star', { kind: 'sfx', step: i, gain: 0.7 });
+      fx.punch(from + b(T.stars + d), 0.03, 10);
+    });
+    cue(from + b(T.party), 'confetti', { gain: 0.8 });
+    cue(from + b(7.7), 'whoosh', { gain: 0.7 });
     return {
-      from, to, enter: ['zoomIn', 0.14], leave: ['whipOut', 0.12], tint: 'gold',
+      from, to, enter: ['zoomBlurIn', 0.12], leave: ['whipOut', 0.1], tint: 'gold',
       update(lt) {
-        const cp = popIn(lt, { f: 2.6, d: 9 });
-        cap.set({ x: 540, y: 270, s: cp.s, o: cp.o });
-        // coins: count up from the start, explode on beat 8
-        const n = Math.round(COINS * (0.15 * ease.outCubic(prog(lt, 0, b(8))) + 0.85 * ease.outExpo(prog(lt, b(8), b(10)))));
+        cap(lt);
+        // coins: count up from the start, explode on the coins' beat
+        const n = Math.round(COINS * (0.15 * ease.outCubic(prog(lt, 0, b(T.coins))) + 0.85 * ease.outExpo(prog(lt, b(T.coins), b(T.coins + 1.5)))));
         coins.set(C.num(n));
         const kp = popIn(lt - 0.1, { f: 2.4, d: 8 });
-        coins.sp.set({ x: 540, y: 410 + kp.dy, s: kp.s * (1 + 0.12 * decay(lt - b(8), 7)), o: kp.o });
+        coins.sp.set({ x: 540, y: 410 + kp.dy, s: kp.s * (1 + 0.2 * decay(lt - b(T.coins), 7)), o: kp.o });
         rain.update(lt);
+        money.update(lt);
         // decor on the wall
-        const dp = popIn(lt - b(7), { f: 2.4, d: 7 });
+        const dp = popIn(lt - b(T.decor), { f: 2.4, d: 7 });
         neon.set({ x: 900, y: 560 + dp.dy, s: dp.s, r: 4, o: dp.o });
         plants.set({ x: 180, y: 560 + dp.dy, s: dp.s, r: -4, o: dp.o });
         // four happy guests
         guests.forEach((g, i) => {
-          const p = popIn(lt - b(3) - i * 0.08, { rise: 160, f: 2.4, d: 7 });
-          const hop = bump(lt % b(1), 0, 0.2) * (lt > b(12) ? 18 : 0);
+          const p = popIn(lt - b(T.guests) - i * 0.06, { rise: 160, f: 2.4, d: 7 });
+          const hop = bump(lt % b(1), 0, 0.2) * (lt > b(T.party) ? 18 : 0);
           g.mood('happy').sp.set({ x: gx[i], y: 820 + p.dy - hop + Math.sin(lt * 4 + i) * 4, s: p.s, o: p.o });
         });
         hearts.forEach((h) => h.update(lt));
@@ -225,17 +233,17 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
           const sq = jiggle(q - 0.12, 4, 8) * 0.14;
           return { y: yy + sq * 80, sx: 1 + sq, sy: 1 - sq };
         };
-        const a = land(0, 1140);
+        const a = land(b(T.pro), 1140);
         if (a) {
           pro.draw({ tier: 3, big: true, state: 'blending', base: 'acai', progress: 0.5, remaining: 3 }, lt);
           pro.sprite.set({ x: 230, ...a });
         } else pro.sprite.hide();
-        const c2 = land(b(1), 1160);
+        const c2 = land(b(T.pro2), 1160);
         if (c2) {
           pro2.draw({ tier: 3, state: 'blending', base: 'pitaya', progress: 0.3, remaining: 2 }, lt + 0.4);
           pro2.sprite.set({ x: 470, ...c2 });
         } else pro2.sprite.hide();
-        const m = land(b(2), 1150);
+        const m = land(b(T.machine), 1150);
         if (m) {
           machine.draw({ slots: [{ state: 'ready', fruit: 'mStrawberry', progress: 1 }, { state: 'ready', fruit: 'mMango', progress: 1 }] }, lt);
           machine.sprite.set({ x: 840, ...m });
@@ -249,7 +257,7 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
           glasses.forEach((gl) => gl.hide());
         }
         bowls.forEach((bw, i) => {
-          const p = popIn(lt - b(7) - i * 0.1, { rise: 100, f: 2.6, d: 8 });
+          const p = popIn(lt - b(T.decor) - i * 0.08, { rise: 100, f: 2.6, d: 8 });
           bw.set({ x: [600, 975][i], y: 1320 + p.dy, s: p.s, r: i ? 6 : -6, o: p.o });
         });
         // every ingredient in two rows (narrower the more there are), in a wave
@@ -258,13 +266,13 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
         icons.forEach((ic, i) => {
           const r = Math.floor(i / per);
           const c = i % per;
-          const p = popIn(lt - b(5) - i * 0.035, { rise: 80, f: 2.6, d: 8 });
-          const hop = lt > b(12) ? bump(lt, b(12) + c * 0.04, b(12) + c * 0.04 + 0.3) * 30 : 0;
+          const p = popIn(lt - b(T.ing) - i * 0.025, { rise: 80, f: 2.6, d: 8 });
+          const hop = lt > b(T.party) ? bump(lt, b(T.party) + c * 0.04, b(T.party) + c * 0.04 + 0.3) * 30 : 0;
           ic.set({ x: 540 + (c - (per - 1) / 2) * gap, y: 1500 + r * (gap * 0.94) + p.dy - hop, s: p.s * (gap / 124), o: p.o });
         });
         rings.forEach((rg) => rg.update(lt));
         stars.forEach((st, i) => {
-          const q = lt - b(10 + i * 0.5);
+          const q = lt - b(T.stars + i * 0.25);
           const s = q < 0 ? 0 : q < 0.08 ? lerp(2.4, 0.9, ease.inQuad(q / 0.08)) : 0.9 + 0.1 * spring(q - 0.08, 2.5, 6);
           st.set({ x: 540 + (i - 2) * 120, y: 560 + Math.abs(i - 2) * 14, s, r: (i - 2) * 8, o: q < 0 ? 0 : 1 });
         });
@@ -295,20 +303,22 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
       [C.stats[2], '1', '4'],
       [C.stats[3], '0', C.num(COINS)],
     ].map(([k, a, z]) => new Sprite(root, `<div class="gu-stat"><span class="k">${k}</span><span class="a">${a}</span><span class="arrow">➜</span><span class="b">${z}</span></div>`));
+    const ROWS = [1.5, 2, 2.5, 3];
     cue(from, 'swish', { gain: 0.5 });
-    cue(from + b(1), 'impact', { gain: 0.9 });
-    fx.flash(from + b(1), 0.6, 9);
-    fx.shake(from + b(1), 30, 6);
+    cue(from + b(0.5), 'boom', { gain: 0.9 });
+    fx.impact(from + b(0.5) + 0.03);
+    fx.flash(from + b(0.5), 0.6, 9);
+    fx.shake(from + b(0.5), 30, 6);
     rows.forEach((_, i) => {
-      cue(from + b(4 + i * 0.75), 'stamp', { gain: 0.5 });
-      fx.punch(from + b(4 + i * 0.75), 0.03, 10);
+      cue(from + b(ROWS[i]), 'stamp', { gain: 0.55 });
+      fx.punch(from + b(ROWS[i]), 0.04, 10);
     });
-    cue(from + b(7.6), 'whoosh', { gain: 0.6 });
+    cue(from + b(3.7), 'whoosh', { gain: 0.6 });
     return {
-      from, to, enter: ['whipIn', 0.14], leave: ['zoomOut', 0.12],
+      from, to, enter: ['whipIn', 0.12], leave: ['zoomBlurOut', 0.1],
       update(lt) {
         // the halves slide in from the sides, then the VS lands between them
-        const k = ease.outCubic(prog(lt, 0, b(0.8)));
+        const k = ease.outCubic(prog(lt, 0, b(0.45)));
         top.style.transform = `translateX(${(-1080 * (1 - k)).toFixed(1)}px)`;
         bottom.style.transform = `translateX(${(1080 * (1 - k)).toFixed(1)}px)`;
         bl1.draw({ tier: 0, state: 'empty' }, lt);
@@ -319,14 +329,14 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
         bl2.sprite.set({ x: 280, y: 1500 });
         g2.forEach((g, i) => g.mood('happy').sp.set({ x: 560 + i * 170, y: 1520 + Math.sin(lt * 5 + i) * 6 - (i === 1 ? 40 : 0) }));
         t2.set({ x: 540, y: 1180, r: 3 });
-        const q = lt - b(1);
+        const q = lt - b(0.5);
         const s = q < 0 ? 0 : q < 0.1 ? lerp(2.8, 0.9, ease.inQuad(q / 0.1)) : 0.9 + 0.1 * spring(q - 0.1, 2.5, 6);
         vs.set({ x: 540, y: 960, s: s * (1 + 0.05 * decay(lt % b(1), 9)), r: -8, o: q > 0 ? 1 : 0 });
         ring.update(lt);
         // the numbers, one row per beat and a half
-        dim.set({ x: 540, y: 960, o: 0.9 * ease.inOutQuad(prog(lt, b(3.6), b(4))) });
+        dim.set({ x: 540, y: 960, o: 0.9 * ease.inOutQuad(prog(lt, b(1.2), b(1.5))) });
         rows.forEach((row, i) => {
-          const p = popIn(lt - b(4 + i * 0.75), { rise: 60, f: 2.6, d: 8 });
+          const p = popIn(lt - b(ROWS[i]), { rise: 60, f: 2.6, d: 8 });
           row.set({ x: 540, y: 620 + i * 190 + p.dy, s: p.s, r: i % 2 ? 1 : -1, o: p.o });
         });
       },
@@ -340,29 +350,32 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
     const btn = new Sprite(root, `<div class="play-btn">${PLAY_ICON}<span>${C.play}</span></div>`);
     const free = sticker(root, C.free, 'dark');
     const url = new Sprite(root, `<div class="url">${C.url}</div>`);
-    const confetti = confettiBurst(root, { n: 50, seed: 88, x: 540, y: 640, t0: b(1) });
+    const confetti = confettiBurst(root, { n: 60, seed: 88, x: 540, y: 640, t0: b(0.5) });
     fx.flash(from, 0.8, 8);
     fx.shake(from, 30, 6);
-    cue(from, 'impact', { gain: 1 });
-    cue(from + b(1), 'confetti', { gain: 0.7 });
-    cue(from + b(3), 'click', { kind: 'sfx' });
-    cue(from + b(4), 'win', { kind: 'sfx', gain: 0.8 });
+    cue(from, 'impact', { gain: 0.8 });
+    cue(from + b(0.5), 'boom', { gain: 1 });
+    fx.impact(from + b(0.5) + 0.03);
+    fx.punch(from + b(0.5), 0.06, 8);
+    cue(from + b(0.5), 'confetti', { gain: 0.7 });
+    cue(from + b(4), 'click', { kind: 'sfx' });
+    cue(from + b(4) + 0.02, 'win', { kind: 'sfx', gain: 0.8 });
     return {
-      from, to, enter: ['zoomIn', 0.16], tint: 'pink',
+      from, to, enter: ['slamIn', 0.12], tint: 'pink',
       update(lt) {
         title.sprite.set({ x: 540, y: 330 });
-        title.pop(lt, { stagger: 0.025 });
+        title.pop(lt, { stagger: 0.02 });
         confetti.update(lt);
         const land = 0.11;
-        const q = lt - b(1);
+        const q = lt - b(0.5);
         const sl = q < land ? lerp(2.8, 0.92, ease.inQuad(clamp(q / land))) : 0.92 + 0.08 * spring(q - land, 2.2, 5.5);
         logo.set({ x: 540, y: 700 + Math.sin(lt * 2.6) * 8, s: sl, r: -8 + Math.sin(lt * 2) * 1.2, o: q > 0 ? 1 : 0 });
-        const bp = popIn(lt - b(2), { f: 2.2, d: 6 });
-        const tap = Math.max(0, 1 - Math.abs(lt - b(3)) / 0.12);
+        const bp = popIn(lt - b(1), { f: 2.4, d: 7 });
+        const tap = Math.max(0, 1 - Math.abs(lt - b(4)) / 0.12);
         btn.set({ x: 540, y: 1080 + bp.dy + tap * 10, s: bp.s * (1 - tap * 0.05) * (1 + 0.03 * decay(lt % b(1), 8)), o: bp.o });
-        const fp = popIn(lt - b(2.5));
+        const fp = popIn(lt - b(1.5));
         free.set({ x: 540, y: 1270 + fp.dy, s: fp.s, o: fp.o });
-        const up = popIn(lt - b(3), { f: 2.4, d: 7 });
+        const up = popIn(lt - b(2), { f: 2.4, d: 7 });
         url.set({ x: 540, y: 1400 + up.dy, s: up.s, r: -2, o: up.o });
       },
     };
