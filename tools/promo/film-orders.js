@@ -13,7 +13,7 @@ import { Sprite, Title, Ring, touchMarkup, setTouch } from './kit.js';
 const COPY = {
   de: {
     date: 'Montag, 19. Oktober',
-    pov: ['POV: dein Açaí-Café', 'öffnet um 8 Uhr ☕'],
+    pov: ['POV: dein Açaí-Café öffnet ☕'],
     now: 'jetzt',
     newOrder: (n) => `Neue Bestellung · ${n}`,
     count: (n) => `${n} neue Bestellungen`,
@@ -36,7 +36,7 @@ const COPY = {
   },
   en: {
     date: 'Monday, 19 October',
-    pov: ['POV: your açaí café', 'opens at 8 am ☕'],
+    pov: ['POV: your açaí café opens ☕'],
     now: 'now',
     newOrder: (n) => `New order · ${n}`,
     count: (n) => `${n} new orders`,
@@ -76,7 +76,7 @@ export const CUTS = {
 
 const APP = 'AÇAÍ FEVER';
 const NOTE_STEP = 214; // a notification's height plus the gap to the next
-const LIST_Y = 790; // the newest notification's centre
+const LIST_Y = 820; // the newest notification's centre
 
 // TikTok's text sticker (one rounded box per line)
 const sticker = (root, lines, cls = '') => new Sprite(root, `<div class="tk ${cls}">${lines.map((l) => `<span>${l}</span>`).join('<br>')}</div>`);
