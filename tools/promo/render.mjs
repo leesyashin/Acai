@@ -29,6 +29,7 @@ import path from 'node:path';
 import { startServer } from '../serve.mjs';
 import { launchBrowser, collectConsoleErrors } from '../../tests/e2e/helpers.mjs';
 import { captureGameplay, FOOTAGE_DIR } from './capture.mjs';
+import * as DATA from '../../js/data.js';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => {
@@ -69,17 +70,22 @@ const SAVE_KEY = 'acaiFever.save.v1';
 const ALL_ING = ['acai', 'pitaya', 'spirulina', 'banana', 'granola', 'strawberry', 'blueberry', 'mango', 'kiwi',
   'honey', 'coconut', 'chia', 'peanut', 'chocolate', 'mint', 'cacao'];
 
-// A busy moment of level 14 (four guests, two blenders, filled bowls, matcha), at 2× pixels.
+// The level of the screenshot: the first with four seats and matcha (40 since the rebalance, 14 before).
+const SHOT_LEVEL = DATA.LEVELS.find((l) => l.seats >= 4 && (l.matchaChance ?? 1) > 0)?.id ?? 14;
+
+// A busy moment of SHOT_LEVEL (four guests, two blenders, filled bowls, matcha), at 2× pixels.
 async function gameShot(url, lang) {
   const b = await launchBrowser({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, fonts: 'real', locale: lang === 'en' ? 'en-US' : 'de-DE' });
   try {
     const { page } = b;
     const stars = {};
-    for (let i = 1; i <= 14; i++) stars[i] = 3;
+    for (let i = 1; i < SHOT_LEVEL; i++) stars[i] = 3;
+    // every level's tutorial already seen, so none covers the kitchen
+    const seenIntros = Object.fromEntries(DATA.LEVELS.filter((l) => l.intro).map((l) => [l.intro, true]));
     const save = {
       version: 1, coins: 2380, owned: ALL_ING.slice(), ingLevels: { acai: 2, pitaya: 1, banana: 1, strawberry: 2, mango: 1 },
-      upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, matchaSlots: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
-      stars, endlessBest: 512, newIngredients: [], seenIntros: { basics: true }, settings: { lang, music: false, sfx: false },
+      upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, matchaSlots: 1, cupArm: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
+      stars, endlessBest: 512, newIngredients: [], seenIntros: { basics: true, ...seenIntros }, settings: { lang, music: false, sfx: false },
       stats: { served: 640, earned: 6400, played: 20 },
     };
     await page.goto(`${url}index.html`);
@@ -87,10 +93,10 @@ async function gameShot(url, lang) {
     await page.reload();
     await page.waitForFunction(() => window.__acaiScreen?.() === 'title');
     await page.evaluate(() => document.fonts.ready);
-    await page.evaluate(() => window.__acaiGo('game', { mode: 'campaign', levelId: 14, seed: 5 }));
+    await page.evaluate((id) => window.__acaiGo('game', { mode: 'campaign', levelId: id, seed: 5 }), SHOT_LEVEL);
     await sleep(700);
     await page.evaluate(() => { window.__acaiSpeed = 6; });
-    // every seat taken (four at level 14 now; the level may get fewer seats as the game is rebalanced)
+    // every seat taken
     await page.waitForFunction(() => {
       const g = window.__acaiGame;
       return g.seats.length > 0 && g.seats.every((c) => c && c.state === 'waiting');

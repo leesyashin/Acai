@@ -1,7 +1,7 @@
 // The 'satisfying' promo film (tools/promo, ?version=satisfying): a calm TikTok in the "oddly
 // satisfying" style – one bowl built up close on a warm pastel set, in one continuous shot: the açaí
 // blended, poured, six toppings landing one per beat (each with a soft rising note), then a fruit
-// matcha filling layer by layer and a row of finished bowls. The game's menu bossa as lo-fi (96 BPM);
+// matcha from the matcha bar filling layer by layer, ice and cold foam on top, and a row of finished bowls. The game's menu bossa as lo-fi (96 BPM);
 // no shakes or flashes, TikTok's own text stickers instead of big titles.
 
 import { logoSVG, bowlSVG, ingredientIcon, packIcon, matchaGlassSVG, blenderBadgeSVG } from '../../js/art.js';
@@ -18,7 +18,7 @@ const COPY = {
     base: ['erst die Basis …'],
     toppings: ['… dann die Toppings'],
     perfect: ['perfekt. ✨'],
-    matcha: ['dazu ein Frucht-Matcha 🍓🍵'],
+    matcha: ['dazu ein Erdbeer-Matcha', 'mit Eis & Cold Foam 🧊'],
     end: ['bau deine eigene Bowl'],
     free: ['kostenlos im Browser · Link in Bio'],
     url: 'leesyashin.github.io/Acai',
@@ -29,7 +29,7 @@ const COPY = {
     base: ['the base first …'],
     toppings: ['… then the toppings'],
     perfect: ['perfect. ✨'],
-    matcha: ['plus a fruit matcha 🍓🍵'],
+    matcha: ['plus a strawberry matcha', 'with ice & cold foam 🧊'],
     end: ['build your own bowl'],
     free: ['free in your browser · link in bio'],
     url: 'leesyashin.github.io/Acai',
@@ -280,24 +280,32 @@ export function scenes({ lang, b, cue, loops, popIn }) {
     const jet = new Sprite(root, `<div style="width:${Math.round(SIZE * 0.048)}px;height:${Math.round(RIM)}px;border-radius:0 0 12px 12px"></div>`);
     jet.el.style.transformOrigin = '0 0';
     const jetEl = jet.in.firstChild;
-    const side = [['mango', 165, 1100, -6], ['kiwi', 915, 1100, 6], ['blueberry', 165, 1440, -4], ['banana', 915, 1440, 4]]
-      .map(([id, x, y, r]) => ({ sp: new Sprite(root, matchaGlassSVG(id, 'ready', 300)), x, y, r }));
+    const ice = new Sprite(root, ingredientIcon('ice', 200));
+    // the other fruits of the matcha bar, each with its extras
+    const side = [['mMango', ['ice'], 165, 1100, -6], ['mBlueberry', ['foam'], 915, 1100, 6], ['mBanana', ['vanilla'], 165, 1440, -4], ['mStrawberry', ['ice', 'vanilla'], 915, 1440, 4]]
+      .map(([id, extras, x, y, r]) => ({ sp: new Sprite(root, matchaGlassSVG(id, 'ready', 300, { extras })), x, y, r }));
     const cap = sticker(root, C.matcha);
     const Tf = b(1.2);
     const F0 = b(2);
-    const F1 = b(5.5);
+    const F1 = b(5);
+    const Ti = b(5.6); // ice in
+    const Tc = b(6.2); // cold foam on top
     cue(from + Tf, 'plop', { kind: 'sfx', gain: 0.7 });
     cue(from + Tf, 'ting', { pitch: 1, gain: 0.45 });
     cue(from + F0, 'pour', { kind: 'sfx', gain: 0.45 });
     cue(from + F0 + 0.1, 'glug', { gain: 0.6, len: F1 - F0 - 0.2 });
     cue(from + F1, 'matchaReady', { kind: 'sfx', gain: 0.55 });
-    side.forEach((_, i) => cue(from + b(6 + i * 0.25), 'ting', { pitch: 2 + i, gain: 0.35 }));
+    cue(from + Ti, 'plop', { kind: 'sfx', gain: 0.6 });
+    cue(from + Ti + 0.01, 'ting', { pitch: 3, gain: 0.45 });
+    cue(from + Tc - 0.15, 'swish', { gain: 0.15 });
+    cue(from + Tc, 'ting', { pitch: 4, gain: 0.45 });
+    side.forEach((_, i) => cue(from + b(6.6 + i * 0.2), 'ting', { pitch: 2 + i, gain: 0.3 }));
     // two neighbouring fill steps of the glass (it draws twelve) cross-faded into a smooth rise
     const glassAt = (k) => {
       const q = clamp(k) * 12;
       const lo = Math.floor(q);
-      const a = matchaGlassSVG('strawberry', 'mixing', SIZE, { fill: lo / 12, from: 99 });
-      const bb = matchaGlassSVG('strawberry', 'mixing', SIZE, { fill: Math.min(12, lo + 1) / 12, from: 99 });
+      const a = matchaGlassSVG('mStrawberry', 'mixing', SIZE, { fill: lo / 12, from: 99 });
+      const bb = matchaGlassSVG('mStrawberry', 'mixing', SIZE, { fill: Math.min(12, lo + 1) / 12, from: 99 });
       return [a, bb, q - lo];
     };
     return {
@@ -316,9 +324,13 @@ export function scenes({ lang, b, cue, loops, popIn }) {
           glassA.html(a).set(g);
           glassB.html(bb).set({ ...g, o: mix });
         } else {
-          glassA.html(matchaGlassSVG('strawberry', 'ready', SIZE)).set(g);
+          const extras = lt < Ti ? [] : lt < Tc ? ['ice'] : ['ice', 'foam'];
+          glassA.html(matchaGlassSVG('mStrawberry', 'ready', SIZE, { extras })).set(g);
           glassB.hide();
         }
+        const ki = ease.inQuad(prog(lt, Ti - b(0.8), Ti));
+        if (lt > Ti - b(0.8) && lt < Ti + 0.05) ice.set({ x: GX - 30, y: lerp(-180, GY - 60, ki), r: ki * -70, s: 0.9, o: lt > Ti ? 1 - (lt - Ti) / 0.05 : 1 });
+        else ice.hide();
         // the strawberry drops in, then milk and matcha run in from above
         const k = ease.inQuad(prog(lt, Tf - b(0.9), Tf));
         if (lt > Tf - b(0.9) && lt < Tf + 0.05) fruit.set({ x: GX + 20, y: lerp(-200, GY + 120, k), r: k * 90, s: 0.8, o: lt > Tf ? 1 - (lt - Tf) / 0.05 : 1 });
@@ -331,7 +343,7 @@ export function scenes({ lang, b, cue, loops, popIn }) {
           jet.set({ x: GX - SIZE * 0.002, y: RIM / 2, sy: on });
         } else jet.hide();
         side.forEach((c, i) => {
-          const p = popIn(lt - b(6 + i * 0.25), { rise: 120, f: 1.8, d: 6 });
+          const p = popIn(lt - b(6.6 + i * 0.2), { rise: 120, f: 1.8, d: 6 });
           c.sp.set({ x: c.x, y: c.y + p.dy, s: p.s, r: c.r, o: p.o });
         });
         stick(cap, lt, b(0.3), b(7.7), 540, 330);

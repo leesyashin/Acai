@@ -160,7 +160,7 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
     const machine = new View3D(root, 'machine', MS);
     const mf = fitFrame(VIEWS.machine, MS);
     const cupPx = Math.round(MS * MATCHA_CUP_SIZE);
-    const glasses = ['strawberry', 'mango'].map((f) => new Sprite(root, matchaGlassSVG(f, 'ready', cupPx)));
+    const glasses = [['mStrawberry', ['ice', 'foam']], ['mMango', ['vanilla']]].map(([f, extras]) => new Sprite(root, matchaGlassSVG(f, 'ready', cupPx, { extras })));
     const bowls = [{ base: 'pitaya', mid: ['mango', 'kiwi'], top: ['coconut', 'mint'] }, { base: 'acai', mid: ['banana', 'strawberry', 'blueberry'], top: ['honey'] }]
       .map((bw) => new Sprite(root, bowlSVG(bw, 200)));
     const icons = ALL.map((id) => new Sprite(root, ingredientIcon(id, 104)));
@@ -237,7 +237,7 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
         } else pro2.sprite.hide();
         const m = land(b(2), 1150);
         if (m) {
-          machine.draw({ slots: [{ state: 'ready', fruit: 'strawberry', progress: 1 }, { state: 'ready', fruit: 'mango', progress: 1 }] }, lt);
+          machine.draw({ slots: [{ state: 'ready', fruit: 'mStrawberry', progress: 1 }, { state: 'ready', fruit: 'mMango', progress: 1 }] }, lt);
           machine.sprite.set({ x: 840, ...m });
           glasses.forEach((gl, i) => {
             const cx = mf.ax + MACHINE_SLOT_X[2][i] * mf.zoom - MS / 2;
@@ -252,13 +252,15 @@ export function scenes({ lang, b, cue, loops, fx, popIn, guest, patienceBar, cou
           const p = popIn(lt - b(7) - i * 0.1, { rise: 100, f: 2.6, d: 8 });
           bw.set({ x: [600, 975][i], y: 1320 + p.dy, s: p.s, r: i ? 6 : -6, o: p.o });
         });
-        // every ingredient, in a wave
+        // every ingredient in two rows (narrower the more there are), in a wave
+        const per = Math.ceil(icons.length / 2);
+        const gap = Math.min(124, 1040 / per);
         icons.forEach((ic, i) => {
-          const r = Math.floor(i / 8);
-          const c = i % 8;
-          const p = popIn(lt - b(5) - (r * 8 + c) * 0.04, { rise: 80, f: 2.6, d: 8 });
-          const hop = lt > b(12) ? bump(lt, b(12) + c * 0.05, b(12) + c * 0.05 + 0.3) * 30 : 0;
-          ic.set({ x: 540 + (c - 3.5) * 124, y: 1500 + r * 116 + p.dy - hop, s: p.s, o: p.o });
+          const r = Math.floor(i / per);
+          const c = i % per;
+          const p = popIn(lt - b(5) - i * 0.035, { rise: 80, f: 2.6, d: 8 });
+          const hop = lt > b(12) ? bump(lt, b(12) + c * 0.04, b(12) + c * 0.04 + 0.3) * 30 : 0;
+          ic.set({ x: 540 + (c - (per - 1) / 2) * gap, y: 1500 + r * (gap * 0.94) + p.dy - hop, s: p.s * (gap / 124), o: p.o });
         });
         rings.forEach((rg) => rg.update(lt));
         stars.forEach((st, i) => {

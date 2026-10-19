@@ -265,7 +265,7 @@ node tools/promo/render.mjs out.mp4 --stills 1,6.5  # nur Einzelbilder zum Prüf
 
 Weitere Optionen: `--fps 30` (Bilder pro Sekunde), `--blur 3` (Teilbilder pro Bild für Bewegungsunschärfe,
 `1` = aus, schneller), `--workers 3` (parallele Browser-Seiten), `--from`/`--to` (nur ein Ausschnitt).
-Das Skript macht zuerst einen Screenshot vom echten Spiel (Level 14; klappt das nicht, zeigen die Filme das laufende Spiel),
+Das Skript macht zuerst einen Screenshot vom echten Spiel (das erste Level mit vier Plätzen und Matcha; klappt das nicht, zeigen die Filme das laufende Spiel),
 nimmt für `mix`/`gameplay`/`combo` bei Bedarf das Gameplay auf (ca. 15 Minuten), rendert dann jedes Bild einzeln im Browser und setzt Bild und Ton mit ffmpeg zusammen. Vorschau mit
 Ton und Zeitleiste: `npm start`, dann <http://localhost:8080/tools/promo/promo.html?version=mix> (Leertaste = Play/Pause,
 Pfeiltasten = ein Bild, `&lang=en`).

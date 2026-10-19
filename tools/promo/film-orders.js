@@ -108,7 +108,10 @@ function orderIcons(rng) {
     used.add(id);
     s += ingredientIcon(id, 54);
   }
-  if (rng.next() < 0.35) s += `<span style="width:14px"></span>${matchaGlassSVG(pick(['strawberry', 'mango', 'kiwi', 'blueberry']), 'ready', 58)}`;
+  if (rng.next() < 0.35) {
+    const extras = rng.next() < 0.5 ? [pick(['ice', 'vanilla', 'foam'])] : [];
+    s += `<span style="width:14px"></span>${matchaGlassSVG(pick(['mStrawberry', 'mMango', 'mBanana', 'mBlueberry']), 'ready', 58, { extras })}`;
+  }
   return s;
 }
 
