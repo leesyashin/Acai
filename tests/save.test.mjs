@@ -34,7 +34,8 @@ const { orderValue } = await import('../js/orders.js');
 const { INGREDIENTS, START_OWNED, UPGRADES, UPG, LEVELS, MATCHA_LEVEL, ENDLESS_UNLOCK_LEVEL } = data;
 
 const stored = () => JSON.parse(storage.getItem(KEY));
-const buyable = INGREDIENTS.find((i) => i.cost > 0);
+// an ingredient that arrives after level 1
+const later = INGREDIENTS.find((i) => i.unlock > 1);
 
 // Fresh storage + reloaded state; raw = what is in localStorage before loading.
 function fresh(raw) {
@@ -59,14 +60,15 @@ function winLevels(upTo, stars = 1) {
 describe('defaults & loading', () => {
   test('empty storage gives the default save', () => {
     const d = fresh();
-    assert.equal(d.version, 1);
+    assert.equal(d.version, 2);
     assert.equal(d.coins, 0);
-    assert.deepEqual(d.owned, START_OWNED);
+    assert.equal('owned' in d, false, 'ingredients come with the levels');
+    assert.deepEqual(save.ownedNow(), START_OWNED);
     assert.deepEqual(d.ingLevels, {});
     assert.deepEqual(d.upgrades, {});
     assert.deepEqual(d.stars, {});
     assert.equal(d.endlessBest, 0);
-    assert.deepEqual(d.newIngredients, []);
+    assert.equal('newIngredients' in d, false);
     assert.deepEqual(d.seenIntros, {});
     assert.deepEqual(d.settings, { lang: detectLang(), music: true, sfx: true, haptics: true });
     assert.ok(LANGS.includes(d.settings.lang));
@@ -76,10 +78,10 @@ describe('defaults & loading', () => {
 
   test('defaultSave returns independent objects', () => {
     const a = save.defaultSave();
-    a.owned.push('kiwi');
+    a.stars[1] = 3;
     a.settings.music = false;
     const b = save.defaultSave();
-    assert.deepEqual(b.owned, START_OWNED);
+    assert.deepEqual(b.stars, {});
     assert.equal(b.settings.music, true);
     assert.deepEqual(START_OWNED, ['acai', 'banana', 'granola', 'honey']);
   });
@@ -92,9 +94,8 @@ describe('defaults & loading', () => {
   });
 
   test('partial save is merged with defaults', () => {
-    const d = fresh({ coins: 50, owned: ['pitaya'], settings: { lang: 'en' }, stars: { 1: 2 }, stats: { served: 4 } });
+    const d = fresh({ version: 2, coins: 50, settings: { lang: 'en' }, stars: { 1: 2 }, stats: { served: 4 } });
     assert.equal(d.coins, 50);
-    for (const id of [...START_OWNED, 'pitaya']) assert.ok(d.owned.includes(id), id);
     assert.deepEqual(d.settings, { lang: 'en', music: true, sfx: true, haptics: true });
     assert.deepEqual(d.stats, { served: 4, earned: 0, played: 0 });
     assert.deepEqual(d.stars, { 1: 2 });
@@ -111,23 +112,20 @@ describe('defaults & loading', () => {
     test(`corrupt storage (${label}) falls back to defaults`, () => {
       const d = fresh(raw);
       assert.equal(d.coins, 0);
-      assert.deepEqual(d.owned, START_OWNED);
+      assert.deepEqual(save.ownedNow(), START_OWNED);
       assert.equal(d.settings.music, true);
     });
   }
 
   test('bad field values are repaired', () => {
-    const d = fresh({ coins: -20, owned: ['acai', 'pizza', 'kiwi'], newIngredients: 'kiwi', settings: null, stats: null });
+    const d = fresh({ version: 2, coins: -20, newIngredients: 'kiwi', settings: null, stats: null });
     assert.equal(d.coins, 0);
-    assert.ok(!d.owned.includes('pizza'));
-    assert.ok(d.owned.includes('kiwi'));
-    for (const id of START_OWNED) assert.ok(d.owned.includes(id));
-    assert.deepEqual(d.newIngredients, []);
+    assert.equal('newIngredients' in d, false);
     assert.equal(d.settings.sfx, true);
     assert.equal(d.stats.played, 0);
     assert.equal(fresh({ coins: 'lots' }).coins, 0);
     assert.equal(fresh({ coins: null }).coins, 0);
-    assert.deepEqual(fresh({ owned: 'acai' }).owned, START_OWNED);
+    assert.equal(fresh({ owned: 'acai' }).coins, 0, 'a damaged ingredient list refunds nothing');
   });
 
   test('out-of-range and wrongly typed progress values are normalised', () => {
@@ -145,15 +143,27 @@ describe('defaults & loading', () => {
     assert.deepEqual(d.stats, { served: 0, earned: 0, played: 2 });
     assert.deepEqual(fresh({ stats: { served: -4, earned: 12.5 } }).stats, { served: 0, earned: 12.5, played: 0 });
 
-    d = fresh({ owned: ['acai', 'kiwi'], newIngredients: ['nope', 7, 'kiwi', 'kiwi', 'mango'] });
-    assert.deepEqual(d.newIngredients, ['kiwi'], 'only known, owned ingredients, once each');
-
     d = fresh({ settings: { lang: 'en', music: 'no', sfx: 0, haptics: 'off' } });
     assert.deepEqual(d.settings, { lang: 'en', music: true, sfx: true, haptics: true }, 'only an explicit false mutes');
     assert.equal(fresh({ settings: { music: false } }).settings.music, false);
     assert.equal(fresh({ settings: { haptics: false } }).settings.haptics, false, 'vibration off stays off');
     assert.deepEqual(fresh({ seenIntros: ['basics'] }).seenIntros, {});
     assert.equal(fresh({ endlessBest: '99' }).endlessBest, 0);
+  });
+
+  test('a version-1 save gets the coins back it paid for ingredients – once', () => {
+    let d = fresh({ version: 1, coins: 40, owned: ['acai', 'banana', 'granola', 'honey', 'kiwi', 'coconut', 'kiwi', 'pizza'] });
+    assert.equal(d.coins, 40 + 200 + 50, 'kiwi and coconut, each once; start ingredients were free');
+    assert.equal(d.version, 2);
+    assert.equal('owned' in d, false);
+    save.addCoins(0);
+    assert.equal(stored().version, 2);
+    assert.equal(save.loadSave().coins, 290, 'the stored version-2 save is not refunded again');
+    assert.equal(save.legacyRefund({ version: 2, owned: ['kiwi'] }), 0);
+    assert.equal(save.legacyRefund({ owned: ['pitaya'] }), 180, 'a save from before versions');
+    d = fresh({ coins: 10, stars: { 1: 3, 2: 2 } });
+    assert.equal(d.coins, 10);
+    assert.equal(save.maxUnlockedLevel(), 3, 'won levels stay won');
   });
 
   test('an old save keeps its second machine slot: smoothieSlots becomes matchaSlots', () => {
@@ -248,24 +258,19 @@ describe('persistence', () => {
 describe('shop actions', () => {
   beforeEach(() => fresh());
 
-  test('buyIngredient: unknown, owned, noMoney, success', () => {
-    assert.deepEqual(save.buyIngredient('pizza'), { ok: false, reason: 'unknown' });
-    assert.deepEqual(save.buyIngredient(START_OWNED[0]), { ok: false, reason: 'owned' });
-    setCoins(buyable.cost - 1);
-    assert.deepEqual(save.buyIngredient(buyable.id), { ok: false, reason: 'noMoney' });
-    assert.equal(save.isOwned(buyable.id), false);
-
-    setCoins(buyable.cost + 5);
-    assert.deepEqual(save.buyIngredient(buyable.id), { ok: true });
-    assert.equal(save.getSave().coins, 5);
-    assert.equal(save.isOwned(buyable.id), true);
-    assert.deepEqual(save.getSave().newIngredients, [buyable.id]);
-    assert.ok(stored().owned.includes(buyable.id));
-    assert.deepEqual(save.buyIngredient(buyable.id), { ok: false, reason: 'owned' });
+  test('ingredients arrive with the furthest level open to the player', () => {
+    assert.equal('buyIngredient' in save, false, 'nothing to buy');
+    assert.equal(save.isOwned(later.id), false);
+    assert.equal(save.isOwned('pizza'), false);
+    winLevels(later.unlock - 1);
+    assert.equal(save.maxUnlockedLevel(), later.unlock);
+    assert.equal(save.isOwned(later.id), true);
+    assert.ok(save.ownedNow().includes(later.id));
+    assert.deepEqual(save.ownedNow(), data.ownedAt(later.unlock));
   });
 
   test('upgradeIngredient: notOwned, noMoney, success until maxed', () => {
-    assert.deepEqual(save.upgradeIngredient(buyable.id), { ok: false, reason: 'notOwned' });
+    assert.deepEqual(save.upgradeIngredient(later.id), { ok: false, reason: 'notOwned' });
     const id = START_OWNED[0];
     const costs = data.ING[id].upgradeCosts;
     setCoins(costs[0] - 1);
@@ -319,16 +324,12 @@ describe('progress', () => {
   beforeEach(() => fresh());
 
   test('a lost level still banks the coins but gives no stars', () => {
-    save.updateSave((d) => {
-      d.newIngredients = ['kiwi'];
-    });
     const r = save.recordLevelResult(1, { won: false, stars: 2, money: 37.5, served: 3 });
     assert.deepEqual(r, { newBest: false, coinsTotal: 37.5, unlockedLevel: null, unlockedEndless: false });
     const d = save.getSave();
     assert.equal(d.coins, 37.5);
     assert.equal(d.stars[1], undefined);
     assert.deepEqual(d.stats, { served: 3, earned: 37.5, played: 1 });
-    assert.deepEqual(d.newIngredients, []);
     assert.equal(save.isLevelUnlocked(2), false);
   });
 
@@ -396,7 +397,7 @@ describe('progress', () => {
     const d = save.resetSave();
     assert.equal(d.coins, 0);
     assert.deepEqual(d.stars, {});
-    assert.deepEqual(d.owned, START_OWNED);
+    assert.deepEqual(save.ownedNow(), START_OWNED);
     assert.equal(d.settings.lang, 'en');
     assert.equal(stored().settings.lang, 'en');
     assert.equal(stored().coins, 0);
@@ -410,24 +411,25 @@ describe('multiple tabs', () => {
   test('a stale tab keeps the progress another tab saved when it buys something', () => {
     fresh({ coins: 200, stars: { 1: 1 } });
     otherTabWrites({ coins: 350, stars: { 1: 1, 2: 3 } });
-    assert.deepEqual(save.buyIngredient(buyable.id), { ok: true });
+    const u = UPGRADES.find((x) => !x.requiresLevel);
+    assert.deepEqual(save.buyUpgrade(u.id), { ok: true });
     const s = stored();
     assert.equal(s.stars[2], 3, 'the other tab\'s win was overwritten');
-    assert.equal(s.coins, 350 - buyable.cost);
-    assert.ok(s.owned.includes(buyable.id));
+    assert.equal(s.coins, 350 - u.levels[0].cost);
+    assert.equal(s.upgrades[u.id], 1);
     assert.equal(save.totalStars(), 4);
   });
 
   test('shop checks use the other tab\'s wallet and purchases', () => {
     fresh({ coins: 500 });
     otherTabWrites({ coins: 10 });
-    assert.deepEqual(save.buyIngredient(buyable.id), { ok: false, reason: 'noMoney' }, 'spent coins must not be spent twice');
+    assert.deepEqual(save.upgradeIngredient('acai'), { ok: false, reason: 'noMoney' }, 'spent coins must not be spent twice');
     assert.equal(stored().coins, 10);
 
     fresh({ coins: 500 });
-    otherTabWrites({ coins: 500 - buyable.cost, owned: [...START_OWNED, buyable.id] });
-    assert.deepEqual(save.buyIngredient(buyable.id), { ok: false, reason: 'owned' });
-    assert.equal(stored().coins, 500 - buyable.cost);
+    otherTabWrites({ coins: 500 - data.ING.acai.upgradeCosts[0], ingLevels: { acai: 2 } });
+    assert.deepEqual(save.upgradeIngredient('acai'), { ok: false, reason: 'maxed' });
+    assert.equal(stored().coins, 500 - data.ING.acai.upgradeCosts[0]);
 
     const u = UPGRADES.find((x) => !x.requiresLevel && x.levels.length === 1);
     fresh({ coins: 5000 });
@@ -483,7 +485,7 @@ describe('storage failures', () => {
     const d = save.loadSave();
     assert.equal(d.coins, 0);
     save.addCoins(12);
-    assert.deepEqual(save.buyIngredient('pizza'), { ok: false, reason: 'unknown' });
+    assert.deepEqual(save.buyUpgrade('pizza'), { ok: false, reason: 'unknown' });
     assert.equal(save.getSave().coins, 12);
     const r = save.recordLevelResult(1, { won: true, stars: 1, money: 3, served: 1 });
     assert.equal(r.coinsTotal, 15);

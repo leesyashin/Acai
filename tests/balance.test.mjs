@@ -1,16 +1,17 @@
-// Balance simulation: simulated players of three speeds play every campaign level
-// with the inventory a typical player owns at that point (see SCHEDULE in helpers/bot.mjs).
-// Speeds are seconds per drag of a bot that never makes mistakes; 2.0–2.2 s is a casual pace.
+// Balance simulation: simulated players of three speeds play every campaign level with the
+// ingredients the level brings and the shop purchases a typical player has made by then (see
+// SCHEDULE in helpers/bot.mjs). Speeds are seconds per drag of a bot that never makes mistakes;
+// 2.0–2.2 s is a casual pace.
 
 import { test, describe, before } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { playLevel, playCampaign, inventoryForLevel, SCHEDULE, tierCost } from './helpers/bot.mjs';
-import { LEVELS, INGREDIENTS, UPGRADES, QUALITY_MULT } from '../js/data.js';
+import { LEVELS, INGREDIENTS, UPGRADES, QUALITY_MULT, MATCHA_LEVEL } from '../js/data.js';
 
 const SPEEDS = { fast: 0.85, average: 1.3, slow: 2.0 };
 const SEEDS = [11, 22, 33, 44, 55];
-const AFFORD_RANGE = [0.6, 1.4];
+const AFFORD_RANGE = [0.8, 3];
 const mean = (values) => values.reduce((a, b) => a + b, 0) / values.length;
 
 const median = (values) => {
@@ -25,6 +26,7 @@ function summarize(runs) {
     heartsLost: median(runs.map((r) => r.heartsLost)),
     served: median(runs.map((r) => r.served)),
     wins: runs.filter((r) => r.result === 'won').length,
+    perGuest: median(runs.map((r) => r.money / Math.max(1, r.served))),
   };
 }
 
@@ -115,7 +117,22 @@ describe('campaign balance (simulated players)', () => {
     }
   });
 
-  test('coins from playing each level once roughly pay for the expected shop schedule', () => {
+  test('few guests: an average player serves at most 16 a level', () => {
+    for (const lvl of LEVELS) {
+      const r = results.get(lvl.id).average;
+      assert.ok(r.served <= 16, `level ${lvl.id}: ${r.served} guests`);
+    }
+  });
+
+  test('bigger orders pay more: coins per guest grow from region to region', () => {
+    const region = (first) => mean(LEVELS.slice(first - 1, first + 9).map((l) => results.get(l.id).average.perGuest));
+    for (let first = 11; first <= 51; first += 10) {
+      assert.ok(region(first) > region(first - 10), `levels ${first}–${first + 9} pay less per guest than the ten before`);
+    }
+    assert.ok(region(51) > 3 * region(1), 'a late guest pays several times an early one');
+  });
+
+  test('coins from playing each level once pay for the expected shop schedule', () => {
     for (const e of economy()) {
       assert.ok(e.ratio >= AFFORD_RANGE[0] && e.ratio <= AFFORD_RANGE[1],
         `before level ${e.from}: earned ${e.earned} vs cost ${e.cost} (ratio ${e.ratio.toFixed(2)})`);
@@ -125,11 +142,9 @@ describe('campaign balance (simulated players)', () => {
 
 describe('slower players and the shop', () => {
   test('a slow player (2.0 s) who bought the whole shop wins most runs of every 4-seat level', () => {
-    const owned = INGREDIENTS.map((i) => i.id);
     const full = {
-      owned,
       upgrades: Object.fromEntries(UPGRADES.map((u) => [u.id, u.levels.length])),
-      ingLevels: Object.fromEntries(owned.map((id) => [id, QUALITY_MULT.length - 1])),
+      ingLevels: Object.fromEntries(INGREDIENTS.map((i) => [i.id, QUALITY_MULT.length - 1])),
     };
     for (const lvl of LEVELS.filter((l) => l.seats === 4)) {
       const runs = SEEDS.map((seed) => playLevel({ level: lvl, ...full, seed, actionTime: SPEEDS.slow }));
@@ -139,13 +154,23 @@ describe('slower players and the shop', () => {
   });
 
   test('slow (2.0 s) and casual (2.2 s) players finish the campaign by replaying and shopping', () => {
-    for (const [actionTime, maxPlays] of [[2.0, 70], [2.2, 100]]) {
+    for (const [actionTime, maxPlays] of [[2.0, 70], [2.2, 90]]) {
       for (const seed of [1000, 5000]) {
         const r = playCampaign({ actionTime, seed });
         assert.ok(r.reachedEnd, `${actionTime} s (seed ${seed}): stuck at level ${r.stuckAt} after ${r.plays} plays`);
-        assert.ok(r.plays <= maxPlays, `${actionTime} s (seed ${seed}): ${r.plays} plays for 20 levels`);
+        assert.ok(r.plays <= maxPlays, `${actionTime} s (seed ${seed}): ${r.plays} plays for ${LEVELS.length} levels`);
       }
     }
+  });
+
+  test('the cup arm takes work off a slow player once orders are big', () => {
+    const level = 40;
+    const inv = inventoryForLevel(level);
+    const seeds = [11, 22, 33, 44, 55, 66];
+    const coins = (cupArm) => mean(seeds.map((seed) => playLevel({
+      level, ...inv, upgrades: { ...inv.upgrades, cupArm }, seed, actionTime: SPEEDS.slow,
+    }).money));
+    assert.ok(coins(1) > coins(0) * 1.05, `with the arm ${coins(1)} vs without ${coins(0)}`);
   });
 
   test('the big jug does not make blenders spoil more or cost coins', () => {
@@ -169,9 +194,9 @@ describe('slower players and the shop', () => {
 
 describe('endless balance', () => {
   test('endless gets harder until hearts run out; faster players last longer', () => {
-    const inv = inventoryForLevel(12);
+    const inv = inventoryForLevel(20);
     const runs = Object.fromEntries(Object.entries(SPEEDS).map(([name, actionTime]) => [
-      name, playLevel({ endless: true, ...inv, featured: [], seed: 5, actionTime, maxTime: 1500 }),
+      name, playLevel({ endless: true, reached: 20, ...inv, seed: 5, actionTime, maxTime: 1500 }),
     ]));
     for (const r of Object.values(runs)) {
       assert.equal(r.result, 'lost');

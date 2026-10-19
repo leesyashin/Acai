@@ -557,7 +557,8 @@ html.is-bleed .sc-topbar {
 
 /* ================================================================ map */
 .screen-map { --screen-bg: #ffe2a6; }
-/* the map scrolls up through its regions (js/art-map.js): beach, town promenade, rainforest. The scroller is as wide
+/* the map scrolls up through its regions (js/art-map.js): beach, town promenade, rainforest, tea plantation, harbour,
+   night market. The scroller is as wide
    as the art (MAP_BLEED on either side, seen on wide screens) and reaches into the bands above and below too; touch
    pans it natively, a wheel or trackpad scrolls it (js/stage.js lets those wheels through), a mouse drags it. */
 .map-scroll {
@@ -1593,3 +1594,57 @@ img.art3d { display: block; user-select: none; -webkit-user-drag: none; pointer-
   }
   .results-confetti { display: none; }
 }
+
+/* ------------------------------------------------------------ the ingredients a level brings (pre-level card) */
+.prelevel-new {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 18px;
+  padding: 8px 18px;
+  background: #fff4df;
+  border: var(--outline);
+  border-radius: 22px;
+}
+.prelevel-new-label { font-family: var(--font-display); font-size: 24px; line-height: 1.1; }
+.prelevel-new-item { display: flex; align-items: center; gap: 6px; }
+.prelevel-new-item svg { display: block; }
+.prelevel-new-item b { font-size: 22px; font-weight: 900; }
+
+/* ------------------------------------------------------------ shop: the matcha bar's rows, ingredients still to come */
+.shop-row-mfruit .shop-row-label,
+.shop-row-mextra .shop-row-label { background: #7f9f37; }
+.shop-row-num.is-matcha { background: #eef4dc; }
+.shop-row-num.is-matcha svg { display: block; }
+.sc-not-yet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 17px;
+  font-weight: 900;
+}
+.ing-card.is-locked .card-icon { filter: grayscale(0.8) opacity(0.6); }
+/* the cup arm's card: the rail, the carriage, a cup in the gripper over a free spot, the dispenser beside it */
+.upg-art-arm { position: relative; width: 220px; height: 150px; }
+.upg-art-arm > span { position: absolute; display: block; }
+.upg-art-arm svg { display: block; }
+.upg-arm-rail { left: 4px; top: 0; }
+.upg-arm-disp { left: 0; top: 52px; }
+.upg-arm-spot { left: 112px; top: 54px; }
+.upg-arm-car { left: 128px; top: 2px; }
+.upg-arm-rod {
+  left: 155px;
+  top: 38px;
+  width: 10px;
+  height: 22px;
+  background: linear-gradient(90deg, #6f7a85 0, #e9eef2 30%, #fdfefe 45%, #b9c2ca 70%, #7d8892 100%);
+}
+.upg-arm-cup { left: 112px; top: 38px; }
+.upg-arm-claw { left: 120px; top: 57px; }
+.upg-arm-claw svg { width: 80px; height: 45px; }

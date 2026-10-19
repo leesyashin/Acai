@@ -46,7 +46,8 @@ function canvasBox(scene, it) {
 const extent = (scene) => scene.items.filter((it) => it.pass !== 'shadow').map((it) => canvasBox(scene, it))
   .reduce((a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]);
 
-const ON_RISERS = INGREDIENTS.filter((i) => i.layer !== 'base').map((i) => i.id);
+// the bowl side's risers (the matcha bar's fruit uses the trays of the bowl fruit, its extras are drawn)
+const ON_RISERS = INGREDIENTS.filter((i) => i.layer === 'mid' || i.layer === 'top').map((i) => i.id);
 const FRONT_ROW = INGREDIENTS.filter((i) => i.layer === 'top').map((i) => i.id);
 // in the game's order (js/game-view.js): the fruit pans first, then the granola jar
 const BACK_ROW = INGREDIENTS.filter((i) => i.layer === 'mid').map((i) => i.id).sort((a, b) => (pantryKind(a) !== 'tray') - (pantryKind(b) !== 'tray'));

@@ -17,7 +17,7 @@ import { createRng } from './rng.js';
 export const SFX_NAMES = [
   'click', 'pickup', 'drop', 'reject', 'blenderStart', 'blenderReady', 'overflow', 'ruined',
   'matchaReady', 'pour', 'plop', 'coin', 'bell', 'angry', 'happy', 'trash', 'purchase',
-  'star', 'win', 'lose', 'closing', 'heart', 'tick', 'cup',
+  'star', 'win', 'lose', 'closing', 'heart', 'tick', 'cup', 'arm',
 ];
 export const MUSIC_TRACKS = ['menu', 'game'];
 export const LOOP_IDS = ['blender'];
@@ -306,6 +306,12 @@ const SFX = {
     noise(v, { ft: 'bandpass', f: 3200, q: 2.2, a: 0.001, peak: 0.32, decay: 0.025 });
     tone(v, { type: 'triangle', f: 1180, f2: 760, slide: 0.03, a: 0.001, peak: 0.42, decay: 0.07 });
     tone(v, { at: 0.045, type: 'triangle', f: 1500, f2: 1100, slide: 0.02, a: 0.001, peak: 0.16, decay: 0.04 });
+  },
+  // the cup arm's little servo: a short rising whirr, then the click of the gripper closing
+  arm(v) {
+    tone(v, { type: 'sawtooth', f: 180, f2: 340, slide: 0.16, a: 0.01, hold: 0.1, peak: 0.07, decay: 0.08, filter: { type: 'lowpass', f: 1300, q: 2 } });
+    tone(v, { type: 'triangle', f: 520, f2: 760, slide: 0.16, a: 0.01, hold: 0.06, peak: 0.05, decay: 0.06 });
+    noise(v, { at: 0.2, ft: 'bandpass', f: 2600, q: 3, a: 0.001, peak: 0.14, decay: 0.02 });
   },
   plop(v) {
     noise(v, { ft: 'bandpass', f: 1800, q: 1.2, a: 0.001, peak: 0.25, decay: 0.03 });

@@ -14,11 +14,11 @@ import {
 
 export {
   ingredientIcon, packIcon, bowlSVG, matchaGlassSVG, matchaFruitColorOf, MATCHA_COLORS, MATCHA_MILK, MATCHA_STRAW, binSVG, binFillSVG,
-  scoopSVG, cupStackSVG, cupSpotSVG,
+  scoopSVG, cupStackSVG, cupSpotSVG, cupDispenserSVG,
 } from './art-food.js';
 export {
   blenderSVG, blenderBadgeSVG, matchaMachineSVG, matchaLedAt, MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE, MATCHA_POUR_FROM, trashSVG,
-  shopSceneSVG, decorSVG, counterSVG, freezerSVG, riserSVG,
+  shopSceneSVG, decorSVG, counterSVG, freezerSVG, riserSVG, armRailSVG, armCarriageSVG, armGripSVG,
 } from './art-kitchen.js';
 export { customerSVG, randomLook, lookFromSeed, LOOK_OPTIONS } from './art-guests.js';
 export { artDefsSVG, ART_DEFS_ID } from './svg.js';

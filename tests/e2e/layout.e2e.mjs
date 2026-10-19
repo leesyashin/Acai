@@ -60,10 +60,11 @@ const measure = (page, sel) => page.evaluate((stations) => {
     const r = el.getBoundingClientRect();
     return { x1: (r.left - st.left) * k, y1: (r.top - st.top) * k, x2: (r.right - st.left) * k, y2: (r.bottom - st.top) * k };
   };
-  // an ingredient's hit area reaches above its box (css/game.css .g-bin::before)
+  // an ingredient's hit area reaches above its box (css/game.css .g-bin::before; not the matcha bar's)
   const hit = (el) => {
     const b = box(el);
-    const reach = el.matches('[data-bin]') ? -parseFloat(getComputedStyle(el, '::before').top) || 0 : 0;
+    const before = getComputedStyle(el, '::before');
+    const reach = el.matches('[data-bin]') && before.display !== 'none' ? -parseFloat(before.top) || 0 : 0;
     return { ...b, y1: b.y1 - reach };
   };
   const name = (el) => ['blender', 'pack', 'cupStack', 'bowl', 'bin', 'matchaSlot', 'trash']
@@ -159,11 +160,14 @@ function assertLayout({ stations, labels }, want) {
   assert(bad.length === 0, bad.join('\n'));
 }
 
-const ALL = { blender: 2, pack: 3, cupStack: 1, bowl: 4, bin: 13, matchaSlot: 2, trash: 1 };
+// the last level brings everything: 13 bowl ingredients on the risers, the matcha bar's 4 fruits and 3 extras
+const ALL = { blender: 2, pack: 3, cupStack: 1, bowl: 4, bin: 20, matchaSlot: 2, trash: 1 };
+const FULLEST = 'level=60&owned=all&upgrades=max&seed=4';
 const CASES = [
-  { name: 'fullest kitchen (level 14, everything owned and upgraded)', query: 'level=14&owned=all&upgrades=max&seed=4', want: ALL, shot: 'fullest' },
-  { name: 'fullest kitchen at 1024×768', query: 'level=14&owned=all&upgrades=max&seed=4', want: ALL, viewport: { width: 1024, height: 768 } },
-  { name: 'fullest kitchen without WebGL', query: 'level=14&owned=all&upgrades=max&seed=4', want: ALL, noWebgl: true, shot: 'fullest-svg' },
+  { name: 'fullest kitchen (level 60, everything there and upgraded)', query: FULLEST, want: ALL, shot: 'fullest' },
+  { name: 'fullest kitchen at 1024×768', query: FULLEST, want: ALL, viewport: { width: 1024, height: 768 } },
+  { name: 'fullest kitchen without WebGL', query: FULLEST, want: ALL, noWebgl: true, shot: 'fullest-svg' },
+  { name: 'level 11 (the matcha bar opens: 2 fruits, no extras)', query: 'level=11&fresh=1&seed=5', want: { matchaSlot: 1, bin: 9, trash: 1 }, shot: 'level11' },
   { name: 'level 1 (1 blender, 2 cups, 4 ingredients)', query: 'level=1&fresh=1&seed=3', want: { blender: 1, pack: 1, cupStack: 1, bowl: 2, bin: 3, matchaSlot: 0, trash: 1 }, shot: 'level1' },
   { name: 'level 5 (3 seats, locked machine)', query: 'level=5&fresh=1&seed=11', want: { blender: 1, bowl: 2, matchaSlot: 0, trash: 1 }, shot: 'level5' },
   { name: 'endless with the one-slot machine', query: 'mode=endless&fresh=1&seed=9', want: { matchaSlot: 1, trash: 1 } },
@@ -179,15 +183,18 @@ const BUBBLE_GAP = 8;
 const HUD_H = 66; // the HUD's bottom: the bubbles start under it
 const BUBBLE_BOTTOM = 180; // the tallest hair (a bun, an afro, an angry guest's steam) begins at y≈175–178, the faces at y≈205
 const ICON_MIN = 38;
+const EXTRA_MIN = 20; // the drink's extras in a row under its glass
+// (each with a matcha with all three extras: the widest drink part)
+const EXTRAS = ['ice', 'vanilla', 'foam'];
 const LONGEST = [
-  { base: 'acai', mid: ['banana', 'strawberry', 'granola'], top: ['honey', 'coconut', 'chia'], matcha: 'kiwi' },
-  { base: 'pitaya', mid: ['blueberry', 'mango', 'kiwi'], top: ['peanut', 'chocolate', 'mint'], matcha: 'strawberry' },
-  { base: 'spirulina', mid: ['granola', 'kiwi', 'banana'], top: ['cacao', 'honey', 'coconut'], matcha: 'blueberry' },
-  { base: 'acai', mid: ['mango', 'strawberry', 'blueberry'], top: ['chocolate', 'chia', 'mint'], matcha: 'mango' },
+  { base: 'acai', mid: ['banana', 'strawberry', 'granola'], top: ['honey', 'coconut', 'chia'], matcha: { fruit: 'mBlueberry', extras: EXTRAS } },
+  { base: 'pitaya', mid: ['blueberry', 'mango', 'kiwi'], top: ['peanut', 'chocolate', 'mint'], matcha: { fruit: 'mStrawberry', extras: EXTRAS } },
+  { base: 'spirulina', mid: ['granola', 'kiwi', 'banana'], top: ['cacao', 'honey', 'coconut'], matcha: { fruit: 'mBanana', extras: EXTRAS } },
+  { base: 'acai', mid: ['mango', 'strawberry', 'blueberry'], top: ['chocolate', 'chia', 'mint'], matcha: { fruit: 'mMango', extras: EXTRAS } },
 ];
 const BUBBLE_CASES = [
-  { name: '4 seats', query: 'level=14&owned=all&upgrades=max&seed=4', seats: 4, even: true, drops: true },
-  { name: '4 seats at 1024×768', query: 'level=14&owned=all&upgrades=max&seed=4', seats: 4, even: true, viewport: { width: 1024, height: 768 } },
+  { name: '4 seats', query: 'level=45&owned=all&upgrades=max&seed=4', seats: 4, even: true, drops: true },
+  { name: '4 seats at 1024×768', query: 'level=45&owned=all&upgrades=max&seed=4', seats: 4, even: true, viewport: { width: 1024, height: 768 } },
   { name: '3 seats', query: 'level=10&owned=all&upgrades=max&seed=4', seats: 3, centred: true },
   { name: '2 seats', query: 'level=4&owned=all&upgrades=max&seed=4', seats: 2, centred: true },
 ];
@@ -209,7 +216,7 @@ const seatLongestOrders = (page) => page.evaluate((orders) => {
     const o = orders[i % orders.length];
     g.seats[i] = {
       id: 9000 + i, seat: i, look: { seed: 31 + i * 17 },
-      order: { bowl: { base: o.base, mid: o.mid.slice(), top: o.top.slice() }, matcha: o.matcha },
+      order: { bowl: { base: o.base, mid: o.mid.slice(), top: o.top.slice() }, matcha: { fruit: o.matcha.fruit, extras: o.matcha.extras.slice() } },
       delivered: { bowl: i === 1, matcha: false },
       patience: 999, maxPatience: 999, state: 'waiting', t: 1, mood: 'happy', paid: 0,
     };
@@ -244,7 +251,8 @@ const measureBubbles = (page) => page.evaluate(() => {
         // the tail's centre: its CSS left (stage px, like the border) from the bubble's padding box
         tail: (r.left - st.left) * k + b.clientLeft + parseFloat(getComputedStyle(b, '::after').left),
         head: (fig.x1 + fig.x2) / 2,
-        icons: [...b.querySelectorAll('.g-ico svg, .g-order-base > svg, .g-drink-wrap > svg')].map(size),
+        icons: [...b.querySelectorAll('.g-ico:not(.g-ico-mextra) svg, .g-order-base > svg, .g-drink-wrap > svg')].map(size),
+        extras: [...b.querySelectorAll('.g-ico-mextra svg')].map(size),
         ticks: [...b.querySelectorAll('.is-done > .g-check svg')].map(size),
       };
     }),
@@ -270,6 +278,7 @@ function assertBubbles({ hud, neon, figures, bubbles }, { seats, centred, even }
     if (next && next.x1 - b.x2 < BUBBLE_GAP - 0.5) bad.push(`${at(b)} and ${at(next)} are ${(next.x1 - b.x2).toFixed(1)} px apart`);
     const small = b.icons.filter((s) => s < ICON_MIN - 0.5);
     if (b.icons.length < 8 || small.length) bad.push(`${at(b)}: 8 icons ≥ ${ICON_MIN} px expected, got ${b.icons.map((s) => s.toFixed(1)).join(', ')}`);
+    if (b.extras.length !== 3 || b.extras.some((s) => s < EXTRA_MIN - 0.5)) bad.push(`${at(b)}: 3 extras ≥ ${EXTRA_MIN} px under the glass expected, got ${b.extras.map((s) => s.toFixed(1)).join(', ')}`);
   });
   const ticks = bubbles.flatMap((b) => b.ticks);
   if (ticks.length !== 1 || ticks[0] < 36 - 0.5) bad.push(`one tick ≥ 36 px on the delivered bowl expected, got ${ticks.map((s) => s.toFixed(1)).join(', ') || 'none'}`);
@@ -295,7 +304,7 @@ async function dropOnBubbles(page) {
     const g = window.__acaiGame;
     const o = orders[0];
     Object.assign(g.bowls[0], { cup: true, base: o.base, mid: o.mid.slice(), top: o.top.slice() });
-    g.matcha.slots[0] = { state: 'ready', fruit: orders[3].matcha, t: 0, duration: 1, progress: 1 };
+    g.matcha.slots[0] = { state: 'ready', fruit: orders[3].matcha.fruit, extras: orders[3].matcha.extras.slice(), t: 0, duration: 1, progress: 1 };
   }, LONGEST);
   await page.waitForFunction(() => document.querySelector('[data-bowl="0"]').dataset.state !== 'nocup');
   await sleep(200);
@@ -405,7 +414,7 @@ const chipPresses = (page, fill) => page.evaluate((f) => {
 
 // new toppings in the front row's middle, right under the fruits' layer label, the jars with their lid beside them and
 // the granola jar; every ingredient with two quality stars, or none (the sticker takes the stars' place)
-const NEW_BADGES = 'level=14&owned=all&upgrades=max&seed=4&new=coconut,chia,peanut,chocolate,banana,honey,granola';
+const NEW_BADGES = 'level=60&owned=all&upgrades=max&seed=4&new=coconut,chia,peanut,chocolate,banana,honey,granola';
 
 async function main() {
   const srv = await serve();
@@ -455,7 +464,7 @@ async function main() {
         await check(`"NEU" badges of new toppings (${quality} stars) leave the layer label behind them readable, quality stars and layer badges stay visible`, async () => {
           const count = await page.locator('.g-new').count();
           assert(count === 7, `7 "NEU" badges expected, found ${count}`);
-          assert(await page.locator('.g-bin .g-quality').count() === (quality ? 13 : 0), `quality stars on ${quality ? 'every' : 'no'} ingredient`);
+          assert(await page.locator('.g-bin .g-quality').count() === (quality ? ALL.bin : 0), `quality stars on ${quality ? 'every' : 'no'} ingredient`);
           const hidden = await hiddenBadges(page);
           assert(hidden.length === 0, `covered: ${hidden.join(', ')}`);
           const covered = (await measure(page, STATIONS)).labels.filter((l) => !l.clear).map((l) => `"${l.text}"`);

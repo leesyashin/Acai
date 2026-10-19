@@ -18,14 +18,14 @@ player decisions listed in §1.
 | 2 | Style | **Realistic, glossy Cooking Fever look in a modern café**: the player stands at the counter, seen in perspective like in Cooking Fever (a slim marble pass in front of the guests, the worktop with its rounded front edge and a strip of open shelves with stock below; the tall appliances stand at the back of the worktop in front of the pass); believable size relations (blender and machine about twice as tall as a cup); clear plastic cups that show their layers, every ingredient in its own realistic container (fruit in brushed stainless pans, granola, honey, chia and peanut butter in glass jars, chocolate sauce in a squeeze bottle, coconut in its shell, cacao nibs in a wooden bowl, mint on a board), 3D appliances (blender, matcha machine, freezer), a little cleaner and more modern than Cooking Fever. Menus keep their chunky cartoon UI. |
 | 3 | Controls | **Drag & drop** (touch + mouse) for every action. No tap-to-place. |
 | 4 | Order rule | **Fixed layers**: Base (from blender) → Fruits & Crunch → Toppings & Sauces. A drop into the wrong layer is **rejected** (bounce back + hint). Order *within* a layer is free. |
-| 5 | Stations | **Blender** with wait time for the base; it **overflows / spoils** if left too long. Later a **matcha machine** (brews a fruit matcha on a glass). |
+| 5 | Stations | **Blender** with wait time for the base; it **overflows / spoils** if left too long. A **cup dispenser** built into the counter (cups upside down; a shop upgrade, the **cup arm**, puts cups down by itself). Later a **matcha machine** with its own **matcha bar** (fruit, then extras). |
 | 6 | Customers | Seats grow **2 → 3 → 4** with level progress. |
 | 7 | Patience | When patience runs out the customer **leaves, pays nothing**, player loses a **heart**. 0 hearts = level lost. |
-| 8 | Levels | **Campaign** (20 levels, time limit + money goal, 1–3 stars) **plus Endless mode** (unlocked later). |
-| 9 | Unlocks | New ingredients are **bought with earned coins** in the shop (no level gate on ingredients). |
-| 10 | Upgrades | **Faster blender**, **more slots** (bowl slots, 2nd blender, bigger jug, matcha slots), **decor → more patience**, **better ingredient quality → more coins**. |
+| 8 | Levels | **Campaign** (60 levels in six map regions of ten, time limit + money goal, 1–3 stars, every level a small step on) **plus Endless mode** (unlocked later). Few guests with big orders: the bigger an order, the longer until the next guest and the more patient this one. |
+| 9 | Unlocks | New ingredients **arrive with the levels** (at most one per level after the first; the level card and a NEU badge show it). Coins buy quality, kitchen upgrades and decor. |
+| 10 | Upgrades | **Faster blender**, **more slots** (bowl slots, 2nd blender, bigger jug, matcha slots), **cup arm**, **decor → more patience**, **better ingredient quality → more coins**. |
 | 11 | Ingredient count | **16** total, **4 at start**. |
-| 12 | Drinks | **Fruit matcha** from campaign level 7 on: an iced matcha latte on the purée of one fruit (banana, strawberry, blueberry, mango, kiwi), made like the old smoothies (fruit onto a glass in the machine → wait → serve). |
+| 12 | Drinks | **Fruit matcha** from campaign level 11 on: an iced matcha latte on the purée of one fruit of the **matcha bar** (banana, strawberry, mango, blueberry – its own ingredients, not the bowl's), with **extras** on top (ice cubes, vanilla syrup, cold foam). Fruit onto a glass in the machine → it purées it and pours the matcha → extras → serve. Some guests order only a drink. |
 | 13 | Language | **German / English**, switchable in menu, remembered. |
 | 14 | Sound | **SFX + music**, each mutable, remembered. |
 | 15 | Name | **Açaí Fever** |
@@ -37,17 +37,20 @@ player decisions listed in §1.
 ## 2. Core loop
 
 1. A customer walks to a free seat at the counter and shows an **order bubble**:
-   one bowl (base + 1–3 fruits/crunch + 0–3 toppings) and, from level 7, sometimes a fruit matcha.
+   one bowl (base + 1–3 fruits/crunch + 0–3 toppings) and, from level 11, sometimes a fruit matcha (with 0–3 extras),
+   or only a matcha.
    The bubble reads at one glance: left the bowl – a cup of its base (layer badge 1), then a row of its fruits & crunch
    (2) and one of its toppings & sauces (3, left out when there are none), each item a big icon on a circle in its
-   layer's tint –, right behind a divider the matcha glass with its fruit beside it; a thick patience bar in the
+   layer's tint –, right behind a divider the matcha glass with its fruit beside it and its extras under it; a thick patience bar in the
    guest's mood colour runs along the bottom. A delivered part (bowl or matcha, each on its own) turns into a green
    field with a big tick, its contents faded but still recognisable.
 2. Player drags a **frozen base pack** (Açaí / Pitaya / Spirulina) into an **empty blender**.
    The blender blends for `blendTime` seconds, then is **ready** with `portions` portions.
-3. Player drags an **empty cup from the stack** onto a **free bowl spot** (`placeCup`; a spot that already
+3. Player drags an **empty cup from the dispenser** onto a **free bowl spot** (`placeCup`; a spot that already
    has a cup → `cupThere`). Pouring or adding anything on a spot without a cup → rejected (`noCup`).
-   Natural moment: while the blender mixes.
+   Natural moment: while the blender mixes. With the **cup arm** (`kitchen.cupArm` seconds a cup) the engine puts a
+   cup on the leftmost empty spot itself (`game.arm`: events `armStart`, `cupPlaced` with `auto`); a cup put down by
+   hand on its target meanwhile makes it turn to the next spot (`armCancel`).
 4. Player drags the **ready blender** onto an **empty cup** → the cup gets the base (1 portion used).
 5. Player drags **fruit/crunch** bins onto the bowl (layer 2), then **toppings/sauces** (layer 3).
    - Adding anything before the base → rejected (`needBase`).
@@ -58,10 +61,13 @@ player decisions listed in §1.
 6. Player drags the **finished bowl** onto the **customer**. If it matches the order
    exactly (same base, same set of layer‑2 items, same set of layer‑3 items) it is accepted
    (the cup leaves the counter, the spot is free again), otherwise rejected (`wrongOrder`) and the bowl flies back.
-7. Matcha: drag a matcha fruit (**banana, strawberry, blueberry, mango, kiwi**) **onto the empty glass of a
-   matcha-machine slot** → its purée is in the glass, the machine brews for `matchaTime` seconds (the mill grinds, the
-   tank steams, the nozzle pours milk and matcha) → a **ready glass** → drag the glass onto the customer.
-   (The machine brings its own glasses – only bowls need a cup from the stack.)
+7. Matcha: drag a fruit of the **matcha bar** (`mfruit`: banana, strawberry, mango, blueberry) **onto the empty glass of
+   a matcha-machine slot** → the cut fruit is in the glass, the machine works for `matchaTime` seconds (first it purées
+   the fruit while the mill grinds and the tank steams, then the nozzle pours milk and matcha) → a **ready glass**.
+   Extras (`mextra`: ice, vanilla syrup, cold foam) go onto a glass that has its fruit – while it mixes or when ready
+   (`addMatchaExtra`; on an empty glass → `fruitFirst`, twice → `alreadyAdded`). Drag the ready glass onto the
+   customer: fruit and extras must match the order (one extra missing → `drinkIncomplete`, else `wrongOrder`).
+   (The machine brings its own glasses – only bowls need a cup from the dispenser.)
 8. When all parts of a customer's order are delivered they **pay** (order value + tip based
    on remaining patience) and leave happily. Coins fly to the HUD.
 9. Wrong/unneeded bowls or glasses of matcha can be dragged into the **trash** (a bowl goes in with its cup). A **spoiled blender** must be
@@ -76,14 +82,21 @@ player decisions listed in §1.
 - Pouring the last portion → `empty`.
 
 ### Patience
-- Each customer has `maxPatience = level.patience × kitchen.patienceMult` (+8 s if the order has a matcha).
+- Each customer has `maxPatience = (level.patience + PATIENCE_PER_WORK × orderWork(order)) × kitchen.patienceMult`;
+  `orderWork` counts the drags an order takes (a bowl: cup, half a blender load, pour, its items, serve; a drink: its
+  fruit, its extras, serve).
+
+### Pacing
+- After a guest arrives the next one comes `level.pace × orderWork(order)` seconds later (±15 %): a big order buys
+  time. Once nobody is waiting, the next guest comes `EARLY_SPAWN_GAP` (2.5 s) after the last one at the latest, so a
+  quick player never idles and serves more guests. A full counter still holds the next guest back.
 - Drains 1/s while waiting. Each partial delivery (bowl or matcha of a 2‑part order) refills **+15 %** of max.
 - Mood from ratio: `>0.6 happy`, `>0.3 neutral`, `>0.12 impatient`, else `angry`.
 - At 0 → leaves angry, `hearts -= 1`, `lost += 1`.
 
 ### Payment
 - Bowl value = Σ `ingredientValue(id)` of base + all items.
-- Matcha value = `MATCHA_PRICE × qualityMultiplier(fruit)` (the fruit's quality).
+- Matcha value = `MATCHA_PRICE` (4) + `ingredientValue` of its fruit and of each extra.
 - Order value = bowl value + matcha value. **Tip** = `round(value × 0.3 × patienceRatio)` at completion.
 - Coins of a level are added to the wallet at the end **even if the level is lost**.
 
@@ -91,45 +104,50 @@ player decisions listed in §1.
 - **Campaign:** when `time ≥ duration` the shop **closes** (banner "Ladenschluss!/Closing time!"): no new
   customers. The level ends when all seats are empty. Result: `won` if `money ≥ goals[0]` and `hearts > 0`,
   else `lost`. Stars = number of `goals` reached (only when won).
-- Each campaign level starts with `level.hearts` hearts (3; 4 on the 4-seat levels 12–20).
+- Each campaign level starts with `level.hearts` hearts (3; 4 on the 4-seat levels 40–60).
 - **Hearts 0** at any time → immediate `lost`.
 - **Endless:** no time limit; every 30 s the stage increases (`endlessConfig(stage)` – more seats, faster
   spawns, less patience, bigger orders). Ends when hearts hit 0, or when the player ends the shift from the
   pause menu ("Schicht beenden/End shift" or "Neu starten/Restart" once anything was earned – the run then
   ends like a lost one, so coins and the best score are banked). Score = coins earned; best score is saved.
-  Endless is unlocked after winning campaign level 10.
+  Endless is unlocked after winning campaign level 15; it plays with every ingredient the player has reached.
 
 ### Tutorial & intros
 - Level 1 (`intro: 'basics'`) runs a step-by-step tutorial with an arrow + speech text. While the tutorial
   runs, `game.tutorialHold = true`: the first customer's patience does not drain and no further customers
-  spawn. Steps: (1) drag açaí pack into blender, (2) put an empty cup from the stack on a free spot (shown while
+  spawn. Steps: (1) drag açaí pack into blender, (2) put an empty cup from the dispenser on a free spot (shown while
   the blender mixes, or once it is ready, whenever no cup is down), (3) wait while it blends, (4) drag blender onto
   the cup, (5) drag the ordered ingredient(s) onto the bowl, (6) drag the bowl to the customer, (7) "Great! Watch
   the patience of your customers" → hold released. The step is derived from the game state every frame (a trashed
   bowl leads back to the cup step).
-- Other intros (`overflow`, `moreSeats`, `matcha`, `fourSeats`, `endless`) are explained in the pre-level
+- Other intros (`overflow`, `moreSeats`, `matcha`, `extras`, `endless`, `fourSeats`) are explained in the pre-level
   card and with a short non-blocking banner at level start.
-- A freshly bought ingredient shows a "NEU/NEW" badge on its bin for the next level.
+- The ingredients a level brings (`unlockedIn(level)`) are listed on its pre-level card and show a "NEU/NEW" badge on
+  their bins in that level, where orders pick them twice as often.
 
 ---
 
 ## 3. Content (see `js/data.js` – the canonical tables)
 
-16 ingredients in three layers:
+16 bowl ingredients in three layers and 7 for the matcha bar; each arrives with a campaign level (`unlock`, level in
+brackets; `ownedAt(level)` is what a level plays with):
 
 | Layer | Ingredients (start ones in **bold**) |
 |---|---|
-| `base` (blender) | **Açaí**, Pitaya, Blue Spirulina |
-| `mid` (Fruits & Crunch) | **Banana**, **Granola**, Strawberry, Blueberries, Mango, Kiwi |
-| `top` (Toppings & Sauces) | **Honey**, Coconut flakes, Chia seeds, Peanut butter, Chocolate sauce, Mint, Cacao nibs |
+| `base` (blender) | **Açaí**, Pitaya (13), Blue Spirulina (33) |
+| `mid` (Fruits & Crunch) | **Banana**, **Granola**, Strawberry (3), Blueberries (7), Mango (16), Kiwi (22) |
+| `top` (Toppings & Sauces) | **Honey**, Coconut flakes (5), Chia seeds (9), Peanut butter (19), Chocolate sauce (25), Mint (28), Cacao nibs (37) |
+| `mfruit` (matcha bar, into the glass) | Strawberries (11), Banana (11), Mango (17), Blueberries (24) – drawn as the bowl fruit (`art`) |
+| `mextra` (matcha bar, on the drink) | Ice cubes (14), Vanilla syrup (20), Cold foam (30) |
 
-Matcha flavours = the matcha fruits (`matcha: true`) the player owns: banana, strawberry, blueberry, mango, kiwi ("Erdbeer-Matcha /
-Strawberry matcha" …). Same price (6), brew time (5 s), chances and patience bonus as the smoothies they replaced.
+Matcha flavours = the matcha bar's fruit ("Erdbeer-Matcha / Strawberry matcha" …).
 
 Upgrades (`UPGRADES` in data.js): `blenderSpeed` (3 levels), `jug` (portions 2→3, readyHold 9→13.5 s so the bigger batch does not spoil), `blender2` (2nd blender),
-`bowlSlots` (2→3→4), `matchaSlots` ("Doppel-Matcha / Double matcha", 1→2, needs level 7 reached), decor: `plants`, `jukebox`, `seating`,
-`neon` (each adds patience %, and appears visibly in the shop scene). Ingredient quality: each owned
-ingredient has 2 quality upgrades (value ×1.3, ×1.6, rounded up to 0.5 so every star adds coins).
+`bowlSlots` (2→3→4), `cupArm` ("Greifarm / Gripper arm" 2.6 s a cup, "Turbo" 1.5 s), `matchaSlots` ("Doppel-Matcha / Double
+matcha", 1→2, needs level 11 reached), decor: `plants`, `jukebox`, `seating`, `neon` (each adds patience %, and appears
+visibly in the shop scene). Ingredient quality: each ingredient that has arrived has 2 quality upgrades (value ×1.3,
+×1.6, rounded up to 0.5 so every star adds coins). A save from before (version 1, ingredients bought) gets their price
+back once.
 
 ---
 
@@ -162,7 +180,8 @@ js/art-food.js        realistic food art: clear cup (bowl), ingredient icons, wh
 js/art-kitchen.js     realistic kitchen art: work counter, freezer, risers, café back wall, decor; blender, matcha machine,
                       trash and freezer as the SVG fallback of the 3D models
 js/art-guests.js      the guests: looks (randomLook, lookFromSeed) and realistic busts in four moods (customerSVG)
-js/art-map.js         the level map: three regions (beach, town promenade, rainforest), node positions, the road
+js/art-map.js         the level map: six regions of ten levels (beach, town promenade, rainforest, tea plantation, harbour,
+                      night market), node positions, the road
 js/art.js             HUD icons, logo, title counter, app icon; re-exports the map, food, kitchen + guest art (screens import from here)
 js/geo3d.js           3D math, mesh builders (lathe – also fluted or warped –, rounded box, tube, liquid surface) and materials – pure
 js/kitchen3d.js       3D models of the appliances as scene descriptions (blender tiers, matcha machine, bin, freezer) – pure
@@ -223,7 +242,7 @@ bands remain touch areas without zoom.
 createGame({
   mode: 'campaign' | 'endless',
   level,            // LEVELS[i] (campaign) – ignored for endless
-  owned,            // string[] owned ingredient ids
+  owned,            // string[] ingredient ids (default: ownedAt(level) / the start ones in endless)
   ingLevels,        // { [id]: 0|1|2 } quality levels
   kitchen,          // getKitchenStats(save.upgrades)
   matcha,           // boolean – matcha machine present
@@ -233,12 +252,13 @@ createGame({
 
 tick(game, dt)                                // advance simulation (dt seconds, clamp ≤ 0.1 inside)
 loadBlender(game, blenderIdx, baseId)         → { ok, reason? }
-placeCup(game, bowlIdx)                       → { ok, reason? }   // empty cup from the stack → free spot
+placeCup(game, bowlIdx)                       → { ok, reason? }   // empty cup from the dispenser → free spot
 pourBlender(game, blenderIdx, bowlIdx)        → { ok, reason? }
 addIngredient(game, bowlIdx, ingId)           → { ok, reason? }
 trashBowl(game, bowlIdx)                      → { ok }            // the cup goes too: the spot is free
 cleanBlender(game, blenderIdx)                → { ok, reason? }   // ruined/ready/overflowing → empty
-loadMatcha(game, slotIdx, fruitId)            → { ok, reason? }   // a fruit onto the slot's empty glass
+loadMatcha(game, slotIdx, id)                 → { ok, reason? }   // a matcha fruit onto the empty glass (an extra: addMatchaExtra)
+addMatchaExtra(game, slotIdx, extraId)        → { ok, reason? }   // an extra onto a glass with its fruit
 trashMatcha(game, slotIdx)                    → { ok }
 serveBowl(game, bowlIdx, customerId)          → { ok, reason? }
 serveMatcha(game, slotIdx, customerId)        → { ok, reason? }
@@ -247,15 +267,17 @@ releaseTutorialHold(game)
 endRun(game) → boolean                        // endless only: ends the run (gameOver, reason 'quit')
 // Pure checks (no state change) – the reason the matching action would reject with right now, or null:
 loadBlenderError(game, blenderIdx, baseId), placeCupError(game, bowlIdx), pourError(game, blenderIdx, bowlIdx),
-addIngredientError(game, bowlIdx, ingId), loadMatchaError(game, slotIdx, fruitId),
+addIngredientError(game, bowlIdx, ingId), loadMatchaError(game, slotIdx, id), addMatchaExtraError(game, slotIdx, extraId),
 serveBowlError(game, bowlIdx, customerId), serveMatchaError(game, slotIdx, customerId)
 drainEvents(game) → Event[]                   // returns and clears queued events
 bowlMatchesOrder(bowl, orderBowl) → boolean
+matchaMatchesOrder(slot, drink) → boolean       // drink = { fruit, extras }
 ```
 
 Reasons (i18n key `reason.<code>` in game-view): `noCup`, `cupThere`, `needBase`, `toppingsOnTop`, `alreadyAdded`, `bowlFull`,
 `blenderBusy`, `blenderNotReady`, `blenderRuined`, `bowlHasBase`, `notOwned`, `wrongLayer`, `wrongOrder`,
 `noMatchaWanted`, `noBowlWanted`, `alreadyDelivered`, `slotBusy`, `notReady`, `notMatchaFruit`, `emptyBowl`,
+`matchaItem` (the matcha bar's fruit or an extra on a bowl), `fruitFirst`, `glassFull`, `drinkIncomplete`,
 plus `noCustomer` (customer gone or leaving), `notPlaying` (paused / game over) and `invalid` (bad index,
 no matcha machine). `loadBlender` checks `wrongLayer` → `notOwned` → `blenderRuined` (spoiled blender) → `blenderBusy`; `cleanBlender` returns
 `blenderBusy` while blending and `blenderNotReady` when empty (a blending blender cannot be thrown away).
@@ -408,9 +430,15 @@ titleCounterSVG(bleed = 0, below = 0) // the title screen's counter (1280×116):
                                       // foot rail; bleed / below draw it wider and deeper (full bleed)
 appIconSVG(size, {maskable})          // the app icon (512 square): the logo's cup on the açaí sunburst; maskable keeps it in
                                       // the central 80 % (tools/icons.mjs draws icons/ from it)
-mapRegionSVG(id), MAP_REGIONS         // the level map (js/art-map.js): 'beach' (levels 1–7: sea, boardwalk, lifeguard tower,
-                                      // palms), 'town' (8–14: houses with awnings, lamps, a fountain, an ice-cream cart),
-                                      // 'forest' (15–20: açaí palms, a river from a waterfall, a toucan); each MAP_W + 2·MAP_BLEED
+mapRegionSVG(id), MAP_REGIONS         // the level map (js/art-map.js), ten levels per region: 'beach' (levels 1–10: sea, jetty,
+                                      // volleyball net, beach bar, boardwalk, lifeguard tower, palms), 'town' (11–20: houses with
+                                      // awnings, lamps, a fountain, an ice-cream cart, café tables), 'forest' (21–30: açaí palms,
+                                      // a river from a waterfall, a toucan, a basket of berries), 'tea' (31–40: terraced tea rows,
+                                      // a bamboo fence, the "Matcha" tea house, stone lanterns, cherry trees, a koi pond whose
+                                      // stream feeds the waterfall, a red bridge), 'harbor' (41–50: a quay between two basins,
+                                      // boats, a crane, a lighthouse, a fish stall, containers, lantern strings), 'night' (51–60:
+                                      // market stalls under lanterns, a ferris wheel, fireworks and the açaí bar at the
+                                      // finale, a brick wall along its bottom); each MAP_W + 2·MAP_BLEED
                                       // wide, MAP_REGIONS gives their tops/bottoms in map px (MAP_H in all)
 mapLevelPos(i), mapRoadData(count)    // centre of level node i (stage x, map y); the road from below the map through the
                                       // first `count` nodes (a smooth curve)
@@ -650,8 +678,8 @@ ctx = { go, audio, t, screen /* current name */, rerender /* true on a language 
   3D renderer is compiled (at least 0.9 s, at most 4 s), then fades open; `html.is-booting` pauses the title's entrance
   animations under it. It never takes the pointer: a tap, a key or a change of screen opens it at once.
 - **Level map**: a scroller (`.map-scroll`, `data-scroll`, as wide as the map art and reaching into the bands) over the
-  three regions; it opens with the level that is up next (or `openLevel`) in the middle. A region not reached yet lies
-  in a light haze; a sign beside its first level names it ("Am Strand – Level 1–7", "Stadtpromenade – ab Level 8"). The
+  six regions; it opens with the level that is up next (or `openLevel`) in the middle. A region not reached yet lies
+  in a light haze; a sign beside its first level names it ("Am Strand – Level 1–10", "Stadtpromenade – ab Level 11"). The
   player is a pin with a bowl, bobbing over the next level. A mouse drags the map (a drag swallows the click after it).
 
 ### 4.7 Gameplay screen layout (stage px, 1280 × 800)

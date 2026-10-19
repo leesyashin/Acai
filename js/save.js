@@ -2,8 +2,8 @@
 // All shop / progress mutations go through the helpers below.
 
 import {
-  START_OWNED, ING, UPG, LEVELS, ENDLESS_UNLOCK_LEVEL, MATCHA_LEVEL,
-  getKitchenStats, qualityUpgradeCost, nextUpgradeCost,
+  ING, UPG, LEVELS, ENDLESS_UNLOCK_LEVEL, MATCHA_LEVEL,
+  getKitchenStats, qualityUpgradeCost, nextUpgradeCost, ownedAt,
 } from './data.js';
 import { detectLang, LANGS } from './i18n.js';
 
@@ -16,14 +16,12 @@ let lastRaw = null;
 
 export function defaultSave() {
   return {
-    version: 1,
+    version: 2,
     coins: 0,
-    owned: START_OWNED.slice(),
     ingLevels: {},
     upgrades: {},
     stars: {},
     endlessBest: 0,
-    newIngredients: [],
     seenIntros: {},
     settings: { lang: detectLang(), music: true, sfx: true, haptics: true },
     stats: { served: 0, earned: 0, played: 0 },
@@ -38,6 +36,16 @@ const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 // Upgrade ids an older version stored under another name: old id → id now (the smoothie machine
 // became the matcha machine, its second slot is the same purchase).
 const LEGACY_UPGRADES = { smoothieSlots: 'matchaSlots' };
+// Up to version 1 the player bought ingredients in the shop. Now they arrive with the levels, so a
+// version-1 save gets back what it paid for them (once: the merged save is version 2).
+const LEGACY_INGREDIENT_COSTS = {
+  pitaya: 180, spirulina: 320, strawberry: 70, blueberry: 100, mango: 130, kiwi: 200,
+  coconut: 50, chia: 90, peanut: 150, chocolate: 200, mint: 240, cacao: 280,
+};
+export function legacyRefund(raw) {
+  if (!raw || typeof raw !== 'object' || raw.version >= 2 || !Array.isArray(raw.owned)) return 0;
+  return [...new Set(raw.owned)].reduce((sum, id) => sum + (LEGACY_INGREDIENT_COSTS[id] || 0), 0);
+}
 
 // Stored data → a valid save. Every field is checked, because a save that was edited by hand,
 // written by an older version or damaged must never break the shop, the map or a level.
@@ -54,12 +62,8 @@ function merge(raw) {
   out.stats = {};
   for (const k of Object.keys(d.stats)) out.stats[k] = amount(stats[k]);
 
-  out.owned = Array.isArray(raw.owned) ? raw.owned.filter((id) => ING[id]) : d.owned;
-  for (const id of START_OWNED) if (!out.owned.includes(id)) out.owned.push(id);
-  out.owned = [...new Set(out.owned)];
-  out.newIngredients = Array.isArray(raw.newIngredients)
-    ? [...new Set(raw.newIngredients.filter((id) => ING[id] && out.owned.includes(id)))]
-    : [];
+  delete out.owned;
+  delete out.newIngredients;
 
   // Only values > 0 are kept, so an untouched save keeps its empty objects.
   const stars = obj(raw.stars);
@@ -85,7 +89,8 @@ function merge(raw) {
     if (n) out.upgrades[id] = n;
   }
   out.seenIntros = { ...obj(raw.seenIntros) };
-  out.coins = amount(raw.coins);
+  out.coins = amount(raw.coins) + legacyRefund(raw);
+  out.version = 2;
   out.endlessBest = amount(raw.endlessBest);
   return out;
 }
@@ -177,7 +182,9 @@ export function resetSave() {
 }
 
 // ---------------------------------------------------------------- queries
-export const isOwned = (id) => getSave().owned.includes(id);
+// Ingredients arrive with the levels: the player has what the furthest level open to them brings.
+export const isOwned = (id) => !!ING[id] && ING[id].unlock <= maxUnlockedLevel();
+export const ownedNow = () => ownedAt(maxUnlockedLevel());
 export const kitchenStats = () => getKitchenStats(getSave().upgrades);
 export const levelStars = (id) => getSave().stars[id] || 0;
 export const isLevelUnlocked = (id) => id === 1 || levelStars(id - 1) > 0;
@@ -204,20 +211,6 @@ export function addCoins(n) {
   updateSave((d) => {
     d.coins = addTo(d.coins, m);
   });
-}
-
-export function buyIngredient(id) {
-  sync();
-  const ing = ING[id];
-  if (!ing) return { ok: false, reason: 'unknown' };
-  if (isOwned(id)) return { ok: false, reason: 'owned' };
-  if (getSave().coins < ing.cost) return { ok: false, reason: 'noMoney' };
-  updateSave((d) => {
-    d.coins -= ing.cost;
-    d.owned.push(id);
-    if (!d.newIngredients.includes(id)) d.newIngredients.push(id);
-  });
-  return { ok: true };
 }
 
 export function upgradeIngredient(id) {
@@ -266,7 +259,6 @@ export function recordLevelResult(levelId, { won, stars, money, served }) {
     d.stats.earned += m;
     d.stats.served += finite(served);
     d.stats.played += 1;
-    d.newIngredients = [];
     if (won && n > (d.stars[levelId] || 0)) {
       newBest = true;
       d.stars[levelId] = n;
@@ -288,7 +280,6 @@ export function recordEndless({ money, served }) {
     d.stats.earned += m;
     d.stats.served += finite(served);
     d.stats.played += 1;
-    d.newIngredients = [];
     if (m > d.endlessBest) {
       d.endlessBest = m;
       newBest = true;
