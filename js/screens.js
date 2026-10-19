@@ -128,11 +128,11 @@ registerStrings({
     'settings.statBest': 'Endlos-Rekord',
     'settings.campaign': 'Kampagne',
     'settings.levelsWon': '{n} von {max} Level',
-    'settings.reset': 'Fortschritt löschen',
-    'settings.resetConfirm': 'Wirklich alles löschen? Münzen, Sterne und Einkäufe gehen verloren.',
-    'settings.resetYes': 'Ja, löschen',
+    'settings.reset': 'Neues Spiel',
+    'settings.resetConfirm': 'Von vorne anfangen? Münzen, Sterne und Einkäufe werden gelöscht.',
+    'settings.resetYes': 'Neu starten',
     'settings.resetNo': 'Abbrechen',
-    'settings.resetDone': 'Fortschritt gelöscht.',
+    'settings.resetDone': 'Neues Spiel gestartet!',
     'settings.about': 'Über das Spiel',
     'settings.aboutText': 'Açaí Fever ist ein Zeitmanagement-Spiel rund um Açaí-Bowls. Alle Bilder und Klänge entstehen direkt im Browser.',
     'results.won': 'Level {n} geschafft!',
@@ -266,11 +266,11 @@ registerStrings({
     'settings.statBest': 'Endless best',
     'settings.campaign': 'Campaign',
     'settings.levelsWon': '{n} of {max} levels',
-    'settings.reset': 'Delete progress',
-    'settings.resetConfirm': 'Really delete everything? Coins, stars and purchases will be lost.',
-    'settings.resetYes': 'Yes, delete',
+    'settings.reset': 'New game',
+    'settings.resetConfirm': 'Start over? Coins, stars and purchases will be deleted.',
+    'settings.resetYes': 'Start over',
     'settings.resetNo': 'Cancel',
-    'settings.resetDone': 'Progress deleted.',
+    'settings.resetDone': 'New game started!',
     'settings.about': 'About',
     'settings.aboutText': 'Açaí Fever is a time-management game all about açaí bowls. Every picture and sound is created right in your browser.',
     'results.won': 'Level {n} complete!',
@@ -977,7 +977,8 @@ function ingredientCard(ing) {
   </article>`;
 }
 
-function ingredientsTab() {
+// part(key, html) returns what stands in the tab's markup for a card or the summary (see tabParts).
+function ingredientsTab(part = (key, html) => html) {
   return [...LAYERS, ...MATCHA_LAYERS].map((layer) => {
     const items = ingredientsByLayer(layer);
     const owned = items.filter((i) => isOwned(i.id)).length;
@@ -988,7 +989,7 @@ function ingredientsTab() {
     const num = LAYER_NUM[layer] ? `<span class="shop-row-num">${LAYER_NUM[layer]}</span>` : `<span class="shop-row-num is-matcha">${matchaGlassSVG('mStrawberry', 'ready', 26)}</span>`;
     return `<section class="shop-row shop-row-${layer}" aria-label="${esc(t(`layer.${layer}`))}">
       <div class="shop-row-label">${num}<span class="shop-row-name">${esc(t(`layer.${layer}`))}</span><span class="shop-row-count">${owned}/${items.length}</span></div>
-      <div class="shop-row-cards">${items.map(ingredientCard).join('')}${tip}</div>
+      <div class="shop-row-cards">${items.map((ing) => part(ing.id, ingredientCard(ing))).join('')}${tip}</div>
     </section>`;
   }).join('');
 }
@@ -1116,11 +1117,25 @@ function decorSummary() {
   </div>`;
 }
 
-function upgradesTab(cat) {
+function upgradesTab(cat, part = (key, html) => html) {
   const list = UPGRADES.filter((u) => u.cat === cat);
-  return `${cat === 'kitchen' ? kitchenSummary() : decorSummary()}
-    <div class="upg-grid upg-grid-${cat}">${list.map(upgradeCard).join('')}</div>`;
+  return `${part('summary', cat === 'kitchen' ? kitchenSummary() : decorSummary())}
+    <div class="upg-grid upg-grid-${cat}">${list.map((u) => part(u.id, upgradeCard(u))).join('')}</div>`;
 }
+
+// A tab as its frame (rows, labels, grids) with a placeholder per card and summary, and their markup by key.
+// A purchase changes a few cards only (the one bought, prices that became too dear): the shop replaces just
+// those instead of the ~3000 nodes and ~140 pictures of a whole tab, which made every tap lag on phones.
+function tabParts(tab) {
+  const parts = new Map();
+  const part = (key, html) => {
+    parts.set(key, html);
+    return `<!--part:${key}-->`;
+  };
+  const frame = tab === 'ingredients' ? ingredientsTab(part) : upgradesTab(tab, part);
+  return { tab, frame, parts };
+}
+const partSelector = (key) => (key === 'summary' ? '.shop-summary' : `[data-card="${key}"]`);
 
 // A purchase redraws its card in place, so the next price button of the same card (for a new
 // ingredient: its quality upgrade) appears right under the finger. For this long after a
@@ -1137,18 +1152,33 @@ const shop = {
       ${header({ title: t('shop.title'), right: coinsPill() })}
       <div class="sc-tabs shop-tabs" role="tablist" aria-label="${esc(t('shop.title'))}">${SHOP_TABS.map((id) =>
         `<button class="sc-tab" type="button" role="tab" id="shop-tab-${id}" data-tab="${id}" aria-controls="shop-panel">${tabIcon(id)}<span>${esc(t(`shop.tab.${id}`))}</span></button>`).join('')}</div>
-      <div class="shop-body" id="shop-panel" role="tabpanel"></div>`;
+      <div class="shop-body" id="shop-panel" role="tabpanel" data-scroll></div>`;
     const body = container.querySelector('.shop-body');
+    let shown = null; // tabParts() of what the body shows
     bindCoins(container, scope);
+    dragScroll(body, scope);
     // Any save change (purchase, coins from elsewhere) refreshes prices and states.
     scope.add(onSaveChange(() => draw()));
 
     const draw = () => {
       // Redrawing replaces the cards – keep keyboard focus on the same card.
       const focusedCard = body.contains(document.activeElement) ? document.activeElement.closest('[data-card]')?.dataset.card : null;
-      body.dataset.tab = tab;
-      body.setAttribute('aria-labelledby', `shop-tab-${tab}`);
-      body.innerHTML = tab === 'ingredients' ? ingredientsTab() : upgradesTab(tab === 'kitchen' ? 'kitchen' : 'decor');
+      const next = tabParts(tab);
+      if (shown && shown.tab === tab && shown.frame === next.frame) {
+        for (const [key, html] of next.parts) {
+          if (html === shown.parts.get(key)) continue;
+          const old = body.querySelector(partSelector(key));
+          const tpl = document.createElement('template');
+          tpl.innerHTML = html;
+          old?.replaceWith(tpl.content);
+        }
+      } else {
+        if (shown?.tab !== tab) body.scrollTop = 0;
+        body.dataset.tab = tab;
+        body.setAttribute('aria-labelledby', `shop-tab-${tab}`);
+        body.innerHTML = next.frame.replace(/<!--part:([\w-]+)-->/g, (m, key) => next.parts.get(key));
+      }
+      shown = next;
       if (focusedCard) {
         const card = body.querySelector(`[data-card="${focusedCard}"]`);
         (card?.querySelector('button') || card)?.focus({ preventScroll: true });
@@ -1297,7 +1327,7 @@ const settings = {
     const drawReset = (step) => {
       resetBox.dataset.step = String(step);
       resetBox.innerHTML = step === 0
-        ? `<button class="btn small cream settings-reset-btn" type="button" data-action="reset">${ICON.trash()}<span>${esc(t('settings.reset'))}</span></button>`
+        ? `<button class="btn small cream settings-reset-btn" type="button" data-action="reset">${ICON.retry(32)}<span>${esc(t('settings.reset'))}</span></button>`
         : `<p role="alert">${esc(t('settings.resetConfirm'))}</p><div class="settings-reset-actions">
             <button class="btn small cream" type="button" data-action="reset-cancel">${esc(t('settings.resetNo'))}</button>
             <button class="btn small settings-danger" type="button" data-action="reset-confirm">${ICON.trash()}<span>${esc(t('settings.resetYes'))}</span></button></div>`;

@@ -324,13 +324,18 @@ async function main() {
         assert(imgs >= 5, `only ${imgs} 3D pictures on the kitchen cards`);
         const label = await page.locator('[data-upgrade="blenderSpeed"] .upg-model').textContent();
         assert(label.includes('Turbo'), `next model label: ${label}`);
-        const loaded = await page.evaluate(() => [...document.querySelectorAll('img.art3d')].every((i) => i.complete && i.naturalWidth > 0));
+        // the tab appears at once, its pictures are drawn one at a time after it (js/art3d.js pictureMarkup)
+        await page.waitForFunction(() => !document.querySelector('img.art3d.is-pending'), null, { timeout: 15000 });
+        const loaded = await page.evaluate(() => [...document.querySelectorAll('img.art3d')].every((i) => i.complete && i.naturalWidth > 1));
         assert(loaded, 'a 3D picture did not load');
         await page.screenshot({ path: path.join(OUT, 'shop.png') });
       });
       await check('shop: buying the Turbo-Mixer shows the following model', async () => {
         await page.locator('[data-upgrade="blenderSpeed"] [data-buy]').click();
         await page.waitForFunction(() => document.querySelector('[data-upgrade="blenderSpeed"] .upg-model')?.textContent.includes('Pro'));
+        await page.waitForFunction(() => !document.querySelector('img.art3d.is-pending'), null, { timeout: 15000 });
+        const loaded = await page.evaluate(() => [...document.querySelectorAll('img.art3d')].every((i) => i.complete && i.naturalWidth > 1));
+        assert(loaded, 'a picture of the new model did not load');
       });
       await check('no console errors in the shop', async () => assertNoConsoleErrors(errors));
       await close();

@@ -177,16 +177,16 @@ export function prepareStills(kind, states) {
 
 const pictures = new Map();
 let scratch = null;
+const pictureKey = (kind, o, size, t) => `${kind}|${size}|${pixelRatio()}|${t}|${JSON.stringify(o)}`;
 
 // Data URL of the appliance in state o fitted into a size×size square, or null without WebGL.
 export function picture(kind, o, size, t = 0) {
   const r = getRenderer();
   if (!r || r.lost || !SCENES[kind]) return null;
-  const pr = pixelRatio();
-  const key = `${kind}|${size}|${pr}|${t}|${JSON.stringify(o)}`;
+  const key = pictureKey(kind, o, size, t);
   let url = pictures.get(key);
   if (!url) {
-    const px = Math.round(size * pr);
+    const px = Math.round(size * pixelRatio());
     scratch = scratch || document.createElement('canvas');
     if (!r.drawTo(scratch, SCENES[kind](o, t, fitFrame(VIEWS[kind], size)), px, px)) return null;
     url = scratch.toDataURL('image/png');
@@ -206,10 +206,64 @@ export function warm3D() {
   }
 }
 
-// <img> markup of picture(), or fallback() (the SVG art) when there is no 3D.
+// Pictures asked for by pictureMarkup() and not drawn yet, by id: they are drawn one at a time after the
+// next paint, so a menu appears at once instead of waiting for all of its pictures (a shop tab holds up to
+// nine; with software WebGL each takes ~50 ms, the tab stalled ~0.5 s on every open and Turbo-Mixer purchase).
+const pending = new Map(); // id → { key, kind, o, size, t, fallback }
+const pendingIds = new Map(); // picture key → id, so markup built twice for one picture names the same one
+let pendingSeq = 0;
+let pumping = false;
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+
+function pumpLater() {
+  if (pumping) return;
+  pumping = true;
+  requestAnimationFrame(() => setTimeout(pump, 0));
+}
+
+function pump() {
+  pumping = false;
+  const next = pending.entries().next().value;
+  if (!next) return;
+  const [id, p] = next;
+  pending.delete(id);
+  pendingIds.delete(p.key);
+  const imgs = document.querySelectorAll(`img[data-art3d="${id}"]`);
+  if (imgs.length) {
+    let url = null;
+    try {
+      url = picture(p.kind, p.o, p.size, p.t);
+    } catch (err) {
+      console.warn('[art3d] drawing a picture failed', err);
+    }
+    for (const img of imgs) {
+      if (url) {
+        img.src = url;
+        img.removeAttribute('data-art3d');
+        img.classList.remove('is-pending');
+      } else {
+        const tpl = document.createElement('template');
+        tpl.innerHTML = p.fallback();
+        img.replaceWith(tpl.content);
+      }
+    }
+  }
+  if (pending.size) pumpLater();
+}
+
+// <img> markup of picture(), or fallback() (the SVG art) when there is no 3D. A picture not drawn yet is an
+// empty <img class="art3d is-pending"> that gets its picture shortly after (see pump above).
 export function pictureMarkup(kind, o, size, fallback, t = 0) {
-  const url = picture(kind, o, size, t);
-  return url
-    ? `<img class="art3d" src="${url}" width="${size}" height="${size}" alt="" draggable="false">`
-    : fallback();
+  if (!has3D() || !SCENES[kind]) return fallback();
+  const key = pictureKey(kind, o, size, t);
+  const url = pictures.get(key);
+  if (url) return `<img class="art3d" src="${url}" width="${size}" height="${size}" alt="" draggable="false">`;
+  let id = pendingIds.get(key);
+  if (!id) {
+    id = `p${++pendingSeq}`;
+    pendingIds.set(key, id);
+    pending.set(id, { key, kind, o, size, t, fallback });
+    pumpLater();
+  }
+  return `<img class="art3d is-pending" data-art3d="${id}" src="${BLANK}" width="${size}" height="${size}" alt="" draggable="false">`;
 }

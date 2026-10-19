@@ -951,13 +951,24 @@ html.is-bleed .sc-topbar {
 html.is-bleed .shop-awning { top: calc(-1 * var(--by, 0px)); }
 html.is-bleed .screen-shop .sc-header { top: calc(40px - var(--by, 0px)); }
 html.is-bleed .shop-tabs { left: calc(242px + var(--safe-l, 0px) - var(--bx, 0px)); top: calc(49px - var(--by, 0px)); }
+/* The shop's rows scroll: the ingredients have five rows (three of the bowl, two of the matcha bar), the
+   kitchen a sixth card under the first five. Touch pans natively, a wheel scrolls (js/stage.js lets it through
+   over [data-scroll]), a mouse drags it (dragScroll in js/screens.js). The padding keeps the cards' shadows
+   inside the scroller; the negative margin puts their edges where they were. */
 .shop-body {
   position: absolute;
-  left: 20px;
-  right: 20px;
-  top: 130px;
-  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  top: 122px;
+  bottom: 4px;
+  padding: 8px 8px 12px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  scrollbar-width: none;
 }
+.shop-body::-webkit-scrollbar { display: none; }
 
 .shop-row {
   display: flex;
@@ -1145,9 +1156,10 @@ html.is-bleed .shop-tabs { left: calc(242px + var(--safe-l, 0px) - var(--bx, 0px
 
 .upg-grid {
   display: grid;
+  grid-auto-rows: 1fr;
   gap: 16px;
   margin-top: 18px;
-  height: calc(100% - 96px);
+  min-height: calc(100% - 96px);
 }
 .upg-grid-decor .upg-card { padding-bottom: 18px; gap: 10px; }
 .upg-grid-decor .upg-desc { font-size: 18px; min-height: 46px; }
@@ -1195,7 +1207,9 @@ html.is-bleed .shop-tabs { left: calc(242px + var(--safe-l, 0px) - var(--bx, 0px
 .upg-machine-crop { position: relative; flex: none; overflow: hidden; }
 .upg-machine-crop > div { position: absolute; }
 /* 3D pictures of the appliances (js/art3d.js) stand in for the drawn svg art */
-img.art3d { display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+img.art3d { display: block; user-select: none; -webkit-user-drag: none; pointer-events: none; transition: opacity 0.2s ease-out; }
+/* a picture still being drawn (drawn one at a time after the menu appears) */
+img.art3d.is-pending { opacity: 0; }
 .upg-art-pair .art3d + .art3d { margin-left: -26px; }
 .upg-model {
   position: absolute;
@@ -1629,6 +1643,9 @@ img.art3d { display: block; user-select: none; -webkit-user-drag: none; pointer-
   font-size: 17px;
   font-weight: 900;
 }
+/* two lines on a narrow card ("Kommt mit / Level 33") instead of running over its edges */
+.sc-not-yet.sc-price { white-space: normal; text-align: center; line-height: 1.1; padding: 4px 8px; font-size: 16px; }
+.sc-not-yet svg { flex: none; }
 .ing-card.is-locked .card-icon { filter: grayscale(0.8) opacity(0.6); }
 /* the cup arm's card: the rail, the carriage, a cup in the gripper over a free spot, the dispenser beside it */
 .upg-art-arm { position: relative; width: 220px; height: 150px; }

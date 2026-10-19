@@ -513,7 +513,8 @@ PANTRY_GEO; PANTRY_IDS; PANTRY_PICTURES     // the containers' measures (drawn a
 has3D() → bool                               // false without WebGL → callers keep the SVG art
 createView(kind, className?) → { el /* <canvas> */, draw(o, t), invalidate() }
 snapshot(view, scale = 1, box?) → <canvas>   // drag ghost of a station: box of its canvas, copied with drawImage only
-pictureMarkup(kind, o, size, fallback, t?)   // <img> (cached data URL) or fallback() markup for menus
+pictureMarkup(kind, o, size, fallback, t?)   // <img> (cached data URL) or fallback() markup for menus; a picture not
+                                             // drawn yet is an empty <img class="art3d is-pending">, filled one per frame after the paint
 still(kind, o, target?) → <canvas> | null    // a picture that never changes, drawn once per state into a cache of the
                                              // current pixel ratio; every call gets a copy (drawImage only) – the
                                              // ingredient containers
