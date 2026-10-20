@@ -141,6 +141,18 @@ const X = {
     noise(v, { at: 0.4, ft: 'lowpass', f: 2400, f2: 300, slide: 0.4, a: 0.002, peak: 0.45 * g, decay: 0.5 });
     for (let i = 0; i < 9; i++) noise(v, { at: 0.55 + i * 0.07 + (i % 3) * 0.013, ft: 'highpass', f: 5000, a: 0.001, peak: 0.12 * g, decay: 0.02 });
   },
+  // the deep 808 boom under a big title
+  boom(v, g = 1) {
+    tone(v, { f: 70, f2: 36, slide: 0.5, a: 0.003, hold: 0.12, peak: 0.95 * g, decay: 0.9 });
+    tone(v, { type: 'triangle', f: 140, f2: 72, slide: 0.3, a: 0.002, peak: 0.25 * g, decay: 0.4, filter: { type: 'lowpass', f: 900 } });
+    noise(v, { ft: 'lowpass', f: 1800, f2: 200, slide: 0.2, a: 0.001, peak: 0.35 * g, decay: 0.12 });
+  },
+  // a bright two-note sparkle (something shiny appears)
+  bling(v, g = 1) {
+    chime(v, { f: mtof(96), peak: 0.16 * g, decay: 0.5, partials: [[1, 1, 1], [2, 0.3, 0.5], [3, 0.1, 0.3]] });
+    chime(v, { at: 0.07, f: mtof(103), peak: 0.18 * g, decay: 0.8, partials: [[1, 1, 1], [2, 0.3, 0.5], [3, 0.1, 0.3]] });
+    noise(v, { at: 0.06, ft: 'highpass', f: 9000, a: 0.01, peak: 0.08 * g, decay: 0.35 });
+  },
   // a soft liquid pour (the satisfying cut)
   glug(v, g = 1, len = 1) {
     noise(v, { ft: 'bandpass', f: 520, f2: 900, slide: len, q: 4, a: 0.1, hold: len, peak: 0.18 * g, decay: 0.2, am: { rate: 11, depth: 0.5 } });
@@ -161,7 +173,8 @@ const X = {
 // Styles: hook (stabs on the beats), intro (half-time, soft), groove, drop (groove + brass hit),
 // tension, build (four on the floor with a snare roll, roll: 1 eighths, 2 sixteenths), lofi (soft
 // boom-bap, keys and vibes, vinyl crackle), sad (a lonely, slightly out-of-tune piano), rest (silence)
-// and end (the final chord: chord names it, default Cmaj; soft leaves out the big hit).
+// and end (the final chord: chord names it, default Cmaj; soft leaves out the big hit). until: the
+// sixteenth the bar stops at (a hard cut in the music).
 function resolveBar(m, tr) {
   let chords = null;
   if (m.chords) chords = m.chords.map((n) => CH[n]);
@@ -193,7 +206,7 @@ function arrangeMusic(c, bus, beat, music, tr) {
     for (let s = 0; s < 16; s++) {
       const t = t0 + s * sd + (s % 2 ? swing * sd : 0);
       const ch = bar.chords ? bar.chords[s < 8 ? 0 : 1] : null;
-      if (bar.style === 'rest') continue;
+      if (bar.style === 'rest' || (bar.until !== undefined && s >= bar.until)) continue;
       if (bar.style === 'hook') {
         const hk = [CH.C, CH.G, CH.Am, CH.F][s >> 2];
         if (s % 4 === 0) {

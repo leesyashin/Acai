@@ -1,19 +1,19 @@
-// The 'journey' promo film (tools/promo, ?version=journey): one ride up the game's level map. The pin
-// drops onto level 1 on the beach and hops from level to level – each one turns gold and gets its
-// stars – through every region of the map (their names slam in as the pin arrives), up to the last
-// level, where fireworks go off: "60 levels · 6 worlds". Built from the map's own art (js/art-map.js),
-// so it follows the map: the number of levels and regions comes from MAP_REGIONS. 124 BPM, a new
-// section of the music for every region.
+// The 'journey' promo film (tools/promo, ?version=journey): a speedrun up the game's level map – "60
+// levels in 6 seconds". The pin drops onto level 1 on the beach and races from level to level – each
+// one turns gold and gets its stars with a tick – through every region of the map (their names slam in
+// on the beat with a glitch), up to the last level, where fireworks go off: "60 levels · 6 worlds".
+// Built from the map's own art (js/art-map.js), so it follows the map: the number of levels and
+// regions comes from MAP_REGIONS. 124 BPM.
 
 import { logoSVG, bowlSVG, starSVG, mapRegionSVG, mapLevelPos, mapRoadData, MAP_H, MAP_BLEED, MAP_REGIONS } from '../../js/art.js';
 import { createRng } from '../../js/rng.js';
 import { clamp, lerp, prog, ease, spring, jiggle, decay } from './motion.js';
 import { Sprite, Title, Burst, Ring, div } from './kit.js';
+import { capWords, emojiBurst, sticker } from './tiktok.js';
 
 const COPY = {
   de: {
-    intro: 'WIE WEIT\nKOMMST DU?',
-    go: ['Level 1 – los geht\'s 🚀'],
+    intro: (n, secs) => [`${n} LEVEL`, 'IN', `${secs} SEKUNDEN`],
     regions: { beach: 'AM STRAND', town: 'STADTPROMENADE', forest: 'REGENWALD', tea: 'TEEPLANTAGE', harbor: 'HAFEN', night: 'NACHTMARKT' },
     range: (a, z) => `Level ${a}–${z}`,
     level: 'LEVEL',
@@ -25,8 +25,7 @@ const COPY = {
     url: 'leesyashin.github.io/Acai',
   },
   en: {
-    intro: 'HOW FAR\nCAN YOU GO?',
-    go: ['level 1 – let\'s go 🚀'],
+    intro: (n, secs) => [`${n} LEVELS`, 'IN', `${secs} SECONDS`],
     regions: { beach: 'ON THE BEACH', town: 'TOWN PROMENADE', forest: 'RAINFOREST', tea: 'TEA PLANTATION', harbor: 'HARBOUR', night: 'NIGHT MARKET' },
     range: (a, z) => `Levels ${a}–${z}`,
     level: 'LEVEL',
@@ -40,43 +39,32 @@ const COPY = {
 };
 const FILL = { beach: 'mango', town: 'pink', forest: 'leaf', tea: 'white', harbor: 'lagoon', night: 'red' };
 
-// the timing (beats): the intro, one section per region, the fireworks and the end card
+// the timing (beats): the intro, the ride (twelve beats over all regions), the fireworks and the end card
 const REGIONS = MAP_REGIONS;
 const LEVELS = REGIONS[REGIONS.length - 1].last;
-const INTRO = 8;
-const PER = REGIONS.length <= 3 ? 8 : 4;
-const FINALE = 8;
-const END = 8;
-
-function music() {
-  const bars = [{ style: 'intro', g: 12, lead: false }, { style: 'tension', chords: ['Am', 'E7'], mel: null }];
-  let g = 0;
-  REGIONS.forEach((_, k) => {
-    for (let j = 0; j < PER / 4; j++) {
-      bars.push({ style: j === 0 ? 'drop' : 'groove', g: g % 12, harmony: k >= 2, fill: k === REGIONS.length - 1 && j === PER / 4 - 1 });
-      g++;
-    }
-  });
-  bars.push({ style: 'drop', g: 12, harmony: true }, { style: 'groove', g: 13, harmony: true, fill: true });
-  bars.push({ style: 'groove', chords: ['Dm7', 'G7'], mel: 15, harmony: true, fill: true }, { style: 'end' });
-  return bars;
-}
+const INTRO = 2;
+const PER = REGIONS.length <= 3 ? 4 : 2;
+const FINALE = 4;
+const END = 6;
+const RIDE_SECONDS = Math.round((REGIONS.length * PER * 60) / 124);
 
 export const CUTS = {
   journey: {
     theme: 'map',
-    energy: 0.9,
+    energy: 1,
+    bounce: [INTRO, INTRO + REGIONS.length * PER + FINALE],
+    bounceAmp: 0.02,
     scenes: [['jrRide', INTRO + REGIONS.length * PER + FINALE + END, { enter: null }]],
-    music: music(),
+    music: [
+      { style: 'hook' }, { style: 'drop', g: 0 }, { style: 'drop', g: 4, harmony: true }, { style: 'groove', g: 8, harmony: true, fill: true },
+      { style: 'drop', g: 12, harmony: true }, { style: 'end' },
+    ],
   },
 };
 
 const ZOOM = 1.45; // map px → frame px on the ride
 const PIN_Y = 1180; // where the pin sits in the frame
 const FULL_W = 1280 + 2 * MAP_BLEED;
-
-// TikTok's text sticker (one rounded box per line)
-const sticker = (root, lines, cls = '') => new Sprite(root, `<div class="tk ${cls}">${lines.map((l) => `<span>${l}</span>`).join('<br>')}</div>`);
 
 // the pin's place for a level position p (0 = level 1; between two levels on the road's sine)
 const posAt = (p) => ({ x: 640 + 280 * Math.sin(0.9 * p - 0.3), y: mapLevelPos(0).y - p * (mapLevelPos(0).y - mapLevelPos(1).y) });
@@ -131,14 +119,14 @@ export function scenes({ lang, b, cue, fx, popIn, confettiBurst, PLAY_ICON }) {
     const dark = new Sprite(root, '<div class="jr-dark"></div>');
 
     // ---- the pin's level position over time: drops onto level 1, then through each region
-    const TD = b(2); // the pin lands
+    const TD = b(1); // the pin lands
     const pAt = (lt) => {
       if (lt < T0) return 0;
       if (lt >= TF) return LEVELS - 1;
       const k = Math.min(REGIONS.length - 1, Math.floor((lt - T0) / b(PER)));
       const r = REGIONS[k];
       const hops = k === REGIONS.length - 1 ? r.last - r.first : r.last - r.first + 1;
-      const start = regionAt(k) + b(0.35); // a beat's rest for the region's name to land
+      const start = regionAt(k) + b(0.25); // a moment's rest for the region's name to land
       return r.first - 1 + hops * clamp((lt - start) / (regionAt(k + 1) - start - b(0.1)));
     };
     // when the pin lands on each level
@@ -156,8 +144,7 @@ export function scenes({ lang, b, cue, fx, popIn, confettiBurst, PLAY_ICON }) {
     landing[0] = TD;
 
     // ---- overlays: titles, the level counter, fireworks, the end card
-    const intro = new Title(root, C.intro, { size: 150, fill: 'white' });
-    const go = sticker(root, C.go);
+    const intro = capWords(root, C.intro(LEVELS, RIDE_SECONDS).map((w, i) => [b([0, 0.75, 1.25][i]), b([0.75, 1.25, 2][i]), w, ['y', '', 'p'][i]]), { y: 650, size: 120 });
     const banners = REGIONS.map((r) => ({
       title: new Title(root, C.regions[r.id] || r.id.toUpperCase(), { size: 124, fill: FILL[r.id] || 'white' }),
       range: new Sprite(root, `<div class="jr-banner">${C.range(r.first, r.last)}</div>`),
@@ -169,9 +156,10 @@ export function scenes({ lang, b, cue, fx, popIn, confettiBurst, PLAY_ICON }) {
     const dare = sticker(root, C.dare);
     const rng = createRng(17);
     const COLS = ['#ff3d8b', '#ffd23f', '#18c2c9', '#2fbf71', '#ffffff', '#c38bff'];
-    const fireworks = [0, 1, 2, 2.5, 3, 4, 4.5, 5.5, 6.5, 7].map((bt, i) => {
-      const x = rng.range(180, 900);
-      const y = rng.range(260, 900);
+    const fireworks = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4.5, 5.5].map((bt, i) => {
+      // under the titles, so the numbers stay readable
+      const x = rng.range(160, 920);
+      const y = rng.range(980, 1460);
       const col = COLS[i % COLS.length];
       const t0 = TF + b(bt);
       cue(from + t0 - 0.4, 'firework', { gain: 0.55 });
@@ -184,37 +172,45 @@ export function scenes({ lang, b, cue, fx, popIn, confettiBurst, PLAY_ICON }) {
       };
     });
     const confetti = confettiBurst(root, { n: 60, seed: 61, x: 540, y: 700, t0: TF + 0.02 });
+    const trophy = emojiBurst(root, { emojis: ['🏆', '🎆', '🔥', '⭐'], x: 540, y: 520, t0: TF + 0.05, n: 14, seed: 19 });
     const logo = new Sprite(root, logoSVG(860));
     const btn = new Sprite(root, `<div class="play-btn">${PLAY_ICON}<span>${C.play}</span></div>`);
     const free = sticker(root, C.free, 'dark');
     const url = new Sprite(root, `<div class="url">${C.url}</div>`);
 
     // ---- sounds and hits
-    cue(from + 0.05, 'whoosh', { gain: 0.5 });
-    cue(from + TD - 0.25, 'swish', { gain: 0.4 });
+    [0.75, 1.25].forEach((bt, i) => cue(from + b(bt), 'pop', { gain: 0.4, pitch: 3 + i * 2 }));
+    cue(from + TD - 0.2, 'swish', { gain: 0.4 });
     cue(from + TD, 'thud', { gain: 0.8 });
     cue(from + TD + 0.02, 'drop', { kind: 'sfx' });
     fx.shake(from + TD, 18, 8);
-    cue(from + b(INTRO - 4), 'riser', { len: b(4), gain: 0.7 });
+    cue(from + TD, 'riser', { len: T0 - TD, gain: 0.7 });
     for (let i = 1; i < LEVELS; i++) {
       const r = REGIONS.findIndex((x) => i + 1 >= x.first && i + 1 <= x.last);
       const first = REGIONS[r].first - 1 === i;
-      if (!first) cue(from + landing[i], 'pop', { gain: 0.22, pitch: (i - REGIONS[r].first + 1) % 10 });
+      if (!first) cue(from + landing[i], 'pop', { gain: 0.18, pitch: (i - REGIONS[r].first + 1) % 10 });
     }
     REGIONS.forEach((_, k) => {
       const t = from + regionAt(k);
       cue(t, k ? 'impact' : 'stamp', { gain: 0.75 });
-      cue(t + b(PER) - 0.22, 'whoosh', { gain: 0.35 });
+      cue(t + b(PER) - 0.2, 'whoosh', { gain: 0.35 });
       fx.flash(t, 0.35, 10);
-      fx.punch(t, 0.04, 9);
+      fx.punch(t, 0.05, 9);
+      fx.glitch(t, 0.1);
+      fx.speed(t, 0.7, 4);
     });
+    cue(from + TF, 'boom', { gain: 1 });
     cue(from + TF, 'win', { kind: 'sfx', gain: 0.8 });
     cue(from + TF + 0.02, 'confetti', { gain: 0.8 });
+    fx.impact(from + TF + 0.03);
     fx.flash(from + TF, 0.7, 8);
-    fx.shake(from + TF, 26, 6);
-    cue(from + TE, 'impact', { gain: 0.9 });
+    fx.shake(from + TF, 30, 6);
+    cue(from + TF + b(0.75), 'pop', { gain: 0.5, pitch: 5 });
+    cue(from + TE, 'boom', { gain: 0.9 });
     cue(from + TE + b(2), 'click', { kind: 'sfx' });
+    fx.impact(from + TE + 0.03);
     fx.flash(from + TE, 0.6, 9);
+    fx.punch(from + TE, 0.06, 8);
 
     let lastTf = '';
     return {
@@ -224,7 +220,7 @@ export function scenes({ lang, b, cue, fx, popIn, confettiBurst, PLAY_ICON }) {
         const pos = posAt(p);
         // the camera: on the beach for the intro, then with the pin; wide over the finale
         const wide = ease.inOutCubic(prog(lt, TF - b(1), TF + b(2)));
-        const Z = lerp(lerp(1.3, ZOOM, ease.inOutCubic(prog(lt, b(3), T0))), 0.9, wide);
+        const Z = lerp(lerp(1.3, ZOOM, ease.inOutCubic(prog(lt, b(0.5), T0))), 0.9, wide);
         const camY = pos.y - (PIN_Y - 960) / Z;
         const cy = clamp(camY, 960 / Z, MAP_H - 960 / Z);
         const cx = 640 + MAP_BLEED;
@@ -266,15 +262,12 @@ export function scenes({ lang, b, cue, fx, popIn, confettiBurst, PLAY_ICON }) {
         donePath.style.strokeDashoffset = (total - len).toFixed(1);
         // the pin: falls onto level 1, then hops along the road
         const hop = Math.sin(Math.PI * frac) * 60;
-        const fall = lt < TD ? ease.inQuad(prog(lt, b(0.6), TD)) : 1;
+        const fall = lt < TD ? ease.inQuad(prog(lt, b(0.3), TD)) : 1;
         const sq = jiggle(lt - (landing[Math.round(p)] || 0), 4, 9) * 0.12;
-        pin.set({ x: pos.x + MAP_BLEED, y: pos.y - 70 - hop - (1 - fall) * 1100, s: 1.35, sx: 1 + sq, sy: 1 - sq, o: lt > b(0.6) ? 1 : 0 });
+        pin.set({ x: pos.x + MAP_BLEED, y: pos.y - 70 - hop - (1 - fall) * 1100, s: 1.35, sx: 1 + sq, sy: 1 - sq, o: lt > b(0.3) ? 1 : 0 });
 
-        // the intro title, then each region's name as the pin arrives
-        intro.sprite.set({ x: 540, y: 470 });
-        intro.pop(lt - 0.1, { stagger: 0.03, out: T0 - b(1) - 0.1, outDur: 0.2 });
-        const gp = popIn(lt - TD - 0.1, { f: 2.4, d: 8 });
-        go.set({ x: 540, y: 690 + gp.dy, s: gp.s, r: -2, o: gp.o * (1 - prog(lt, T0 - b(0.5), T0)) });
+        // the intro words, then each region's name as the pin arrives
+        intro(lt);
         banners.forEach((bn, k) => {
           const t0 = regionAt(k);
           const until = (k === REGIONS.length - 1 ? TF : regionAt(k + 1)) - 0.05;
@@ -308,11 +301,12 @@ export function scenes({ lang, b, cue, fx, popIn, confettiBurst, PLAY_ICON }) {
         const fo = ease.inBack(prog(lt, TE - 0.25, TE));
         const q1 = lt - TF;
         const sl1 = q1 < 0.1 ? lerp(2.6, 0.94, ease.inQuad(clamp(q1 / 0.1))) : 0.94 + 0.06 * spring(q1 - 0.1, 2.6, 7);
+        trophy.update(lt);
         levelsT.sprite.set({ x: 540, y: 420 - fo * 400, s: sl1, r: -3, o: (q1 > 0 ? 1 : 0) * (1 - fo) });
         levelsT.rest();
         worldsT.sprite.set({ x: 540, y: 610 - fo * 400, o: 1 - fo });
-        worldsT.pop(lt - TF - b(1), { stagger: 0.03 });
-        const dp = popIn(lt - TF - b(2), { f: 2.4, d: 8 });
+        worldsT.pop(lt - TF - b(0.75), { stagger: 0.025 });
+        const dp = popIn(lt - TF - b(1.5), { f: 2.4, d: 8 });
         dare.set({ x: 540, y: 790 + dp.dy - fo * 400, s: dp.s, r: 2, o: dp.o * (1 - fo) });
         dark.set({ x: 540, y: 960, o: ease.inOutQuad(prog(lt, TE - b(0.5), TE + b(0.5))) });
         const q2 = lt - TE;

@@ -215,7 +215,7 @@ aller Bildschirme in mehreren Größen.
 
 ## Werbevideo für TikTok
 
-`tools/promo/` enthält kurze Werbefilme (21–39 s, Hochformat 1080×1920), die das Spiel vorstellen – in acht Fassungen
+`tools/promo/` enthält kurze Werbefilme (12–39 s, Hochformat 1080×1920), die das Spiel vorstellen – in acht Fassungen
 (`--version`):
 
 - **`hype`** (Standard): schneller Motion-Design-Film – Hook („4 Gäste · 1 Mixer · keine Zeit“), Logo, die drei Schritte
@@ -227,28 +227,27 @@ aller Bildschirme in mehreren Größen.
 - **`combo`**: erst der komplette `hype`-Film, dann ca. 15 s **echtes Gameplay** wie in `gameplay` („Echtes Gameplay“) und
   zum Schluss die Endkarte (ca. 39 s).
 
-Dazu vier reine Motion-Design-Filme, jeder mit eigenem Look, eigener Musik und eigener Idee (sie brauchen keine
-Gameplay-Aufnahme):
+Dazu vier schnell geschnittene Motion-Design-Filme im TikTok-Stil (je ca. 12 s, 24 Beats): Schnitte auf jedem
+(halben) Beat, Untertitel Wort für Wort wie aus CapCut, Zoom-Punches, Glitches, Impact-Frames, Emoji-Explosionen und ein
+Boom auf jedem großen Moment (`tools/promo/tiktok.js`). Jeder hat seinen eigenen Look und seine eigene Idee und braucht
+keine Gameplay-Aufnahme:
 
-- **`satisfying`** (ca. 28 s): „Oddly Satisfying“ in Pastell – eine Bowl in einer einzigen ruhigen Einstellung: Açaí in den
-  3D-Mixer, in den Becher gießen, sechs Toppings landen in Zeitlupe, eins pro Schlag mit einem leisen, aufsteigenden Ton,
-  dann ein Frucht-Matcha, der Schicht für Schicht vollläuft. Die Menü-Bossa des Spiels als Lo-Fi (96 BPM, Vinyl-Knistern),
-  keine Wackler, TikTok-Textsticker statt großer Titel.
-- **`orders`** (ca. 21 s): POV-Story auf einem Handy-Sperrbildschirm – das Café öffnet um 8:00, die Bestellungen kommen als
-  Benachrichtigungen (Gesicht des Gastes, Bestellung als Symbole), erst einzeln, dann immer schneller, die Gäste werden
-  ungeduldig, das Handy vibriert. Drop: „Kein Problem.“ – das Spiel auf dem Tablet, die Benachrichtigungen werden grün
-  (bezahlt, Trinkgeld, fünf Sterne). Abends wird eine letzte Benachrichtigung angetippt und öffnet die Endkarte.
-- **`journey`** (ca. 23 s bei sechs Gegenden): eine Fahrt die Level-Karte hinauf – die Spielfigur fällt auf Level 1 und hüpft
-  von Level zu Level (jedes wird golden und bekommt seine Sterne), der Name jeder Gegend knallt ins Bild, oben Feuerwerk:
-  „60 Level · 6 Welten“. Gebaut aus der Karte des Spiels (`js/art-map.js`): Level- und Gegenden-Zahl kommen aus
-  `MAP_REGIONS`, der Film passt sich also an, wenn die Karte wächst.
-- **`glowup`** (ca. 21 s): das Meme „Tag 1 vs. Tag 100“ – Tag 1 grau mit Classic-Mixer, leerem Becher, vier Zutaten, Grillen,
-  einer Fliege und dem einzigen Gast, der geht; Plattenkratzer, „100 Tage später …“, Drop: das Café füllt sich Schlag für
-  Schlag (Pro-Max-Mixer, Matcha-Maschine, volle Theke, alle Zutaten, Deko, Münzregen), dann beide Tage im Vergleich mit
-  den Zahlen und die Endkarte.
+- **`satisfying`**: „Das befriedigendste Spiel ever“ in Pastell – die fertige Bowl als Hook, dann Jump-Cuts: Açaí in den
+  3D-Mixer (der Strudel wird immer schneller), eingießen, sechs Toppings auf den halben Beats (jedes mit neuer Einstellung,
+  seinem Namen und einem steigenden Ton), „Perfekt!“, ein Erdbeer-Matcha mit Eis und Cold Foam, eine Bowl-Parade in
+  wechselnden Farben, die Endkarte. Die Menü-Bossa des Spiels als House-Groove.
+- **`orders`**: POV auf einem Handy-Sperrbildschirm – vom ersten Bild an fluten die Bestellungen als Benachrichtigungen
+  herein, immer schneller, „HILFE!!“; Drop: „Kein Problem.“, das Spiel auf dem Tablet, *Mixen · Belegen · Servieren*, die
+  Benachrichtigungen werden grün und die Münzen zählen hoch; abends öffnet eine angetippte Benachrichtigung die Endkarte.
+- **`journey`**: „60 Level in 6 Sekunden“ – ein Speedrun die Level-Karte hinauf, jedes Level wird golden, jede Gegend knallt
+  mit Glitch ins Bild, oben Feuerwerk: „60 Level · 6 Welten“. Gebaut aus der Karte des Spiels (`js/art-map.js`): Level- und
+  Gegenden-Zahl kommen aus `MAP_REGIONS`, der Film passt sich also an, wenn die Karte wächst.
+- **`glowup`**: das Meme „Tag 1 vs. Tag 100“ – Tag 1 grau mit Grillen, Fliege und dem einzigen Gast, der geht;
+  Plattenkratzer, „100 Tage später …“, dann knallt das Café auf den halben Beats ins Bild (Pro-Max-Mixer, Matcha-Maschine,
+  Gäste, alle Zutaten, Deko, Münzexplosion), beide Tage im Vergleich mit den Zahlen und die Endkarte.
 
-Alles ist aus den Grafiken, 3D-Geräten, Sounds und der Musik des Spiels gebaut (124 BPM, `satisfying` 96 BPM; jeder
-Schnitt sitzt auf dem Beat) – es gibt keine Video- oder Audiodateien im Repository. Das echte Gameplay nimmt `tools/promo/capture.mjs`
+Alles ist aus den Grafiken, 3D-Geräten, Sounds und der Musik des Spiels gebaut (124 BPM, jeder Schnitt sitzt auf dem
+Beat) – es gibt keine Video- oder Audiodateien im Repository. Das echte Gameplay nimmt `tools/promo/capture.mjs`
 auf: Ein kleiner Bot spielt Level 10 mit echten Maus-Drags, Bild für Bild unter einer kontrollierten Uhr (auch die
 CSS-Animationen), und merkt sich Fingerposition, Spielzüge und die Sound-Aufrufe des Spiels – die Filme legen die
 Original-Sounds dann synchron unter das Bild. Die Aufnahme landet in `tools/promo/footage/` (nicht im Git).
@@ -308,9 +307,9 @@ tools/run-e2e.mjs     startet die E2E-Skripte nacheinander
 tools/shots.mjs       Screenshots aller Bildschirme zur Sichtprüfung
 tools/*.html          Vorschauseiten für Grafiken, 3D-Geräte (appliances-3d.html), Sound und Drag & Drop
 tools/promo/          TikTok-Werbefilme: film.js (Szenen + Schnittfassungen), film-*.js (die Motion-Filme satisfying,
-                      orders, journey, glowup), kit.js/motion.js (Bausteine, Easing), footage.js (echtes Gameplay mit
-                      Kamera), capture.mjs (nimmt es auf), score.js (Soundtrack), promo.html (Vorschau), render.mjs
-                      (rendert das MP4 mit Playwright + ffmpeg)
+                      orders, journey, glowup), tiktok.js (CapCut-Untertitel, Emoji-Explosionen), kit.js/motion.js
+                      (Bausteine, Easing), footage.js (echtes Gameplay mit Kamera), capture.mjs (nimmt es auf), score.js
+                      (Soundtrack), promo.html (Vorschau), render.mjs (rendert das MP4 mit Playwright + ffmpeg)
 tests/*.test.mjs      Unit-Tests (node --test)
 tests/e2e/            Playwright-Skripte + gemeinsame Helfer (helpers.mjs)
 docs/DESIGN.md        Spieldesign, Regeln, Modul-Verträge, Layout
@@ -377,8 +376,8 @@ node tools/shots.mjs <dir>   # review screenshots of every screen
 node tools/promo/render.mjs promo.mp4 --lang en   # the 25 s TikTok promo video (1080×1920, needs ffmpeg)
 node tools/promo/render.mjs promo.mp4 --version gameplay   # calmer cuts with real recorded gameplay: mix | gameplay
 node tools/promo/render.mjs promo.mp4 --version journey    # motion films: satisfying (pastel ASMR bowl build, lo-fi),
-                   # orders (POV: order notifications flood a phone's lock screen), journey (a ride up the level map
-                   # through every region) and glowup (the "day 1 vs. day 100" meme)
+                   # orders (POV: order notifications flood a phone's lock screen), journey (a speedrun up the level
+                   # map) and glowup (the "day 1 vs. day 100" meme) – about 12 s each, cut fast in the TikTok style
 ```
 
 Unit tests cover the engine, orders, data, save, i18n, audio, art, the 3D geometry, appliance models and ingredient

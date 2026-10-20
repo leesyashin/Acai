@@ -662,3 +662,20 @@ body.render #controls { display: none; }
   paint-order: stroke fill;
 }
 .gu-fly { width: 30px; height: 20px; }
+
+/* CapCut-style captions of the fast films (tiktok.js): white words with a heavy outline, keywords coloured */
+.capw {
+  font-family: var(--font-display);
+  line-height: 1;
+  color: #fff;
+  white-space: nowrap;
+  -webkit-text-stroke: 16px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 0 10px 0 var(--ink), 0 0 30px rgba(20, 0, 30, 0.45);
+  letter-spacing: 0.01em;
+}
+.capw.y { color: #ffe14d; }
+.capw.g { color: #6dff9e; }
+.capw.p { color: #ff6bb0; }
+.capw.c { color: #6ff4ff; }
+.emo { display: block; line-height: 1; }
