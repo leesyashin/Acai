@@ -372,6 +372,14 @@ export function blenderBadgeAt(tier = 0, big = false) {
   return { x: ax + x, y: ay - y };
 }
 
+// Where the game puts a blender's on/off button: on the start/stop dial at the front of the motor base,
+// in CSS px from the top left of the VIEWS.blender canvas.
+export function blenderDialAt(tier = 0, big = false) {
+  const { ax, ay } = VIEWS.blender;
+  const [x, y] = screenOf([0, BASE.dial, baseFront(BASE.dial).z + 2], ELEV, blenderZoom(tier, big));
+  return { x: ax + x, y: ay - y };
+}
+
 // The part of the VIEWS.blender canvas a model in a state covers at any time of its animation, its
 // contact shadow included: [x0, y0, x1, y1] in CSS px. Drag ghosts copy just this part of the
 // canvas (the canvas itself is never read back). Measured once per model and state from the
@@ -764,8 +772,12 @@ function pow2Texture(spec) {
 // matches the band (MAT.panelGlass)
 const decalMat = (key, tex, glowK = 0, extra = {}) => once(key, () => material({ mode: MODE.TEX, tex: pow2Texture(tex()), p: [glowK, 1, 0, 0], rough: 0.35, coat: 0.3, ...extra }));
 
+// Is the motor running? o.on (the game's switch); without it, while blending or overflowing.
+const motorOn = (s, o) => (o.on === undefined ? s === 'blending' || s === 'overflowing' : !!o.on && s !== 'empty' && s !== 'ruined');
+
 // Controls on the front of the base; returns items. o = blender options, t = time.
 function blenderControls(tier, T, s, o, t) {
+  const on = motorOn(s, o);
   const items = [];
   const n = clamp(o.maxPortions || 2, 1, 4);
   const left = s === 'ready' || s === 'overflowing' ? clamp(o.portions ?? n, 0, n) : 0;
@@ -795,15 +807,15 @@ function blenderControls(tier, T, s, o, t) {
     items.push(item(once(`bl-disp-plane|${D.w}|${D.h}`, () => plane(D.w, D.h)), decalMat(`bl-disp-mat|${text}|${col}|${D.w}`, tex, 1.6, { color: '#000000', rough: 0.12, coat: 1 }), front(D.y, PANEL_DZ + 0.1), 'decal'));
   } else {
     // Classic: a red lamp that is on while blending (blinks when it overflows)
-    led(0, BASE.band + 2.6, s === 'blending' || (s === 'overflowing' && blink) ? LED.red : MAT.ledOff, 1.2);
+    led(0, BASE.band + 2.6, (on && s !== 'overflowing') || (s === 'overflowing' && blink) ? LED.red : MAT.ledOff, 1.2);
   }
   const ly = BASE.band - V.d * 0.5;
   for (let i = 0; i < n; i++) led((i - (n - 1) / 2) * 4.6, ly, i < left ? LED.green : MAT.ledOff, 1.5);
 
   // the big dial: print around it, the knob (chrome ring and black cap, or the Classic's plain
-  // knob), turned to full speed while blending
+  // knob), turned to full speed while the motor runs (switched off: back to 0)
   const yc = BASE.dial;
-  const ang = s === 'blending' ? DIAL_BLEND : 0;
+  const ang = on ? DIAL_BLEND : 0;
   items.push(item(once('bl-dial-plane', () => plane(DIAL, DIAL)), decalMat(`bl-dial-mat|${tier}`, () => dialTexture(tier)), front(yc, 0.12), 'decal'));
   const turn = compose(front(yc, -0.2), rotationZ(-ang), rotationX(Math.PI / 2));
   if (T.chrome) {
@@ -829,7 +841,7 @@ function blenderControls(tier, T, s, o, t) {
   if (T.bar) {
     // Pro Max: a thin light line over the plinth with a soft halo on the body, not on the floor (the
     // game's timer bar runs under the feet): white idle, cyan blending, green ready, red blink overflowing
-    const barCol = s === 'overflowing' ? (blink ? LED.red : MAT.ledOff) : s === 'ruined' ? MAT.ledOff : s === 'ready' ? LED.green : s === 'blending' ? LED.cyan : LED.white;
+    const barCol = s === 'overflowing' ? (blink ? LED.red : MAT.ledOff) : s === 'ruined' ? MAT.ledOff : s === 'ready' ? LED.green : s === 'blending' && on ? LED.cyan : LED.white;
     const fb = baseFront(BAR_Y);
     items.push(item(once('max-bar', () => roundedBox(30, 0.75, 0.8, 0.37, 2)), barCol, compose(at(0, BAR_Y, fb.z + 0.15), rotationX(-fb.lean))));
     if (barCol !== MAT.ledOff) {
@@ -842,7 +854,9 @@ function blenderControls(tier, T, s, o, t) {
   return items;
 }
 
-// Blender scene. o = { tier 0–3, big, state, base, progress, portions, maxPortions, remaining }.
+// Blender scene. o = { tier 0–3, big, state, base, progress, portions, maxPortions, remaining, on }.
+// on: the motor runs (the game's switch): a 'blending' jug switched off stands still with its frozen
+// pieces in it, a 'ready' one left on keeps humming (it vibrates, the blades turn) until it overflows.
 // o.part: 'base' draws the motor base alone (its jug is carried to a cup), 'jug' the jug alone (the drag
 // ghost: no base, no shadow); anything else the whole blender.
 export function blenderScene(o = {}, t = 0, frame = VIEWS.blender) {
@@ -868,12 +882,15 @@ export function blenderScene(o = {}, t = 0, frame = VIEWS.blender) {
   }
   if (o.part === 'base') return out;
 
-  // jug, contents and lid move together (vibration while blending)
+  // jug, contents and lid move together (vibration while the motor runs); switched off, a blend stands still
+  const on = motorOn(s, o);
+  if (s === 'blending' && !on) t = 0;
   let shake = I;
-  if (s === 'blending') shake = at(Math.sin(t * 71) * 0.45, Math.abs(Math.sin(t * 53)) * 0.35, Math.sin(t * 61) * 0.3);
+  if (s === 'blending' && on) shake = at(Math.sin(t * 71) * 0.45, Math.abs(Math.sin(t * 53)) * 0.35, Math.sin(t * 61) * 0.3);
+  else if (s === 'ready' && on) shake = at(Math.sin(t * 71) * 0.18, Math.abs(Math.sin(t * 53)) * 0.14, Math.sin(t * 61) * 0.12);
   else if (s === 'overflowing') shake = compose(at(0, 0, 0), rotationAbout([0, J.y0, 0], 'z', Math.sin(t * 13) * 0.02));
   items.push(item(parts.collar, MAT.lid, shake));
-  items.push(item(parts.blades, MAT.bladeSteel, s === 'blending' ? compose(shake, rotationY(t * 31)) : shake));
+  items.push(item(parts.blades, MAT.bladeSteel, on ? compose(shake, rotationY(t * 31)) : shake));
 
   const base = o.base;
   let level = null;
@@ -1611,7 +1628,7 @@ export function freezerScene(o = {}, t = 0, frame = VIEWS.freezer) {
 }
 
 export function isAnimated(kind, o = {}) {
-  if (kind === 'blender') return o.state === 'blending' || o.state === 'overflowing' || o.state === 'ruined';
+  if (kind === 'blender') return motorOn(o.state, o) || o.state === 'overflowing' || o.state === 'ruined';
   if (kind === 'machine') return (o.slots || []).some((s) => s && s.state === 'mixing');
   if (kind === 'freezer') return o.layer === 'front' && (Number(o.door) || 0) > 0.04;
   return false;

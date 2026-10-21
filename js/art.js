@@ -18,7 +18,7 @@ export {
 } from './art-food.js';
 export {
   blenderSVG, blenderBadgeSVG, matchaMachineSVG, matchaLedAt, MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE, MATCHA_POUR_FROM, trashSVG,
-  shopSceneSVG, decorSVG, counterSVG, freezerSVG, riserSVG, armRailSVG, armCarriageSVG, armGripSVG,
+  shopSceneSVG, decorSVG, counterSVG, freezerSVG, riserSVG,
 } from './art-kitchen.js';
 export { customerSVG, randomLook, lookFromSeed, LOOK_OPTIONS } from './art-guests.js';
 export { artDefsSVG, ART_DEFS_ID } from './svg.js';

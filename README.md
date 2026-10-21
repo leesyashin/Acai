@@ -23,12 +23,15 @@ leuchten auf, während du etwas ziehst. Lässt du an einer falschen Stelle los, 
 und ein kurzer Hinweis erklärt, warum.
 
 1. **Basis mixen:** Zieh eine gefrorene Packung (Açaí, später Pitaya oder Blaue Spirulina) aus der
-   Gefriertruhe in einen leeren Mixer. Nach ein paar Sekunden ist die Basis fertig.
+   Gefriertruhe in einen leeren Mixer und **schalte ihn ein**: Tipp auf den runden Knopf auf dem Drehregler (er
+   leuchtet grün, solange der Motor läuft). Nach ein paar Sekunden ist die Basis fertig. Ausgeschaltet bleibt der
+   Mixer stehen – auch mitten im Mixen, er macht beim nächsten Einschalten dort weiter.
 2. **Bowl hinstellen:** Zieh eine leere Bowl (einen durchsichtigen Becher) aus dem Becherspender auf einen
    freien Platz – die Becher stecken kopfüber in der Theke. Ohne Becher geht nichts hinein – am besten
-   stellst du ihn hin, während der Mixer noch läuft. Mit dem **Greifarm** aus dem Shop passiert das von
-   selbst: Ein kleiner Greifer fährt auf einer Schiene an der Theke entlang, zieht den obersten Becher aus
-   dem Spender, dreht ihn um und stellt ihn auf den nächsten freien Platz (der Turbo-Greifarm ist schneller).
+   stellst du ihn hin, während der Mixer noch läuft. Mit dem **Auto-Cup-Refill** aus dem Shop passiert das von
+   selbst: Unter dem Platz sitzt ein Lift, der einen leeren Becher aus einer Stahlklappe in der Arbeitsplatte nach
+   oben schiebt, sobald der Platz leer ist – nach gut einer Sekunde, nicht sofort. Den Lift kaufst du für jeden
+   Bowl-Platz einzeln; alle Lifte arbeiten gleichzeitig.
 3. **Bowl füllen:** Zieh den Mixkrug vom fertigen Mixer auf die leere Bowl – der Sockel bleibt stehen, der Krug kehrt nach dem
    Ausgießen auf ihn zurück. Eine Mischung reicht für zwei Bowls
    (mit dem großen Mixkrug für drei).
@@ -42,9 +45,12 @@ und ein kurzer Hinweis erklärt, warum.
 Eine Frucht auf einem Topping, ein Topping vor der ersten Frucht, eine Zutat ohne Basis, doppelte Zutaten oder mehr als sechs Zutaten
 werden abgelehnt.
 
-**Mixer läuft über:** Ab Level 6 wartet ein fertiger Mixer nicht ewig. Lässt du ihn zu lange stehen,
-fängt er an überzulaufen (rot, wackelt) – dann schnell ausgießen! Danach ist die Basis verdorben und
-der Mixer muss in den **Mülleimer** gezogen werden. Falsche Bowls (samt Becher) und Matcha kommen ebenfalls in den Müll.
+**Mixer läuft über:** Ab Level 6 wartet ein fertiger Mixer nicht ewig. Läuft sein Motor weiter, fängt er bald an
+überzulaufen (rot, wackelt) – dann schnell ausgießen oder ausschalten! **Ausgeschaltet kann er nicht überlaufen**, dafür
+schmilzt die Basis nach einer Weile (der Balken unter dem Mixer läuft eisblau ab). Mit dem Upgrade **Freeze-Mixer**
+(für jeden Mixer einzeln, erkennbar an der Schneeflocke) bleibt die Basis im ausgeschalteten Mixer frisch, so lange du
+willst. Verdorbenes muss in den **Mülleimer** gezogen werden. Falsche Bowls (samt Becher), eine Packung im falschen
+Mixer und Matcha kommen ebenfalls in den Müll.
 
 **Frucht-Matcha:** Ab Level 11 bestellen manche Gäste zusätzlich – oder nur – einen Eis-Matcha-Latte auf Fruchtpüree.
 Der Matcha hat seine eigenen Zutaten in der **Matcha-Bar** unter der Maschine: hinten die Früchte (geschnittene
@@ -64,10 +70,11 @@ Chips unter jedem Becher zeigen in derselben Sprache, was schon drin ist.
 **Herzen:** Jeder Gast hat eine Geduldsanzeige. Läuft sie ab, geht er ohne zu bezahlen und du verlierst
 ein **Herz**. Bei 0 Herzen ist das Level verloren. Ab Level 40 (vier Plätze) hast du vier statt drei Herzen.
 
-**Wenige Gäste, große Bestellungen:** Je mehr Handgriffe eine Bestellung braucht, desto länger lässt sich der
-nächste Gast Zeit und desto geduldiger ist der Gast selbst. Am Anfang kommen pro Level rund zehn Gäste mit kleinen
-Bowls, später ähnlich viele mit großen Bowls und Matcha – die bringen dafür ein Vielfaches an Münzen. Wartet gerade
-niemand, kommt der nächste Gast schon nach ein paar Sekunden: Schnelle Spieler bedienen also mehr Gäste.
+**Gäste und große Bestellungen:** Je mehr Handgriffe eine Bestellung braucht, desto länger lässt sich der
+nächste Gast Zeit und desto geduldiger ist der Gast selbst. **Ab Level 10 warten immer zwei Gäste gleichzeitig:**
+Sobald weniger warten, kommt nach ein paar Sekunden der nächste – schnelle Spieler bedienen also mehr Gäste. Ab Level 10
+bestellen manche Gäste dieselbe Bowl zwei-, ab Level 30 auch dreimal (ein orangefarbenes „2×“ am Becher in der
+Sprechblase zählt herunter, während du sie bringst); jede Bowl bringt Geduld zurück, bezahlt wird, wenn alles da ist.
 
 **Sterne:** Jedes der 60 Kampagnen-Level hat ein Zeitlimit und drei Geldziele. Erreichst du das erste Ziel,
 ist das Level geschafft (1 Stern), für 2 und 3 Sterne brauchst du mehr. Bei Ladenschluss kommen keine
@@ -79,9 +86,11 @@ Level. Die Level-Karte zeigt vor dem Start, was neu ist, und im Level trägt die
 öfter bestellt.
 
 **Laden:** Mit deinen Münzen kaufst du im Shop bessere Qualität (mehr Münzen pro Zutat, für jede Zutat, die schon da
-ist), Küchen-Upgrades (schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Greifarm, Doppel-Matcha)
-und Deko, die Gäste geduldiger macht. Wer schon mit einer älteren Version gespielt und Zutaten gekauft hat, bekommt
-die Münzen dafür zurück.
+ist), Küchen-Upgrades (schnellerer Mixer, großer Mixkrug, zweiter Mixer, mehr Bowl-Plätze, Auto-Cup-Refill pro
+Platz, Freeze-Mixer pro Mixer, Doppel-Matcha) und Deko, die Gäste geduldiger macht. Den Lift für den dritten und
+vierten Platz gibt es erst, wenn du den Platz hast, Freeze für den zweiten Mixer erst mit dem zweiten Mixer. Wer
+schon mit einer älteren Version gespielt und Zutaten oder den früheren Greifarm gekauft hat, bekommt die Münzen dafür
+zurück.
 
 **Küchengeräte in 3D:** Mixer und Matcha-Maschine stehen hinten auf der Arbeitsplatte vor der Theke und sind etwa
 doppelt so hoch wie ein Becher. Der Mixer ist einem echten Standmixer nachempfunden: gerippter Glaskrug mit Skala, klarem
@@ -354,10 +363,13 @@ depth (a window with a deep reveal and bright daylight, a chalkboard, a shelf, p
 shadows) and stays calm, so the guests and their order bubbles stand out. With 4 guests it leaves out the chalkboard and
 the shelf, which the outer order bubbles would hide all but for thin slivers.
 
-**How to play:** drag a frozen pack into the blender, put an empty bowl (a clear cup) from the stack on a
-free spot, drag the ready blender onto it, add *Fruits & Crunch*, then *Toppings & Sauces* (fixed layer order –
-wrong drops bounce back), and drag the finished bowl onto the customer. From level 3 a ready blender **overflows** if you leave it too long and has to
-go into the trash. Fruit matcha (an iced matcha latte on banana, strawberry, blueberry, mango or kiwi purée): drag the
+**How to play:** drag a frozen pack into the blender and switch it on with the button on its dial, put an empty
+bowl (a clear cup) from the stack on a free spot, drag the ready blender onto it, add *Fruits & Crunch*, then
+*Toppings & Sauces* (fixed layer order – wrong drops bounce back), and drag the finished bowl onto the customer. From
+level 6 a ready blender left running **overflows** and has to go into the trash; switched off it cannot overflow, but
+its base melts after a while unless the blender has the **freeze** upgrade. The **auto cup refill** (bought per bowl
+spot) pushes a fresh cup up out of the counter whenever its spot is empty. From level 10 two customers always wait at
+once, and some order the same bowl two or three times. Fruit matcha (an iced matcha latte on banana, strawberry, blueberry, mango or kiwi purée): drag the
 fruit onto the glass in the matcha machine, wait until it is brewed, then drag the glass onto the customer.
 The order bubble over each guest shows the bowl on the left – the cup with its base (1), then a row of fruits & crunch
 (2) and one of toppings & sauces (3), big icons on circles in their layer's colour – and, behind a divider, the matcha with

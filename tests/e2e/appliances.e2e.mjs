@@ -127,19 +127,27 @@ async function main() {
         assert(await page.locator('.g-machine').getAttribute('data-model') === '2', 'machine is not the two-tank model');
       });
 
-      await check('blending animates the jug, a ready jug stands still', async () => {
-        await engine(page, 'return e.loadBlender(g, 0, "acai").ok;');
+      await check('blending animates the jug, a ready jug left on hums, switched off it stands still', async () => {
+        await engine(page, 'return e.loadBlender(g, 0, "acai").ok && e.toggleBlender(g, 0).ok;');
         await sleep(250);
         const a = await canvasInfo(page, '[data-blender="0"] canvas');
         await sleep(450);
         const b = await canvasInfo(page, '[data-blender="0"] canvas');
         assert(a.hash !== b.hash, 'the blending jug did not move');
         await fastUntil(page, () => window.__acaiGame.blenders[0].state === 'ready');
+        await page.evaluate(() => { window.__acaiSpeed = 0.05; }); // it must not overflow meanwhile
+        await sleep(250);
+        const on0 = await canvasInfo(page, '[data-blender="0"] canvas');
+        await sleep(450);
+        const on1 = await canvasInfo(page, '[data-blender="0"] canvas');
+        await page.evaluate(() => { window.__acaiSpeed = 1; });
+        assert(on0.hash !== on1.hash, 'a ready blender left on stands still');
+        await engine(page, 'return e.toggleBlender(g, 0).ok;');
         await sleep(400);
         const c = await canvasInfo(page, '[data-blender="0"] canvas');
         await sleep(400);
         const d = await canvasInfo(page, '[data-blender="0"] canvas');
-        assert(c.hash === d.hash, 'a ready blender keeps redrawing');
+        assert(c.hash === d.hash, 'a ready blender switched off keeps redrawing');
         assert(await page.locator('[data-blender="0"] .g-badge svg').count() === 1, 'no ✓ badge on the ready blender');
         await page.screenshot({ path: path.join(OUT, 'ready.png') });
       });
@@ -257,8 +265,8 @@ async function main() {
         const idle = await fps(2000);
         await page.evaluate(() => { window.__acaiSpeed = 0.05; }); // the states hold while the frames are counted
         try {
-          const loaded = await engine(page, `return [e.loadBlender(g, 0, 'acai'), e.loadBlender(g, 1, 'pitaya'),
-            e.loadMatcha(g, 0, 'mMango'), e.loadMatcha(g, 1, 'mStrawberry')].every((r) => r.ok);`);
+          const loaded = await engine(page, `return [e.loadBlender(g, 0, 'acai'), e.toggleBlender(g, 0), e.loadBlender(g, 1, 'pitaya'),
+            e.toggleBlender(g, 1), e.loadMatcha(g, 0, 'mMango'), e.loadMatcha(g, 1, 'mStrawberry')].every((r) => r.ok);`);
           assert(loaded, 'could not start both blenders and both glasses');
           await sleep(800);
           const sels = ['[data-blender="0"] canvas', '[data-blender="1"] canvas', '.g-machine canvas.g-3d'];
@@ -351,7 +359,7 @@ async function main() {
         assert(await page.locator('.g-machine > svg').count() === 1, 'no SVG matcha machine');
         assert(await page.locator('.g-trash .g-art svg').count() === 1, 'no SVG trash can');
         assert(await page.locator('canvas.g-3d').count() === 0, '3D canvases without WebGL');
-        await engine(page, 'return e.loadBlender(g, 0, "acai").ok;');
+        await engine(page, 'return e.loadBlender(g, 0, "acai").ok && e.toggleBlender(g, 0).ok;');
         await fastUntil(page, () => window.__acaiGame.blenders[0].state === 'ready');
         await sleep(200);
         assert(await page.locator('[data-blender="0"] .g-art svg [data-fill]').count() === 1, 'SVG jug is not filled');

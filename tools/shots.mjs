@@ -46,7 +46,7 @@ function save(kind, lang) {
   for (let i = 1; i <= 44; i++) stars[i] = (i % 4) ? 3 : 2;
   return {
     ...base, coins: 2380, ingLevels: { acai: 2, pitaya: 1, banana: 1, strawberry: 2, mango: 1 },
-    upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, cupArm: 1, matchaSlots: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
+    upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, cupLift: 4, freeze: 2, matchaSlots: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
     stars, endlessBest: 512, seenIntros: { basics: true }, stats: { served: 640, earned: 6400, played: 20 },
   };
 }
@@ -108,6 +108,7 @@ async function main() {
           await page.evaluate(async () => {
             const e = await import('/js/engine.js');
             e.loadBlender(window.__acaiGame, 0, 'acai');
+            e.toggleBlender(window.__acaiGame, 0);
             window.__acaiSpeed = 4;
           });
           await page.waitForFunction(() => window.__acaiGame.blenders[0].state === 'ready', null, { timeout: 15000 });
@@ -178,7 +179,9 @@ async function main() {
             const e = await import('/js/engine.js');
             const g = window.__acaiGame;
             e.loadBlender(g, 0, 'acai');
+            e.toggleBlender(g, 0);
             e.loadBlender(g, 1, 'pitaya');
+            e.toggleBlender(g, 1);
             const c = g.seats.filter(Boolean);
             c[1].patience = c[1].maxPatience * 0.45;
             c[2].patience = c[2].maxPatience * 0.22;
@@ -233,7 +236,9 @@ async function main() {
               if (g.blenders[i].state !== 'empty') e.cleanBlender(g, i);
             }
             e.loadBlender(g, 0, 'spirulina');
+            e.toggleBlender(g, 0);
             e.loadBlender(g, 1, 'acai');
+            e.toggleBlender(g, 1);
             window.__acaiSpeed = 8;
           });
           await page.waitForFunction(() => window.__acaiGame.blenders[1].state === 'overflowing', null, { timeout: 30000 });

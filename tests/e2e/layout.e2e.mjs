@@ -216,8 +216,8 @@ const seatLongestOrders = (page) => page.evaluate((orders) => {
     const o = orders[i % orders.length];
     g.seats[i] = {
       id: 9000 + i, seat: i, look: { seed: 31 + i * 17 },
-      order: { bowl: { base: o.base, mid: o.mid.slice(), top: o.top.slice() }, matcha: { fruit: o.matcha.fruit, extras: o.matcha.extras.slice() } },
-      delivered: { bowl: i === 1, matcha: false },
+      order: { bowl: { base: o.base, mid: o.mid.slice(), top: o.top.slice() }, qty: 1, matcha: { fruit: o.matcha.fruit, extras: o.matcha.extras.slice() } },
+      delivered: { bowl: i === 1, bowls: i === 1 ? 1 : 0, matcha: false },
       patience: 999, maxPatience: 999, state: 'waiting', t: 1, mood: 'happy', paid: 0,
     };
   });

@@ -289,6 +289,12 @@ export async function captureGameplay({
         await frame();
         continue;
       }
+      // a pack in a blender: switch it on (the button press itself is not filmed)
+      await page.evaluate(async () => {
+        const e = await import('/js/engine.js');
+        const g = window.__acaiGame;
+        g.blenders.forEach((b, i) => { if (b.state === 'loaded') e.toggleBlender(g, i); });
+      });
       const a = plan(s);
       if (!a || !(await drag(a))) {
         await frame();

@@ -653,7 +653,7 @@ export function serveBowl(game, bowlIdx, customerId) {
   const err = serveBowlError(game, bowlIdx, customerId);
   if (err) return fail(err);
   const c = findCustomer(game, customerId);
-  c.delivered.bowls++;
+  c.delivered.bowls = (c.delivered.bowls || 0) + 1;
   c.delivered.bowl = c.delivered.bowls >= (c.order.qty || 1);
   resetBowl(game, bowlIdx);
   delivered(game, c);

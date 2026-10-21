@@ -6,18 +6,17 @@ import { INGREDIENTS, LEVELS, MATCHA_LEVEL, getLevel, ingName, ownedAt, unlocked
 import { registerStrings, t, onLangChange, getLang, formatNumber } from './i18n.js';
 import {
   createGame, tick, drainEvents, setPaused, releaseTutorialHold, endRun, bowlMatchesOrder, matchaMatchesOrder,
-  loadBlender, pourBlender, addIngredient, trashBowl, cleanBlender, placeCup,
+  loadBlender, toggleBlender, pourBlender, addIngredient, trashBowl, cleanBlender, placeCup,
   loadMatcha, trashMatcha, serveBowl, serveMatcha,
   loadBlenderError, pourError, addIngredientError, loadMatchaError, serveBowlError, serveMatchaError, placeCupError,
 } from './engine.js';
 import {
   ingredientIcon, packIcon, bowlSVG, matchaGlassSVG, binSVG, binFillSVG, scoopSVG, cupDispenserSVG, cupSpotSVG, customerSVG, lookFromSeed, blenderSVG,
-  armRailSVG, armCarriageSVG, armGripSVG,
   blenderBadgeSVG, matchaMachineSVG, matchaLedAt, MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE, MATCHA_POUR_FROM,
   trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG, counterSVG, freezerSVG, riserSVG,
 } from './art.js';
 import { has3D, createView, snapshot, still, pixelRatio } from './art3d.js';
-import { blenderLook, blenderBadgeAt, blenderBox, pourFill, pureeFill, brewPhase } from './kitchen3d.js';
+import { blenderLook, blenderBadgeAt, blenderDialAt, blenderBox, pourFill, pureeFill, brewPhase } from './kitchen3d.js';
 import { PANTRY_VIEW, pantryKind, pantryHasFront, pantryTop, pantryBadges } from './pantry3d.js';
 import { createDragManager } from './drag.js';
 import defaultAudio from './audio.js';
@@ -71,7 +70,8 @@ registerStrings({
     'game.stackName': 'Bowls',
     'game.freezer': 'Basis',
     'game.lockedMatcha': 'Matcha ab Level {n}',
-    'game.banner.overflow': 'Achtung: Ein fertiger Mixer läuft über, wenn er zu lange steht! Verdorbene Mixer ziehst du in den Müll.',
+    'game.banner.overflow': 'Achtung: Ein fertiger Mixer läuft über, wenn er weiterläuft! Schalte ihn aus – dann hält die Basis noch eine Weile. Verdorbenes kommt in den Müll.',
+    'game.banner.crowd': 'Jetzt warten immer zwei Gäste – und manche bestellen mehrere Bowls!',
     'game.banner.moreSeats': 'Jetzt gibt es 3 Plätze – mehr Gäste gleichzeitig!',
     'game.banner.matcha': 'Neu: die Matcha-Maschine!', // short: the card before the level explains it
     'game.banner.extras': 'Neu: Extras für den Matcha!',
@@ -89,6 +89,10 @@ registerStrings({
     'game.hint.blender': 'Zieh den Mixkrug auf eine leere Bowl!',
     'game.hint.blenderEmpty': 'Zieh eine Basis-Packung in den Mixer!',
     'game.hint.blenderRuined': 'Verdorben! Zieh den Mixkrug in den Müll.',
+    'game.hint.blenderOff': 'Tipp auf den Knopf, um den Mixer einzuschalten!',
+    'game.hint.blenderMelted': 'Geschmolzen! Zieh den Mixkrug in den Müll.',
+    'game.power': 'Mixer {n} an/aus',
+    'game.qty': '{n}×',
     'game.hint.glass': 'Zieh den Matcha zu einem Gast!',
     'game.hint.slotEmpty': 'Zieh eine Frucht aus der Matcha-Bar auf das Glas!',
     'game.hint.mfruit': 'Zieh die Frucht auf ein leeres Matcha-Glas!',
@@ -97,6 +101,7 @@ registerStrings({
     'game.tut.title': 'So geht’s',
     'game.tut.welcome': 'Willkommen in deinem Açaí-Laden! Gleich kommt dein erster Gast.',
     'game.tut.pack': 'Zieh die {base}-Packung in den Mixer!',
+    'game.tut.switch': 'Schalte den Mixer ein: Tipp auf den Knopf!',
     'game.tut.wait': 'Der Mixer mixt … einen Moment!',
     'game.tut.waitWrong': 'Das ist die falsche Basis. Warte, bis der Mixer fertig ist.',
     'game.tut.cup': 'Stell eine leere Bowl hin: Zieh sie aus dem Becherspender auf den freien Platz!',
@@ -122,6 +127,9 @@ registerStrings({
     'reason.blenderBusy': 'Der Mixer ist noch belegt!',
     'reason.blenderNotReady': 'Der Mixer ist noch nicht fertig!',
     'reason.blenderRuined': 'Verdorben! Ab in den Müll damit.',
+    'reason.blenderOff': 'Der Mixer ist aus – tipp auf den Knopf!',
+    'reason.blenderEmpty': 'Erst eine Basis-Packung in den Mixer!',
+    'reason.blenderDone': 'Fertig! Zieh den Mixkrug auf eine Bowl.',
     'reason.bowlHasBase': 'Die Bowl hat schon eine Basis!',
     'reason.notOwned': 'Diese Zutat hast du noch nicht.',
     'reason.wrongLayer': 'Nur Basis-Packungen kommen in den Mixer!',
@@ -184,7 +192,8 @@ registerStrings({
     'game.stackName': 'Bowls',
     'game.freezer': 'Base',
     'game.lockedMatcha': 'Matcha from level {n}',
-    'game.banner.overflow': 'Careful: a ready blender overflows if it waits too long! Drag spoiled blenders to the trash.',
+    'game.banner.overflow': 'Careful: a ready blender overflows if you leave it running! Switch it off – the base then keeps a while. Spoiled stuff goes in the trash.',
+    'game.banner.crowd': 'Now two customers always wait – and some order several bowls!',
     'game.banner.moreSeats': 'Now there are 3 seats – more customers at once!',
     'game.banner.matcha': 'New: the matcha machine!', // short: the card before the level explains it
     'game.banner.extras': 'New: extras for the matcha!',
@@ -202,6 +211,10 @@ registerStrings({
     'game.hint.blender': 'Drag the blender jug onto an empty bowl!',
     'game.hint.blenderEmpty': 'Drag a base pack into the blender!',
     'game.hint.blenderRuined': 'Spoiled! Drag the blender jug to the trash.',
+    'game.hint.blenderOff': 'Tap the button to switch the blender on!',
+    'game.hint.blenderMelted': 'Melted! Drag the blender jug to the trash.',
+    'game.power': 'Blender {n} on/off',
+    'game.qty': '{n}×',
     'game.hint.glass': 'Drag the matcha to a customer!',
     'game.hint.slotEmpty': 'Drag a fruit from the matcha bar onto the glass!',
     'game.hint.mfruit': 'Drag the fruit onto an empty matcha glass!',
@@ -210,6 +223,7 @@ registerStrings({
     'game.tut.title': 'How to play',
     'game.tut.welcome': 'Welcome to your açaí shop! Your first customer is on the way.',
     'game.tut.pack': 'Drag the {base} pack into the blender!',
+    'game.tut.switch': 'Switch the blender on: tap the button!',
     'game.tut.wait': 'The blender is mixing … one moment!',
     'game.tut.waitWrong': 'That’s the wrong base. Wait until the blender is done.',
     'game.tut.cup': 'Put an empty bowl down: drag it from the cup dispenser to the free spot!',
@@ -235,6 +249,9 @@ registerStrings({
     'reason.blenderBusy': 'The blender is still busy!',
     'reason.blenderNotReady': 'The blender isn’t ready yet!',
     'reason.blenderRuined': 'Spoiled! Into the trash with it.',
+    'reason.blenderOff': 'The blender is off – tap the button!',
+    'reason.blenderEmpty': 'Put a base pack in the blender first!',
+    'reason.blenderDone': 'Done! Drag the jug onto a bowl.',
     'reason.bowlHasBase': 'This bowl already has a base!',
     'reason.notOwned': 'You don’t own this ingredient yet.',
     'reason.wrongLayer': 'Only base packs go into the blender!',
@@ -273,6 +290,8 @@ const SEAT_X = [null, [640], [420, 860], [270, 640, 1010], [200, 493, 787, 1080]
 const BLENDER_X = [null, [89], [10, 170]];
 const BLENDER_ART = 245; // the drawn blender without WebGL (wider than the box, transparent; as tall as the 3D 2-bowl jug)
 const BLENDER_BADGE = 36;
+const POWER_SIZE = 46; // the on/off button on a blender's dial (css/game.css .g-power)
+const DIAL_2D = [75 / 150, 124.5 / 150]; // the dial in blenderSVG, × its size
 const JUG_2D = [32 / 150, 8 / 150, 120 / 150, 96 / 150]; // the jug (lid to coupling, handle and foam) in blenderSVG, × its size
 // The cup stack stands at the left end of the cup row; stack + spots are centred in the middle column.
 const MID_X0 = 330;
@@ -309,15 +328,6 @@ const MBAR_X0 = 962;
 const MBAR_W = { mfruit: 74, mextra: 66 };
 const MBAR_GAP = 4;
 const MBAR_TOP = { mfruit: 212, mextra: 304 }; // the fruit row a little lower: clear of the glasses' boxes
-// The cup arm: a rail along the pass's front, its carriage hanging from it, a telescopic rod down to the
-// gripper. Work y of the gripper's pads (a cup's middle): on the top cup in the dispenser, a cup carried
-// along (behind the cups that stand there), a cup standing on a spot.
-const ARM_RAIL_TOP = -24; // armRailSVG: the tube at y 12–21 of its box
-const ARM_CAR_TOP = -16; // armCarriageSVG (64 × 40): its rollers on the tube
-const ARM_ROD_TOP = ARM_CAR_TOP + 36;
-const ARM_PAD = { rest: 50, disp: 100, high: 38, lift: 80, spot: 112 };
-const ARM_GRIP_PAD = 46; // the pads' y in armGripSVG (100 × 56)
-const ARM_HOME_SPEED = 700; // px/s back to the dispenser when idle
 const SHELF_LABEL_HALF = 72;
 const FREEZER_W = 284;
 const FREEZER_H = 186;
@@ -376,13 +386,21 @@ const ACTIVE = new Set(['arriving', 'waiting']);
 const BOWL_LAYERS = new Set(['mid', 'top']);
 const MATCHA_SIDE = new Set(['mfruit', 'mextra']);
 const POURABLE = new Set(['ready', 'overflowing', 'ruined']);
+// a jug can be carried off its base in these states (a pack that went into the wrong blender: to the trash)
+const CARRIED = new Set([...POURABLE, 'loaded']);
+// How the art draws a blender: a pack in but switched off ('loaded') is a blend standing still.
+const artState = (b) => (b.state === 'loaded' ? 'blending' : b.state);
 // whole seconds a blender has left to blend (its display counts them down)
-const secsLeft = (b) => (b.state === 'blending' ? Math.ceil((1 - b.progress) * (b.duration || 0)) : 0);
+const secsLeft = (b) => (b.state === 'blending' || b.state === 'loaded' ? Math.ceil((1 - b.progress) * (b.duration || 0)) : 0);
 // a matcha slot's brew progress in the 3D machine's steps (it redraws 60 times per brew)
 const brewStep = (s) => (s.state === 'mixing' ? Math.round(s.progress * 60) / 60 : 0);
-const TUT_DOTS = ['pack', 'cup', 'wait', 'pour', 'add', 'serve', 'done'];
-const TUT_DOT_OF = { welcome: -1, pack: 0, clean: 0, cup: 1, cupWait: 1, wait: 2, waitWrong: 2, pour: 3, add: 4, trash: 4, serve: 5, done: 6 };
+const TUT_DOTS = ['pack', 'switch', 'cup', 'wait', 'pour', 'add', 'serve', 'done'];
+const TUT_DOT_OF = { welcome: -1, pack: 0, clean: 0, switch: 1, cup: 2, cupWait: 2, wait: 3, waitWrong: 3, pour: 4, add: 5, trash: 5, serve: 6, done: 7 };
 
+// the blender's on/off button: the power symbol on a round cap (css/game.css lights it while the motor runs)
+const POWER_SVG = '<svg viewBox="0 0 40 40" width="100%" height="100%" aria-hidden="true"><path d="M20 9.5v10" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round"/><path d="M13 13.6a10 10 0 1 0 14 0" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round"/></svg>';
+// the freeze upgrade's mark on a blender: an ice-blue snowflake
+const FROST_SVG = '<svg viewBox="0 0 40 40" width="100%" height="100%" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#e9f8ff" stroke="#2a1236" stroke-width="2.6"/><g stroke="#2f9fd8" stroke-width="3" stroke-linecap="round" fill="none"><path d="M20 8v24M9.6 14l20.8 12M9.6 26l20.8-12"/><path d="M16.5 10.5L20 13.5l3.5-3M16.5 29.5L20 26.5l3.5 3"/></g></svg>';
 const CHECK_SVG = '<svg viewBox="0 0 40 40" width="34" height="34" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#2fbf71" stroke="#2a1236" stroke-width="3"/><path d="M11.5 20.5l6 6 11-12" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 // the big tick over a delivered part of an order bubble: a glossy green disc in a white ring
 const DONE_SVG = '<svg viewBox="0 0 40 40" width="38" height="38" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#2fbf71" stroke="#fff" stroke-width="2.5"/><path d="M4.5 22a15.5 15.5 0 0 0 31 0Z" fill="#127a44" opacity="0.22"/><ellipse cx="17" cy="11" rx="9" ry="4.5" fill="#fff" opacity="0.28"/><path d="M11.5 20.5l6 6 11-12" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -587,8 +605,11 @@ class GameView {
     // left (over the handle's top) so it stays inside the blender's box
     const bx = BLENDER_X[g.blenders.length] || BLENDER_X[2];
     const badgeAt = this.k3d ? blenderBadgeAt(this.look.tier, this.look.big) : { x: (119 * BLENDER_ART) / 150, y: (22 * BLENDER_ART) / 150 };
+    // the on/off button sits on the start/stop dial (where the art is drawn in the box: css/game.css .g-art)
+    const dial = this.k3d ? blenderDialAt(this.look.tier, this.look.big) : { x: DIAL_2D[0] * BLENDER_ART, y: DIAL_2D[1] * BLENDER_ART };
+    const artAt = this.k3d ? { x: -6, y: -62 } : { x: -62, y: -28 };
     this.blenderViews = g.blenders.map((b, i) => {
-      const node = el('div', 'g-blender', { 'data-blender': i, 'data-state': b.state, 'data-model': this.look.tier });
+      const node = el('div', 'g-blender', { 'data-blender': i, 'data-state': b.state, 'data-on': 'false', 'data-model': this.look.tier, 'data-frozen': b.frozen ? '' : null });
       node.style.left = `${bx[i]}px`;
       const art = el('div', 'g-art');
       const badge = el('div', 'g-badge');
@@ -597,13 +618,23 @@ class GameView {
       const timer = el('div', 'g-timer');
       const fill = el('i');
       timer.append(fill);
-      node.append(art, timer);
+      // the switch: a round button on the dial, lit while the motor runs; a frozen blender wears a frost ring
+      const power = el('button', 'g-power', { type: 'button', 'data-power': i, 'aria-pressed': 'false' });
+      power.innerHTML = POWER_SVG;
+      power.style.left = `${Math.round(artAt.x + dial.x - POWER_SIZE / 2)}px`;
+      power.style.top = `${Math.round(artAt.y + dial.y - POWER_SIZE / 2)}px`;
+      node.append(art, timer, power);
+      if (b.frozen) {
+        const frost = el('span', 'g-frost', { 'aria-hidden': 'true' });
+        frost.innerHTML = FROST_SVG;
+        node.append(frost);
+      }
       work.append(node);
       // where the jug stands on its base: a carried jug flies back there
       const jug = el('div', 'g-jug');
       const [jx0, jy0, jx1, jy1] = this.k3d ? blenderBox(this.look.tier, this.look.big, 'ready', 'jug') : JUG_2D.map((c) => c * BLENDER_ART);
       Object.assign(jug.style, { left: `${jx0}px`, top: `${jy0}px`, width: `${jx1 - jx0}px`, height: `${jy1 - jy0}px` });
-      const v = { el: node, art, badge, jug, timer, fill, state: null, ring: null, ringP: -1 };
+      const v = { el: node, art, badge, jug, timer, fill, power, state: null, on: null, ring: null, ringP: -1 };
       if (this.k3d) {
         v.view = createView('blender');
         art.append(v.view.el);
@@ -615,7 +646,7 @@ class GameView {
       return v;
     });
     // the crop boxes of the drag ghosts: measured now rather than at the first pickup
-    if (this.k3d) for (const s of POURABLE) blenderBox(this.look.tier, this.look.big, s, 'jug');
+    if (this.k3d) for (const s of [...POURABLE, 'blending']) blenderBox(this.look.tier, this.look.big, s, 'jug');
 
     // chest freezer built into the counter, the base packs (owned bases only) standing in it: the
     // frame's front edge is drawn over the packs, their names over the frame
@@ -646,28 +677,39 @@ class GameView {
     work.append(freezer);
 
     // cup dispenser + bowl spots: a cup goes down from the dispenser before anything goes into it – by
-    // hand, or by the cup arm running on its rail behind them (drawn before them: it passes behind the cups)
+    // hand, or pushed up out of the counter by the spot's cup lift (bought spot by spot)
     const n = g.bowls.length;
     const x0 = MID_X0 + (MID_W - (STACK_W + STACK_GAP + n * BOWL_SLOT_W)) / 2;
     const sx0 = x0 + STACK_W + STACK_GAP;
     this.dispX = Math.round(x0 + STACK_W / 2);
     this.spotX = g.bowls.map((b, i) => Math.round(sx0 + i * BOWL_SLOT_W + BOWL_SLOT_W / 2));
-    if (g.arm) work.append(this.buildArm());
     this.stackEl = el('div', 'g-stack', { 'data-cup-stack': '', role: 'img' });
     this.stackEl.style.left = `${Math.round(x0)}px`;
     this.stackEl.style.top = `${CUP_FOOT_Y - DISP_COLLAR}px`;
     this.stackEl.innerHTML = `<div class="g-art">${cupDispenserSVG(STACK_W)}</div><span class="g-name"></span>`;
     work.append(this.stackEl);
     this.bowlViews = g.bowls.map((b, i) => {
-      const node = el('div', 'g-bowl', { 'data-bowl': i, 'data-state': 'nocup' });
+      const node = el('div', 'g-bowl', { 'data-bowl': i, 'data-state': 'nocup', 'data-lift': g.lifts[i] ? '' : null });
       node.style.left = `${Math.round(sx0 + i * BOWL_SLOT_W)}px`;
       const art = el('div', 'g-art');
       const chips = el('div', 'g-chips');
       const match = el('span', 'g-match');
       match.innerHTML = CHECK_SVG;
       node.append(art, match, chips);
+      // the lift: a steel hatch in the counter and the cup it pushes up (clipped at the worktop)
+      let lift = null;
+      if (g.lifts[i]) {
+        const hatch = el('span', 'g-lift-hatch', { 'aria-hidden': 'true' });
+        const shaft = el('span', 'g-lift', { 'aria-hidden': 'true' });
+        const cup = el('span', 'g-lift-cup');
+        cup.innerHTML = bowlSVG(null, BOWL_SIZE);
+        shaft.append(cup);
+        node.prepend(hatch);
+        node.append(shaft);
+        lift = { hatch, shaft, cup, k: -1 };
+      }
       work.append(node);
-      return { el: node, art, chips, match, isMatch: false };
+      return { el: node, art, chips, match, lift, isMatch: false };
     });
 
     // ingredient containers (owned only) in two rows on slim oak risers, fruits & crunch behind
@@ -826,69 +868,6 @@ class GameView {
     return x + rowW / 2;
   }
 
-  // The cup arm: its rail (from the dispenser to the last spot), the carriage with the rod and the gripper,
-  // and the cup it carries (an empty cup, flipped from upside down while it is lifted).
-  buildArm() {
-    const x0 = this.dispX - 50;
-    const x1 = this.spotX[this.spotX.length - 1] + 50;
-    const wrap = el('div', 'g-arm', { 'aria-hidden': 'true' });
-    const rail = el('div', 'g-arm-rail');
-    rail.style.left = `${x0}px`;
-    rail.style.top = `${ARM_RAIL_TOP}px`;
-    rail.innerHTML = armRailSVG(x1 - x0);
-    const car = el('div', 'g-arm-car');
-    const body = el('div', 'g-arm-body');
-    const rod = el('div', 'g-arm-rod');
-    const grip = el('div', 'g-arm-grip');
-    const cup = el('div', 'g-arm-cup');
-    cup.innerHTML = bowlSVG(null, BOWL_SIZE);
-    const claw = el('div', 'g-arm-claw');
-    grip.append(cup, claw);
-    car.append(rod, body, grip);
-    wrap.append(rail, car);
-    this.armView = {
-      el: wrap, car, body, rod, grip, cup, claw,
-      x: this.dispX, pad: ARM_PAD.rest, from: this.dispX, target: null, sig: '', front: null, holding: null, open: null, led: null, flip: null,
-    };
-    this.drawArm(this.dispX, ARM_PAD.rest, { open: true, holding: false, flip: 1, front: false, led: false });
-    return wrap;
-  }
-
-  // Place the arm's parts: carriage at x, the gripper's pads at work y pad.
-  drawArm(x, pad, { open, holding, flip, front, led }) {
-    const v = this.armView;
-    const rx = Math.round(x);
-    const rp = Math.round(pad);
-    const fl = Math.round(flip * 20) / 20;
-    const sig = `${rx}|${rp}|${open}|${holding}|${fl}|${front}|${led}`;
-    if (sig === v.sig) return;
-    v.sig = sig;
-    v.car.style.transform = `translateX(${rx}px)`;
-    const gripTop = rp - ARM_GRIP_PAD;
-    v.rod.style.height = `${Math.max(0, gripTop - ARM_ROD_TOP + 6)}px`;
-    v.grip.style.transform = `translateY(${gripTop}px)`;
-    if (v.open !== open) {
-      v.open = open;
-      v.claw.innerHTML = armGripSVG(open);
-    }
-    if (v.led !== led) {
-      v.led = led;
-      v.body.innerHTML = armCarriageSVG(led);
-    }
-    if (v.holding !== holding) {
-      v.holding = holding;
-      v.cup.hidden = !holding;
-    }
-    if (v.flip !== fl) {
-      v.flip = fl;
-      v.cup.style.transform = `scaleY(${fl})`;
-    }
-    if (v.front !== front) {
-      v.front = front;
-      v.el.classList.toggle('is-front', front);
-    }
-  }
-
   badgeMarkup(id) {
     return this.featured.has(id) ? '<span class="g-new"></span>' : '';
   }
@@ -1019,6 +998,7 @@ class GameView {
     for (const [layer, node] of Object.entries(this.shelfLabels)) setText(node, LAYER_NUM[layer] ? `${LAYER_NUM[layer]} · ${t(`layer.${layer}`)}` : t(`layer.${layer}`));
     if (this.lockLabel) setText(this.lockLabel, t('game.lockedMatcha', { n: MATCHA_LEVEL }));
     this.trashEl.setAttribute('aria-label', t('game.trash'));
+    this.blenderViews.forEach((v, i) => v.power.setAttribute('aria-label', t('game.power', { n: i + 1 })));
     this.stackEl.setAttribute('aria-label', t('game.stack'));
     setText(this.stackEl.querySelector('.g-name'), t('game.stackName'));
     this.pauseBtn.setAttribute('aria-label', t('game.aria.pause'));
@@ -1137,7 +1117,7 @@ class GameView {
       dnd.source(v.el, {
         payload: () => {
           const b = g.blenders[i];
-          return this.canAct() && POURABLE.has(b.state) ? { kind: 'blender', idx: i } : null;
+          return this.canAct() && CARRIED.has(b.state) ? { kind: 'blender', idx: i } : null;
         },
         // only the jug is lifted off its base and carried, at about its size on the counter (drag.js enlarges
         // ghosts by 1.12); the base stays (update3D / updateBlenders draw it without its jug while carried) and the
@@ -1145,7 +1125,10 @@ class GameView {
         ghost: () => this.jugGhost(i),
         home: () => v.jug,
         back: true,
-        onTap: () => this.hint(v.el, g.blenders[i].state === 'ruined' ? 'game.hint.blenderRuined' : 'game.hint.blender'),
+        onTap: () => {
+          const st = g.blenders[i].state;
+          this.hint(v.el, st === 'ruined' ? 'game.hint.blenderRuined' : st === 'loaded' ? 'game.hint.blenderOff' : 'game.hint.blender');
+        },
       });
       dnd.target(v.el, {
         accepts: (p) => p.kind === 'pack',
@@ -1157,6 +1140,9 @@ class GameView {
         if (b.state === 'blending') this.hint(v.el, 'reason.blenderNotReady');
         else if (b.state === 'empty') this.hint(v.el, 'game.hint.blenderEmpty');
       });
+      // the switch takes its own presses: they never pick the jug up
+      this.listen(v.power, 'pointerdown', (e) => e.stopPropagation());
+      this.listen(v.power, 'click', () => this.pressPower(i));
     });
 
     dnd.source(this.stackEl, {
@@ -1169,9 +1155,11 @@ class GameView {
       if (p.kind === 'newcup') return placeCupError(g, i);
       return p.kind === 'blender' ? pourError(g, p.idx, i) : addIngredientError(g, i, p.id);
     };
+    // a jug that has not blended yet: point to its switch rather than "not ready"
+    const pourReason = (r, p) => (!r.ok && r.reason === 'blenderNotReady' && g.blenders[p.idx]?.state === 'loaded' ? { ok: false, reason: 'blenderOff' } : r);
     const bowlDrop = (p, i) => {
       if (p.kind === 'newcup') return placeCup(g, i);
-      return p.kind === 'blender' ? pourBlender(g, p.idx, i) : addIngredient(g, i, p.id);
+      return p.kind === 'blender' ? pourReason(pourBlender(g, p.idx, i), p) : addIngredient(g, i, p.id);
     };
     this.bowlViews.forEach((v, i) => {
       dnd.source(v.el, {
@@ -1323,6 +1311,21 @@ class GameView {
       }
     }
     return best;
+  }
+
+  // The blender's on/off button: switch it, or say why not (nothing in it, spoiled, done and off).
+  pressPower(i) {
+    if (!this.canAct()) return;
+    const v = this.blenderViews[i];
+    const r = toggleBlender(this.game, i);
+    if (r.ok) {
+      buzz(HAPTIC.tap);
+      restartAnim(v.power, 'is-pop');
+      return;
+    }
+    this.audio.sfx('reject');
+    restartAnim(v.power, 'is-reject');
+    this.toast(t(`reason.${r.reason}`), v.el, r.reason === 'blenderDone' ? 'info' : 'bad');
   }
 
   canAct() {
@@ -1496,7 +1499,7 @@ class GameView {
     this.updateCustomers();
     this.updateBlenders();
     this.updateBowls();
-    this.updateArm(dt);
+    this.updateLifts();
     this.updateSlots();
     if (this.k3d) this.update3D(dt);
     // drop-target glow follows the state under a still finger (a cup finishes, a guest leaves)
@@ -1504,7 +1507,7 @@ class GameView {
     this.updateHud(dt);
     this.updateTutorial();
     if (!this.paused && !this.over) {
-      this.audio.loop('blender', this.game.blenders.some((b) => b.state === 'blending'));
+      this.audio.loop('blender', this.game.blenders.some((b) => b.on));
     }
   }
 
@@ -1547,7 +1550,7 @@ class GameView {
         a.sfx('ruined');
         // point to the trash right away – a spoiled blender never frees itself
         const v = this.blenderViews[ev.idx];
-        if (v && this.canAct()) this.toast(t('game.hint.blenderRuined'), v.el, 'info');
+        if (v && this.canAct()) this.toast(t(ev.melted ? 'game.hint.blenderMelted' : 'game.hint.blenderRuined'), v.el, 'info');
         restartAnim(this.trashEl.querySelector('.g-art'), 'is-wobble');
         break;
       }
@@ -1564,8 +1567,14 @@ class GameView {
       case 'extraAdded':
         a.sfx('plop');
         break;
-      case 'armStart':
-        a.sfx('arm');
+      case 'liftStart':
+        a.sfx('lift');
+        break;
+      case 'blenderLoaded':
+        a.sfx('plop');
+        break;
+      case 'blenderStop':
+        a.sfx('click');
         break;
       case 'matchaReady':
         a.sfx('matchaReady');
@@ -1652,7 +1661,9 @@ class GameView {
     const check = `<span class="g-check">${DONE_SVG}</span>`;
     let bowl = '';
     if (o.bowl) {
-      const base = `<div class="g-order-base"><span class="g-lnum g-lnum-base">1</span>${bowlSVG({ base: o.bowl.base, mid: [], top: [] }, BUBBLE_CUP)}</div>`;
+      // a group order: how many of this bowl are still to come, on the cup (counts down as they are served)
+      const qty = (o.qty || 1) > 1 ? `<span class="g-qty" data-qty>${t('game.qty', { n: o.qty })}</span>` : '';
+      const base = `<div class="g-order-base"><span class="g-lnum g-lnum-base">1</span>${bowlSVG({ base: o.bowl.base, mid: [], top: [] }, BUBBLE_CUP)}${qty}</div>`;
       bowl = `<div class="g-order-part g-order-bowl" data-part="bowl">${base}<div class="g-rows">${row('mid', o.bowl.mid)}${row('top', o.bowl.top)}</div>${check}</div>`;
     }
     // the fruit badge names the matcha like the bowl rows name their items (colour alone is too little)
@@ -1688,7 +1699,10 @@ class GameView {
     const o = c.order;
     const done = (yes) => (yes ? ` (${t('game.served')})` : '');
     const parts = [];
-    if (o.bowl) parts.push([o.bowl.base, ...o.bowl.mid, ...o.bowl.top].map((id) => ingName(id)).join(', ') + done(c.delivered.bowl));
+    if (o.bowl) {
+      const qty = (o.qty || 1) > 1 ? `${t('game.qty', { n: o.qty - c.delivered.bowls })} ` : '';
+      parts.push(qty + [o.bowl.base, ...o.bowl.mid, ...o.bowl.top].map((id) => ingName(id)).join(', ') + done(c.delivered.bowl));
+    }
     if (o.matcha) parts.push([t(`matcha.${o.matcha.fruit}`), ...o.matcha.extras.map((id) => ingName(id))].join(', ') + done(c.delivered.matcha));
     return `${t('game.order')}: ${parts.join('; ')}`;
   }
@@ -1716,9 +1730,14 @@ class GameView {
       v.mood = mood;
       v.bubble.dataset.mood = mood;
     }
-    const delivered = `${c.delivered.bowl ? 1 : 0}${c.delivered.matcha ? 1 : 0}`;
+    const delivered = `${c.delivered.bowl ? 1 : 0}${c.delivered.matcha ? 1 : 0}${c.delivered.bowls}`;
     if (delivered !== v.delivered) {
       v.delivered = delivered;
+      const qty = v.bubble.querySelector('[data-qty]');
+      if (qty && !c.delivered.bowl) {
+        setText(qty, t('game.qty', { n: (c.order.qty || 1) - c.delivered.bowls }));
+        if (c.delivered.bowls) restartAnim(qty, 'is-pop');
+      }
       v.bubble.querySelector('[data-part="bowl"]')?.classList.toggle('is-done', c.delivered.bowl);
       v.bubble.querySelector('[data-part="matcha"]')?.classList.toggle('is-done', c.delivered.matcha);
       v.bubble.setAttribute('aria-label', this.bubbleLabel(c));
@@ -1758,11 +1777,12 @@ class GameView {
   // the drawn jug cropped out of blenderSVG.
   jugGhost(i) {
     const b = this.game.blenders[i];
-    const o = { ...this.look, state: b.state, base: b.base, progress: 0, remaining: 0, portions: b.portions, maxPortions: b.maxPortions };
+    const st = artState(b);
+    const o = { ...this.look, state: st, base: b.base, progress: b.state === 'loaded' ? b.progress : 0, remaining: 0, portions: b.portions, maxPortions: b.maxPortions, on: false };
     if (this.k3d) {
       this.jugView = this.jugView || createView('blender');
       if (this.jugView.draw({ ...o, part: 'jug' }, this.animT) && this.jugView.el.width) {
-        return snapshot(this.jugView, 0.9, blenderBox(this.look.tier, this.look.big, b.state, 'jug'));
+        return snapshot(this.jugView, 0.9, blenderBox(this.look.tier, this.look.big, st, 'jug'));
       }
     }
     const size = Math.round(BLENDER_ART * 0.9);
@@ -1779,18 +1799,19 @@ class GameView {
       const v = this.blenderViews[i];
       // the art is re-rendered only on state changes and once a second for the display's countdown
       // (3D: drawn in update3D); the badge ring follows the blend in place
+      const st = artState(b);
       if (v.pic) {
         const secs = secsLeft(b);
         const part = v.el.classList.contains('drag-source') ? 'base' : undefined;
-        patch(v.pic, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}|${secs}|${part}`, () => blenderSVG({
-          tier: this.look.tier, state: b.state, base: b.base, progress: 0, remaining: secs, portions: b.portions, maxPortions: b.maxPortions, badge: false, part,
+        patch(v.pic, `${b.state}|${b.on}|${b.base}|${b.portions}|${b.maxPortions}|${secs}|${part}`, () => blenderSVG({
+          tier: this.look.tier, state: st, base: b.base, progress: 0, remaining: secs, portions: b.portions, maxPortions: b.maxPortions, badge: false, part, on: b.on,
         }, BLENDER_ART));
       }
-      if (patch(v.badge, b.state, () => blenderBadgeSVG(b.state, BLENDER_BADGE))) {
+      if (patch(v.badge, st, () => blenderBadgeSVG(st, BLENDER_BADGE))) {
         v.ring = v.badge.querySelector('[data-ring]');
         v.ringP = -1;
       }
-      const rp = b.state === 'blending' ? Math.round(b.progress * 48) / 48 : 0;
+      const rp = st === 'blending' ? Math.round(b.progress * 48) / 48 : 0;
       if (v.ring && this.barDue(v.ringP, rp)) {
         v.ringP = rp;
         const len = Number(v.ring.dataset.ring);
@@ -1801,10 +1822,21 @@ class GameView {
         v.state = b.state;
         v.el.dataset.state = b.state;
       }
-      // timer bar: fills while blending, drains toward overflow / ruin
+      if (v.on !== b.on) {
+        v.on = b.on;
+        v.el.dataset.on = String(b.on);
+        v.power.setAttribute('aria-pressed', String(b.on));
+      }
+      // timer bar: fills while blending (stands still while switched off), drains toward overflow / ruin – blue
+      // while a switched-off blender's base melts
       let k = -1;
-      if (b.state === 'blending') k = b.progress;
+      if (b.state === 'blending' || b.state === 'loaded') k = b.progress;
       else if ((b.state === 'ready' || b.state === 'overflowing') && b.duration > 0) k = 1 - b.progress;
+      const melting = b.state === 'ready' && !b.on && b.duration > 0;
+      if (v.melting !== melting) {
+        v.melting = melting;
+        v.timer.classList.toggle('is-melt', melting);
+      }
       this.setTimer(v, k);
     });
   }
@@ -1849,56 +1881,21 @@ class GameView {
     });
   }
 
-  // The cup arm follows the engine's arm (one move: progress 0–1 to the spot `target`): to the dispenser,
-  // down onto the top cup, take it and lift it out, turning it the right way up; along the rail (behind
-  // the cups standing there) to the spot, down, let go. While it holds a cup over the dispenser or a spot
-  // it is drawn in front of the cups; idle it lifts and runs home to the dispenser.
-  updateArm(dt) {
-    const v = this.armView;
-    const arm = this.game.arm;
-    if (!v || !arm) return;
-    const ease = (a, b, p0, p1, p) => {
-      const k = Math.max(0, Math.min(1, (p - p0) / (p1 - p0)));
-      return a + (b - a) * k * k * (3 - 2 * k);
-    };
-    if (arm.state === 'moving' && arm.target !== null) {
-      if (v.target !== arm.target) {
-        v.target = arm.target;
-        v.from = v.x;
-      }
-      const p = arm.progress;
-      const home = this.dispX;
-      const spot = this.spotX[arm.target] ?? home;
-      let x = home;
-      let pad = ARM_PAD.lift;
-      if (p < 0.14) x = ease(v.from, home, 0, 0.14, p);
-      else if (p < 0.44) x = home;
-      else x = ease(home, spot, 0.44, 0.78, p);
-      // down onto the dispenser, take the top cup and pull it right out, turning it over; once clear of the
-      // dispenser down to the height it is carried at (behind the cups), at the spot down onto it
-      if (p < 0.14) pad = ease(v.pad, ARM_PAD.rest, 0, 0.1, p);
-      else if (p < 0.27) pad = ease(ARM_PAD.rest, ARM_PAD.disp, 0.14, 0.26, p);
-      else if (p < 0.44) pad = ease(ARM_PAD.disp, ARM_PAD.high, 0.28, 0.42, p);
-      else if (p < 0.78) pad = ease(ARM_PAD.high, ARM_PAD.lift, 0.5, 0.62, p);
-      else pad = ease(ARM_PAD.lift, ARM_PAD.spot, 0.78, 0.92, p);
-      const holding = p >= 0.27;
-      v.x = x;
-      if (p >= 0.14) v.pad = pad;
-      this.drawArm(x, pad, {
-        open: p < 0.26 || p >= 0.94,
-        holding,
-        flip: holding ? ease(-1, 1, 0.31, 0.46, p) : -1,
-        front: p < 0.5 || p >= 0.78,
-        led: true,
-      });
-      return;
-    }
-    // idle: lift, then run home
-    v.target = null;
-    const step = dt > 0 ? dt : 0;
-    if (v.pad > ARM_PAD.rest) v.pad = Math.max(ARM_PAD.rest, v.pad - 160 * step);
-    else if (v.x !== this.dispX) v.x += Math.sign(this.dispX - v.x) * Math.min(Math.abs(this.dispX - v.x), ARM_HOME_SPEED * step);
-    this.drawArm(v.x, v.pad, { open: true, holding: false, flip: 1, front: v.pad > ARM_PAD.lift, led: false });
+  // A cup lift pushes its cup up out of the hatch: the first fifth of the move the hatch opens, then the cup
+  // rises (eased) until it stands on the spot; the engine puts it down when the lift is done.
+  updateLifts() {
+    const lifts = this.game.lifts;
+    this.bowlViews.forEach((v, i) => {
+      if (!v.lift) return;
+      const l = lifts[i];
+      const rising = l?.state === 'rising';
+      const p = rising ? Math.max(0, Math.min(1, (l.progress - 0.2) / 0.8)) : -1;
+      const k = p < 0 ? -1 : Math.round(p * p * (3 - 2 * p) * 40) / 40;
+      if (k === v.lift.k) return;
+      v.lift.k = k;
+      v.el.classList.toggle('is-lifting', rising);
+      v.lift.cup.style.transform = k < 0 ? '' : `translateY(${Math.round((1 - k) * 100)}%)`;
+    });
   }
 
   // What is in a cup, laid out like its order bubble: the base chip, beside it a row of the fruits & crunch and under
@@ -1960,10 +1957,10 @@ class GameView {
     const t = Math.round(this.animT * 240) / 240;
     g.blenders.forEach((b, i) => {
       const v = this.blenderViews[i];
-      const blending = b.state === 'blending';
+      const st = artState(b);
       v.view?.draw({
-        ...this.look, state: b.state, base: b.base, part: v.el.classList.contains('drag-source') ? 'base' : undefined,
-        progress: blending ? Math.round(b.progress * 48) / 48 : 0,
+        ...this.look, state: st, on: b.on, base: b.base, part: v.el.classList.contains('drag-source') ? 'base' : undefined,
+        progress: st === 'blending' ? Math.round(b.progress * 48) / 48 : 0,
         remaining: secsLeft(b),
         portions: b.portions, maxPortions: b.maxPortions,
       }, t);
@@ -2322,12 +2319,14 @@ class GameView {
     const spot = Math.max(0, bowls.findIndex((b) => !b.cup));
     const ready = blenders.findIndex((b) => (b.state === 'ready' || b.state === 'overflowing') && b.base === order.base);
     const mixing = blenders.findIndex((b) => b.state === 'blending' && b.base === order.base);
+    const off = blenders.findIndex((b) => b.state === 'loaded' && b.base === order.base);
+    if (off >= 0) return { key: 'switch', at: this.blenderViews[off].power, ring: this.blenderViews[off].power, sub: off };
     if (cup < 0 && (ready >= 0 || mixing >= 0)) {
       return { key: ready >= 0 ? 'cup' : 'cupWait', from: this.stackEl, to: this.bowlViews[spot].el, sub: spot };
     }
     if (ready >= 0) return { key: 'pour', from: this.blenderViews[ready].el, to: this.bowlViews[cup].el, sub: `${ready}${cup}` };
     if (mixing >= 0) return { key: 'wait', at: this.blenderViews[mixing].el, sub: mixing };
-    const wrong = blenders.findIndex((b) => POURABLE.has(b.state));
+    const wrong = blenders.findIndex((b) => CARRIED.has(b.state));
     if (wrong >= 0) return { key: 'clean', from: this.blenderViews[wrong].el, to: this.trashEl, sub: wrong };
     const busy = blenders.findIndex((b) => b.state === 'blending');
     const free = blenders.findIndex((b) => b.state === 'empty');
@@ -2354,6 +2353,7 @@ class GameView {
     const texts = {
       welcome: () => t('game.tut.welcome'),
       pack: () => t('game.tut.pack', { base: nm(step.base) }),
+      switch: () => t('game.tut.switch'),
       wait: () => t('game.tut.wait'),
       waitWrong: () => t('game.tut.waitWrong'),
       cup: () => t('game.tut.cup'),
@@ -2373,8 +2373,8 @@ class GameView {
       const p = this.posOf(step.at);
       arrow = `<div class="g-tut-point" style="left:${p.cx}px;top:${p.y + 4}px">${POINT_SVG}</div>`;
     }
-    const ring = step.from ? (() => {
-      const p = this.posOf(step.from);
+    const ring = step.from || step.ring ? (() => {
+      const p = this.posOf(step.from || step.ring);
       // 3 px outside the target on every side: shelf bins are only 6 px apart
       return `<div class="g-tut-ring" style="left:${p.cx}px;top:${p.cy}px;width:${p.w + 6}px;height:${p.h + 6}px"></div>`;
     })() : '';

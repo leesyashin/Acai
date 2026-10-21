@@ -3,9 +3,9 @@ import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { audio, SFX_NAMES, MUSIC_TRACKS, trackInfo } from '../js/audio.js';
 
-test('audio: the 24 SFX names from DESIGN §4.5 and the cup arm', () => {
+test('audio: the 24 SFX names from DESIGN §4.5 and the cup lift', () => {
   const want = ['click', 'pickup', 'drop', 'reject', 'blenderStart', 'blenderReady', 'overflow', 'ruined', 'matchaReady',
-    'pour', 'plop', 'coin', 'bell', 'angry', 'happy', 'trash', 'purchase', 'star', 'win', 'lose', 'closing', 'heart', 'tick', 'cup', 'arm'];
+    'pour', 'plop', 'coin', 'bell', 'angry', 'happy', 'trash', 'purchase', 'star', 'win', 'lose', 'closing', 'heart', 'tick', 'cup', 'lift'];
   assert.deepEqual([...SFX_NAMES].sort(), want.sort());
 });
 

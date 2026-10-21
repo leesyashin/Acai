@@ -84,7 +84,7 @@ async function gameShot(url, lang) {
     const seenIntros = Object.fromEntries(DATA.LEVELS.filter((l) => l.intro).map((l) => [l.intro, true]));
     const save = {
       version: 1, coins: 2380, owned: ALL_ING.slice(), ingLevels: { acai: 2, pitaya: 1, banana: 1, strawberry: 2, mango: 1 },
-      upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, matchaSlots: 1, cupArm: 1, plants: 1, jukebox: 1, seating: 1, neon: 1 },
+      upgrades: { blenderSpeed: 2, jug: 1, blender2: 1, bowlSlots: 2, matchaSlots: 1, cupLift: 4, freeze: 2, plants: 1, jukebox: 1, seating: 1, neon: 1 },
       stars, endlessBest: 512, newIngredients: [], seenIntros: { basics: true, ...seenIntros }, settings: { lang, music: false, sfx: false },
       stats: { served: 640, earned: 6400, played: 20 },
     };
@@ -107,8 +107,8 @@ async function gameShot(url, lang) {
       const e = await import('/js/engine.js');
       const g = window.__acaiGame;
       const tryDo = (fn) => { try { fn(); } catch { /* left out */ } };
-      tryDo(() => e.loadBlender(g, 0, 'acai'));
-      if (g.blenders[1]) tryDo(() => e.loadBlender(g, 1, 'pitaya'));
+      tryDo(() => e.loadBlender(g, 0, 'acai') && e.toggleBlender(g, 0));
+      if (g.blenders[1]) tryDo(() => e.loadBlender(g, 1, 'pitaya') && e.toggleBlender(g, 1));
       g.seats.filter(Boolean).forEach((c, i) => { if (i) c.patience = c.maxPatience * [1, 0.5, 0.28, 0.1][i]; });
     });
     await page.evaluate(() => { window.__acaiSpeed = 3; });

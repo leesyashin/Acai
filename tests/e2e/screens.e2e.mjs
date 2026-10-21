@@ -673,6 +673,23 @@ async function harnessFlow(browser, base) {
     await assertNoOverflow(page, 'pre-level matcha');
   });
 
+  const crowd = LEVELS.find((l) => l.intro === 'crowd').id;
+  await check(`harness pre-level ${crowd}: the rush-hour intro (two guests, group orders)`, async () => {
+    await open(`screen=prelevel&level=${crowd}&stars=1-${crowd - 1}`);
+    assert((await text(page, '.prelevel-intro h4')).includes('Großer Andrang'), 'intro title');
+    assert((await text(page, '.prelevel-intro')).includes('2×'), 'the group order shown');
+    await assertNoOverflow(page, `pre-level ${crowd}`);
+  });
+
+  await check('harness shop kitchen: a lift for a spot that is not there yet waits for the spot', async () => {
+    await open('screen=shop&coins=5000&upgrades=cupLift:2&lang=de');
+    await page.click('[data-tab="kitchen"]');
+    eq(await page.getAttribute('[data-upgrade="cupLift"]', 'data-state'), 'needs', 'lift card state');
+    assert((await text(page, '[data-upgrade="cupLift"]')).includes('Mehr Bowl-Plätze'), 'names the spot upgrade');
+    eq(await page.getAttribute('[data-upgrade="freeze"]', 'data-state'), 'buy', 'freeze for the first blender');
+    await assertNoOverflow(page, 'kitchen needs');
+  });
+
   await check('harness shop (English, all owned + maxed) has no overflow', async () => {
     await open(`screen=shop&owned=all&quality=max&upgrades=max&coins=99999&stars=1-${LEVELS.length}:3&lang=en`);
     eq(await page.locator('[data-shop-item][data-state="max"]').count(), Object.keys(ING).length, 'all maxed');
