@@ -4,8 +4,8 @@
 // level's containers ≥ 60 css px and cups ≥ 75, the fullest kitchen's ≥ 40 / ≥ 55) and the small print (name tags,
 // layer labels) is drawn ≥ 8 css px tall. The shop scene is scaled up about the pass and the HUD stands beside it in
 // the window's bands, under the bubbles and clear of the guests and the pass, the pause button ≥ 30 css px. Filling a cup by touch lifts only the blender's jug: the base stays in full
-// view (without its jug) while the jug is carried, the cup gets the purée and the jug stands on its base again. A
-// tablet (1280×800, mouse) is no phone.
+// view (without its jug) while the jug is carried, the cup gets the purée and the jug stands on its base again. A press
+// anywhere on a switched-off blender switches it on; only a pull lifts its jug. A tablet (1280×800, mouse) is no phone.
 // Run: node tests/e2e/mobile.e2e.mjs   (serves the repo on a free port, exits non-zero on failure)
 
 import path from 'node:path';
@@ -251,6 +251,40 @@ async function main() {
           assert(m.scale >= 1.4, `scaled by ${m.scale}`);
           assert(m.bin >= 60 && m.bowl >= 75 && m.pack >= 45, `containers ${m.bin.toFixed(1)} css px, cups ${m.bowl.toFixed(1)}, packs ${m.pack.toFixed(1)} (unscaled: ${m.plain.bin.toFixed(1)} / ${m.plain.bowl.toFixed(1)})`);
           await b.page.screenshot({ path: path.join(OUT, `level1-${viewport.width}.png`) });
+        });
+        await check(`${tag}: a press anywhere on a switched-off blender switches it on, only a pull lifts its jug`, async () => {
+          const { page } = b;
+          const state = () => page.evaluate(() => window.__acaiGame.blenders[0].state);
+          const cdp = await page.context().newCDPSession(page);
+          // a finger on the jug (not the button), moved by (dx, dy) over ms; whether the jug was lifted meanwhile
+          const press = async (dx, dy, ms) => {
+            const r = await page.locator('[data-blender="0"]').boundingBox();
+            const p0 = { x: r.x + r.width * 0.45, y: r.y + r.height * 0.3 };
+            const pt = (p) => [{ x: p.x, y: p.y, id: 1, radiusX: 8, radiusY: 8, force: 1 }];
+            await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(p0) });
+            for (let i = 1; i <= 8; i++) {
+              await sleep(ms / 8);
+              await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt({ x: p0.x + (dx * i) / 8, y: p0.y + (dy * i) / 8 }) });
+            }
+            const lifted = await page.evaluate(() => !!document.querySelector('.drag-ghost'));
+            await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+            await sleep(400);
+            return lifted;
+          };
+          await dragBetween(page, '[data-pack="acai"]', '[data-blender="0"]', { touch: true });
+          await sleep(300);
+          assert((await state()) === 'loaded', `the blender is ${await state()}`);
+          // a long, slightly sliding press: on, nothing lifted
+          const lifted = await press(10, 6, 600);
+          assert(!lifted && (await state()) === 'blending', `a press on the jug: lifted ${lifted}, ${await state()}`);
+          await page.locator('[data-power="0"]').tap();
+          await sleep(300);
+          assert((await state()) === 'loaded', `the button switched it to ${await state()}`);
+          // pulled to the trash: the pack goes
+          const r = await page.locator('[data-blender="0"]').boundingBox();
+          const t = await page.locator('[data-trash]').boundingBox();
+          const pulled = await press(t.x + t.width / 2 - (r.x + r.width * 0.45), t.y + t.height / 2 - (r.y + r.height * 0.3), 400);
+          assert(pulled && (await state()) === 'empty', `a pull to the trash: lifted ${pulled}, ${await state()}`);
         });
         await check(`${tag}: no console errors in level 1`, async () => assertNoConsoleErrors(b.errors, tag));
       } finally {
