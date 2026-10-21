@@ -159,4 +159,30 @@ describe('pricing', () => {
     assert.equal(orderValue({ bowl: null, matcha: drink }), matchaValue(drink));
     assert.equal(orderValue(order, { mMango: 1 }), ING.acai.price + ING.banana.price + matchaValue(drink, { mMango: 1 }));
   });
+
+  test('a group order pays for every bowl', () => {
+    const order = { bowl: { base: 'acai', mid: ['banana'], top: [] }, qty: 3, matcha: null };
+    assert.equal(orderValue(order), 3 * (ING.acai.price + ING.banana.price));
+  });
+});
+
+describe('group orders', () => {
+  test('multi = the share of guests who want the bowl 2 … maxQty times', () => {
+    const one = sample(300, { owned: ALL, config: cfg() });
+    assert.ok(one.every((o) => o.qty === 1), 'no multi: always one bowl');
+    const orders = sample(2000, { owned: ALL, config: cfg({ multi: 0.4, maxQty: 3 }) });
+    const share = orders.filter((o) => o.qty > 1).length / orders.length;
+    assert.ok(share > 0.35 && share < 0.45, `share ${share}`);
+    assert.deepEqual([...new Set(orders.map((o) => o.qty))].sort(), [1, 2, 3]);
+    const two = sample(500, { owned: ALL, config: cfg({ multi: 1, maxQty: 2 }) });
+    assert.ok(two.every((o) => o.qty === 2));
+  });
+
+  test('levels: group orders from level 10 on, up to three bowls later', () => {
+    for (const l of LEVELS) {
+      if (l.id < 10) assert.equal(l.multi, 0, `level ${l.id}`);
+      else assert.ok(l.multi > 0 && l.maxQty >= 2, `level ${l.id}`);
+    }
+    assert.equal(LEVELS.at(-1).maxQty, 3);
+  });
 });

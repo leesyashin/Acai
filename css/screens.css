@@ -1647,21 +1647,36 @@ img.art3d.is-pending { opacity: 0; }
 .sc-not-yet.sc-price { white-space: normal; text-align: center; line-height: 1.1; padding: 4px 8px; font-size: 16px; }
 .sc-not-yet svg { flex: none; }
 .ing-card.is-locked .card-icon { filter: grayscale(0.8) opacity(0.6); }
-/* the cup arm's card: the rail, the carriage, a cup in the gripper over a free spot, the dispenser beside it */
-.upg-art-arm { position: relative; width: 220px; height: 150px; }
-.upg-art-arm > span { position: absolute; display: block; }
-.upg-art-arm svg { display: block; }
-.upg-arm-rail { left: 4px; top: 0; }
-.upg-arm-disp { left: 0; top: 52px; }
-.upg-arm-spot { left: 112px; top: 54px; }
-.upg-arm-car { left: 128px; top: 2px; }
-.upg-arm-rod {
-  left: 155px;
-  top: 38px;
-  width: 10px;
+/* the cup lift's card: a cup halfway out of the steel hatch of a spot, an arrow pointing up */
+.upg-art-lift { position: relative; width: 160px; height: 150px; }
+.upg-art-lift > span { position: absolute; display: block; }
+.upg-art-lift svg { display: block; }
+.upg-lift-spot { left: 20px; top: 20px; }
+.upg-lift-hatch {
+  left: 38px;
+  top: 115px;
+  width: 84px;
   height: 22px;
-  background: linear-gradient(90deg, #6f7a85 0, #e9eef2 30%, #fdfefe 45%, #b9c2ca 70%, #7d8892 100%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 45%, #1d2026 0 58%, #c9d0d6 62%, #f4f7f9 70%, #8b949e 80%);
 }
-.upg-arm-cup { left: 112px; top: 38px; }
-.upg-arm-claw { left: 120px; top: 57px; }
-.upg-arm-claw svg { width: 80px; height: 45px; }
+.upg-lift-cup { left: 20px; top: 0; width: 120px; height: 126px; overflow: hidden; }
+.upg-lift-cup svg { transform: translateY(30px); }
+.upg-lift-arrow { right: -6px; top: 18px; }
+/* the freeze blender's card: the blender in a frosty glow, the snowflake on its corner */
+.upg-art-freeze { position: relative; filter: drop-shadow(0 0 12px rgba(127, 211, 245, 0.85)); }
+.upg-snow { position: absolute; right: 4px; bottom: 10px; }
+/* the rush-hour intro: two guests and a bowl they order twice */
+.intro-qty { position: relative; display: inline-block; }
+.intro-qty b {
+  position: absolute;
+  right: -6px;
+  bottom: 2px;
+  padding: 1px 6px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #ffb627;
+  color: var(--ink);
+  font-weight: 900;
+  font-size: 16px;
+}

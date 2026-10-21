@@ -187,7 +187,7 @@ export function blenderSVG(opts = {}, size = 150) {
   const state = ['empty', 'blending', 'ready', 'overflowing', 'ruined'].includes(o.state) ? o.state : 'empty';
   // progress is quantised so the cache stays small while the ring still moves smoothly
   const p = state === 'blending' ? Math.round(Math.max(0, Math.min(1, Number(o.progress) || 0)) * 48) / 48 : 0;
-  const key = `x|${tierOf(o.tier)}|${state}|${o.base}|${p}|${secsLeft(state, o)}|${o.portions}|${o.maxPortions}|${o.badge !== false}|${size}|${o.part}`;
+  const key = `x|${tierOf(o.tier)}|${state}|${o.base}|${p}|${secsLeft(state, o)}|${o.portions}|${o.maxPortions}|${o.badge !== false}|${size}|${o.part}|${o.on}`;
   return memo(key, () => drawBlender(state, o, p, size));
 }
 
@@ -197,7 +197,8 @@ function drawBlender(state, o, prog, size) {
   if (o.part === 'base') return svgWrap(size, size, 150, 150, softShadow(BX, 145, 38, 5.5) + motorBase(state, o));
   const jugOnly = o.part === 'jug';
   let s = jugOnly ? '' : softShadow(BX, 145, 38, 5.5);
-  if (state === 'blending') s += line(`M${BX - 40} 52Q${BX - 46} 64 ${BX - 40} 76M${BX - 48} 58Q${BX - 52} 64 ${BX - 48} 70M${BX + 48} 104Q${BX + 54} 96 ${BX + 52} 86`, '#5b4b66', 2.2, op(0.5));
+  // motion lines while the motor runs (o.on: the game's switch; a blend switched off stands still)
+  if (o.on === undefined ? state === 'blending' : o.on && state !== 'empty' && state !== 'ruined') s += line(`M${BX - 40} 52Q${BX - 46} 64 ${BX - 40} 76M${BX - 48} 58Q${BX - 52} 64 ${BX - 48} 70M${BX + 48} 104Q${BX + 54} 96 ${BX + 52} 86`, '#5b4b66', 2.2, op(0.5));
   if (!jugOnly) s += motorBase(state, o);
   // clear handle (behind the jug's right wall)
   const handle = `M${f(jugR(42) - 2)} 41H${BX + 37}Q${BX + 42} 41 ${BX + 41.6} 46L${BX + 39.6} 70Q${BX + 39.2} 75 ${BX + 34} 75H${f(jugR(75) - 2)}`;
@@ -434,64 +435,6 @@ export function matchaMachineSVG(slotCount = 1, size = 312) {
       s += `<text x="${f(mx)}" y="${f(dy + 4)}" text-anchor="middle" font-family="'Trebuchet MS', Arial, sans-serif" font-weight="700" font-size="10" fill="#a6ff6a">80°C</text>`;
     }
     return svgWrap(size, size, 312, 312, s);
-  });
-}
-
-// ======================================================================
-// The cup arm (shop upgrade "Greifarm"): a chrome rail along the front of the pass with a little
-// carriage that runs on it; from the carriage a telescopic rod reaches down to a gripper with two
-// fingers that take a cup by its middle. js/game-view.js moves the parts (the rod is a CSS strip).
-// ======================================================================
-// The rail, len px long (box len × 30): a polished tube on two brackets screwed to the pass.
-export function armRailSVG(len) {
-  return memo(`armrail|${len}`, () => {
-    const L = Math.max(60, Math.round(len));
-    let s = '';
-    for (const x of [14, L - 14]) {
-      s += path(rrect(x - 7, 0, 14, 16, 3), paint('steel', '#c9d0d6'), stroke(0.9, '#5f6a75'));
-      s += circle(x, 5, 1.6, '#5f6a75');
-    }
-    s += path(rrect(4, 12, L - 8, 9, 4.5), paint('steel-v', '#dfe4e9'), stroke(1, '#5f6a75'));
-    s += line(`M10 14.6H${L - 10}`, WHITE, 1.6, op(0.85));
-    s += line(`M10 19.4H${L - 10}`, '#000000', 1, op(0.15));
-    for (const x of [4, L - 4]) s += ellipse(x, 16.5, 2.4, 4.4, '#9aa4ae', stroke(0.8, '#5f6a75'));
-    return svgWrap(L, 30, L, 30, s);
-  });
-}
-
-// The carriage (64 × 40): rollers on the rail, a graphite body with the café's purple stripe and a
-// status LED (lit: led).
-export function armCarriageSVG(led = false) {
-  return memo(`armcar|${led}`, () => {
-    let s = '';
-    for (const x of [18, 46]) s += circle(x, 9, 6, '#3b3f45', stroke(0.9, '#1d2024')) + circle(x, 9, 2.2, '#9aa4ae');
-    const body = rrect(6, 12, 52, 22, 6);
-    s += path(body, '#2f3338', stroke(1, '#15171a')) + path(body, paint('sph-soft'), op(0.8));
-    s += path(rrect(6, 25, 52, 4, 2), '#7b3a96');
-    s += circle(49, 18.5, 2.6, led ? '#3dff70' : '#425046', led ? '' : op(0.9));
-    if (led) s += circle(49, 18.5, 5.5, '#3dff70', op(0.3));
-    s += path(rrect(26, 32, 12, 8, 2), '#24272b');
-    s += line('M12 15.5H34', WHITE, 1.2, op(0.35));
-    return svgWrap(64, 40, 64, 40, s);
-  });
-}
-
-// The gripper (100 × 56): the hub and a crossbar, two fingers hanging from its ends with purple rubber
-// pads; open, the fingers splay out. The pads meet a cup's middle at y 46, 34 px either side of x 50.
-export function armGripSVG(open = false) {
-  return memo(`armgrip|${open}`, () => {
-    const finger = (x, side) => {
-      const tilt = open ? side * 9 : 0;
-      let fs = path(rrect(x - 3, 8, 6, 36, 3), paint('steel-v', '#dfe4e9'), stroke(0.9, '#5f6a75'));
-      fs += path(rrect(x - 4.5 - (side < 0 ? 0 : 0), 36, 9, 14, 3.5), '#7b3a96', stroke(0.8, '#4a1a5e'));
-      fs += line(`M${x - 1.2} 11V40`, WHITE, 1.1, op(0.7));
-      return g(`rotate(${tilt} ${x} 10)`, fs);
-    };
-    let s = finger(16, -1) + finger(84, 1);
-    s += path(rrect(10, 4, 80, 10, 5), paint('steel', '#c9d0d6'), stroke(1, '#5f6a75'));
-    s += path(rrect(36, 0, 28, 14, 5), '#2f3338', stroke(1, '#15171a')) + path(rrect(36, 0, 28, 14, 5), paint('sph-soft'), op(0.7));
-    s += circle(50, 7, 2.6, '#7b3a96');
-    return svgWrap(100, 56, 100, 56, s);
   });
 }
 

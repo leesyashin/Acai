@@ -18,12 +18,12 @@ player decisions listed in §1.
 | 2 | Style | **Realistic, glossy Cooking Fever look in a modern café**: the player stands at the counter, seen in perspective like in Cooking Fever (a slim marble pass in front of the guests, the worktop with its rounded front edge and a strip of open shelves with stock below; the tall appliances stand at the back of the worktop in front of the pass); believable size relations (blender and machine about twice as tall as a cup); clear plastic cups that show their layers, every ingredient in its own realistic container (fruit in brushed stainless pans, granola, honey, chia and peanut butter in glass jars, chocolate sauce in a squeeze bottle, coconut in its shell, cacao nibs in a wooden bowl, mint on a board), 3D appliances (blender, matcha machine, freezer), a little cleaner and more modern than Cooking Fever. Menus keep their chunky cartoon UI. |
 | 3 | Controls | **Drag & drop** (touch + mouse) for every action. No tap-to-place. |
 | 4 | Order rule | **Fixed layers**: Base (from blender) → Fruits & Crunch → Toppings & Sauces. A drop into the wrong layer is **rejected** (bounce back + hint). Order *within* a layer is free. |
-| 5 | Stations | **Blender** with wait time for the base; it **overflows / spoils** if left too long. A **cup dispenser** built into the counter (cups upside down; a shop upgrade, the **cup arm**, puts cups down by itself). Later a **matcha machine** with its own **matcha bar** (fruit, then extras). |
+| 5 | Stations | **Blender** with wait time for the base; it **overflows / spoils** if left too long. A **cup dispenser** built into the counter (cups upside down; a shop upgrade bought per bowl spot, the **cup lift / auto cup refill**, pushes a cup up out of the counter by itself). The blender has an **on/off switch**: left on when ready it overflows, switched off it cannot, but its base melts unless the blender has the **freeze** upgrade. Later a **matcha machine** with its own **matcha bar** (fruit, then extras). |
 | 6 | Customers | Seats grow **2 → 3 → 4** with level progress. |
 | 7 | Patience | When patience runs out the customer **leaves, pays nothing**, player loses a **heart**. 0 hearts = level lost. |
 | 8 | Levels | **Campaign** (60 levels in six map regions of ten, time limit + money goal, 1–3 stars, every level a small step on) **plus Endless mode** (unlocked later). Few guests with big orders: the bigger an order, the longer until the next guest and the more patient this one. |
 | 9 | Unlocks | New ingredients **arrive with the levels** (at most one per level after the first; the level card and a NEU badge show it). Coins buy quality, kitchen upgrades and decor. |
-| 10 | Upgrades | **Faster blender**, **more slots** (bowl slots, 2nd blender, bigger jug, matcha slots), **cup arm**, **decor → more patience**, **better ingredient quality → more coins**. |
+| 10 | Upgrades | **Faster blender**, **more slots** (bowl slots, 2nd blender, bigger jug, matcha slots), **cup lift per spot**, **freeze per blender**, **decor → more patience**, **better ingredient quality → more coins**. |
 | 11 | Ingredient count | **16** total, **4 at start**. |
 | 12 | Drinks | **Fruit matcha** from campaign level 11 on: an iced matcha latte on the purée of one fruit of the **matcha bar** (banana, strawberry, mango, blueberry – its own ingredients, not the bowl's), with **extras** on top (ice cubes, vanilla syrup, cold foam). Fruit onto a glass in the machine → it purées it and pours the matcha → extras → serve. Some guests order only a drink. |
 | 13 | Language | **German / English**, switchable in menu, remembered. |
@@ -48,9 +48,9 @@ player decisions listed in §1.
    The blender blends for `blendTime` seconds, then is **ready** with `portions` portions.
 3. Player drags an **empty cup from the dispenser** onto a **free bowl spot** (`placeCup`; a spot that already
    has a cup → `cupThere`). Pouring or adding anything on a spot without a cup → rejected (`noCup`).
-   Natural moment: while the blender mixes. With the **cup arm** (`kitchen.cupArm` seconds a cup) the engine puts a
-   cup on the leftmost empty spot itself (`game.arm`: events `armStart`, `cupPlaced` with `auto`); a cup put down by
-   hand on its target meanwhile makes it turn to the next spot (`armCancel`).
+   Natural moment: while the blender mixes. A spot with a **cup lift** (`kitchen.cupLift`: the first that many spots,
+   bought one by one) gets a cup by itself `kitchen.cupLiftTime` (1.2 s) after it is empty, every lift on its own
+   (`game.lifts[i]`: events `liftStart`, `cupPlaced` with `auto`); a cup put down by hand meanwhile stops it (`liftCancel`).
 4. Player drags the **ready blender** onto an **empty cup** → the cup gets the base (1 portion used).
 5. Player drags **fruit/crunch** bins onto the bowl (layer 2), then **toppings/sauces** (layer 3).
    - Adding anything before the base → rejected (`needBase`).
@@ -74,11 +74,16 @@ player decisions listed in §1.
    dragged to the trash to empty it (also allowed for a ready blender to discard it).
 
 ### Blender lifecycle
-`empty → blending (blendTime) → ready (readyHold) → overflowing (overflowTime) → ruined`
+`empty → loaded (a pack in, switched off) → [switch on] blending (blendTime) → ready (readyHold) → overflowing (overflowTime) → ruined`
+- `toggleBlender` is the switch (`b.on`): on starts or continues a blend; off pauses a blend (`blending → loaded`, the
+  progress stays) or stops a ready / overflowing blender: switched off it cannot overflow, but its base melts after
+  `meltTime` (20 s, 27 s with the big jug) → `ruined` (`blenderRuined{melted: true}`) – never on a blender with the
+  **freeze** upgrade (`kitchen.freeze`: the first that many blenders). A ready blender that is off cannot be switched on
+  again (`blenderDone`); empty → `blenderEmpty`, spoiled → `blenderRuined`.
 - `ready` and `overflowing` can both be poured into bowls. `overflowing` shakes red and warns.
 - `ruined` cannot be used; drag it to the trash → `empty`. When a blender spoils, the view shows a short hint at it
   ("Spoiled! Drag the blender to the trash.") and wiggles the trash can.
-- If a level has `overflow: false` (levels 1–2) the blender stays `ready` forever.
+- If a level has `overflow: false` (levels 1–5) the blender stays `ready` forever, on or off.
 - Pouring the last portion → `empty`.
 
 ### Patience
@@ -88,8 +93,11 @@ player decisions listed in §1.
 
 ### Pacing
 - After a guest arrives the next one comes `level.pace × orderWork(order)` seconds later (±15 %): a big order buys
-  time. Once nobody is waiting, the next guest comes `EARLY_SPAWN_GAP` (2.5 s) after the last one at the latest, so a
-  quick player never idles and serves more guests. A full counter still holds the next guest back.
+  time. Once fewer than `level.crowd` guests are waiting (1; from level 10 on 2: two guests always wait at once), the
+  next guest comes `EARLY_SPAWN_GAP` (2.5 s) after the last one at the latest, so a quick player never idles and serves
+  more guests. A full counter still holds the next guest back.
+- From level 10 a share `level.multi` of the guests orders the same bowl 2 … `level.maxQty` times (`order.qty`; 3 from
+  level 30): every bowl counts as a partial delivery, the order pays for all of them, `orderWork` counts each.
 - Drains 1/s while waiting. Each partial delivery (bowl or matcha of a 2‑part order) refills **+15 %** of max.
 - Mood from ratio: `>0.6 happy`, `>0.3 neutral`, `>0.12 impatient`, else `angry`.
 - At 0 → leaves angry, `hearts -= 1`, `lost += 1`.
@@ -143,7 +151,9 @@ brackets; `ownedAt(level)` is what a level plays with):
 Matcha flavours = the matcha bar's fruit ("Erdbeer-Matcha / Strawberry matcha" …).
 
 Upgrades (`UPGRADES` in data.js): `blenderSpeed` (3 levels), `jug` (portions 2→3, readyHold 9→13.5 s so the bigger batch does not spoil), `blender2` (2nd blender),
-`bowlSlots` (2→3→4), `cupArm` ("Greifarm / Gripper arm" 2.6 s a cup, "Turbo" 1.5 s), `matchaSlots` ("Doppel-Matcha / Double
+`bowlSlots` (2→3→4), `cupLift` ("Auto-Cup-Refill", 4 levels: a lift for spot 1, 2, 3, 4 – the 3rd and 4th need the spot:
+`needs: { bowlSlots }`, see `upgradeNeeds`), `freeze` ("Freeze-Mixer", 2 levels: blender 1, blender 2 – needs `blender2`),
+`matchaSlots` ("Doppel-Matcha / Double
 matcha", 1→2, needs level 11 reached), decor: `plants`, `jukebox`, `seating`, `neon` (each adds patience %, and appears
 visibly in the shop scene). Ingredient quality: each ingredient that has arrived has 2 quality upgrades (value ×1.3,
 ×1.6, rounded up to 0.5 so every star adds coins). A save from before (version 1, ingredients bought) gets their price
@@ -271,7 +281,8 @@ placeCup(game, bowlIdx)                       → { ok, reason? }   // empty cup
 pourBlender(game, blenderIdx, bowlIdx)        → { ok, reason? }
 addIngredient(game, bowlIdx, ingId)           → { ok, reason? }
 trashBowl(game, bowlIdx)                      → { ok }            // the cup goes too: the spot is free
-cleanBlender(game, blenderIdx)                → { ok, reason? }   // ruined/ready/overflowing → empty
+cleanBlender(game, blenderIdx)                → { ok, reason? }   // loaded/ruined/ready/overflowing → empty
+toggleBlender(game, blenderIdx)               → { ok, reason? }   // the on/off switch
 loadMatcha(game, slotIdx, id)                 → { ok, reason? }   // a matcha fruit onto the empty glass (an extra: addMatchaExtra)
 addMatchaExtra(game, slotIdx, extraId)        → { ok, reason? }   // an extra onto a glass with its fruit
 trashMatcha(game, slotIdx)                    → { ok }
@@ -317,13 +328,14 @@ game = {
 // blenders and matcha slots also carry progress (0–1 within the current state; for a ready
 // blender it counts toward overflow). bowl.uid changes whenever a bowl is reset.
 // Internal state lives in game._sim – never read or write it from the view.
-customer = { id, seat, look, order: { bowl: {base, mid[], top[]}, matcha: fruitId|null },
-             delivered: { bowl: bool, matcha: bool }, patience, maxPatience,
+customer = { id, seat, look, order: { bowl: {base, mid[], top[]}|null, qty, matcha: {fruit, extras[]}|null },
+             delivered: { bowl: bool (all qty bowls), bowls: number, matcha: bool }, patience, maxPatience,
              state: 'arriving'|'waiting'|'leavingHappy'|'leavingAngry', t, mood, paid }
 ```
 Events (`{type, …}`): `customerArrive{customerId, seat}`, `customerPaid{customerId, seat, amount, tip}`,
 `customerLost{customerId, seat}`, `partialDelivery{customerId}`, `blenderStart{idx}`, `blenderReady{idx}`,
-`blenderOverflow{idx}`, `blenderRuined{idx}`, `blenderEmpty{idx}`, `cupPlaced{bowlIdx}`, `basePoured{bowlIdx, blenderIdx}`,
+`blenderOverflow{idx}`, `blenderRuined{idx, melted}`, `blenderEmpty{idx}`, `blenderLoaded{idx}`, `blenderStop{idx, done?}`,
+`liftStart{bowlIdx}`, `liftCancel{bowlIdx}`, `cupPlaced{bowlIdx, auto?}`, `basePoured{bowlIdx, blenderIdx}`,
 `ingredientAdded{bowlIdx, id}`, `matchaStart{idx}`, `matchaReady{idx}`, `trash{what}`,
 `closingTime`, `stageUp{stage}` (endless), `gameOver{result: 'won'|'lost', stars, reason: 'hearts'|'goal'|'quit'|null}`.
 `trash` events always carry `idx` (`trash{what:'bowl'|'blender'|'matcha', idx}`); `cleanBlender` emits

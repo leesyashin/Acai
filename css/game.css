@@ -174,6 +174,23 @@
 }
 .screen-game .g-order-base svg { position: relative; }
 .screen-game .g-order-base .g-lnum { position: absolute; left: -4px; top: -3px; width: 18px; height: 18px; font-size: 12px; }
+/* a group order: how many of the bowl are still to come, a badge on the cup's lower left */
+.screen-game .g-qty {
+  position: absolute;
+  left: -8px;
+  bottom: -6px;
+  z-index: 1;
+  min-width: 34px;
+  padding: 1px 5px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #ffb627;
+  color: var(--ink);
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 20px;
+  text-align: center;
+}
 .screen-game .g-rows { display: flex; flex-direction: column; }
 .screen-game .g-row { display: flex; align-items: center; gap: 2px; height: 40px; }
 .screen-game .g-row .g-lnum { width: 18px; height: 18px; font-size: 12px; margin-right: 1px; }
@@ -378,6 +395,43 @@
 .screen-game .g-blender[data-state="blending"] .g-art { animation: g-rattle 0.16s linear infinite; }
 .screen-game .g-blender[data-state="overflowing"] .g-art { animation: g-overflow 0.55s ease-in-out infinite; }
 .screen-game .g-blender[data-state="ruined"] .g-art { filter: saturate(0.6); }
+/* the switch on the blender's dial: dark while off, green and glowing while the motor runs (a pack waiting in a
+   switched-off blender makes it pulse); its hit area reaches 10 px past the button */
+.screen-game .g-power {
+  position: absolute;
+  z-index: 3;
+  width: 46px;
+  height: 46px;
+  padding: 9px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 32%, #4a4e57, #1f2126 70%);
+  color: #d3d9df;
+  box-shadow: 0 3px 0 rgba(42, 18, 54, 0.55), 0 4px 10px rgba(42, 18, 54, 0.35);
+  cursor: pointer;
+  touch-action: none;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.screen-game .g-power::before { content: ''; position: absolute; inset: -12px; border-radius: 50%; }
+.screen-game .g-power svg { display: block; pointer-events: none; }
+.screen-game .g-blender[data-on="true"] .g-power {
+  background: radial-gradient(circle at 40% 32%, #7ef0a8, var(--leaf) 70%);
+  color: #fff;
+  box-shadow: 0 3px 0 var(--leaf-2), 0 0 16px 4px rgba(47, 191, 113, 0.6);
+}
+.screen-game .g-blender[data-state="loaded"] .g-power { animation: g-power-call 1s ease-in-out infinite; }
+.screen-game .g-blender[data-state="empty"] .g-power,
+.screen-game .g-blender[data-state="ruined"] .g-power { opacity: 0.55; }
+.screen-game .g-blender.drag-source .g-power { visibility: hidden; }
+@keyframes g-power-call {
+  0%, 100% { box-shadow: 0 3px 0 rgba(42, 18, 54, 0.55), 0 0 0 0 rgba(255, 182, 39, 0.0); }
+  50% { box-shadow: 0 3px 0 rgba(42, 18, 54, 0.55), 0 0 0 7px rgba(255, 182, 39, 0.75); }
+}
+/* the freeze upgrade: a snowflake on the motor base's corner, a frosty glow while it keeps a switched-off base */
+.screen-game .g-frost { position: absolute; z-index: 2; right: 6px; bottom: 6px; width: 30px; height: 30px; pointer-events: none; }
+.screen-game .g-blender[data-frozen][data-state="ready"][data-on="false"] .g-art { filter: drop-shadow(0 0 10px rgba(127, 211, 245, 0.9)); }
+/* a switched-off blender's base melting: the timer drains in ice blue */
+.screen-game .g-timer.is-melt i { background: linear-gradient(180deg, #bfe9ff, #3fa8e0); }
 
 /* progress bar: a blender's lies on the worktop under its feet (centred under the motor base, over the freezer's
    back rim), so it hides no dial or portion LED; the pointer goes through it */
@@ -752,27 +806,24 @@
   box-shadow: var(--g-soft-shadow);
 }
 
-/* the cup arm (shop upgrade): a rail along the pass's front, the carriage on it, a telescopic rod down to the
-   gripper (js/game-view.js updateArm moves them). Behind the cups and the dispenser while it carries a cup along
-   the row, in front of them while it takes one out of the dispenser or puts one down on a free spot. */
-.screen-game .g-arm { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; }
-.screen-game .g-arm.is-front { z-index: 4; }
-.screen-game .g-arm-rail { position: absolute; }
-.screen-game .g-arm-car { position: absolute; left: 0; top: 0; will-change: transform; }
-.screen-game .g-arm-body { position: absolute; left: -32px; top: -16px; width: 64px; height: 40px; z-index: 1; }
-.screen-game .g-arm-rod {
+/* the cup lift (shop upgrade, spot by spot): a steel hatch in the worktop under the spot, and the fresh cup it pushes
+   up out of it (js/game-view.js updateLifts moves it; the shaft clips it at the hatch, just under the cup's foot) */
+.screen-game .g-lift-hatch {
   position: absolute;
-  left: -5px;
-  top: 18px;
-  width: 10px;
-  border-radius: 0 0 3px 3px;
-  background: linear-gradient(90deg, #6f7a85 0, #e9eef2 30%, #fdfefe 45%, #b9c2ca 70%, #7d8892 100%);
-  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12);
+  left: 18px;
+  top: 97px;
+  width: 84px;
+  height: 22px;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 45%, #59606a 0 52%, #c9d0d6 56%, #f4f7f9 66%, #8b949e 78%);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7), inset 0 2px 3px rgba(0, 0, 0, 0.35);
 }
-.screen-game .g-arm-grip { position: absolute; left: 0; top: 0; will-change: transform; }
-.screen-game .g-arm-claw { position: absolute; left: -50px; top: 0; width: 100px; height: 56px; }
-/* the carried cup: its middle (y 70 of the 120 px cup) between the pads, flipped about it */
-.screen-game .g-arm-cup { position: absolute; left: -60px; top: -24px; width: 120px; height: 120px; transform-origin: 50% 58.3%; }
+.screen-game .g-bowl.is-lifting .g-lift-hatch { background: radial-gradient(ellipse at 50% 45%, #1d2026 0 58%, #c9d0d6 62%, #f4f7f9 70%, #8b949e 80%); }
+.screen-game .g-lift { position: absolute; left: 0; top: -20px; width: 120px; height: 132px; overflow: hidden; pointer-events: none; }
+.screen-game .g-lift-cup { position: absolute; left: 0; top: 20px; width: 120px; height: 120px; transform: translateY(100%); visibility: hidden; }
+.screen-game .g-bowl.is-lifting .g-lift-cup { visibility: visible; }
+.screen-game .g-bowl.is-lifting .g-art { visibility: hidden; }
 
 /* trash can: on the floor in front of the cabinet, bottom right (y 668–800), beside the matcha bar's extras */
 .screen-game .g-trash {

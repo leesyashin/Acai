@@ -181,6 +181,26 @@ describe('defaults & loading', () => {
     assert.equal(save.kitchenStats().matchaSlots, 1);
   });
 
+  test('the gripper arm is gone from the shop: its coins come back once', () => {
+    let d = fresh({ version: 2, coins: 40, upgrades: { cupArm: 2, bowlSlots: 1 } });
+    assert.equal(d.coins, 40 + 180 + 380);
+    assert.deepEqual(d.upgrades, { bowlSlots: 1 });
+    save.addCoins(0);
+    assert.equal(save.loadSave().coins, 600, 'the stored save is not refunded again');
+    d = fresh({ version: 2, coins: 0, upgrades: { cupArm: '1' } });
+    assert.equal(d.coins, 180);
+    assert.equal(save.legacyRefund({ version: 2, upgrades: { cupArm: 9 } }), 560);
+  });
+
+  test('a lift for a spot that is not there yet cannot be bought', () => {
+    fresh({ coins: 5000, upgrades: { cupLift: 2 } });
+    assert.deepEqual(save.buyUpgrade('cupLift'), { ok: false, reason: 'needs' });
+    assert.equal(stored()?.coins ?? 5000, 5000);
+    assert.deepEqual(save.buyUpgrade('bowlSlots'), { ok: true });
+    assert.deepEqual(save.buyUpgrade('cupLift'), { ok: true });
+    assert.equal(save.kitchenStats().cupLift, 3);
+  });
+
   test('actions on a repaired save add numbers, never strings', () => {
     fresh({ coins: 1000, ingLevels: { acai: '1' }, upgrades: { bowlSlots: '1' }, stats: { served: 'x' } });
     assert.deepEqual(save.upgradeIngredient('acai'), { ok: true });

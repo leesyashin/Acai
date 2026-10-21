@@ -119,6 +119,14 @@ async function expectReject(page, from, to, reason, touch = false) {
 
 const custSel = (id) => `[data-customer-id="${id}"]`;
 
+// A ready blender left running overflows and spoils (its state and its toast would land in the middle of a check
+// about something else): empty the blenders first.
+const calmBlenders = (page) => page.evaluate(async () => {
+  const e = await import('/js/engine.js');
+  const g = window.__acaiGame;
+  g.blenders.forEach((b, i) => { if (b.state !== 'empty' && b.state !== 'blending') e.cleanBlender(g, i); });
+});
+
 // Picks `from` up with the mouse, holds it just beside the source and returns which drop targets
 // glow (drop-ok), then puts it back (a drop on nothing).
 async function glowWhileDragging(page, from) {
@@ -153,12 +161,26 @@ async function waitCustomer(page, pred = 'true', timeout = 20000) {
   return handle.jsonValue();
 }
 
+// Switches blender i on with its button (a pack is in it) and waits until it blends.
+async function switchOn(page, i, touch = false) {
+  await until(page, (k) => window.__acaiGame.blenders[k].state === 'loaded', i, 3000);
+  const btn = page.locator(`[data-power="${i}"]`);
+  if (touch) await btn.tap();
+  else await btn.click();
+  await until(page, (k) => window.__acaiGame.blenders[k].state === 'blending', i, 3000);
+}
+
 // Gets a ready blender with `base`, loading / cleaning blenders as needed. Returns its index.
 async function readyBlender(page, base, touch) {
   for (let round = 0; round < 3; round++) {
     const s = await snap(page);
     const ready = s.blenders.findIndex((b) => (b.state === 'ready' || b.state === 'overflowing') && b.base === base);
     if (ready >= 0) return ready;
+    const off = s.blenders.findIndex((b) => b.state === 'loaded' && b.base === base);
+    if (off >= 0) {
+      await switchOn(page, off, touch);
+      continue;
+    }
     const mixing = s.blenders.findIndex((b) => b.state === 'blending' && b.base === base);
     if (mixing >= 0) {
       await fastUntil(page, (i) => ['ready', 'overflowing'].includes(window.__acaiGame.blenders[i].state), mixing);
@@ -171,7 +193,7 @@ async function readyBlender(page, base, touch) {
       await until(page, (i) => window.__acaiGame.blenders[i].state === 'empty', free, 3000);
     }
     await drag(page, `[data-pack="${base}"]`, `[data-blender="${free}"]`, touch);
-    await until(page, (i) => window.__acaiGame.blenders[i].state === 'blending', free, 3000);
+    await switchOn(page, free, touch);
   }
   throw new Error(`could not get a ready ${base} blender`);
 }
@@ -262,9 +284,12 @@ async function tutorialAndServing(srv) {
       await expectReject(page, '[data-bin="banana"]', '[data-bowl="1"]', 'noCup');
     });
 
-    await check(`${tag} tutorial: pack → blender → cup → wait → pour`, async () => {
+    await check(`${tag} tutorial: pack → blender → switch on → cup → wait → pour`, async () => {
       await drag(page, '[data-pack="acai"]', '[data-blender="0"]');
-      await until(page, () => window.__acaiGame.blenders[0].state === 'blending', null, 3000);
+      await tutorialStep(page, 'switch');
+      assert(await page.locator('.g-tut-point').count() === 1, 'no pointer at the switch');
+      await page.screenshot({ path: path.join(OUT, 'tutorial-switch.png') });
+      await switchOn(page, 0);
       await tutorialStep(page, 'cupWait');
       assert(await page.locator('.g-tut-arrow').count() === 1, 'no arrow from the cup stack');
       await page.screenshot({ path: path.join(OUT, 'tutorial-cup.png') });
@@ -439,13 +464,33 @@ async function overflowAndClean(srv) {
   try {
     await check(`${tag} level ${level}: blender overflows, spoils, is rejected and cleaned`, async () => {
       await drag(page, '[data-pack="acai"]', '[data-blender="0"]');
-      await until(page, () => window.__acaiGame.blenders[0].state === 'blending', null, 3000);
+      await switchOn(page, 0);
       await fastUntil(page, () => document.querySelector('[data-blender="0"]').dataset.state === 'overflowing', null, 6);
       await page.screenshot({ path: path.join(OUT, 'overflowing.png') });
       await fastUntil(page, () => document.querySelector('[data-blender="0"]').dataset.state === 'ruined', null, 6);
       await expectReject(page, '[data-blender="0"]', '[data-bowl="0"]', 'blenderRuined');
       // a fresh pack on the spoiled blender points to the trash instead of "still busy"
       await expectReject(page, '[data-pack="acai"]', '[data-blender="0"]', 'blenderRuined');
+      await drag(page, '[data-blender="0"]', '[data-trash]');
+      await until(page, () => window.__acaiGame.blenders[0].state === 'empty', null, 3000);
+    });
+    await check(`${tag} level ${level}: switched off when ready it cannot overflow; it melts later; done is done`, async () => {
+      await drag(page, '[data-pack="acai"]', '[data-blender="0"]');
+      await switchOn(page, 0);
+      await fastUntil(page, () => window.__acaiGame.blenders[0].state === 'ready', null, 6);
+      await page.locator('[data-power="0"]').click();
+      await until(page, () => document.querySelector('[data-blender="0"]').dataset.on === 'false', null, 3000);
+      assert(await page.locator('[data-blender="0"] .g-timer.is-melt').count() === 1, 'no melt timer');
+      const hold = await page.evaluate(() => window.__acaiGame.kitchen.readyHold + window.__acaiGame.kitchen.overflowTime);
+      await page.evaluate(() => { window.__acaiSpeed = 6; });
+      await sleep(((hold + 1) / 6) * 1000);
+      await page.evaluate(() => { window.__acaiSpeed = 1; });
+      assert(await page.evaluate(() => window.__acaiGame.blenders[0].state) === 'ready', 'a switched-off blender overflowed');
+      // pressing it again: done, nothing to switch on
+      await clearToast(page);
+      await page.locator('[data-power="0"]').click();
+      await until(page, () => (document.querySelector('.g-fx .g-toast')?.textContent || '') !== '', null, 3000);
+      await fastUntil(page, () => window.__acaiGame.blenders[0].state === 'ruined', null, 6);
       await drag(page, '[data-blender="0"]', '[data-trash]');
       await until(page, () => window.__acaiGame.blenders[0].state === 'empty', null, 3000);
     });
@@ -481,6 +526,7 @@ async function matchaTouch(srv) {
       assert(s.served === before.served + 1 && s.money > before.money, 'customer did not pay');
     });
     await check(`${tag} a topping on a matcha glass and the matcha bar's fruit on a bowl bounce back with a hint`, async () => {
+      await calmBlenders(page);
       await expectReject(page, '[data-bin="honey"]', '[data-matcha-slot="0"]', 'notMatchaFruit', true);
       await expectReject(page, '[data-bin="banana"]', '[data-matcha-slot="0"]', 'notMatchaFruit', true);
       await expectReject(page, '[data-bin="mBanana"]', '[data-bowl="0"]', 'matchaItem', true);
@@ -489,6 +535,7 @@ async function matchaTouch(srv) {
       const bi = await readyBlender(page, 'acai', true);
       const bowl = (await snap(page)).bowls.findIndex((b) => !b.base);
       await pour(page, bi, bowl, true);
+      await calmBlenders(page);
       const before = JSON.stringify((await snap(page)).bowls);
       const cdp = await page.context().newCDPSession(page);
       const touch = (type, p) => cdp.send('Input.dispatchTouchEvent', {
@@ -574,12 +621,12 @@ async function matchaTouch(srv) {
 // Drop targets glow only where the drop would be taken (DESIGN §4.3 valid()).
 async function glowRules(srv) {
   const tag = '[mouse 1280×800]';
-  // a level with two bases, the matcha bar and an extra; every upgrade but the cup arm (cups by hand here)
+  // a level with two bases, the matcha bar and an extra; every upgrade but the cup lifts (cups by hand here)
   const { page, errors, close } = await open(srv, 'level=17&fresh=1&upgrades=max&tutorial=0&seed=4');
   try {
     await page.evaluate(() => {
       const g = window.__acaiGame;
-      g.arm = null;
+      g.lifts = g.lifts.map(() => null);
       for (const b of g.bowls) b.cup = false;
     });
     await check(`${tag} glow: only targets that would take the drop light up`, async () => {
@@ -599,8 +646,8 @@ async function glowRules(srv) {
       await expect('[data-bin="banana"]', ''); // the empty cup needs a base first
       for (const i of [1, 2, 3]) await placeCup(page, i);
       await drag(page, '[data-pack="acai"]', '[data-blender="0"]');
-      await until(page, () => window.__acaiGame.blenders[0].state === 'blending', null, 3000);
       await expect('[data-pack="pitaya"]', 'blender1'); // the busy blender stays dark
+      await switchOn(page, 0);
       await fastUntil(page, () => window.__acaiGame.blenders[0].state === 'ready', null, 4);
       await expect('[data-blender="0"]', 'bowl0 bowl1 bowl2 bowl3 trash');
       await drag(page, '[data-blender="0"]', '[data-bowl="0"]');

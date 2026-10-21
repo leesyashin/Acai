@@ -1,20 +1,23 @@
 // Simulated player for balance tests. Plays only through the public engine API.
-// Every drag costs `actionTime` seconds (perception + drag), between actions the
-// engine is ticked in small steps. Strategy: most impatient customer first, one
-// reserved bowl and one reserved glass per customer, blenders kept busy with the bases
-// that are needed, empty spots get a cup from the stack whenever there is nothing more
-// urgent to do (unless the cup arm does that).
+// Every drag or tap costs `actionTime` seconds (perception + drag), between actions the
+// engine is ticked in small steps. Strategy: most impatient customer first, one reserved
+// bowl per ordered bowl and one reserved glass per customer, blenders kept busy with the bases
+// that are needed (a pack in, then switched on), a ready blender switched off before it would
+// overflow, empty spots get a cup from the stack whenever there is nothing more urgent to do
+// (unless a cup lift does that).
 
 import {
-  createGame, tick, drainEvents, loadBlender, pourBlender, addIngredient, trashBowl, matchaMatchesOrder,
+  createGame, tick, drainEvents, loadBlender, toggleBlender, pourBlender, addIngredient, trashBowl, matchaMatchesOrder,
   cleanBlender, loadMatcha, trashMatcha, serveBowl, serveMatcha, bowlMatchesOrder, placeCup,
 } from '../../js/engine.js';
 import {
-  getKitchenStats, getLevel, MATCHA_LEVEL, ING, UPG, LEVELS, INGREDIENTS, UPGRADES, ownedAt, unlockedIn,
+  getKitchenStats, getLevel, MATCHA_LEVEL, ING, UPG, LEVELS, INGREDIENTS, UPGRADES, ownedAt, unlockedIn, upgradeNeeds,
 } from '../../js/data.js';
 
 const STEP = 0.05;
 const POURABLE = new Set(['ready', 'overflowing']);
+// seconds before it would overflow that the bot switches a ready blender off
+const OFF_MARGIN = 2.5;
 
 function wait(game, seconds) {
   for (let left = seconds; left > 1e-9 && game.status === 'playing'; left -= STEP) {
@@ -28,7 +31,9 @@ function activeCustomers(game) {
   return game.seats.filter(isActive).sort((a, b) => a.patience - b.patience);
 }
 
-const needsBowl = (c) => !!c.order.bowl && !c.delivered.bowl;
+// bowls a customer still waits for
+const bowlsLeft = (c) => (c.order.bowl ? (c.order.qty || 1) - c.delivered.bowls : 0);
+const needsBowl = (c) => bowlsLeft(c) > 0;
 const needsMatcha = (c) => !!c.order.matcha && !c.delivered.matcha;
 
 // Can the drink in this slot still become the ordered one (same fruit, no extra it should not have)?
@@ -48,28 +53,42 @@ export function bowlCompatible(bowl, order) {
 const bowlProgress = (b) => (b.base ? 1 : 0) + b.mid.length + b.top.length;
 const bowlIsEmpty = (b) => !b.base && !b.mid.length && !b.top.length;
 
-// Keeps customer → bowl reservations stable between decisions.
+// Reservations: mem.bowlOf maps a key to { cid, idx } – one per bowl a customer still waits for.
+function reserved(mem, cid) {
+  return [...mem.bowlOf.entries()].filter(([, r]) => r.cid === cid);
+}
+
+// Keeps bowl reservations stable between decisions.
 function assignBowls(game, mem, customers) {
   const wanted = new Map(customers.filter(needsBowl).map((c) => [c.id, c]));
-  for (const [cid, idx] of mem.bowlOf) {
-    const c = wanted.get(cid);
-    if (!c || !bowlCompatible(game.bowls[idx], c.order.bowl)) mem.bowlOf.delete(cid);
+  for (const [key, r] of mem.bowlOf) {
+    const c = wanted.get(r.cid);
+    if (!c || !bowlCompatible(game.bowls[r.idx], c.order.bowl)) mem.bowlOf.delete(key);
   }
-  const taken = () => new Set(mem.bowlOf.values());
   for (const c of wanted.values()) {
-    if (mem.bowlOf.has(c.id)) continue;
-    const used = taken();
-    let best = -1;
-    game.bowls.forEach((b, i) => {
-      if (used.has(i) || !bowlCompatible(b, c.order.bowl)) return;
-      if (best < 0 || bowlProgress(b) > bowlProgress(game.bowls[best])) best = i;
-    });
-    if (best >= 0) mem.bowlOf.set(c.id, best);
+    const mine = reserved(mem, c.id).sort((a, b) => bowlProgress(game.bowls[b[1].idx]) - bowlProgress(game.bowls[a[1].idx]));
+    // a bowl was served: drop the least built reservations beyond what is still wanted
+    for (const [key] of mine.slice(bowlsLeft(c))) mem.bowlOf.delete(key);
+    for (let n = mine.length; n < bowlsLeft(c); n++) {
+      const used = new Set([...mem.bowlOf.values()].map((r) => r.idx));
+      let best = -1;
+      game.bowls.forEach((b, i) => {
+        if (used.has(i) || !bowlCompatible(b, c.order.bowl)) return;
+        if (best < 0 || bowlProgress(b) > bowlProgress(game.bowls[best])) best = i;
+      });
+      if (best < 0) break;
+      mem.bowlOf.set(mem.serial++, { cid: c.id, idx: best });
+    }
   }
 }
 
+// The reserved spots of a customer, most built first.
+function spotsOf(game, mem, c) {
+  return reserved(mem, c.id).map(([, r]) => r.idx).sort((a, b) => bowlProgress(game.bowls[b]) - bowlProgress(game.bowls[a]));
+}
+
 function freeBowls(game, mem) {
-  const used = new Set(mem.bowlOf.values());
+  const used = new Set([...mem.bowlOf.values()].map((r) => r.idx));
   return game.bowls.map((b, i) => i).filter((i) => !used.has(i));
 }
 
@@ -77,7 +96,7 @@ function freeBowls(game, mem) {
 function baseSupply(game) {
   const supply = {};
   for (const b of game.blenders) {
-    if (b.state === 'blending') supply[b.base] = (supply[b.base] || 0) + b.maxPortions;
+    if (b.state === 'blending' || b.state === 'loaded') supply[b.base] = (supply[b.base] || 0) + b.maxPortions;
     else if (POURABLE.has(b.state)) supply[b.base] = (supply[b.base] || 0) + b.portions;
   }
   return supply;
@@ -89,12 +108,13 @@ function unmetBases(game, mem, customers) {
   const missing = [];
   for (const c of customers) {
     if (!needsBowl(c)) continue;
-    const idx = mem.bowlOf.get(c.id);
     // Only bowls that are already reserved can take a portion soon.
-    if (idx === undefined || game.bowls[idx].base) continue;
-    const base = c.order.bowl.base;
-    if (supply[base] > 0) supply[base]--;
-    else missing.push(base);
+    for (const idx of spotsOf(game, mem, c)) {
+      if (game.bowls[idx].base) continue;
+      const base = c.order.bowl.base;
+      if (supply[base] > 0) supply[base]--;
+      else missing.push(base);
+    }
   }
   return missing;
 }
@@ -103,16 +123,18 @@ function act(fn) {
   return { run: fn };
 }
 
-// Pour a base into bowl idx – or put the cup down first when the spot is still empty.
+// Pour a base into bowl idx – or put the cup down first when the spot is still empty (a spot with a
+// cup lift gets its cup by itself: wait for it).
 function pourOrCup(game, bl, idx) {
-  return game.bowls[idx].cup ? act(() => pourBlender(game, bl, idx)) : act(() => placeCup(game, idx));
+  if (game.bowls[idx].cup) return act(() => pourBlender(game, bl, idx));
+  return game.lifts[idx] ? null : act(() => placeCup(game, idx));
 }
 
 function serveAction(game, mem, customers) {
   for (const c of customers) {
-    const idx = mem.bowlOf.get(c.id);
-    if (needsBowl(c) && idx !== undefined && bowlMatchesOrder(game.bowls[idx], c.order.bowl)) {
-      return act(() => serveBowl(game, idx, c.id));
+    if (needsBowl(c)) {
+      const idx = spotsOf(game, mem, c).find((i) => bowlMatchesOrder(game.bowls[i], c.order.bowl));
+      if (idx !== undefined) return act(() => serveBowl(game, idx, c.id));
     }
     const slot = mem.slotOf.get(c.id);
     if (needsMatcha(c) && slot !== undefined) {
@@ -124,9 +146,12 @@ function serveAction(game, mem, customers) {
 }
 
 function blenderAction(game, mem, customers) {
-  const missing = unmetBases(game, mem, customers);
   const ruined = game.blenders.findIndex((b) => b.state === 'ruined');
   if (ruined >= 0) return act(() => cleanBlender(game, ruined));
+  // a pack is in: switch it on
+  const loaded = game.blenders.findIndex((b) => b.state === 'loaded');
+  if (loaded >= 0) return act(() => toggleBlender(game, loaded));
+  const missing = unmetBases(game, mem, customers);
   if (!missing.length) return null;
   const empty = game.blenders.findIndex((b) => b.state === 'empty');
   if (empty >= 0) return act(() => loadBlender(game, empty, missing[0]));
@@ -178,13 +203,17 @@ function matchaAction(game, mem, customers) {
   return null;
 }
 
-// Next build step for the most urgent customer that can make progress.
+// Next pour for the most urgent customer that can make progress.
 function pourAction(game, mem, customers) {
   for (const c of customers) {
-    const idx = mem.bowlOf.get(c.id);
-    if (!needsBowl(c) || idx === undefined || game.bowls[idx].base) continue;
+    if (!needsBowl(c)) continue;
     const bl = game.blenders.findIndex((b) => POURABLE.has(b.state) && b.base === c.order.bowl.base);
-    if (bl >= 0) return pourOrCup(game, bl, idx);
+    if (bl < 0) continue;
+    for (const idx of spotsOf(game, mem, c)) {
+      if (game.bowls[idx].base) continue;
+      const a = pourOrCup(game, bl, idx);
+      if (a) return a;
+    }
   }
   return null;
 }
@@ -192,42 +221,50 @@ function pourAction(game, mem, customers) {
 function bowlWorkAction(game, mem, customers) {
   for (const c of customers) {
     if (!needsBowl(c)) continue;
-    const idx = mem.bowlOf.get(c.id);
-    if (idx === undefined) {
+    const spots = spotsOf(game, mem, c);
+    for (const idx of spots) {
+      const bowl = game.bowls[idx];
+      const order = c.order.bowl;
+      if (!bowl.base) {
+        const bl = game.blenders.findIndex((b) => POURABLE.has(b.state) && b.base === order.base);
+        const a = bl >= 0 ? pourOrCup(game, bl, idx) : null;
+        if (a) return a;
+        continue;
+      }
+      const next = order.mid.find((id) => !bowl.mid.includes(id))
+        || order.top.find((id) => !bowl.top.includes(id));
+      if (next) return act(() => addIngredient(game, idx, next));
+    }
+    if (spots.length < bowlsLeft(c)) {
       const junk = freeBowls(game, mem)
         .filter((i) => !customers.some((o) => needsBowl(o) && bowlCompatible(game.bowls[i], o.order.bowl)))
         .sort((a, b) => bowlProgress(game.bowls[a]) - bowlProgress(game.bowls[b]))[0];
-      if (junk !== undefined) return act(() => trashBowl(game, junk));
-      continue;
+      if (junk !== undefined && !bowlIsEmpty(game.bowls[junk])) return act(() => trashBowl(game, junk));
     }
-    const bowl = game.bowls[idx];
-    const order = c.order.bowl;
-    if (!bowl.base) {
-      const bl = game.blenders.findIndex((b) => POURABLE.has(b.state) && b.base === order.base);
-      if (bl >= 0) return pourOrCup(game, bl, idx);
-      continue;
-    }
-    const next = order.mid.find((id) => !bowl.mid.includes(id))
-      || order.top.find((id) => !bowl.top.includes(id));
-    if (next) return act(() => addIngredient(game, idx, next));
   }
   return null;
 }
 
-// Keep blenders from spoiling: pour leftovers into spare bowls.
+// Keep blenders from spoiling: pour leftovers into spare bowls, or switch a ready blender off before
+// it overflows (a frozen one keeps its base for good then).
 function rescueAction(game, mem, onlyUrgent) {
   const spare = freeBowls(game, mem).find((i) => bowlIsEmpty(game.bowls[i]));
+  if (onlyUrgent) {
+    const hot = game.blenders.findIndex((b) => b.on && (b.state === 'overflowing'
+      || (b.state === 'ready' && b.duration > 0 && b.duration - b.t < OFF_MARGIN)));
+    if (hot < 0) return null;
+    const a = spare !== undefined && game.blenders[hot].state === 'overflowing' ? pourOrCup(game, hot, spare) : null;
+    return a || act(() => toggleBlender(game, hot));
+  }
   if (spare === undefined) return null;
-  const bl = game.blenders.findIndex((b) => (onlyUrgent ? b.state === 'overflowing' : POURABLE.has(b.state)));
+  const bl = game.blenders.findIndex((b) => POURABLE.has(b.state) && !b.frozen);
   return bl >= 0 ? pourOrCup(game, bl, spare) : null;
 }
 
-// Spare moment: a cup on every empty spot, the ones reserved for a customer first.
+// Spare moment: a cup on every empty spot without a lift, the ones reserved for a customer first.
 function cupAction(game, mem) {
-  if (game.arm) return null;
-  const reserved = [...mem.bowlOf.values()];
-  const order = [...reserved, ...game.bowls.map((b, i) => i)];
-  const idx = order.find((i) => !game.bowls[i].cup);
+  const order = [...[...mem.bowlOf.values()].map((r) => r.idx), ...game.bowls.map((b, i) => i)];
+  const idx = order.find((i) => !game.bowls[i].cup && !game.lifts[i]);
   return idx === undefined ? null : act(() => placeCup(game, idx));
 }
 
@@ -274,7 +311,7 @@ export function playLevel({
     seed,
     featured: featured || (endless ? [] : unlockedIn(lvl.id)),
   });
-  const mem = { bowlOf: new Map(), slotOf: new Map(), lastBase: null };
+  const mem = { bowlOf: new Map(), slotOf: new Map(), lastBase: null, serial: 0 };
   let actions = 0;
   let ruined = 0;
   while (game.status === 'playing' && game.time < maxTime) {
@@ -309,12 +346,12 @@ export function playLevel({
 export const SCHEDULE = [
   { from: 1, upgrades: {}, quality: [] },
   { from: 4, upgrades: { blenderSpeed: 1 }, quality: [] },
-  { from: 7, upgrades: { cupArm: 1 }, quality: [] },
+  { from: 7, upgrades: { cupLift: 1 }, quality: [] },
   { from: 10, upgrades: { bowlSlots: 1, plants: 1 }, quality: [] },
   { from: 14, upgrades: { matchaSlots: 1 }, quality: ['acai'] },
   { from: 18, upgrades: { jug: 1, blenderSpeed: 2 }, quality: ['banana'] },
   { from: 23, upgrades: { blender2: 1, bowlSlots: 2, jukebox: 1 }, quality: [] },
-  { from: 28, upgrades: { cupArm: 2 }, quality: ['granola', 'strawberry', 'mStrawberry'] },
+  { from: 28, upgrades: { cupLift: 3, freeze: 1 }, quality: ['granola', 'strawberry', 'mStrawberry'] },
   { from: 34, upgrades: { blenderSpeed: 3, seating: 1 }, quality: ['honey', 'mBanana', 'pitaya'] },
   { from: 42, upgrades: { neon: 1 }, quality: ['blueberry', 'coconut', 'ice', 'mMango'] },
   { from: 50, upgrades: {}, quality: ['chia', 'mango', 'vanilla', 'peanut', 'kiwi'] },
@@ -370,6 +407,7 @@ function shop(inv, list, levelId) {
     const costs = item.kind === 'upg' ? UPG[item.id].levels.map((l) => l.cost) : ING[item.id].upgradeCosts;
     let short = false;
     while ((levels[item.id] || 0) < Math.min(item.lvl, costs.length)) {
+      if (item.kind === 'upg' && upgradeNeeds(item.id, inv.upgrades)) break; // the spot or blender first
       const cost = costs[levels[item.id] || 0];
       if (inv.coins < cost) {
         short = true;

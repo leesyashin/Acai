@@ -120,9 +120,6 @@ test('the matcha bar: every matcha ingredient has an icon, a container and somet
     }
   }
   assert.ok(!art.cupDispenserSVG(120).includes('NaN'));
-  for (const svg of [art.armRailSVG(500), art.armCarriageSVG(true), art.armGripSVG(true), art.armGripSVG(false)]) {
-    assert.ok(!svg.includes('NaN') && !svg.includes('undefined'));
-  }
 });
 
 // ------------------------------------------------------------------ guests

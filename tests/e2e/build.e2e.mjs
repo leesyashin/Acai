@@ -59,6 +59,8 @@ async function main() {
       await screenIs(page, 'game');
       await page.waitForFunction(() => !!window.__acaiGame && document.querySelector('[data-tutorial-step]'), null, { timeout: 5000 });
       await dragBetween(page, '[data-pack="acai"]', '[data-blender="0"]');
+      await page.waitForFunction(() => window.__acaiGame.blenders[0].state === 'loaded', null, { timeout: 3000 });
+      await page.locator('[data-power="0"]').click();
       await page.waitForFunction(() => window.__acaiGame.blenders[0].state === 'blending', null, { timeout: 3000 });
     }, page);
 

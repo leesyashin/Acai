@@ -8,7 +8,7 @@ import {
   LAYERS, MATCHA_LAYERS, INGREDIENTS, START_OWNED, QUALITY_MULT, MATCHA_LEVEL, ENDLESS_UNLOCK_LEVEL, MAX_BOWL_ITEMS,
   MAX_MATCHA_EXTRAS, MATCHA_PRICE, ING, ingredientsByLayer, isMatchaFruit, isMatchaExtra, ingredientValue, matchaValue,
   qualityUpgradeCost, ownedAt, unlockedIn, artOf, orderWork, regionOf, REGIONS, REGION_SIZE,
-  LEVELS, getLevel, endlessConfig, KITCHEN_BASE, UPGRADES, UPG, getKitchenStats, nextUpgradeCost,
+  LEVELS, getLevel, endlessConfig, KITCHEN_BASE, UPGRADES, UPG, getKitchenStats, nextUpgradeCost, upgradeNeeds,
 } from '../js/data.js';
 import { hasString, LANGS } from '../js/i18n.js';
 
@@ -253,9 +253,10 @@ describe('endlessConfig', () => {
 describe('orderWork', () => {
   test('counts the drags of a bowl and a drink', () => {
     const bowl = { base: 'acai', mid: ['banana', 'granola'], top: ['honey'] };
-    assert.equal(orderWork({ bowl, matcha: null }), 3.5 + 3);
+    assert.equal(orderWork({ bowl, matcha: null }), 4 + 3);
     assert.equal(orderWork({ bowl: null, matcha: { fruit: 'mBanana', extras: ['ice'] } }), 3);
-    assert.equal(orderWork({ bowl, matcha: { fruit: 'mBanana', extras: [] } }), 3.5 + 3 + 2);
+    assert.equal(orderWork({ bowl, matcha: { fruit: 'mBanana', extras: [] } }), 4 + 3 + 2);
+    assert.equal(orderWork({ bowl, qty: 2, matcha: null }), 2 * (4 + 3), 'every one of the bowls');
   });
 });
 
@@ -263,7 +264,7 @@ describe('upgrades & kitchen stats', () => {
   test('upgrade table is well formed', () => {
     const ids = UPGRADES.map((u) => u.id);
     assert.equal(new Set(ids).size, ids.length, 'duplicate upgrade id');
-    for (const id of ['blenderSpeed', 'jug', 'blender2', 'bowlSlots', 'cupArm', 'matchaSlots', 'plants', 'jukebox', 'seating', 'neon']) {
+    for (const id of ['blenderSpeed', 'jug', 'blender2', 'bowlSlots', 'cupLift', 'freeze', 'matchaSlots', 'plants', 'jukebox', 'seating', 'neon']) {
       assert.ok(UPG[id], `missing upgrade ${id}`);
     }
     for (const u of UPGRADES) {
@@ -273,6 +274,10 @@ describe('upgrades & kitchen stats', () => {
         assert.ok(Number.isFinite(lv.cost) && lv.cost > 0, `${u.id}: cost`);
         for (const key of Object.keys(lv)) {
           if (key === 'cost') continue;
+          if (key === 'needs') {
+            for (const [id, n] of Object.entries(lv.needs)) assert.ok(UPG[id] && n >= 1 && n <= UPG[id].levels.length, `${u.id}: needs ${id}`);
+            continue;
+          }
           assert.ok(key === 'patience' || key in KITCHEN_BASE, `${u.id}: unknown stat ${key}`);
         }
       }
@@ -304,10 +309,26 @@ describe('upgrades & kitchen stats', () => {
     assert.ok(getKitchenStats({ jug: 1 }).readyHold > KITCHEN_BASE.readyHold);
     assert.equal(getKitchenStats({ blender2: 1 }).blenders, 2);
     assert.equal(getKitchenStats({ matchaSlots: 1 }).matchaSlots, 2);
-    assert.equal(KITCHEN_BASE.cupArm, 0, 'no arm: cups by hand');
-    assert.ok(getKitchenStats({ cupArm: 1 }).cupArm > 0);
-    assert.ok(getKitchenStats({ cupArm: 2 }).cupArm < getKitchenStats({ cupArm: 1 }).cupArm, 'the turbo arm is faster');
+    assert.equal(KITCHEN_BASE.cupLift, 0, 'no lift: cups by hand');
+    UPG.cupLift.levels.forEach((lv, i) => assert.equal(getKitchenStats({ cupLift: i + 1 }).cupLift, i + 1, 'one spot per level'));
+    assert.equal(UPG.cupLift.levels.length, getKitchenStats({ bowlSlots: 9 }).bowlSlots, 'a lift for every spot');
+    assert.equal(KITCHEN_BASE.freeze, 0);
+    assert.equal(getKitchenStats({ freeze: 2 }).freeze, 2);
+    assert.equal(UPG.freeze.levels.length, getKitchenStats({ blender2: 1 }).blenders, 'freeze for every blender');
+    assert.ok(getKitchenStats({ jug: 1 }).meltTime > KITCHEN_BASE.meltTime);
     assert.deepEqual(getKitchenStats({ unknownThing: 3 }), KITCHEN_BASE);
+  });
+
+  test('a lift for a spot or freeze for a blender that is not there yet waits for it', () => {
+    assert.equal(upgradeNeeds('cupLift', {}), null);
+    assert.equal(upgradeNeeds('cupLift', { cupLift: 1 }), null);
+    assert.deepEqual(upgradeNeeds('cupLift', { cupLift: 2 }), { id: 'bowlSlots', lvl: 1 });
+    assert.equal(upgradeNeeds('cupLift', { cupLift: 2, bowlSlots: 1 }), null);
+    assert.deepEqual(upgradeNeeds('cupLift', { cupLift: 3, bowlSlots: 1 }), { id: 'bowlSlots', lvl: 2 });
+    assert.equal(upgradeNeeds('cupLift', { cupLift: 4 }), null, 'maxed');
+    assert.deepEqual(upgradeNeeds('freeze', { freeze: 1 }), { id: 'blender2', lvl: 1 });
+    assert.equal(upgradeNeeds('freeze', { freeze: 1, blender2: 1 }), null);
+    assert.equal(upgradeNeeds('jug', {}), null);
   });
 
   test('decor patience bonuses add up', () => {

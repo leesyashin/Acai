@@ -95,7 +95,9 @@ const snap = (page) => page.evaluate(() => {
       id: c.id, state: c.state, patience: c.patience, order: c.order, delivered: { ...c.delivered },
     }),
     bowls: g.bowls.map((b) => ({ cup: b.cup, base: b.base, mid: [...b.mid], top: [...b.top], uid: b.uid })),
-    blenders: g.blenders.map((b) => ({ state: b.state, base: b.base, portions: b.portions, maxPortions: b.maxPortions })),
+    blenders: g.blenders.map((b) => ({
+      state: b.state, base: b.base, portions: b.portions, maxPortions: b.maxPortions, on: b.on, left: b.duration > 0 ? b.duration - b.t : Infinity,
+    })),
     slots: g.matcha ? g.matcha.slots.map((s) => ({ state: s.state, fruit: s.fruit, extras: [...s.extras] })) : [],
   };
 });
@@ -110,9 +112,15 @@ function onTrack(b, o) {
 const nextMissing = (b, o) => o.mid.find((x) => !b.mid.includes(x)) || o.top.find((x) => !b.top.includes(x)) || null;
 const POURABLE = ['ready', 'overflowing'];
 
-// One decision per call, like a player: serve > matcha > build bowls > pour > blend > put cups down.
+// One decision per call, like a player: switch > serve > matcha > build bowls > pour > blend > put cups down.
 function plan(s) {
   const waiting = s.seats.filter((c) => c && c.state === 'waiting').sort((a, b) => a.patience - b.patience);
+
+  // the blenders' switches: on once a pack is in, off before a ready one overflows
+  const loaded = s.blenders.findIndex((b) => b.state === 'loaded');
+  if (loaded >= 0) return { kind: 'switch', blender: loaded };
+  const hot = s.blenders.findIndex((b) => b.on && (b.state === 'overflowing' || (b.state === 'ready' && b.left < 3)));
+  if (hot >= 0) return { kind: 'switch', blender: hot };
 
   // matcha: the fruit from the matcha bar into an empty glass, its extras on it, the finished glass to the guest
   const usedSlots = new Set();
@@ -136,7 +144,9 @@ function plan(s) {
   }
 
   // bowls: serve a finished one, otherwise assign on-track bowls to customers
-  const bowlWaiting = waiting.filter((c) => c.order.bowl && !c.delivered.bowl);
+  // one entry per bowl still to come (a group order wants the same bowl more than once)
+  const bowlWaiting = waiting.filter((c) => c.order.bowl && !c.delivered.bowl)
+    .flatMap((c) => Array((c.order.qty || 1) - c.delivered.bowls).fill(c));
   for (const c of bowlWaiting) {
     const bi = s.bowls.findIndex((b) => matches(b, c.order.bowl));
     if (bi >= 0) return { kind: 'serveBowl', bowl: bi, cust: c.id };
@@ -169,8 +179,8 @@ function plan(s) {
   for (const c of needBowl) demand[c.order.bowl.base] = (demand[c.order.bowl.base] || 0) + 1;
   for (const [base, n] of Object.entries(demand)) {
     const supply = s.blenders
-      .filter((b) => b.base === base && (b.state === 'blending' || POURABLE.includes(b.state)))
-      .reduce((sum, b) => sum + (b.state === 'blending' ? b.maxPortions : b.portions), 0);
+      .filter((b) => b.base === base && (b.state === 'blending' || b.state === 'loaded' || POURABLE.includes(b.state)))
+      .reduce((sum, b) => sum + (b.state === 'blending' || b.state === 'loaded' ? b.maxPortions : b.portions), 0);
     if (supply >= n) continue;
     const free = s.blenders.findIndex((b) => b.state === 'empty');
     if (free >= 0) return { kind: 'loadBlender', blender: free, base };
@@ -241,6 +251,14 @@ async function playBot(page, { touch = false, done = () => false, timeout = 2400
       await sleep(120);
       continue;
     }
+    if (a.kind === 'switch') {
+      const on = s.blenders[a.blender].on;
+      await press(page, `[data-power="${a.blender}"]`, touch);
+      stats.actions++;
+      const ok = await page.waitForFunction(([i, was]) => window.__acaiGame.blenders[i].on !== was, [a.blender, on], { timeout: 1500, polling: 40 }).then(() => true, () => false);
+      if (!ok && await page.evaluate(() => window.__acaiGame?.status === 'playing')) stats.rejects.push('switch');
+      continue;
+    }
     const d = dragFor(a, s);
     const exists = await page.evaluate(([f, t]) => !!document.querySelector(f) && !!document.querySelector(t), [d.from, d.to]);
     if (!exists) {
@@ -287,7 +305,7 @@ async function mouseCampaign(srv) {
       bot = await playBot(page, { timeout: 260000 });
       // The bot puts its cups down while the first guest walks in, so the tutorial's cup steps
       // ("cupWait"/"cup", see gameplay.e2e.mjs) may be skipped; when shown they come before the pour.
-      const order = ['pack', 'pour', 'add', 'serve', 'done'];
+      const order = ['pack', 'switch', 'pour', 'add', 'serve', 'done'];
       let at = -1;
       for (const k of order) {
         const i = bot.tutSteps.indexOf(k, at + 1);

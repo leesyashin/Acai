@@ -5,7 +5,7 @@
 import { registerStrings, t, getLang, setLang, formatNumber } from './i18n.js';
 import {
   LAYERS, MATCHA_LAYERS, LEVELS, UPGRADES, UPG, ENDLESS_UNLOCK_LEVEL, MATCHA_LEVEL, ING,
-  getLevel, ingName, ingredientValue, ingredientsByLayer, qualityUpgradeCost, nextUpgradeCost, getKitchenStats, unlockedIn,
+  getLevel, ingName, ingredientValue, ingredientsByLayer, qualityUpgradeCost, nextUpgradeCost, upgradeNeeds, getKitchenStats, unlockedIn,
 } from './data.js';
 import {
   getSave, onSaveChange, isOwned, levelStars, isLevelUnlocked, isEndlessUnlocked, totalStars,
@@ -13,7 +13,7 @@ import {
 } from './save.js';
 import {
   logoSVG, bowlSVG, ingredientIcon, packIcon, matchaGlassSVG, customerSVG, lookFromSeed, blenderSVG, matchaMachineSVG,
-  cupDispenserSVG, cupSpotSVG, armRailSVG, armCarriageSVG, armGripSVG,
+  cupSpotSVG,
   decorSVG, coinSVG, starSVG, heartSVG, clockSVG, lockSVG, titleCounterSVG,
   mapRegionSVG, mapLevelPos, mapRoadData, MAP_H, MAP_BLEED, MAP_REGIONS,
   MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE,
@@ -65,9 +65,11 @@ registerStrings({
     'map.regionFrom': 'ab Level {n}',
     'map.new': 'Neu',
     'intro.basics.title': 'So geht’s',
-    'intro.basics.text': 'Zieh die Açaí-Packung in den Mixer und stell eine leere Bowl vom Stapel hin. Ist die Basis fertig, zieh den Mixkrug auf die Bowl, leg die bestellten Zutaten darauf und bring die Bowl zum Gast.',
+    'intro.basics.text': 'Zieh die Açaí-Packung in den Mixer und schalte ihn mit dem Knopf ein. Stell eine leere Bowl vom Stapel hin. Ist die Basis fertig, zieh den Mixkrug auf die Bowl, leg die bestellten Zutaten darauf und bring die Bowl zum Gast.',
     'intro.overflow.title': 'Achtung, Mixer!',
-    'intro.overflow.text': 'Ab jetzt wartet ein fertiger Mixer nicht ewig: Bleibt er zu lange stehen, läuft er über und die Basis verdirbt. Verdorbenes kommt in den Müll.',
+    'intro.overflow.text': 'Ab jetzt wartet ein fertiger Mixer nicht ewig: Lässt du ihn laufen, läuft er über und die Basis verdirbt. Schalte ihn aus, sobald er fertig ist – dann kann er nicht überlaufen, aber die Basis schmilzt nach einer Weile (außer mit dem Freeze-Upgrade). Verdorbenes kommt in den Müll.',
+    'intro.crowd.title': 'Großer Andrang',
+    'intro.crowd.text': 'Ab jetzt warten immer zwei Gäste gleichzeitig – und manche bestellen dieselbe Bowl zwei- oder dreimal (2× in der Sprechblase). Große Bestellungen haben dafür mehr Geduld.',
     'intro.moreSeats.title': 'Mehr Gäste',
     'intro.moreSeats.text': 'Dein Laden hat jetzt 3 Plätze. Behalte die Geduld aller Gäste im Blick!',
     'intro.matcha.title': 'Matcha!',
@@ -95,11 +97,14 @@ registerStrings({
     'shop.maxed': 'Schon voll ausgebaut.',
     'shop.locked': 'Ab Level {n}',
     'shop.lockedToast': 'Wird ab Level {n} freigeschaltet.',
+    'shop.needs': 'Erst: {name}',
+    'shop.needsToast': 'Kauf zuerst „{name}“.',
     'shop.tipTitle': 'Tipp',
     'shop.tipText': 'Neue Zutaten kommen mit den Leveln. Hier machst du sie besser – jede ist sofort in den Bestellungen.',
     'shop.tipQuality': 'Qualität ★: +30 % und +60 % Münzen pro Portion.',
     'shop.notYet': 'Kommt mit Level {n}',
-    'shop.stat.cupArm': 'Pro Bowl',
+    'shop.stat.cupLift': 'Plätze mit Lift',
+    'shop.stat.freeze': 'Mixer mit Freeze',
     'shop.levelOf': 'Stufe {a} von {b}',
     'shop.stat.blendTime': 'Mixzeit',
     'shop.stat.portions': 'Bowls pro Mix',
@@ -203,9 +208,11 @@ registerStrings({
     'map.regionFrom': 'from level {n}',
     'map.new': 'New',
     'intro.basics.title': 'How to play',
-    'intro.basics.text': 'Drag the açaí pack into the blender and put an empty bowl down from the stack. When the base is ready, drag the blender jug onto the bowl, add the ordered ingredients and hand the bowl to the customer.',
+    'intro.basics.text': 'Drag the açaí pack into the blender and switch it on with its button. Put an empty bowl down from the stack. When the base is ready, drag the blender jug onto the bowl, add the ordered ingredients and hand the bowl to the customer.',
     'intro.overflow.title': 'Watch the blender!',
-    'intro.overflow.text': 'From now on a ready blender won’t wait forever: leave it too long and it overflows and the base spoils. Spoiled stuff goes in the trash.',
+    'intro.overflow.text': 'From now on a ready blender won’t wait forever: leave it running and it overflows and the base spoils. Switch it off once it’s done – then it can’t overflow, but the base melts after a while (unless you have the freeze upgrade). Spoiled stuff goes in the trash.',
+    'intro.crowd.title': 'Rush hour',
+    'intro.crowd.text': 'From now on two customers always wait at once – and some order the same bowl two or three times (2× in the speech bubble). Big orders come with more patience.',
     'intro.moreSeats.title': 'More customers',
     'intro.moreSeats.text': 'Your shop now has 3 seats. Keep an eye on everyone’s patience!',
     'intro.matcha.title': 'Matcha!',
@@ -233,11 +240,14 @@ registerStrings({
     'shop.maxed': 'Already fully upgraded.',
     'shop.locked': 'From level {n}',
     'shop.lockedToast': 'Unlocks at level {n}.',
+    'shop.needs': 'First: {name}',
+    'shop.needsToast': 'Buy “{name}” first.',
     'shop.tipTitle': 'Tip',
     'shop.tipText': 'New ingredients arrive with the levels. Here you make them better – each shows up in orders right away.',
     'shop.tipQuality': 'Quality ★: +30% and +60% coins per serving.',
     'shop.notYet': 'Arrives with level {n}',
-    'shop.stat.cupArm': 'Per bowl',
+    'shop.stat.cupLift': 'Spots with a lift',
+    'shop.stat.freeze': 'Blenders with freeze',
     'shop.levelOf': 'Level {a} of {b}',
     'shop.stat.blendTime': 'Blend time',
     'shop.stat.portions': 'Bowls per batch',
@@ -788,6 +798,8 @@ function introArt(key) {
       return `<div class="intro-art intro-art-steps">${packIcon('acai', 54)}<i></i><span class="intro-blender">${blenderArt({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2 }, 90, null, {})}</span><i></i>${bowlSVG(null, 60)}<i></i>${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 70)}</div>`;
     case 'overflow':
       return `<div class="intro-art">${blenderArt({ state: 'overflowing', base: 'acai', portions: 2, maxPortions: 2 }, 136, null, {})}</div>`;
+    case 'crowd':
+      return `<div class="intro-art intro-art-crowd">${repeat(2, (i) => customerSVG(31 + i * 7, 'happy', 62))}<span class="intro-qty">${bowlSVG({ base: 'acai', mid: ['banana', 'strawberry'], top: ['honey'] }, 66)}<b>2×</b></span></div>`;
     case 'matcha':
       return `<div class="intro-art">${matchaMachineArt(140, ['mStrawberry'], true)}</div>`;
     case 'extras':
@@ -824,7 +836,7 @@ function affordableCount() {
   }
   for (const u of UPGRADES) {
     const cost = nextUpgradeCost(u.id, getSave().upgrades);
-    if (!upgradeLocked(u.id) && cost !== null && cost <= coins) n++;
+    if (!upgradeLocked(u.id) && cost !== null && cost <= coins && !upgradeNeeds(u.id, getSave().upgrades)) n++;
   }
   return n;
 }
@@ -1000,7 +1012,8 @@ const STAT_SPEC = {
   blender2: { key: 'blenders', fmt: (v) => numFmt(v) },
   bowlSlots: { key: 'bowlSlots', fmt: (v) => numFmt(v) },
   matchaSlots: { key: 'matchaSlots', fmt: (v) => numFmt(v) },
-  cupArm: { key: 'cupArm', fmt: (v) => (v > 0 ? t('shop.seconds', { n: numFmt(v) }) : '–') },
+  cupLift: { key: 'cupLift', fmt: (v) => numFmt(v) },
+  freeze: { key: 'freeze', fmt: (v) => numFmt(v) },
 };
 
 function statLine(u) {
@@ -1034,17 +1047,19 @@ function matchaMachineArt(size, fruits = ['mStrawberry', 'mMango'], crop = false
   return `<div class="upg-machine-crop" style="width:${size}px;height:${size}px"><div style="left:${-x}px;top:${-y}px">${art}</div></div>`;
 }
 
-// The cup arm on its rail, a cup in its gripper over a free spot, the dispenser beside it.
-function cupArmArt() {
-  return `<div class="upg-art-arm">
-    <span class="upg-arm-rail">${armRailSVG(210)}</span>
-    <span class="upg-arm-disp">${cupDispenserSVG(96)}</span>
-    <span class="upg-arm-spot">${cupSpotSVG(96)}</span>
-    <span class="upg-arm-rod"></span>
-    <span class="upg-arm-cup">${bowlSVG(null, 96)}</span>
-    <span class="upg-arm-claw">${armGripSVG(false)}</span>
-    <span class="upg-arm-car">${armCarriageSVG(true)}</span>
+// The cup lift: a cup rising out of the steel hatch of a spot, an arrow showing it goes up.
+function cupLiftArt() {
+  return `<div class="upg-art-lift">
+    <span class="upg-lift-spot">${cupSpotSVG(120)}</span>
+    <span class="upg-lift-hatch"></span>
+    <span class="upg-lift-cup">${bowlSVG(null, 120)}</span>
+    <span class="upg-lift-arrow"><svg viewBox="0 0 40 40" width="40" height="40" aria-hidden="true"><path d="M20 5L35 21H26V35H14V21H5Z" fill="#ffb627" stroke="#2a1236" stroke-width="3" stroke-linejoin="round"/></svg></span>
   </div>`;
+}
+
+// The freeze blender: a ready jug, switched off, in a frosty glow with the snowflake.
+function freezeArt() {
+  return `<div class="upg-art-freeze">${blenderArt({ state: 'ready', base: 'acai', portions: 2, maxPortions: 2, on: false }, 170)}<span class="upg-snow"><svg viewBox="0 0 40 40" width="54" height="54" aria-hidden="true"><circle cx="20" cy="20" r="18" fill="#e9f8ff" stroke="#2a1236" stroke-width="2.6"/><g stroke="#2f9fd8" stroke-width="3" stroke-linecap="round" fill="none"><path d="M20 8v24M9.6 14l20.8 12M9.6 26l20.8-12"/><path d="M16.5 10.5L20 13.5l3.5-3M16.5 29.5L20 26.5l3.5 3"/></g></svg></span></div>`;
 }
 
 function upgradeArt(id) {
@@ -1065,8 +1080,10 @@ function upgradeArt(id) {
       return `<div class="upg-art-bowls">${bowlSVG({ base: 'acai', mid: ['banana'], top: ['honey'] }, 104)}${bowlSVG(null, 104)}${bowlSVG({ base: 'pitaya', mid: ['strawberry'], top: [] }, 104)}</div>`;
     case 'matchaSlots':
       return matchaMachineArt(172);
-    case 'cupArm':
-      return cupArmArt();
+    case 'cupLift':
+      return cupLiftArt();
+    case 'freeze':
+      return freezeArt();
     default:
       return decorSVG(id, 230, { wall: false });
   }
@@ -1077,10 +1094,14 @@ function upgradeCard(u) {
   const max = u.levels.length;
   const locked = upgradeLocked(u.id);
   const cost = nextUpgradeCost(u.id, getSave().upgrades);
-  const state = locked ? 'locked' : cost === null ? 'max' : 'buy';
+  const needs = cost === null ? null : upgradeNeeds(u.id, getSave().upgrades);
+  const state = locked ? 'locked' : cost === null ? 'max' : needs ? 'needs' : 'buy';
   const name = t(`upg.${u.id}`);
   let action;
-  if (state === 'locked') {
+  if (state === 'needs') {
+    // the next spot's lift or the second blender's freeze: the spot or blender itself first
+    action = `<button class="btn small cream sc-price is-locked sc-not-yet" type="button" data-buy="upg" data-id="${u.id}" aria-disabled="true">${lockSVG(24)}<span>${esc(t('shop.needs', { name: t(`upg.${needs.id}`) }))}</span></button>`;
+  } else if (state === 'locked') {
     action = `<button class="btn small cream sc-price is-locked" type="button" data-buy="upg" data-id="${u.id}" aria-disabled="true">${lockSVG(28)}<span>${esc(t('shop.locked', { n: u.requiresLevel }))}</span></button>`;
   } else if (state === 'max') {
     action = `<div class="sc-maxed">${ICON.check(26)}<span>${esc(t(max === 1 ? 'shop.owned' : 'shop.max'))}</span></div>`;
@@ -1204,6 +1225,7 @@ const shop = {
         shake(card);
         const msg = res.reason === 'noMoney' ? t('shop.noMoney')
           : res.reason === 'locked' ? t('shop.lockedToast', { n: UPG[id]?.requiresLevel ?? MATCHA_LEVEL })
+            : res.reason === 'needs' ? t('shop.needsToast', { name: t(`upg.${upgradeNeeds(id, getSave().upgrades)?.id}`) })
             : res.reason === 'notOwned' ? t('shop.notYet', { n: ING[id]?.unlock ?? 1 })
             : t('shop.maxed');
         showToast(container, scope, msg, { anchor: btn });

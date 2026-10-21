@@ -43,8 +43,12 @@ function emptyBowl(uid) {
   return { cup: false, base: null, mid: [], top: [], uid };
 }
 
-function emptyBlender(maxPortions) {
-  return { state: 'empty', base: null, t: 0, duration: 0, progress: 0, portions: 0, maxPortions };
+// A blender: 'empty' → a pack goes in: 'loaded' (switched off) → switched on: 'blending' → 'ready'.
+// Left on, a ready blender overflows and spoils ('overflowing' → 'ruined'); switched off it cannot
+// overflow, but its base melts and spoils after meltTime – unless the blender has the freeze upgrade.
+// Switched off while blending it waits as 'loaded' and goes on from there. on: the motor runs.
+function emptyBlender(maxPortions, frozen = false) {
+  return { state: 'empty', base: null, t: 0, duration: 0, progress: 0, portions: 0, maxPortions, on: false, frozen, blendT: 0 };
 }
 
 // A matcha slot: the glass on the machine's drip tray. 'mixing': the fruit is in, the machine purées
@@ -53,9 +57,9 @@ function emptySlot() {
   return { state: 'empty', fruit: null, extras: [], t: 0, duration: 0, progress: 0 };
 }
 
-// The cup arm (upgrade): 'idle' or 'moving' a cup from the dispenser to the spot `target`.
-function idleArm() {
-  return { state: 'idle', target: null, t: 0, duration: 0, progress: 0 };
+// The cup lift under a bowl spot (upgrade, spot by spot): 'idle' or 'rising' with a fresh cup.
+function idleLift() {
+  return { state: 'idle', t: 0, duration: 0, progress: 0 };
 }
 
 export function createGame(opts = {}) {
@@ -80,10 +84,10 @@ export function createGame(opts = {}) {
     stage: 0,
     tutorialHold: !!opts.tutorial,
     seats: Array(config.seats).fill(null),
-    blenders: Array.from({ length: kitchen.blenders }, () => emptyBlender(kitchen.portions)),
+    blenders: Array.from({ length: kitchen.blenders }, (_, i) => emptyBlender(kitchen.portions, i < (kitchen.freeze || 0))),
     bowls: [],
     matcha: opts.matcha ? { slots: Array.from({ length: kitchen.matchaSlots }, emptySlot) } : null,
-    arm: kitchen.cupArm > 0 ? idleArm() : null,
+    lifts: [],
     owned: owned.slice(),
     ingLevels: { ...(opts.ingLevels || {}) },
     kitchen,
@@ -103,6 +107,7 @@ export function createGame(opts = {}) {
     },
   };
   game.bowls = Array.from({ length: kitchen.bowlSlots }, () => emptyBowl(nextUid(game)));
+  game.lifts = game.bowls.map((b, i) => (i < (kitchen.cupLift || 0) ? idleLift() : null));
   return game;
 }
 
@@ -138,7 +143,7 @@ export function tick(game, dt) {
 
   updateBlenders(game, step);
   updateMatcha(game, step);
-  updateArm(game, step);
+  updateLifts(game, step);
   updateCustomers(game, step);
   if (game.status !== 'playing') return;
   if (game.mode === 'endless') updateStage(game);
@@ -158,24 +163,36 @@ function updateProgress(obj) {
   obj.progress = obj.duration > 0 ? Math.min(1, obj.t / obj.duration) : 0;
 }
 
+// How long a ready blender keeps: on, until it overflows; off, until its base melts (never when
+// frozen). Levels without overflow (the first ones) never spoil a ready blender.
+function readyTime(game, b) {
+  if (game.config.overflow === false) return 0;
+  if (b.on) return game.kitchen.readyHold;
+  return b.frozen ? 0 : game.kitchen.meltTime;
+}
+
 function updateBlenders(game, dt) {
   const k = game.kitchen;
   game.blenders.forEach((b, idx) => {
-    if (b.state === 'empty' || b.state === 'ruined') return;
+    if (b.state === 'empty' || b.state === 'ruined' || b.state === 'loaded') return;
     b.t += dt;
     // Loop so a big step can cross more than one boundary.
     while (b.duration > 0 && b.t >= b.duration) {
       const over = b.t - b.duration;
       if (b.state === 'blending') {
-        setTimer(b, 'ready', game.config.overflow === false ? 0 : k.readyHold);
         b.portions = b.maxPortions;
+        b.blendT = 0;
+        setTimer(b, 'ready', readyTime(game, b));
         emit(game, 'blenderReady', { idx });
-      } else if (b.state === 'ready') {
+      } else if (b.state === 'ready' && b.on) {
         setTimer(b, 'overflowing', k.overflowTime);
         emit(game, 'blenderOverflow', { idx });
-      } else if (b.state === 'overflowing') {
+      } else {
+        // overflowed, or melted while switched off
+        const melted = !b.on;
         setTimer(b, 'ruined', 0);
-        emit(game, 'blenderRuined', { idx });
+        b.on = false;
+        emit(game, 'blenderRuined', { idx, melted });
       }
       b.t = b.duration > 0 ? over : 0;
     }
@@ -196,29 +213,30 @@ function updateMatcha(game, dt) {
   });
 }
 
-export // The arm takes the leftmost spot without a cup; a spot that got a cup by hand meanwhile is dropped.
-function updateArm(game, dt) {
-  const arm = game.arm;
-  if (!arm) return;
-  if (arm.state === 'moving' && game.bowls[arm.target]?.cup) {
-    Object.assign(arm, idleArm());
-    emit(game, 'armCancel');
-  }
-  if (arm.state === 'idle') {
-    const target = game.bowls.findIndex((b) => !b.cup);
-    if (target < 0) return;
-    setTimer(arm, 'moving', game.kitchen.cupArm);
-    arm.target = target;
-    emit(game, 'armStart', { bowlIdx: target });
-    return;
-  }
-  arm.t += dt;
-  updateProgress(arm);
-  if (arm.t < arm.duration) return;
-  const bowlIdx = arm.target;
-  Object.assign(arm, idleArm());
-  game.bowls[bowlIdx].cup = true;
-  emit(game, 'cupPlaced', { bowlIdx, auto: true });
+// Every spot with a lift pushes a cup up as soon as it is empty (cupLiftTime: quick, not instant); a
+// cup put down by hand meanwhile stops it.
+function updateLifts(game, dt) {
+  game.lifts.forEach((lift, bowlIdx) => {
+    if (!lift) return;
+    const bowl = game.bowls[bowlIdx];
+    if (bowl.cup) {
+      if (lift.state === 'rising') {
+        Object.assign(lift, idleLift());
+        emit(game, 'liftCancel', { bowlIdx });
+      }
+      return;
+    }
+    if (lift.state === 'idle') {
+      setTimer(lift, 'rising', game.kitchen.cupLiftTime);
+      emit(game, 'liftStart', { bowlIdx });
+    }
+    lift.t += dt;
+    updateProgress(lift);
+    if (lift.t < lift.duration) return;
+    Object.assign(lift, idleLift());
+    bowl.cup = true;
+    emit(game, 'cupPlaced', { bowlIdx, auto: true });
+  });
 }
 
 export function moodFor(ratio) {
@@ -277,13 +295,15 @@ function updateClosing(game) {
 }
 
 // The next guest comes pace × the work of the last order later – a big order buys time – or as soon
-// as nobody is waiting any more (EARLY_SPAWN_GAP after the last guest), so a quick player never idles.
+// as fewer than `crowd` guests are waiting (EARLY_SPAWN_GAP after the last guest): a quick player
+// never idles, and from level 10 on two guests always wait at once.
 function updateSpawning(game) {
   const sim = game._sim;
   if (game.closing) return;
   if (game.tutorialHold && sim.spawned > 0) return;
-  const idle = !game.seats.some((c) => c && ACTIVE.has(c.state));
-  if (game.time < sim.nextSpawn && !(idle && game.time - sim.lastSpawn >= EARLY_SPAWN_GAP)) return;
+  const waiting = game.seats.filter((c) => c && ACTIVE.has(c.state)).length;
+  const short = waiting < (game.config.crowd || 1);
+  if (game.time < sim.nextSpawn && !(short && game.time - sim.lastSpawn >= EARLY_SPAWN_GAP)) return;
   const free = [];
   game.seats.forEach((c, i) => {
     if (!c && game.time - sim.seatFreeAt[i] >= SEAT_REUSE_DELAY) free.push(i);
@@ -310,7 +330,7 @@ function spawnCustomer(game, seat) {
     seat,
     look: { seed: sim.rng.int(1, 1e9) },
     order,
-    delivered: { bowl: false, matcha: false },
+    delivered: { bowl: false, bowls: 0, matcha: false },
     patience: maxPatience,
     maxPatience,
     state: 'arriving',
@@ -394,15 +414,56 @@ export function loadBlenderError(game, blenderIdx, baseId) {
   return null;
 }
 
+// The pack goes in; the blender waits, switched off, until the player switches it on.
 export function loadBlender(game, blenderIdx, baseId) {
   const err = loadBlenderError(game, blenderIdx, baseId);
   if (err) return fail(err);
   const b = game.blenders[blenderIdx];
-  setTimer(b, 'blending', game.kitchen.blendTime);
+  setTimer(b, 'loaded', game.kitchen.blendTime);
   b.base = baseId;
   b.portions = 0;
   b.maxPortions = game.kitchen.portions;
-  emit(game, 'blenderStart', { idx: blenderIdx });
+  b.on = false;
+  b.blendT = 0;
+  emit(game, 'blenderLoaded', { idx: blenderIdx });
+  return success();
+}
+
+export function toggleBlenderError(game, blenderIdx) {
+  if (!canAct(game)) return 'notPlaying';
+  const b = game.blenders[blenderIdx];
+  if (!b) return 'invalid';
+  if (b.state === 'empty') return 'blenderEmpty';
+  if (b.state === 'ruined') return 'blenderRuined';
+  // done and switched off: there is nothing left to blend
+  if (b.state === 'ready' && !b.on) return 'blenderDone';
+  return null;
+}
+
+// The switch: on starts (or goes on with) the blend; off pauses a blend, or stops a ready or
+// overflowing blender – it cannot overflow any more, but its base starts to melt (unless frozen).
+export function toggleBlender(game, blenderIdx) {
+  const err = toggleBlenderError(game, blenderIdx);
+  if (err) return fail(err);
+  const b = game.blenders[blenderIdx];
+  if (b.state === 'loaded') {
+    b.on = true;
+    setTimer(b, 'blending', game.kitchen.blendTime);
+    b.t = b.blendT;
+    updateProgress(b);
+    emit(game, 'blenderStart', { idx: blenderIdx });
+  } else if (b.state === 'blending') {
+    b.on = false;
+    b.blendT = b.t;
+    setTimer(b, 'loaded', game.kitchen.blendTime);
+    b.t = b.blendT;
+    updateProgress(b);
+    emit(game, 'blenderStop', { idx: blenderIdx });
+  } else {
+    b.on = false;
+    setTimer(b, 'ready', readyTime(game, b));
+    emit(game, 'blenderStop', { idx: blenderIdx, done: true });
+  }
   return success();
 }
 
@@ -435,10 +496,12 @@ function emptyTheBlender(game, idx) {
   setTimer(b, 'empty', 0);
   b.base = null;
   b.portions = 0;
+  b.on = false;
+  b.blendT = 0;
   emit(game, 'blenderEmpty', { idx });
 }
 
-// ruined / ready / overflowing → empty (drag to the trash)
+// loaded / ruined / ready / overflowing → empty (drag to the trash)
 export function cleanBlender(game, blenderIdx) {
   if (!canAct(game)) return fail('notPlaying');
   const b = game.blenders[blenderIdx];
@@ -590,7 +653,8 @@ export function serveBowl(game, bowlIdx, customerId) {
   const err = serveBowlError(game, bowlIdx, customerId);
   if (err) return fail(err);
   const c = findCustomer(game, customerId);
-  c.delivered.bowl = true;
+  c.delivered.bowls = (c.delivered.bowls || 0) + 1;
+  c.delivered.bowl = c.delivered.bowls >= (c.order.qty || 1);
   resetBowl(game, bowlIdx);
   delivered(game, c);
   return success();

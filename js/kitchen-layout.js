@@ -102,7 +102,7 @@ function cupsCol(bowls, mid, top, sideBySide) {
       const out = {
         stack: { x: cx, y: y + STACK_TOP },
         bowls: Array.from({ length: bowls }, (_, i) => ({ x: cx + STACK_W + STACK_GAP + i * BOWL_SLOT_W, y: y + BOWL_TOP })),
-        cups: { x, y, w }, // the cups' column: the arm's rail runs along its top
+        cups: { x, y, w }, // the cups' column
         shelves: {},
       };
       // a row's x is its first bin's left edge; js/game-view.js buildShelf centres the riser on the row

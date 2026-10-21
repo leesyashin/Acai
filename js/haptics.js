@@ -10,6 +10,7 @@ const touch = () => typeof matchMedia === 'function' && matchMedia('(pointer: co
 export const hasHaptics = () => can && touch();
 
 export const HAPTIC = {
+  tap: 10,
   pay: 18,
   combo: [16, 40, 16],
   reject: 40,
