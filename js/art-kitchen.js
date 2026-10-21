@@ -496,20 +496,29 @@ export function armGripSVG(open = false) {
 }
 
 // ======================================================================
-// Trash can (viewBox 100×100): stainless pedal bin
+// Trash can (viewBox 100×100): the slim stainless step bin of js/kitchen3d.js, drawn – a
+// rounded-rectangular brushed body on a black plinth, the black lid frame, the flat lid with its
+// dark rim and the wide pedal in front
 // ======================================================================
 export function trashSVG(size = 64) {
   return memo(`t|${size}`, () => {
-    let s = softShadow(52, 95, 36, 5);
-    // round stainless pedal bin seen from above: body, foot ring, pedal, domed lid
-    const body = 'M22 34V86A28 7 0 0 0 78 86V34Z';
-    s += path(body, paint('steel', '#cfd6dc'), stroke(1.2, '#5f6a75'));
-    s += line('M30 40V88', WHITE, 3, op(0.5)) + line('M71 40V89', '#000000', 2, op(0.12));
-    s += path('M22 81A28 7 0 0 0 78 81V86A28 7 0 0 1 22 86Z', '#26262d', op(0.85));
-    s += path('M40 89.6L42 85.6H58L60 89.6Q60 93 57 93H43Q40 93 40 89.6Z', '#1d1d22', stroke(1, '#000000')) + line('M43 87.4H57', WHITE, 1, op(0.35));
-    s += path('M20 30.5V34.5A30 8 0 0 0 80 34.5V30.5Z', '#2a2a31', stroke(1, '#000000'));
-    s += ellipse(50, 30.5, 30, 8, paint('steel-v', '#dfe4e9'), stroke(1.2, '#5f6a75'));
-    s += ellipse(50, 30.5, 30, 8, paint('sph'), op(0.7)) + path('M27 28.6A24 5.6 0 0 1 56 23.4', 'none', stroke(1.6, '#ffffff') + op(0.75));
+    let s = softShadow(50, 93, 40, 6);
+    // plinth with the rubber bumper
+    s += path(rrect(20, 78, 60, 15, 6), '#1e1f24', stroke(1, '#000000')) + line('M23 90.5Q50 93.5 77 90.5', '#000000', 1.6, op(0.5));
+    // brushed body
+    s += path(rrect(21, 28, 58, 56, 5), paint('steel', '#cfd6dc'), stroke(1.2, '#5f6a75'));
+    for (const [x, w, o] of [[27, 2.4, 0.5], [33, 1, 0.35], [52, 1.4, 0.3], [66, 2, 0.14], [73, 1.2, 0.18]]) s += line(`M${x} 31V82`, x < 60 ? WHITE : '#000000', w, op(o));
+    s += path('M21 74V79Q21 84 26 84H74Q79 84 79 79V74Z', '#000000', op(0.1));
+    // brand line
+    s += `<text x="50" y="43" text-anchor="middle" font-family="Nunito, 'Trebuchet MS', Arial, sans-serif" font-weight="900" font-size="4.6" letter-spacing="0.9" fill="#3a3f46">AÇAÍ FEVER</text>`;
+    // lid frame, the liner's edge and the lid
+    s += path(rrect(18, 23, 64, 10, 4), '#26262d', stroke(1, '#000000')) + line('M22 31.5H78', WHITE, 1, op(0.14));
+    s += path(rrect(20, 20.5, 60, 4, 2), '#eeede8', stroke(0.8, '#9a9a94'));
+    s += path(rrect(17.5, 10, 65, 12, 5), '#2a2a31', stroke(1, '#000000'));
+    s += path(rrect(18, 8, 64, 12, 5), paint('steel-v', '#dfe4e9'), stroke(1.2, '#5f6a75'));
+    s += path(rrect(18, 8, 64, 12, 5), paint('sph'), op(0.6)) + line('M24 11.2H70', WHITE, 1.4, op(0.75));
+    // the pedal in front with its steel tread
+    s += path(rrect(31, 90, 38, 7, 2.2), '#1d1d22', stroke(1, '#000000')) + path(rrect(34, 91.2, 32, 2.6, 1), '#cfd6dc', stroke(0.6, '#5f6a75'));
     return svgWrap(size, size, 100, 100, s);
   });
 }
