@@ -2,7 +2,8 @@
 // mobile) html.is-phone is set, the page neither scrolls nor zooms, the work area is arranged across the window and
 // scaled up (js/kitchen-layout.js: .screen-game.is-phone-layout, every station on screen, none over another, a first
 // level's containers ≥ 60 css px and cups ≥ 75, the fullest kitchen's ≥ 40 / ≥ 55) and the small print (name tags,
-// layer labels) is drawn ≥ 8 css px tall. Filling a cup by touch lifts only the blender's jug: the base stays in full
+// layer labels) is drawn ≥ 8 css px tall. The shop scene is scaled up about the pass and the HUD stands beside it in
+// the window's bands, under the bubbles and clear of the guests and the pass, the pause button ≥ 30 css px. Filling a cup by touch lifts only the blender's jug: the base stays in full
 // view (without its jug) while the jug is carried, the cup gets the purée and the jug stands on its base again. A
 // tablet (1280×800, mouse) is no phone.
 // Run: node tests/e2e/mobile.e2e.mjs   (serves the repo on a free port, exits non-zero on failure)
@@ -131,6 +132,36 @@ async function main() {
             return { bin: w('[data-bin]'), bowl: w('[data-bowl]') };
           });
           assert(sizes.bin >= 40 && sizes.bowl >= 55, `fullest kitchen: containers ${sizes.bin.toFixed(1)} css px, cups ${sizes.bowl.toFixed(1)}`);
+        });
+
+        await check(`${tag}: the scene scaled up, the HUD beside it under the bubbles, clear of guests and pass`, async () => {
+          const m = await page.evaluate(() => {
+            const screen = document.querySelector('.screen-game');
+            const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
+            const scale = Number(screen.querySelector('.g-scene').style.transform.match(/scale\(([\d.]+)\)/)?.[1]);
+            return {
+              zoom: screen.classList.contains('is-scene-zoom'), side: screen.classList.contains('is-side-hud'), scale,
+              hud: [...screen.querySelectorAll('.g-pause-btn, .g-hearts, .g-clock, .g-money, .g-goalbar')].map((el) => ({ name: el.className, box: box(el) })),
+              level: getComputedStyle(screen.querySelector('.g-level')).display,
+              bubbles: [...screen.querySelectorAll('.g-bubble')].map(box),
+              figures: [...screen.querySelectorAll('.g-figure')].map(box),
+              pass: box(screen.querySelector('.g-counter')),
+            };
+          });
+          assert(m.zoom && m.side, `scene zoom ${m.zoom}, side HUD ${m.side}`);
+          assert(m.scale >= 1.15, `the scene is scaled by ${m.scale}`);
+          assert(m.level === 'none', 'the level pill stays in the side HUD');
+          const over = (a, b) => a[0] < b[2] - 0.5 && b[0] < a[2] - 0.5 && a[1] < b[3] - 0.5 && b[1] < a[3] - 0.5;
+          for (const h of m.hud) {
+            const [l, t, r, bt] = h.box;
+            assert(l >= -0.5 && t >= -0.5 && r <= viewport.width + 0.5 && bt <= viewport.height + 0.5, `${h.name} [${h.box.map(Math.round)}] off the window`);
+            assert(bt <= m.pass[1] + 0.5, `${h.name} reaches down onto the pass`);
+            for (const f of m.figures) assert(!over(h.box, f), `${h.name} over a guest`);
+            for (const bb of m.bubbles) assert(!over(h.box, bb), `${h.name} over a bubble`);
+          }
+          const pause = m.hud.find((h) => /g-pause-btn/.test(h.name)).box;
+          assert(pause[2] - pause[0] >= 30, `pause button ${(pause[2] - pause[0]).toFixed(1)} css px`);
+          for (const bb of m.bubbles) assert(bb[1] >= -0.5 && bb[0] >= -0.5 && bb[2] <= viewport.width + 0.5, `bubble [${bb.map(Math.round)}] off the window`);
         });
 
         await check(`${tag}: name tags and layer labels are drawn ≥ ${MIN_TEXT} css px`, async () => {

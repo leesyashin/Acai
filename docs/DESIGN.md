@@ -243,10 +243,12 @@ tell it the window's width in stage px and the notch to keep out of), the game v
 (`hitPad` 30 instead of 18 stage px) and the CSS sets the small print bigger: name tags and layer labels by `--lk`
 (1.4 ÷ the work area's scale, at least 1: a tag grows up over its container, a label down over the riser), the freezer
 label likewise (≤ 1.3), toasts 30 px, the level banner 24 px, the tutorial 26–28 px in a wider panel, the money bar's goal
-marks 17 px – all ≥ 8 css px on screen. Upright, the rotate hint above asks to turn the phone (the game is built for
+marks 17 px – all ≥ 8 css px on screen. The shop scene is scaled up as well and the HUD moves beside it (§4.7 *Phone*).
+Upright, the rotate hint above asks to turn the phone (the game is built for
 landscape; "Play anyway" shows it letterboxed). `tests/e2e/mobile.e2e.mjs` checks 844×390 and 932×430: no scrolling or
 zoom, the stage and every station on screen, no two stations over each other, the stations' size (a first level's
-containers ≥ 60 css px, the fullest kitchen's ≥ 40), the small print ≥ 8 css px, and the jug carried by touch.
+containers ≥ 60 css px, the fullest kitchen's ≥ 40), the scene's zoom and the HUD beside it (under the bubbles, clear
+of guests and pass, the pause button ≥ 30 css px), the small print ≥ 8 css px, and the jug carried by touch.
 
 **Framed or full bleed.** On a fine pointer (desktop, MacBook) the stage is framed: rounded corners and a shadow on the
 açaí-purple page, 8/16 px of padding. On touch devices (`(pointer: coarse)`) and in the installed app
@@ -843,6 +845,20 @@ bottom edge across the whole window. A wide window spreads the columns a little 
 containers are full size there, not the desktop's narrow ones, and the locked matcha teaser is left out: the room goes
 to the stations in use. With the first levels' few stations everything is half as big again (k ≈ 1.5: a container ≈ 67
 css px instead of 47, a cup ≈ 85 instead of 58), with the matcha bar ≈ 1.1–1.25, with the fullest kitchen ≈ 1.05.
+
+The shop scene above the pass grows too (`placeScene`): `.g-scene` – wall, decor, guests and bubbles – is scaled by
+up to 1.2 about the pass's bottom edge (640, 338), so the guests and their bubbles grow toward the top and the sides
+while the pass and the work area stay (the tallest bubble's top, y 67, lands at y 13; the bubbles' slots, §4.7 above,
+spread to x −109…1389 with 4 seats). That needs the top edge for the bubbles, so the HUD leaves it: with
+`.is-side-hud` its pieces stand in the window's bands beside the scene, under the bubbles and above the pass (y
+160–290) – left the pause button (72 px) over the hearts pill, right the clock over the money pill with the goal bar
+(its stars without amounts) under it; the level pill is left out (the intro banner and the pause menu name the level).
+The columns' x and widths are css variables the view sets (`--band-l`, `--band-lw`, `--band-r`, `--band-rw`: the band
+less the safe-area inset and 10 px on either side; `--heart` sizes the hearts to the column). Both only when each band
+keeps ≥ 100 stage px free of its inset (every 2:1 phone, with or without a notch; a 16:9 phone keeps the tablet's scene
+and top HUD), and the zoom is capped by the bubbles' slots fitting between the insets. The plants and the jukebox
+stand further in then (scene x 163 and 1117, behind the outer guests' shoulders with 4 seats), clear of the columns.
+`posOf` maps through this transform like the work area's.
 
 ### 4.8 Visual language
 - Fonts: **Lilita One** (display: logo, headings, numbers) + **Nunito** 600/800/900 (UI text), fallbacks
