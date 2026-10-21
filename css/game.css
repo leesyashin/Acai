@@ -777,8 +777,8 @@
 /* trash can: on the floor in front of the cabinet, bottom right (y 668–800), beside the matcha bar's extras */
 .screen-game .g-trash {
   position: absolute;
-  left: 1172px;
-  top: 330px;
+  left: 1168px;
+  top: 314px;
   width: 104px;
   height: 132px;
   display: grid;
@@ -804,7 +804,7 @@
 .screen-game .g-machine .g-slot { z-index: 1; }
 /* pedal bin: the canvas reaches above the hit area so the lid can open */
 /* (the canvas has its view's size; the bin is drawn at 0.76 of it, its foot where the bigger one stood) */
-.screen-game.is-3d .g-trash .g-art { position: absolute; left: -24px; top: -72px; width: 153px; height: 209px; transform-origin: 76px 191px; transform: scale(0.76); }
+.screen-game.is-3d .g-trash .g-art { position: absolute; left: -24px; top: -72px; width: 153px; height: 209px; transform-origin: 76px 191px; transform: scale(0.88); }
 
 /* ------------------------------------------------------------ drag & drop feedback (js/drag.js) */
 .screen-game [data-dnd-source] { cursor: grab; }

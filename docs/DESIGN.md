@@ -494,7 +494,7 @@ one side, a big blue sweat drop with a light rim that reads on dark hair too),
 keep the cartoon ink line of the menus.
 
 ### 4.4.1 3D appliances (`js/geo3d.js`, `js/kitchen3d.js`, `js/gl3d.js`, `js/art3d.js`)
-The blender, matcha machine, pedal bin and chest freezer are real 3D models rendered with WebGL (no library), and so are
+The blender, matcha machine, pedal bin (a slim rounded-rectangular stainless step bin with a black lid frame, the lifting rod up its back and the brand badge on the front) and chest freezer are real 3D models rendered with WebGL (no library), and so are
 the ingredient containers (js/pantry3d.js, drawn once as still pictures). Everything else (guests, food, cups, HUD) stays SVG.
 ```js
 // kitchen3d.js (pure): scene = { frame, elev, persp?, time, items: [{ mesh, mat, m, pass }] }
