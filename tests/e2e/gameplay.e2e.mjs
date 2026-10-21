@@ -119,6 +119,14 @@ async function expectReject(page, from, to, reason, touch = false) {
 
 const custSel = (id) => `[data-customer-id="${id}"]`;
 
+// A ready blender left running overflows and spoils (its state and its toast would land in the middle of a check
+// about something else): empty the blenders first.
+const calmBlenders = (page) => page.evaluate(async () => {
+  const e = await import('/js/engine.js');
+  const g = window.__acaiGame;
+  g.blenders.forEach((b, i) => { if (b.state !== 'empty' && b.state !== 'blending') e.cleanBlender(g, i); });
+});
+
 // Picks `from` up with the mouse, holds it just beside the source and returns which drop targets
 // glow (drop-ok), then puts it back (a drop on nothing).
 async function glowWhileDragging(page, from) {
@@ -518,12 +526,7 @@ async function matchaTouch(srv) {
       assert(s.served === before.served + 1 && s.money > before.money, 'customer did not pay');
     });
     await check(`${tag} a topping on a matcha glass and the matcha bar's fruit on a bowl bounce back with a hint`, async () => {
-      // a ready blender left running would overflow during the drags: empty it first, so only the drops change state
-      await page.evaluate(async () => {
-        const e = await import('/js/engine.js');
-        const g = window.__acaiGame;
-        g.blenders.forEach((b, i) => { if (b.state !== 'empty' && b.state !== 'blending') e.cleanBlender(g, i); });
-      });
+      await calmBlenders(page);
       await expectReject(page, '[data-bin="honey"]', '[data-matcha-slot="0"]', 'notMatchaFruit', true);
       await expectReject(page, '[data-bin="banana"]', '[data-matcha-slot="0"]', 'notMatchaFruit', true);
       await expectReject(page, '[data-bin="mBanana"]', '[data-bowl="0"]', 'matchaItem', true);
@@ -532,6 +535,7 @@ async function matchaTouch(srv) {
       const bi = await readyBlender(page, 'acai', true);
       const bowl = (await snap(page)).bowls.findIndex((b) => !b.base);
       await pour(page, bi, bowl, true);
+      await calmBlenders(page);
       const before = JSON.stringify((await snap(page)).bowls);
       const cdp = await page.context().newCDPSession(page);
       const touch = (type, p) => cdp.send('Input.dispatchTouchEvent', {
