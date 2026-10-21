@@ -22,7 +22,7 @@ import { PANTRY_VIEW, pantryKind, pantryHasFront, pantryTop, pantryBadges } from
 import { createDragManager } from './drag.js';
 import defaultAudio from './audio.js';
 import { ICON } from './icons.js';
-import { isBleed } from './stage.js';
+import { isBleed, isPhone } from './stage.js';
 import { buzz, HAPTIC } from './haptics.js';
 import {
   getSave, kitchenStats, recordLevelResult, recordEndless, markIntroSeen, setSetting, ownedNow,
@@ -83,12 +83,12 @@ registerStrings({
     'game.hint.pack': 'Zieh die Packung in den Mixer!',
     'game.hint.bin': 'Zieh die Zutat auf eine Bowl!',
     'game.hint.bowl': 'Zieh die Bowl zu einem Gast!',
-    'game.hint.bowlEmpty': 'Zieh einen fertigen Mixer auf die Bowl!',
+    'game.hint.bowlEmpty': 'Zieh den Krug eines fertigen Mixers auf die Bowl!',
     'game.hint.noCup': 'Zieh eine leere Bowl aus dem Becherspender hierher!',
     'game.hint.stack': 'Zieh eine leere Bowl auf einen freien Platz!',
-    'game.hint.blender': 'Zieh den Mixer auf eine leere Bowl!',
+    'game.hint.blender': 'Zieh den Mixkrug auf eine leere Bowl!',
     'game.hint.blenderEmpty': 'Zieh eine Basis-Packung in den Mixer!',
-    'game.hint.blenderRuined': 'Verdorben! Zieh den Mixer in den Müll.',
+    'game.hint.blenderRuined': 'Verdorben! Zieh den Mixkrug in den Müll.',
     'game.hint.glass': 'Zieh den Matcha zu einem Gast!',
     'game.hint.slotEmpty': 'Zieh eine Frucht aus der Matcha-Bar auf das Glas!',
     'game.hint.mfruit': 'Zieh die Frucht auf ein leeres Matcha-Glas!',
@@ -101,11 +101,11 @@ registerStrings({
     'game.tut.waitWrong': 'Das ist die falsche Basis. Warte, bis der Mixer fertig ist.',
     'game.tut.cup': 'Stell eine leere Bowl hin: Zieh sie aus dem Becherspender auf den freien Platz!',
     'game.tut.cupWait': 'Der Mixer mixt noch – stell schon mal eine leere Bowl hin!',
-    'game.tut.pour': 'Fertig! Zieh den Mixer auf die leere Bowl.',
+    'game.tut.pour': 'Fertig! Zieh den Mixkrug auf die leere Bowl.',
     'game.tut.add': 'Zieh jetzt {ing} auf die Bowl – schau in die Sprechblase!',
     'game.tut.addTop': 'Toppings kommen zum Schluss: Zieh {ing} auf die Bowl!',
     'game.tut.trash': 'Ups, das passt nicht zur Bestellung. Wirf die Bowl in den Müll.',
-    'game.tut.clean': 'Diese Basis brauchst du nicht. Zieh den Mixer in den Müll.',
+    'game.tut.clean': 'Diese Basis brauchst du nicht. Zieh den Mixkrug in den Müll.',
     'game.tut.serve': 'Perfekt! Gib die Bowl deinem Gast.',
     'game.tut.done': 'Super gemacht! Behalte den Geduldsbalken deiner Gäste im Blick – wer zu lange wartet, geht.',
     'game.tut.go': 'Los geht’s!',
@@ -196,12 +196,12 @@ registerStrings({
     'game.hint.pack': 'Drag the pack into the blender!',
     'game.hint.bin': 'Drag the ingredient onto a bowl!',
     'game.hint.bowl': 'Drag the bowl to a customer!',
-    'game.hint.bowlEmpty': 'Drag a ready blender onto the bowl!',
+    'game.hint.bowlEmpty': 'Drag the jug of a ready blender onto the bowl!',
     'game.hint.noCup': 'Drag an empty bowl from the cup dispenser here!',
     'game.hint.stack': 'Drag an empty bowl to a free spot!',
-    'game.hint.blender': 'Drag the blender onto an empty bowl!',
+    'game.hint.blender': 'Drag the blender jug onto an empty bowl!',
     'game.hint.blenderEmpty': 'Drag a base pack into the blender!',
-    'game.hint.blenderRuined': 'Spoiled! Drag the blender to the trash.',
+    'game.hint.blenderRuined': 'Spoiled! Drag the blender jug to the trash.',
     'game.hint.glass': 'Drag the matcha to a customer!',
     'game.hint.slotEmpty': 'Drag a fruit from the matcha bar onto the glass!',
     'game.hint.mfruit': 'Drag the fruit onto an empty matcha glass!',
@@ -214,11 +214,11 @@ registerStrings({
     'game.tut.waitWrong': 'That’s the wrong base. Wait until the blender is done.',
     'game.tut.cup': 'Put an empty bowl down: drag it from the cup dispenser to the free spot!',
     'game.tut.cupWait': 'The blender is still mixing – put an empty bowl down meanwhile!',
-    'game.tut.pour': 'Done! Drag the blender onto the empty bowl.',
+    'game.tut.pour': 'Done! Drag the blender jug onto the empty bowl.',
     'game.tut.add': 'Now drag the {ing} onto the bowl – check the speech bubble!',
     'game.tut.addTop': 'Toppings go on last: drag the {ing} onto the bowl!',
     'game.tut.trash': 'Oops, that doesn’t match the order. Drop the bowl in the trash.',
-    'game.tut.clean': 'You don’t need this base. Drag the blender to the trash.',
+    'game.tut.clean': 'You don’t need this base. Drag the blender jug to the trash.',
     'game.tut.serve': 'Perfect! Hand the bowl to your customer.',
     'game.tut.done': 'Well done! Keep an eye on the patience bar – customers who wait too long will leave.',
     'game.tut.go': 'Let’s go!',
@@ -273,6 +273,7 @@ const SEAT_X = [null, [640], [420, 860], [270, 640, 1010], [200, 493, 787, 1080]
 const BLENDER_X = [null, [89], [10, 170]];
 const BLENDER_ART = 245; // the drawn blender without WebGL (wider than the box, transparent; as tall as the 3D 2-bowl jug)
 const BLENDER_BADGE = 36;
+const JUG_2D = [32 / 150, 8 / 150, 120 / 150, 96 / 150]; // the jug (lid to coupling, handle and foam) in blenderSVG, × its size
 // The cup stack stands at the left end of the cup row; stack + spots are centred in the middle column.
 const MID_X0 = 330;
 const MID_W = 610;
@@ -369,6 +370,7 @@ const BAR_TICK = 0.1; // s
 const BAR_STEPS = 100;
 const BAR_JUMP = 0.05; // bigger changes (a refill, a new blend) are written at once
 const HIT_PAD = 18; // stage px around a station, as in drag.js
+const HIT_PAD_PHONE = 30; // on a phone (the stage at about half size): about as many css px as on a tablet
 
 const ACTIVE = new Set(['arriving', 'waiting']);
 const BOWL_LAYERS = new Set(['mid', 'top']);
@@ -529,6 +531,7 @@ class GameView {
     // the appliances are 3D (WebGL) with the upgraded models; without WebGL the drawn art stays
     this.k3d = has3D();
     this.wideArt = isBleed();
+    this.hitPad = isPhone() ? HIT_PAD_PHONE : HIT_PAD;
     this.look = blenderLook(save.upgrades);
     window.__acaiGame = this.game;
   }
@@ -596,7 +599,11 @@ class GameView {
       timer.append(fill);
       node.append(art, timer);
       work.append(node);
-      const v = { el: node, art, badge, timer, fill, state: null, ring: null, ringP: -1 };
+      // where the jug stands on its base: a carried jug flies back there
+      const jug = el('div', 'g-jug');
+      const [jx0, jy0, jx1, jy1] = this.k3d ? blenderBox(this.look.tier, this.look.big, 'ready', 'jug') : JUG_2D.map((c) => c * BLENDER_ART);
+      Object.assign(jug.style, { left: `${jx0}px`, top: `${jy0}px`, width: `${jx1 - jx0}px`, height: `${jy1 - jy0}px` });
+      const v = { el: node, art, badge, jug, timer, fill, state: null, ring: null, ringP: -1 };
       if (this.k3d) {
         v.view = createView('blender');
         art.append(v.view.el);
@@ -604,11 +611,11 @@ class GameView {
         v.pic = el('div', 'g-pic');
         art.append(v.pic);
       }
-      art.append(badge);
+      art.append(jug, badge);
       return v;
     });
     // the crop boxes of the drag ghosts: measured now rather than at the first pickup
-    if (this.k3d) for (const s of POURABLE) blenderBox(this.look.tier, this.look.big, s);
+    if (this.k3d) for (const s of POURABLE) blenderBox(this.look.tier, this.look.big, s, 'jug');
 
     // chest freezer built into the counter, the base packs (owned bases only) standing in it: the
     // frame's front edge is drawn over the packs, their names over the frame
@@ -1099,6 +1106,7 @@ class GameView {
       ghostLayer: this.ghostLayer,
       onPickup: () => this.audio.sfx('pickup'),
       onDrop: (r) => this.onDropResult(r),
+      hitPad: this.hitPad,
     });
     this.dnd = dnd;
     const act = (fn) => (this.canAct() ? fn() : { ok: false, reason: 'notPlaying' });
@@ -1131,12 +1139,12 @@ class GameView {
           const b = g.blenders[i];
           return this.canAct() && POURABLE.has(b.state) ? { kind: 'blender', idx: i } : null;
         },
-        // carried at about its size on the counter (drag.js enlarges ghosts by 1.12)
-        ghost: () => {
-          const b = g.blenders[i];
-          if (v.view?.el.width) return snapshot(v.view, 0.9, blenderBox(this.look.tier, this.look.big, b.state));
-          return blenderSVG({ tier: this.look.tier, state: b.state, base: b.base, progress: b.progress, remaining: secsLeft(b), portions: b.portions, maxPortions: b.maxPortions, badge: false }, Math.round(BLENDER_ART * 0.9));
-        },
+        // only the jug is lifted off its base and carried, at about its size on the counter (drag.js enlarges
+        // ghosts by 1.12); the base stays (update3D / updateBlenders draw it without its jug while carried) and the
+        // jug flies back onto it after the drop, poured or not
+        ghost: () => this.jugGhost(i),
+        home: () => v.jug,
+        back: true,
         onTap: () => this.hint(v.el, g.blenders[i].state === 'ruined' ? 'game.hint.blenderRuined' : 'game.hint.blender'),
       });
       dnd.target(v.el, {
@@ -1306,7 +1314,7 @@ class GameView {
       for (const nodes of stations[type]) {
         if (nodes[0] === source) continue;
         const b = this.stageRect(...nodes);
-        if (x < b.x1 - HIT_PAD || x > b.x2 + HIT_PAD || y < b.y1 - HIT_PAD || y > b.y2 + HIT_PAD) continue;
+        if (x < b.x1 - this.hitPad || x > b.x2 + this.hitPad || y < b.y1 - this.hitPad || y > b.y2 + this.hitPad) continue;
         const dist = Math.hypot(x - b.cx, y - b.cy);
         if (dist < bestDist) {
           best = { el: nodes[0], key };
@@ -1746,6 +1754,25 @@ class GameView {
     for (const v of this.custViews.values()) v.x = -1; // re-position on next update
   }
 
+  // The carried jug of blender i: its 3D picture alone (drawn once into a canvas of its own, cropped to the jug) or
+  // the drawn jug cropped out of blenderSVG.
+  jugGhost(i) {
+    const b = this.game.blenders[i];
+    const o = { ...this.look, state: b.state, base: b.base, progress: 0, remaining: 0, portions: b.portions, maxPortions: b.maxPortions };
+    if (this.k3d) {
+      this.jugView = this.jugView || createView('blender');
+      if (this.jugView.draw({ ...o, part: 'jug' }, this.animT) && this.jugView.el.width) {
+        return snapshot(this.jugView, 0.9, blenderBox(this.look.tier, this.look.big, b.state, 'jug'));
+      }
+    }
+    const size = Math.round(BLENDER_ART * 0.9);
+    const [x0, y0, x1, y1] = JUG_2D.map((c) => Math.round(c * size));
+    const box = el('div', 'g-jug-ghost');
+    Object.assign(box.style, { width: `${x1 - x0}px`, height: `${y1 - y0}px`, overflow: 'hidden', position: 'relative' });
+    box.innerHTML = `<div style="position:absolute;left:${-x0}px;top:${-y0}px">${blenderSVG({ ...o, tier: this.look.tier, badge: false, part: 'jug' }, size)}</div>`;
+    return box;
+  }
+
   // ---------------------------------------------------------------- stations
   updateBlenders() {
     this.game.blenders.forEach((b, i) => {
@@ -1754,8 +1781,9 @@ class GameView {
       // (3D: drawn in update3D); the badge ring follows the blend in place
       if (v.pic) {
         const secs = secsLeft(b);
-        patch(v.pic, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}|${secs}`, () => blenderSVG({
-          tier: this.look.tier, state: b.state, base: b.base, progress: 0, remaining: secs, portions: b.portions, maxPortions: b.maxPortions, badge: false,
+        const part = v.el.classList.contains('drag-source') ? 'base' : undefined;
+        patch(v.pic, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}|${secs}|${part}`, () => blenderSVG({
+          tier: this.look.tier, state: b.state, base: b.base, progress: 0, remaining: secs, portions: b.portions, maxPortions: b.maxPortions, badge: false, part,
         }, BLENDER_ART));
       }
       if (patch(v.badge, b.state, () => blenderBadgeSVG(b.state, BLENDER_BADGE))) {
@@ -1934,7 +1962,7 @@ class GameView {
       const v = this.blenderViews[i];
       const blending = b.state === 'blending';
       v.view?.draw({
-        ...this.look, state: b.state, base: b.base,
+        ...this.look, state: b.state, base: b.base, part: v.el.classList.contains('drag-source') ? 'base' : undefined,
         progress: blending ? Math.round(b.progress * 48) / 48 : 0,
         remaining: secsLeft(b),
         portions: b.portions, maxPortions: b.maxPortions,

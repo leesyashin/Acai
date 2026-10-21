@@ -370,6 +370,11 @@
   pointer-events: none;
 }
 .screen-game .g-blender .g-badge { position: absolute; width: 36px; height: 38px; translate: -50% -50%; }
+/* only the jug is carried (js/game-view.js jugGhost): the base stays in full view, without its jug and badge; .g-jug
+   marks where the jug stands, for the flight back */
+.screen-game .g-blender .g-jug { position: absolute; visibility: hidden; pointer-events: none; }
+.screen-game .g-blender.drag-source { opacity: 1; }
+.screen-game .g-blender.drag-source .g-badge { visibility: hidden; }
 .screen-game .g-blender[data-state="blending"] .g-art { animation: g-rattle 0.16s linear infinite; }
 .screen-game .g-blender[data-state="overflowing"] .g-art { animation: g-overflow 0.55s ease-in-out infinite; }
 .screen-game .g-blender[data-state="ruined"] .g-art { filter: saturate(0.6); }
@@ -1342,3 +1347,18 @@ html.is-bleed .screen-game .g-hud {
   .screen-game .g-bubble,
   .screen-game .g-bubble::after { transition: none; }
 }
+
+/* ------------------------------------------------------------ phone (html.is-phone, js/stage.js): the stage is shown
+   at about half its size, so the small print is set bigger – name tags, layer labels, toasts, the level banner and
+   the tutorial stay readable (≥ 8 css px); a name tag grows up over its container, a layer label down over the
+   riser's front, so the two never cover each other */
+html.is-phone .screen-game :is(.g-pack, .g-bin, .g-stack) .g-name { scale: 1.4; transform-origin: 50% 100%; }
+html.is-phone .screen-game .g-shelf-label { scale: 1.4; transform-origin: 50% 0; }
+html.is-phone .screen-game .g-freezer-label { scale: 1.3; transform-origin: 50% 0; }
+html.is-phone .screen-game .g-goalmark small { font-size: 17px; }
+html.is-phone .screen-game .g-toast { font-size: 30px; max-width: 600px; }
+html.is-phone .screen-game .g-toast.at-guest { max-width: 760px; }
+html.is-phone .screen-game .g-banner-text { font-size: 24px; }
+html.is-phone .screen-game .g-tut-head { font-size: 28px; }
+html.is-phone .screen-game .g-tut-text { font-size: 26px; }
+html.is-phone .screen-game .g-tut-panel { width: 340px; }

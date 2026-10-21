@@ -144,7 +144,7 @@ async function main() {
         await page.screenshot({ path: path.join(OUT, 'ready.png') });
       });
 
-      await check('dragging the blender carries a 3D snapshot, copied without reading the canvas back', async () => {
+      await check('dragging the blender carries a 3D snapshot of its jug, copied without reading the canvas back', async () => {
         // a pixel readback of the live canvas would stall the GPU on every pickup
         await page.evaluate(() => {
           const read = CanvasRenderingContext2D.prototype.getImageData;
@@ -166,8 +166,9 @@ async function main() {
         await sleep(400);
         const readbacks = await page.evaluate(() => { window.__restoreReadbacks(); return window.__readbacks; });
         assert(ghost, 'the drag ghost is not the 3D picture');
-        // cropped to the blender (the canvas is 164 × 292 with headroom), carried at about its size
-        assert(ghost.w > 100 && ghost.w < 200 && ghost.h > 180 && ghost.h < 290, `ghost ${ghost.w}×${ghost.h}`);
+        // only the jug, lifted off its base: cropped to it (the canvas is 164 × 292 with headroom), carried at about
+        // its size – about as wide as the blender, far less tall
+        assert(ghost.w > 90 && ghost.w < 200 && ghost.h > 100 && ghost.h < 170, `ghost ${ghost.w}×${ghost.h}`);
         assert(readbacks === 0, `${readbacks} getImageData call(s) while picking up the blender`);
       });
 

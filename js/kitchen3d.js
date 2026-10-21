@@ -376,14 +376,16 @@ export function blenderBadgeAt(tier = 0, big = false) {
 // contact shadow included: [x0, y0, x1, y1] in CSS px. Drag ghosts copy just this part of the
 // canvas (the canvas itself is never read back). Measured once per model and state from the
 // corners of each part's bounding box, a few px generous.
-export function blenderBox(tier = 0, big = false, state = 'empty') {
+// part 'jug': the jug alone (lifted off its base, see blenderScene).
+export function blenderBox(tier = 0, big = false, state = 'empty', part = null) {
   const tr = clamp(Math.floor(Number(tier) || 0), 0, 3);
   const s = BLENDER_STATES.includes(state) ? state : 'empty';
-  return once(`bl-box|${tr}|${!!big}|${s}`, () => {
+  const pt = part === 'jug' ? 'jug' : null;
+  return once(`bl-box|${tr}|${!!big}|${s}|${pt}`, () => {
     const { w, h, ax, ay } = VIEWS.blender;
     const zoom = blenderZoom(tr, big);
     let [x0, y0, x1, y1] = [w, h, 0, 0];
-    const o = { tier: tr, big, state: s, base: 'acai', progress: 0.5, remaining: 3, portions: 1, maxPortions: big ? 3 : 2 };
+    const o = { tier: tr, big, state: s, base: 'acai', progress: 0.5, remaining: 3, portions: 1, maxPortions: big ? 3 : 2, part: pt };
     for (let t = 0; t < 3; t += isAnimated('blender', o) ? 0.25 : 3) {
       for (const it of blenderScene(o, t).items) {
         for (const c of corners(it.mesh)) {
@@ -841,6 +843,8 @@ function blenderControls(tier, T, s, o, t) {
 }
 
 // Blender scene. o = { tier 0–3, big, state, base, progress, portions, maxPortions, remaining }.
+// o.part: 'base' draws the motor base alone (its jug is carried to a cup), 'jug' the jug alone (the drag
+// ghost: no base, no shadow); anything else the whole blender.
 export function blenderScene(o = {}, t = 0, frame = VIEWS.blender) {
   const tier = clamp(Math.floor(Number(o.tier) || 0), 0, 3);
   const big = !!o.big;
@@ -850,20 +854,24 @@ export function blenderScene(o = {}, t = 0, frame = VIEWS.blender) {
   const J = parts.J;
   const B = baseMeshes();
   const items = [];
-  items.push(shadow(BASE.r0 - 1, BASE.r0 * BASE.depth - 1, 12, 10, 0.62));
+  const out = { frame: { ...frame, zoom: (frame.zoom || 1) * blenderZoom(tier, big) }, elev: ELEV, time: t, items };
+  if (o.part !== 'jug') {
+    items.push(shadow(BASE.r0 - 1, BASE.r0 * BASE.depth - 1, 12, 10, 0.62));
 
-  // motor base: plinth, body, the black glass band (a chrome line under it on the Pro Max), controls
-  items.push(item(B.foot, MAT.blackSatin));
-  items.push(item(B.body, T.body));
-  items.push(item(B.band, MAT.panelGlass));
-  if (T.trim) items.push(item(B.trim, MAT.chrome));
-  items.push(...blenderControls(tier, T, s, o, t));
+    // motor base: plinth, body, the black glass band (a chrome line under it on the Pro Max), controls
+    items.push(item(B.foot, MAT.blackSatin));
+    items.push(item(B.body, T.body));
+    items.push(item(B.band, MAT.panelGlass));
+    if (T.trim) items.push(item(B.trim, MAT.chrome));
+    items.push(...blenderControls(tier, T, s, o, t));
+    items.push(item(parts.coupling, MAT.rubber));
+  }
+  if (o.part === 'base') return out;
 
   // jug, contents and lid move together (vibration while blending)
   let shake = I;
   if (s === 'blending') shake = at(Math.sin(t * 71) * 0.45, Math.abs(Math.sin(t * 53)) * 0.35, Math.sin(t * 61) * 0.3);
   else if (s === 'overflowing') shake = compose(at(0, 0, 0), rotationAbout([0, J.y0, 0], 'z', Math.sin(t * 13) * 0.02));
-  items.push(item(parts.coupling, MAT.rubber));
   items.push(item(parts.collar, MAT.lid, shake));
   items.push(item(parts.blades, MAT.bladeSteel, s === 'blending' ? compose(shake, rotationY(t * 31)) : shake));
 
@@ -932,12 +940,12 @@ export function blenderScene(o = {}, t = 0, frame = VIEWS.blender) {
   items.push(item(parts.lid, MAT.lid, lidM));
   items.push(item(parts.cap, MAT.capGlass, lidM, 'glass'));
 
-  if (s === 'overflowing') items.push(...overflowFoam(J, base, t));
+  if (s === 'overflowing') items.push(...overflowFoam(J, base, t, o.part !== 'jug'));
   if (s === 'ruined') items.push(...flies(J, t));
-  return { frame: { ...frame, zoom: (frame.zoom || 1) * blenderZoom(tier, big) }, elev: ELEV, time: t, items };
+  return out;
 }
 
-function overflowFoam(J, base, t) {
+function overflowFoam(J, base, t, puddle = true) {
   const items = [];
   const foam = pureeMat(base, 'foam');
   const ball = once('foam-ball', () => sphere(1, 18, 12));
@@ -962,7 +970,7 @@ function overflowFoam(J, base, t) {
     items.push(item(ball, drip, compose(at(cx * r, y, cz * r), scaling(2.1, len, 2.1))));
     items.push(item(once('drip-trail', () => cylinder(1, -1, 0, { segs: 12 })), drip, compose(at(cx * r, J.top - 1, cz * r), scaling(1.3, fall + 1, 1.3))));
   }
-  items.push(item(once('puddle', () => sphere(1, 24, 8)), drip, compose(at(-24, 0.2, BASE.r0 * BASE.depth + 4), scaling(10.5, 0.9, 5.5))));
+  if (puddle) items.push(item(once('puddle', () => sphere(1, 24, 8)), drip, compose(at(-24, 0.2, BASE.r0 * BASE.depth + 4), scaling(10.5, 0.9, 5.5))));
   return items;
 }
 

@@ -3,7 +3,7 @@
 Ein Zeitmanagement-Spiel im Stil von *Cooking Fever* für den Browser: Du arbeitest in einem modernen
 Açaí-Café. Deine Gäste bestellen Bowls – serviert in durchsichtigen Plastikbechern, in denen man die
 Schichten sieht – und später Frucht-Matcha; du stellst sie per **Drag & Drop** unter Zeitdruck zusammen. Gebaut für **Tablets im Querformat**, spielbar auch mit
-Maus am PC, auf dem **MacBook im Browser** (Maus oder Trackpad) und (verkleinert) auf dem Handy – und lässt sich dort **wie eine App
+Maus am PC, auf dem **MacBook im Browser** (Maus oder Trackpad) und auf dem **Handy im Querformat** – und lässt sich dort **wie eine App
 installieren** (Vollbild, eigenes Icon, offline spielbar). Deutsch und Englisch, Soundeffekte und Musik
 werden synthetisch erzeugt – es gibt keine Audiodateien, und die einzigen Bilddateien sind die App-Icons, die aus dem Code gezeichnet werden. Die Küchengeräte (Mixer, Matcha-Maschine,
 Mülleimer, Gefriertruhe) sind echte 3D-Modelle, die per WebGL im Browser gerendert und animiert werden; jedes
@@ -29,7 +29,8 @@ und ein kurzer Hinweis erklärt, warum.
    stellst du ihn hin, während der Mixer noch läuft. Mit dem **Greifarm** aus dem Shop passiert das von
    selbst: Ein kleiner Greifer fährt auf einer Schiene an der Theke entlang, zieht den obersten Becher aus
    dem Spender, dreht ihn um und stellt ihn auf den nächsten freien Platz (der Turbo-Greifarm ist schneller).
-3. **Bowl füllen:** Zieh den fertigen Mixer auf die leere Bowl. Eine Mischung reicht für zwei Bowls
+3. **Bowl füllen:** Zieh den Mixkrug vom fertigen Mixer auf die leere Bowl – der Sockel bleibt stehen, der Krug kehrt nach dem
+   Ausgießen auf ihn zurück. Eine Mischung reicht für zwei Bowls
    (mit dem großen Mixkrug für drei).
 4. **Belegen:** Zieh Früchte & Crunch und danach Toppings & Soßen aus ihren Behältern auf der Arbeitsplatte auf die Bowl.
 5. **Servieren:** Zieh die fertige Bowl auf den Gast. Stimmt sie genau mit der Bestellung überein,
@@ -163,6 +164,11 @@ Dann startet es mit eigenem Icon im Vollbild ohne Browserleisten, im Querformat,
 Auf Handys und Tablets (und in der installierten App) füllt das Spiel den ganzen Bildschirm: Die Bühne bleibt gleich groß, aber Café-Wand,
 Arbeitsplatte, Karte und Menü-Hintergründe laufen bis an die Ränder weiter, und die Anzeigen (Münzen, Herzen, Zeit, Zurück-Knopf) sitzen
 an den Bildschirmkanten – nicht hinter der Notch. Am Desktop-Browser bleibt das gerahmte Bild mit lila Rand.
+
+Auf dem **Handy** (quer gehalten) ist alles etwa halb so groß wie auf dem Tablet. Deshalb sind dort Namensschilder,
+Schicht-Beschriftungen, Hinweise, Level-Banner und Tutorial größer gesetzt, und die Ablageflächen fangen ein Teil auch dann,
+wenn du etwas neben ihnen loslässt. Hochkant bittet das Spiel, das Handy zu drehen („Trotzdem spielen“ geht auch).
+Unten ist nur Arbeitsplatte – keine Regale mehr –, damit möglichst viel Platz für die Stationen bleibt.
 
 ## Lokal starten
 

@@ -187,15 +187,18 @@ export function blenderSVG(opts = {}, size = 150) {
   const state = ['empty', 'blending', 'ready', 'overflowing', 'ruined'].includes(o.state) ? o.state : 'empty';
   // progress is quantised so the cache stays small while the ring still moves smoothly
   const p = state === 'blending' ? Math.round(Math.max(0, Math.min(1, Number(o.progress) || 0)) * 48) / 48 : 0;
-  const key = `x|${tierOf(o.tier)}|${state}|${o.base}|${p}|${secsLeft(state, o)}|${o.portions}|${o.maxPortions}|${o.badge !== false}|${size}`;
+  const key = `x|${tierOf(o.tier)}|${state}|${o.base}|${p}|${secsLeft(state, o)}|${o.portions}|${o.maxPortions}|${o.badge !== false}|${size}|${o.part}`;
   return memo(key, () => drawBlender(state, o, p, size));
 }
 
+// o.part: 'base' the motor base alone (its jug is carried), 'jug' the jug alone (the drag ghost)
 function drawBlender(state, o, prog, size) {
   const p = pureeOf(ING[o.base]?.layer === 'base' ? o.base : 'acai');
-  let s = softShadow(BX, 145, 38, 5.5);
+  if (o.part === 'base') return svgWrap(size, size, 150, 150, softShadow(BX, 145, 38, 5.5) + motorBase(state, o));
+  const jugOnly = o.part === 'jug';
+  let s = jugOnly ? '' : softShadow(BX, 145, 38, 5.5);
   if (state === 'blending') s += line(`M${BX - 40} 52Q${BX - 46} 64 ${BX - 40} 76M${BX - 48} 58Q${BX - 52} 64 ${BX - 48} 70M${BX + 48} 104Q${BX + 54} 96 ${BX + 52} 86`, '#5b4b66', 2.2, op(0.5));
-  s += motorBase(state, o);
+  if (!jugOnly) s += motorBase(state, o);
   // clear handle (behind the jug's right wall)
   const handle = `M${f(jugR(42) - 2)} 41H${BX + 37}Q${BX + 42} 41 ${BX + 41.6} 46L${BX + 39.6} 70Q${BX + 39.2} 75 ${BX + 34} 75H${f(jugR(75) - 2)}`;
   s += path(handle, 'none', stroke(7.4, '#9fbac4') + op(0.55)) + path(handle, 'none', stroke(5.6, '#eef7fa') + op(0.7)) + path(handle, 'none', stroke(1.4, WHITE) + op(0.8));
@@ -224,7 +227,7 @@ function drawBlender(state, o, prog, size) {
     for (const [x, y1, y2, w] of [[BX - 31, 34, 66, 5.6], [BX + 30, 34, 52, 4.6], [BX - 2, 37, 46, 4.2]]) {
       s += path(`M${x - w / 2} ${y1}V${y2 - w / 2}A${w / 2} ${w / 2} 0 0 0 ${x + w / 2} ${y2 - w / 2}V${y1}Z`, p.main, stroke(1, edge(p.main))) + line(`M${x - w * 0.15} ${y1 + 2}V${y2 - w}`, p.light, 1, op(0.7));
     }
-    s += ellipse(BX - 36, 145.5, 10, 2.4, p.main, stroke(1, edge(p.main)));
+    if (!jugOnly) s += ellipse(BX - 36, 145.5, 10, 2.4, p.main, stroke(1, edge(p.main)));
     s += g(`translate(-14 -6) rotate(-20 ${BX} 30)`, lid());
   } else {
     s += lid();
@@ -234,7 +237,7 @@ function drawBlender(state, o, prog, size) {
     s += circle(BX - 46, 42, 2.2, '#1d1d22') + ellipse(BX - 47.8, 39.4, 2.4, 1.4, WHITE, op(0.85)) + ellipse(BX - 44, 39.4, 2.4, 1.4, WHITE, op(0.85));
   }
   // decorative use (shop cards, badge:false): no status badge, so a ✓ never reads as "already bought"
-  if (o.badge !== false) s += statusBadge(state, prog);
+  if (o.badge !== false && !jugOnly) s += statusBadge(state, prog);
   return svgWrap(size, size, 150, 150, s);
 }
 
@@ -513,19 +516,11 @@ export function trashSVG(size = 64) {
 
 // ======================================================================
 // Work counter (1280×462 stage px under the pass, stage y 338–800): a terrazzo worktop seen from
-// above at an angle – far edge in the pass's shadow, chips shrinking toward the back – its
-// rounded front edge and a strip of the cabinet below it: the freezer's front panel on the left,
-// the tops of open oak shelves with the café's stock under an LED strip
+// above at an angle – far edge in the pass's shadow, chips shrinking toward the back – running down to
+// the bottom of the screen: no cabinet, nothing but the work surface in front of the player
 // ======================================================================
 const COUNTER_W = 1280;
 const COUNTER_H = 462;
-const COUNTER_EDGE_Y = 404; // front edge of the worktop (stage y 742)
-const COUNTER_LIP = 14; // the rounded front edge; the cabinet strip starts below it (stage y 756)
-const SHELF_POSTS = [300, 516, 732, 948, 1150];
-// The stock is drawn for a shelf whose top is at y 372 and moved down into the cabinet strip, where
-// only its upper part shows above the bottom of the screen; STOCK_LIFT keeps the tops of the crates in view.
-const STOCK_TOP = 372;
-const STOCK_LIFT = 16;
 
 // Terrazzo chips on the worktop, in perspective: sampled evenly on the slab, projected toward a
 // horizon far above the screen, so they get smaller and flatter toward the back.
@@ -559,92 +554,6 @@ function terrazzo(W, edgeY, bleed = 0) {
   return cols.map((c, i) => (by[i] ? path(by[i], c, op(c === '#fffbf5' ? 0.95 : 0.72)) : '')).join('');
 }
 
-// --- stock on the open shelves (drawn standing on the shelf floor just below the screen, y = base)
-function stockCrate(x, base, w, h, fill) {
-  let s = fill;
-  const front = `M${x} ${base - h}H${x + w}V${base}H${x}Z`;
-  s += path(front, '#c99a5f', stroke(1, '#7d5226'));
-  for (let k = 1; k < 3; k++) s += line(`M${x} ${base - h + (h * k) / 3}H${x + w}`, '#8f6331', 1.6, op(0.7));
-  s += line(`M${x + 3} ${base - h + 2}H${x + w - 3}`, '#f2d3a0', 1.2, op(0.8));
-  s += path(front, paint('cyl-soft'));
-  return s;
-}
-
-function stockIcon(id, x, y, k) {
-  return g(`translate(${f(x)} ${f(y)}) scale(${k})`, ingredientArt(id));
-}
-
-function bowlStack(x, base) {
-  let s = '';
-  for (let i = 0; i < 4; i++) {
-    const y = base - 8 - i * 7;
-    s += path(`M${x - 26} ${y - 6}C${x - 26} ${y + 4} ${x - 12} ${y + 8} ${x} ${y + 8}C${x + 12} ${y + 8} ${x + 26} ${y + 4} ${x + 26} ${y - 6}Z`, '#fbfaf6', stroke(0.9, '#a2988c'));
-    s += path(`M${x - 26} ${y - 6}A26 5 0 0 0 ${x + 26} ${y - 6}`, 'none', stroke(1.6, BOWL_RIM_COL));
-  }
-  const y = base - 8 - 3 * 7 - 6;
-  s += ellipse(x, y, 26, 5, '#f1ede6', stroke(1.6, BOWL_RIM_COL));
-  return s + path(`M${x - 26} ${base - 30}V${base}H${x + 26}V${base - 30}Z`, paint('cyl-soft'), op(0.6));
-}
-
-function kraftBag(x, base, w, h, label) {
-  const bag = `M${x + 3} ${base - h}L${x + w - 3} ${base - h}L${x + w} ${base}H${x}Z`;
-  let s = path(bag, '#c8a27a', stroke(1, '#8a6a48')) + path(bag, paint('cyl'), op(0.6));
-  s += path(`M${x + 2} ${base - h - 7}H${x + w - 2}L${x + w - 3} ${base - h + 1}H${x + 3}Z`, '#b58e66', stroke(1, '#8a6a48'));
-  s += path(rrect(x + 7, base - h + 12, w - 14, 18, 3), '#fbf6ec');
-  s += `<text x="${f(x + w / 2)}" y="${f(base - h + 25)}" text-anchor="middle" font-family="${FONT}" font-size="10" letter-spacing="0.5" fill="#6b4a2f">${esc(label)}</text>`;
-  return s;
-}
-
-function stock() {
-  const base = 456;
-  let s = g('translate(318 386) scale(0.42)', cupStackShape()) + g('translate(368 380) scale(0.46)', cupStackShape());
-  s += bowlStack(460, base);
-  s += stockCrate(530, base, 110, 40,
-    stockIcon('banana', 516, 368, 0.7) + stockIcon('banana', 564, 364, 0.68) + stockIcon('banana', 540, 380, 0.64));
-  s += kraftBag(656, base, 62, 58, 'GRANOLA');
-  s += stockCrate(748, base, 110, 40,
-    stockIcon('mango', 740, 386, 0.56) + stockIcon('kiwi', 790, 390, 0.5) + stockIcon('mango', 808, 384, 0.5));
-  s += stockIcon('honey', 862, 400, 0.6) + stockIcon('peanut', 904, 402, 0.56);
-  s += stockIcon('coconut', 958, 398, 0.62) + stockIcon('coconut', 1004, 404, 0.56);
-  s += stockCrate(1060, base, 82, 34, stockIcon('strawberry', 1052, 398, 0.5) + stockIcon('strawberry', 1090, 396, 0.5) + stockIcon('blueberry', 1072, 404, 0.42));
-  // nothing in the last compartment (x 1150–1280): the trash can stands in front of it, a label peeking out under
-  // its pedal would look like a glitch
-  return s;
-}
-
-// More stock in the compartments beyond the stage (full bleed), drawn like stock()'s.
-function stockBeyond(base) {
-  let s = stockCrate(-330, base, 110, 40, stockIcon('banana', -344, 368, 0.7) + stockIcon('banana', -298, 366, 0.66));
-  s += kraftBag(-190, base, 62, 58, 'GRANOLA') + stockIcon('coconut', -100, 400, 0.6);
-  s += stockCrate(1300, base, 82, 34, stockIcon('mango', 1292, 392, 0.5) + stockIcon('kiwi', 1330, 396, 0.48));
-  s += stockCrate(1420, base, 110, 40, stockIcon('strawberry', 1414, 392, 0.52) + stockIcon('blueberry', 1452, 400, 0.44) + stockIcon('strawberry', 1488, 394, 0.5));
-  return s;
-}
-
-function underCounter(X0, X1, C, H) {
-  const W = X1 - X0;
-  // the compartments go on beyond the stage in the same rhythm
-  const posts = [...SHELF_POSTS];
-  while (posts[0] - 216 > X0 - 216) posts.unshift(posts[0] - 216);
-  while (posts[posts.length - 1] + 216 < X1 + 216) posts.push(posts[posts.length - 1] + 216);
-  let s = rect(X0, C, W, H - C, 0, '#5a4334') + rect(X0, C, W, H - C, 0, paint('down-dark'), op(0.6));
-  // LED strip under the apron: warm light falling on the stock
-  for (let i = 0; i < posts.length - 1; i++) {
-    if (posts[i + 1] < X0 || posts[i] > X1) continue;
-    const cx = (posts[i] + posts[i + 1]) / 2;
-    s += ellipse(cx, C + 14, (posts[i + 1] - posts[i]) * 0.55, 44, paint('warm-glow'), op(0.9));
-  }
-  s += g(`translate(0 ${C - STOCK_TOP - STOCK_LIFT})`, stock() + (X0 < 0 ? stockBeyond(456) : ''));
-  // oak posts between the compartments, the apron under the worktop edge
-  for (const x of posts) {
-    if (x < X0 - 5 || x > X1 + 5) continue;
-    s += rect(x - 5, C, 10, H - C, 0, '#c99b63') + rect(x - 5, C, 10, H - C, 0, paint('cyl')) + line(`M${x - 4.4} ${C}V${H}`, '#8f6331', 1, op(0.6));
-  }
-  s += rect(X0, C, W, 10, 0, '#c99b63') + rect(X0, C, W, 10, 0, paint('down'), op(0.7)) + line(`M${X0} ${C + 10}H${X1}`, '#3b2a22', 1.2, op(0.5));
-  s += rect(X0, C, W, 4, 0, '#3b2a22', op(0.35));
-  return s;
-}
-
 // bleed / below: the worktop and the cabinet run on that far to either side and down (full bleed on wider or
 // taller screens); then the picture is (1280 + 2·bleed) × (462 + below) px, drawn 1:1 with x 0 at `bleed`.
 export function counterSVG(width = COUNTER_W, height = COUNTER_H, { bleed = 0, below = 0 } = {}) {
@@ -652,34 +561,17 @@ export function counterSVG(width = COUNTER_W, height = COUNTER_H, { bleed = 0, b
   const H = COUNTER_H + below;
   const X0 = -bleed;
   const X1 = W + bleed;
-  const E = COUNTER_EDGE_Y;
-  const C = E + COUNTER_LIP;
   const topId = uid('ctr');
-  const lipId = uid('ctr');
   // a warm cream stone (peach in the shadow of the pass, lighter toward the player)
-  let s = `<defs><linearGradient id="${topId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3c4ae"/><stop offset="0.22" stop-color="#efd8c6"/><stop offset="1" stop-color="#f7e9dc"/></linearGradient>` +
-    `<linearGradient id="${lipId}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffaf4"/><stop offset="0.3" stop-color="#f5e6d8"/><stop offset="0.75" stop-color="#dcc1ab"/><stop offset="1" stop-color="#b08d74"/></linearGradient></defs>`;
-  // worktop
-  s += rect(X0, 0, X1 - X0, E, 0, `url(#${topId})`);
-  s += terrazzo(W, E, bleed);
+  let s = `<defs><linearGradient id="${topId}" x1="0" y1="0" x2="0" y2="${f(H)}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e3c4ae"/><stop offset="${f(0.22 * COUNTER_H / H)}" stop-color="#efd8c6"/><stop offset="${f(COUNTER_H / H)}" stop-color="#f7e9dc"/><stop offset="1" stop-color="#f9eee4"/></linearGradient></defs>`;
+  // worktop, down to the bottom of the screen
+  s += rect(X0, 0, X1 - X0, H, 0, `url(#${topId})`);
+  s += terrazzo(W, H, bleed);
   // the pendant lamps reflected in the polished stone, the pass's shadow along the far edge
   for (const [x, rx] of [[150, 150], [380, 170], [900, 170], [1160, 150]]) s += ellipse(x, 84, rx, 32, paint('glow'), op(0.38));
   // warm light of the pendant lamps pooling in the middle of the worktop
   s += ellipse(640, 150, 520, 120, paint('warm-glow'), op(0.35));
   s += rect(X0, 0, X1 - X0, 40, 0, paint('up-dark'), op(0.55)) + rect(X0, 0, X1 - X0, 8, 0, '#3b2a22', op(0.18));
-  // cabinet: open shelves with the stock, the freezer's front panel on the left
-  s += underCounter(X0, X1, C, H);
-  const fp = `M18 ${C}H298V${H + 4}H18Z`;
-  s += path(fp, '#eef0f1') + path(fp, paint('steel-v'), op(0.5)) + path(fp, 'none', stroke(1, '#8f99a4'));
-  s += rect(18, C, 280, 12, 0, paint('up-dark'), op(0.8));
-  let vents = '';
-  for (let x = 40; x < 280; x += 10) vents += `M${x} ${COUNTER_H - 9}V${COUNTER_H - 3}`; // at the stage's bottom edge
-  s += line(vents, '#5b6570', 2.2, op(0.55));
-  // rounded front edge of the worktop, casting its shadow on the cabinet
-  s += rect(X0, E, X1 - X0, COUNTER_LIP, 0, `url(#${lipId})`);
-  s += line(`M${X0} ${E + 0.8}H${X1}`, WHITE, 1.6, op(0.95));
-  s += line(`M${X0} ${E + 4}H${X1}`, WHITE, 1, op(0.35));
-  s += rect(X0, C, X1 - X0, 10, 0, paint('up-dark'), op(0.7));
   if (!bleed && !below) return svgWrap(width, height, W, H, s, ' preserveAspectRatio="none"');
   return svgWrap(X1 - X0, H, X1 - X0, H, g(`translate(${bleed} 0)`, s));
 }
