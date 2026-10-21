@@ -16,13 +16,14 @@ import {
   blenderBadgeSVG, matchaMachineSVG, matchaLedAt, MATCHA_SLOT_X, MATCHA_SLOT_Y, MATCHA_CUP_SIZE, MATCHA_POUR_FROM,
   trashSVG, coinSVG, heartSVG, starSVG, clockSVG, lockSVG, decorSVG, shopSceneSVG, counterSVG, freezerSVG, riserSVG,
 } from './art.js';
-import { has3D, createView, snapshot, still, pixelRatio } from './art3d.js';
+import { has3D, createView, snapshot, still, pixelRatio, setArtZoom } from './art3d.js';
 import { blenderLook, blenderBadgeAt, blenderBox, pourFill, pureeFill, brewPhase } from './kitchen3d.js';
 import { PANTRY_VIEW, pantryKind, pantryHasFront, pantryTop, pantryBadges } from './pantry3d.js';
 import { createDragManager } from './drag.js';
 import defaultAudio from './audio.js';
 import { ICON } from './icons.js';
-import { isBleed, isPhone } from './stage.js';
+import { isBleed, isPhone, getBleed, safeInsets, onStageResize } from './stage.js';
+import { phoneLayout, RISER_PAD as PHONE_RISER_PAD } from './kitchen-layout.js';
 import { buzz, HAPTIC } from './haptics.js';
 import {
   getSave, kitchenStats, recordLevelResult, recordEndless, markIntroSeen, setSetting, ownedNow,
@@ -532,6 +533,11 @@ class GameView {
     this.k3d = has3D();
     this.wideArt = isBleed();
     this.hitPad = isPhone() ? HIT_PAD_PHONE : HIT_PAD;
+    // on a phone the work area is arranged across the whole window and scaled up (js/kitchen-layout.js, placePhone):
+    // this.wk holds that css transform (k, tx, ty) for posOf and the drag ghosts, null on a tablet or desktop
+    this.phone = isPhone();
+    this.lay = null;
+    this.wk = null;
     this.look = blenderLook(save.upgrades);
     window.__acaiGame = this.game;
   }
@@ -578,7 +584,15 @@ class GameView {
   buildWork() {
     const g = this.game;
     const work = el('div', 'g-work');
+    this.workEl = work;
+    const lay = this.phone ? this.phoneLayoutFor() : null;
+    this.lay = lay;
+    if (lay) {
+      this.root.classList.add('is-phone-layout');
+      setArtZoom(lay.k); // the 3D pictures (drawn below) at the finer ratio of the scaled-up work area
+    }
     const top = el('div', 'g-worktop');
+    this.worktopEl = top;
     top.innerHTML = counterSVG(STAGE_W, WORK_H, this.wideArt ? { bleed: BLEED_X, below: BLEED_Y } : undefined);
     work.append(top);
 
@@ -589,7 +603,7 @@ class GameView {
     const badgeAt = this.k3d ? blenderBadgeAt(this.look.tier, this.look.big) : { x: (119 * BLENDER_ART) / 150, y: (22 * BLENDER_ART) / 150 };
     this.blenderViews = g.blenders.map((b, i) => {
       const node = el('div', 'g-blender', { 'data-blender': i, 'data-state': b.state, 'data-model': this.look.tier });
-      node.style.left = `${bx[i]}px`;
+      if (!lay) node.style.left = `${bx[i]}px`;
       const art = el('div', 'g-art');
       const badge = el('div', 'g-badge');
       badge.style.left = `${Math.round(badgeAt.x)}px`;
@@ -620,6 +634,7 @@ class GameView {
     // chest freezer built into the counter, the base packs (owned bases only) standing in it: the
     // frame's front edge is drawn over the packs, their names over the frame
     const freezer = el('div', 'g-freezer');
+    this.freezerEl = freezer;
     const packs = el('div', 'g-packs');
     this.freezerLabel = el('span', 'g-freezer-label');
     this.packEls = {};
@@ -648,19 +663,21 @@ class GameView {
     // cup dispenser + bowl spots: a cup goes down from the dispenser before anything goes into it – by
     // hand, or by the cup arm running on its rail behind them (drawn before them: it passes behind the cups)
     const n = g.bowls.length;
-    const x0 = MID_X0 + (MID_W - (STACK_W + STACK_GAP + n * BOWL_SLOT_W)) / 2;
+    const x0 = lay ? lay.stack.x : MID_X0 + (MID_W - (STACK_W + STACK_GAP + n * BOWL_SLOT_W)) / 2;
     const sx0 = x0 + STACK_W + STACK_GAP;
     this.dispX = Math.round(x0 + STACK_W / 2);
     this.spotX = g.bowls.map((b, i) => Math.round(sx0 + i * BOWL_SLOT_W + BOWL_SLOT_W / 2));
     if (g.arm) work.append(this.buildArm());
     this.stackEl = el('div', 'g-stack', { 'data-cup-stack': '', role: 'img' });
-    this.stackEl.style.left = `${Math.round(x0)}px`;
-    this.stackEl.style.top = `${CUP_FOOT_Y - DISP_COLLAR}px`;
+    if (!lay) {
+      this.stackEl.style.left = `${Math.round(x0)}px`;
+      this.stackEl.style.top = `${CUP_FOOT_Y - DISP_COLLAR}px`;
+    }
     this.stackEl.innerHTML = `<div class="g-art">${cupDispenserSVG(STACK_W)}</div><span class="g-name"></span>`;
     work.append(this.stackEl);
     this.bowlViews = g.bowls.map((b, i) => {
       const node = el('div', 'g-bowl', { 'data-bowl': i, 'data-state': 'nocup' });
-      node.style.left = `${Math.round(sx0 + i * BOWL_SLOT_W)}px`;
+      if (!lay) node.style.left = `${Math.round(sx0 + i * BOWL_SLOT_W)}px`;
       const art = el('div', 'g-art');
       const chips = el('div', 'g-chips');
       const match = el('span', 'g-match');
@@ -678,6 +695,7 @@ class GameView {
     this.binEls = {};
     this.binStills = [];
     this.shelfLabels = {};
+    this.shelfEls = {};
     let labelX = null; // the middle of the back riser's layer label (the riser is centred on its row)
     for (const layer of ['mid', 'top']) {
       const list = INGREDIENTS.filter((ing) => ing.layer === layer && g.owned.includes(ing.id));
@@ -687,18 +705,25 @@ class GameView {
       let gap = BIN_GAP;
       let rowW = n * w + Math.max(0, n - 1) * gap;
       let x = rowW <= MID_W ? MID_X0 + (MID_W - rowW) / 2 : SHELF_X0;
-      if (g.matcha && x + rowW > MBAR_X0 - 8) {
+      if (lay) {
+        // the phone's arrangement: full-size bins; a front row beside the back one keeps its stickers high
+        if (!list.length) continue;
+        x = lay.shelves[layer].x;
+        if (!lay.shelves[layer].stacked) labelX = null;
+      } else if (g.matcha && x + rowW > MBAR_X0 - 8) {
         gap = SQUEEZE_GAP;
         w = Math.floor((MBAR_X0 - 8 - SHELF_X0 - (n - 1) * gap) / n);
         rowW = n * w + (n - 1) * gap;
         x = SHELF_X0;
       }
-      labelX = this.buildShelf(work, layer, list, { x, w, gap, labelX });
+      labelX = this.buildShelf(work, layer, list, { x, w, gap, labelX, top: lay ? lay.shelves[layer].top : null });
     }
     if (g.matcha) {
       for (const layer of ['mfruit', 'mextra']) {
         const list = INGREDIENTS.filter((ing) => ing.layer === layer && g.owned.includes(ing.id));
-        if (list.length) this.buildShelf(work, layer, list, { x: MBAR_X0, w: MBAR_W[layer], gap: MBAR_GAP, labelX: null, top: MBAR_TOP[layer] });
+        if (!list.length) continue;
+        if (lay) this.buildShelf(work, layer, list, { x: lay.shelves[layer].x, w: BIN_W, gap: BIN_GAP, labelX: null, top: lay.shelves[layer].top });
+        else this.buildShelf(work, layer, list, { x: MBAR_X0, w: MBAR_W[layer], gap: MBAR_GAP, labelX: null, top: MBAR_TOP[layer] });
       }
     }
 
@@ -707,6 +732,7 @@ class GameView {
     if (g.matcha) {
       const count = g.matcha.slots.length;
       const machine = el('div', 'g-machine', { 'data-model': count });
+      this.machineEl = machine;
       if (this.k3d) {
         this.machineView = createView('machine');
         machine.append(this.machineView.el);
@@ -739,8 +765,8 @@ class GameView {
         this.slotViews.push({ el: node, art, timer, fill, glass, state: null, pouring: false });
       });
       work.append(machine);
-    } else if (this.mode === 'campaign') {
-      // teaser: the machine arrives in a later level
+    } else if (this.mode === 'campaign' && !lay) {
+      // teaser: the machine arrives in a later level (not on a phone: the room goes to the stations in use)
       const machine = el('div', 'g-machine is-locked', { 'aria-hidden': 'true' });
       this.lockLabel = el('span', 'g-lock-label');
       machine.innerHTML = `<div class="g-art">${this.k3d ? '' : matchaMachineSVG(1, MACHINE_SIZE)}</div><span class="g-lock">${lockSVG(54)}</span>`;
@@ -764,7 +790,83 @@ class GameView {
       this.trashEl.innerHTML = `<div class="g-art">${trashSVG(102)}</div>`;
     }
     work.append(this.trashEl);
+    if (lay) {
+      this.placePhone(lay);
+      this.offs.push(onStageResize(() => this.placePhone()));
+    }
     return work;
+  }
+
+  // ---------------------------------------------------------------- phone: the work area across the window
+  // What the phone arrangement is built from: the stations in use and the window's width in stage px (the stage
+  // plus the bands on either side, js/stage.js full bleed), less the safe-area insets (a notch on one side).
+  phoneLayoutFor({ kMin = 1 } = {}) {
+    const g = this.game;
+    const count = (layer) => INGREDIENTS.filter((ing) => ing.layer === layer && g.owned.includes(ing.id)).length;
+    const safe = safeInsets();
+    const lay = phoneLayout({
+      blenders: g.blenders.length,
+      bowls: g.bowls.length,
+      mid: count('mid'),
+      top: count('top'),
+      matcha: g.matcha ? { mfruit: count('mfruit'), mextra: count('mextra') } : null,
+      availW: STAGE_W + 2 * getBleed().bx,
+      safeL: safe.l,
+      safeR: safe.r,
+      kMin,
+    });
+    return lay;
+  }
+
+  // Places the stations as the arrangement says and scales the work area by its k (a css transform from the
+  // area's top-left corner; posOf and the drag ghosts follow it). Called once built and whenever the window changes
+  // (a rotated phone): the arrangement is computed again for the new width – always one that fits it.
+  placePhone(lay = this.phoneLayoutFor({ kMin: 0.5 })) {
+    if (!lay || !this.lay) return;
+    this.lay = lay;
+    const { k, tx, ty } = lay;
+    this.wk = { k, tx, ty };
+    setArtZoom(k);
+    this.workEl.style.transform = `translate(${tx}px, ${ty}px) scale(${k})`;
+    // the phone's bigger small print (css/game.css html.is-phone) grows less, the work area grows already
+    this.root.style.setProperty('--lk', String(Math.max(1, Math.round((1.4 / k) * 100) / 100)));
+    const put = (node, p) => {
+      if (!node || !p) return;
+      node.style.left = `${Math.round(p.x)}px`;
+      node.style.top = `${Math.round(p.y)}px`;
+    };
+    lay.blenders.forEach((p, i) => put(this.blenderViews[i]?.el, p));
+    put(this.freezerEl, lay.freezer);
+    put(this.stackEl, lay.stack);
+    lay.bowls.forEach((p, i) => put(this.bowlViews[i]?.el, p));
+    this.dispX = Math.round(lay.stack.x + STACK_W / 2);
+    this.spotX = lay.bowls.map((p) => Math.round(p.x + BOWL_SLOT_W / 2));
+    if (this.armView) {
+      this.armView.el.style.top = `${lay.cups.y}px`;
+      this.armView.rail.style.left = `${this.dispX - 50}px`;
+    }
+    for (const [layer, sh] of Object.entries(this.shelfEls)) {
+      const p = lay.shelves[layer];
+      if (!p) continue;
+      sh.el.style.left = `${Math.round(sh.matchaSide ? p.x - PHONE_RISER_PAD : p.x + sh.rowW / 2 - sh.riserW / 2)}px`;
+      sh.el.style.top = `${Math.round(p.top)}px`;
+    }
+    put(this.machineEl, lay.machine);
+    put(this.trashEl, lay.trash);
+    // the worktop under it all: from the pass's bottom edge (stage y WORK_Y, whatever the transform) across the
+    // whole window and down past the stage's bottom, drawn wide enough in the work area's own px
+    const availW = STAGE_W + 2 * getBleed().bx;
+    const picW = Math.max(STAGE_W, Math.ceil(availW / k) + 16);
+    const bleed = Math.ceil((picW - STAGE_W) / 2);
+    const top = this.worktopEl;
+    if (top.dataset.bleed !== String(bleed)) {
+      top.dataset.bleed = String(bleed);
+      top.innerHTML = counterSVG(STAGE_W, WORK_H, { bleed, below: 0 });
+    }
+    const svg = top.firstElementChild;
+    const w = STAGE_W + 2 * bleed;
+    Object.assign(top.style, { inset: 'auto', left: `${Math.round((STAGE_W / 2 - tx) / k - w / 2)}px`, top: `${Math.round(-ty / k)}px`, width: `${w}px`, height: `${WORK_H}px` });
+    if (svg) Object.assign(svg.style, { width: `${w}px`, height: `${WORK_H}px` });
   }
 
   // One row of containers on its oak riser, from x on; bins narrower than BIN_W show their art scaled
@@ -813,10 +915,11 @@ class GameView {
       this.binEls[ing.id] = node;
     });
     const riserW = Math.max(matchaSide ? 0 : RISER_MIN, rowW + RISER_PAD * 2);
-    const left = matchaSide ? Math.min(x - RISER_PAD, STAGE_W - riserW) : x + rowW / 2 - riserW / 2;
+    const left = matchaSide ? (this.lay ? x - RISER_PAD : Math.min(x - RISER_PAD, STAGE_W - riserW)) : x + rowW / 2 - riserW / 2;
     shelf.style.left = `${Math.round(left)}px`;
     shelf.style.width = `${Math.round(riserW)}px`;
     if (matchaSide) row.style.marginLeft = `${Math.round(x - left)}px`;
+    this.shelfEls[layer] = { el: shelf, rowW, riserW, matchaSide };
     const riser = el('div', 'g-riser');
     riser.innerHTML = riserSVG(Math.round(riserW), RISER_H);
     const label = el('span', `g-shelf-label g-shelf-label-${layer}`);
@@ -847,7 +950,7 @@ class GameView {
     car.append(rod, body, grip);
     wrap.append(rail, car);
     this.armView = {
-      el: wrap, car, body, rod, grip, cup, claw,
+      el: wrap, rail, car, body, rod, grip, cup, claw,
       x: this.dispX, pad: ARM_PAD.rest, from: this.dispX, target: null, sig: '', front: null, holding: null, open: null, led: null, flip: null,
     };
     this.drawArm(this.dispX, ARM_PAD.rest, { open: true, holding: false, flip: 1, front: false, led: false });
@@ -1059,20 +1162,30 @@ class GameView {
   // ---------------------------------------------------------------- geometry
   // Untransformed position of an element in stage px (relative to the screen root).
   // Ignores CSS transforms, includes ancestor borders (offsetLeft starts inside the parent's border).
+  // The phone's scaled work area (placePhone) is the one transform it follows: what stands in it is mapped through it.
   posOf(node) {
     let x = 0;
     let y = 0;
+    let w = node.offsetWidth;
+    let h = node.offsetHeight;
     let n = node;
     while (n && n !== this.root) {
       x += n.offsetLeft;
       y += n.offsetTop;
       n = n.offsetParent;
+      if (n && n === this.workEl && this.wk) {
+        const { k, tx, ty } = this.wk;
+        x = tx + x * k;
+        y = ty + y * k;
+        w *= k;
+        h *= k;
+      }
       if (n && n !== this.root) {
         x += n.clientLeft;
         y += n.clientTop;
       }
     }
-    return { x, y, w: node.offsetWidth, h: node.offsetHeight, cx: x + node.offsetWidth / 2, cy: y + node.offsetHeight / 2 };
+    return { x, y, w, h, cx: x + w / 2, cy: y + h / 2 };
   }
 
   // Rect of an element as drawn (transforms included) in stage px – the way drag.js hit-tests it; with more elements
@@ -1107,6 +1220,7 @@ class GameView {
       onPickup: () => this.audio.sfx('pickup'),
       onDrop: (r) => this.onDropResult(r),
       hitPad: this.hitPad,
+      ghostZoom: () => this.wk?.k || 1,
     });
     this.dnd = dnd;
     const act = (fn) => (this.canAct() ? fn() : { ok: false, reason: 'notPlaying' });
@@ -1463,6 +1577,7 @@ class GameView {
     for (const off of this.offs) off();
     this.offs = [];
     this.dnd?.destroy();
+    if (this.wk) setArtZoom(1);
     this.frozenAnims = null;
     this.audio.loop('blender', false);
     this.audio.resume();
