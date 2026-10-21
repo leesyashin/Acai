@@ -249,7 +249,7 @@ async function main() {
             return { bin: w('[data-bin]'), bowl: w('[data-bowl]'), pack: w('[data-pack]'), scale, plain: { bin: 96 * k, bowl: 120 * k } };
           });
           assert(m.scale >= 1.4, `scaled by ${m.scale}`);
-          assert(m.bin >= 60 && m.bowl >= 75 && m.pack >= 55, `containers ${m.bin.toFixed(1)} css px, cups ${m.bowl.toFixed(1)}, packs ${m.pack.toFixed(1)} (unscaled: ${m.plain.bin.toFixed(1)} / ${m.plain.bowl.toFixed(1)})`);
+          assert(m.bin >= 60 && m.bowl >= 75 && m.pack >= 45, `containers ${m.bin.toFixed(1)} css px, cups ${m.bowl.toFixed(1)}, packs ${m.pack.toFixed(1)} (unscaled: ${m.plain.bin.toFixed(1)} / ${m.plain.bowl.toFixed(1)})`);
           await b.page.screenshot({ path: path.join(OUT, `level1-${viewport.width}.png`) });
         });
         await check(`${tag}: no console errors in level 1`, async () => assertNoConsoleErrors(b.errors, tag));

@@ -567,6 +567,7 @@ class GameView {
     this.lay = null;
     this.wk = null;
     this.sk = null; // the scene's transform on a phone (placeScene): k about (SCENE_OX, SCENE_OY)
+    this.fk = null; // the freezer's smaller scale in the phone's work area (placePhone)
     this.sideHud = false;
     this.look = blenderLook(save.upgrades);
     window.__acaiGame = this.game;
@@ -921,6 +922,10 @@ class GameView {
     };
     lay.blenders.forEach((p, i) => put(this.blenderViews[i]?.el, p));
     put(this.freezerEl, lay.freezer);
+    // the freezer smaller than on the tablet (from its top-left corner, css/game.css); posOf follows it
+    this.fk = { k: lay.freezerK, tx: 0, ty: 0 };
+    this.freezerEl.style.transform = `scale(${lay.freezerK})`;
+    this.freezerEl.style.setProperty('--fk', String(lay.freezerK));
     put(this.stackEl, lay.stack);
     lay.bowls.forEach((p, i) => put(this.bowlViews[i]?.el, p));
     this.dispX = Math.round(lay.stack.x + STACK_W / 2);
@@ -1180,8 +1185,8 @@ class GameView {
   // ---------------------------------------------------------------- geometry
   // Untransformed position of an element in stage px (relative to the screen root).
   // Ignores CSS transforms, includes ancestor borders (offsetLeft starts inside the parent's border).
-  // The phone's scaled work area (placePhone) and scene (placeScene) are the transforms it follows: what stands in
-  // them is mapped through them.
+  // The phone's scaled work area and freezer (placePhone) and scene (placeScene) are the transforms it follows: what
+  // stands in them is mapped through them.
   posOf(node) {
     let x = 0;
     let y = 0;
@@ -1192,7 +1197,7 @@ class GameView {
       x += n.offsetLeft;
       y += n.offsetTop;
       n = n.offsetParent;
-      const xf = n && ((n === this.workEl && this.wk) || (n === this.sceneEl && this.sk));
+      const xf = n && ((n === this.workEl && this.wk) || (n === this.sceneEl && this.sk) || (n === this.freezerEl && this.fk));
       if (xf) {
         const { k, tx, ty, ox = 0, oy = 0 } = xf;
         x = ox + tx + (x - ox) * k;

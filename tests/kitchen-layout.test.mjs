@@ -4,9 +4,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  phoneLayout, cupsWidth, riserWidth, rowWidth, BLENDER_W, BLENDER_H, BLENDER_REACH, FREEZER_W, FREEZER_H, STACK_W, BOWL_SLOT_W,
+  phoneLayout, cupsWidth, riserWidth, rowWidth, BLENDER_W, BLENDER_H, BLENDER_REACH, FREEZER_PW, FREEZER_PH, STACK_W, BOWL_SLOT_W,
   SHELF_H, BIN_H, MACHINE_SIZE, MACHINE_TOP, MACHINE_REACH, TRASH_W, TRASH_H, TRASH_SINK, PHONE_K_MAX, PHONE_EDGE, PHONE_BOTTOM, PHONE_BOX_TOP,
-  PHONE_REACH_TOP, CUPS_H, BOWL_TOP, STACK_TOP,
+  PHONE_REACH_TOP, PHONE_GAP, CUPS_H, BOWL_TOP, STACK_TOP,
 } from '../js/kitchen-layout.js';
 
 const WORK_Y = 338;
@@ -21,7 +21,7 @@ function boxes(lay, spec) {
   const at = (p, w, h) => ({ x1: lay.tx + lay.k * p.x, y1: WORK_Y + lay.ty + lay.k * p.y, x2: lay.tx + lay.k * (p.x + w), y2: WORK_Y + lay.ty + lay.k * (p.y + h) });
   const out = [];
   lay.blenders.forEach((p, i) => out.push({ id: `blender${i}`, ...at(p, BLENDER_W, BLENDER_H), reach: lay.k * BLENDER_REACH }));
-  out.push({ id: 'freezer', ...at(lay.freezer, FREEZER_W, FREEZER_H) });
+  out.push({ id: 'freezer', ...at(lay.freezer, FREEZER_PW, FREEZER_PH) });
   out.push({ id: 'stack', ...at(lay.stack, STACK_W, 138) });
   lay.bowls.forEach((p, i) => out.push({ id: `bowl${i}`, ...at(p, BOWL_SLOT_W, CUPS_H - BOWL_TOP) }));
   for (const [layer, sh] of Object.entries(lay.shelves)) {
@@ -61,13 +61,16 @@ test('the first level: everything half as big again, side by side across the pho
     const lay = phoneLayout({ ...LEVEL_1, availW });
     assert.ok(lay, 'no arrangement');
     assert.ok(lay.k >= 1.45 && lay.k <= PHONE_K_MAX, `k ${lay.k}`);
-    assert.equal(lay.variant, 'A+B+C2+E'); // blenders, freezer, cups over both risers side by side, trash can
+    assert.equal(lay.variant, 'B+A+C2+E'); // freezer, blenders, cups over both risers side by side, trash can
     checkFits(lay, LEVEL_1, availW);
     // the stations' bottom edge on the stage's, the arrangement centred
     assert.equal(WORK_Y + lay.ty + Math.round(lay.k * lay.h), PHONE_BOTTOM);
     assert.ok(Math.abs(lay.tx + (lay.k * lay.w) / 2 - 640) <= 1, `centre ${lay.tx + (lay.k * lay.w) / 2}`);
     // the cups stand above the risers, the dispenser left of the spots
     assert.ok(lay.stack.y + STACK_TOP < lay.shelves.mid.top && lay.stack.x < lay.bowls[0].x);
+    // the freezer at the outer end, the cups right beside the blender (however wide the window)
+    assert.ok(lay.freezer.x + FREEZER_PW < lay.blenders[0].x);
+    assert.ok(lay.stack.x - (lay.blenders[0].x + BLENDER_W) <= PHONE_GAP, `cups ${lay.stack.x - lay.blenders[0].x - BLENDER_W} px from the blender`);
   }
 });
 
