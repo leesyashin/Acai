@@ -18,10 +18,16 @@ export function has3D() {
   return !!r && !r.lost;
 }
 
-// Device pixels per stage pixel (the stage is scaled to the window), capped for big screens.
+// Device pixels per stage pixel (the stage is scaled to the window), capped for big screens. On a phone the work
+// area is scaled up again (js/kitchen-layout.js, setArtZoom): its appliances are drawn that much finer.
+let artZoom = 1;
 export function pixelRatio() {
   const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
-  return Math.max(1, Math.min(3, dpr * getScale()));
+  return Math.max(1, Math.min(3, dpr * getScale() * artZoom));
+}
+
+export function setArtZoom(k) {
+  artZoom = k > 0 ? k : 1;
 }
 
 // Values that only move an animation along (progress, a lid or door on its way): when drawing is

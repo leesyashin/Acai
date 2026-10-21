@@ -1,8 +1,10 @@
 // E2E check of the game on a phone held sideways (docs/DESIGN.md §4.1, §4.3, §4.7): at 844×390 and 932×430 (touch,
-// mobile) html.is-phone is set, the page neither scrolls nor zooms, the whole stage and every station are on screen,
-// the stations keep a usable size and the small print (name tags, layer labels) is drawn ≥ 8 css px tall. Filling a
-// cup by touch lifts only the blender's jug: the base stays in full view (without its jug) while the jug is carried,
-// the cup gets the purée and the jug stands on its base again. A tablet (1280×800, mouse) is no phone.
+// mobile) html.is-phone is set, the page neither scrolls nor zooms, the work area is arranged across the window and
+// scaled up (js/kitchen-layout.js: .screen-game.is-phone-layout, every station on screen, none over another, a first
+// level's containers ≥ 60 css px and cups ≥ 75, the fullest kitchen's ≥ 40 / ≥ 55) and the small print (name tags,
+// layer labels) is drawn ≥ 8 css px tall. Filling a cup by touch lifts only the blender's jug: the base stays in full
+// view (without its jug) while the jug is carried, the cup gets the purée and the jug stands on its base again. A
+// tablet (1280×800, mouse) is no phone.
 // Run: node tests/e2e/mobile.e2e.mjs   (serves the repo on a free port, exits non-zero on failure)
 
 import path from 'node:path';
@@ -96,6 +98,41 @@ async function main() {
           }
         });
 
+        await check(`${tag}: the work area across the window, scaled up, no station over another`, async () => {
+          const m = await page.evaluate((sel) => {
+            const screen = document.querySelector('.screen-game');
+            const work = screen.querySelector('.g-work');
+            const k = document.getElementById('stage').getBoundingClientRect().width / 1280;
+            const boxes = [...document.querySelectorAll(sel)].map((el) => {
+              const r = el.getBoundingClientRect();
+              return { name: el.outerHTML.slice(0, 40), x1: r.left, y1: r.top, x2: r.right, y2: r.bottom };
+            });
+            const wt = work.querySelector('.g-worktop svg').getBoundingClientRect();
+            const pass = screen.querySelector('.g-counter').getBoundingClientRect();
+            return { phone: screen.classList.contains('is-phone-layout'), transform: work.style.transform, k, boxes, worktop: [wt.left, wt.top, wt.right, wt.bottom], pass: [pass.left, pass.top, pass.right, pass.bottom], teaser: !!screen.querySelector('.g-machine.is-locked') };
+          }, STATIONS);
+          assert(m.phone, '.screen-game.is-phone-layout is not set');
+          const scale = Number(m.transform.match(/scale\(([\d.]+)\)/)?.[1]);
+          assert(scale > 1.03, `the work area is scaled by ${scale} (${m.transform})`);
+          assert(!m.teaser, 'the locked matcha teaser takes room on the phone');
+          for (let i = 0; i < m.boxes.length; i++) {
+            for (let j = i + 1; j < m.boxes.length; j++) {
+              const a = m.boxes[i];
+              const b = m.boxes[j];
+              const over = a.x1 < b.x2 - 0.5 && b.x1 < a.x2 - 0.5 && a.y1 < b.y2 - 0.5 && b.y1 < a.y2 - 0.5;
+              assert(!over, `${a.name} and ${b.name} overlap`);
+            }
+          }
+          // the worktop runs from the pass's bottom edge across the whole window and down past it
+          const [wl, wt, wr, wb] = m.worktop;
+          assert(wt <= m.pass[3] + 1 && wl <= 0.5 && wr >= viewport.width - 0.5 && wb >= viewport.height - 0.5, `worktop [${m.worktop.map(Math.round)}] leaves the window bare (pass to ${m.pass[3].toFixed(0)})`);
+          const sizes = await page.evaluate(() => {
+            const w = (sel) => Math.min(...[...document.querySelectorAll(sel)].map((el) => el.getBoundingClientRect().width));
+            return { bin: w('[data-bin]'), bowl: w('[data-bowl]') };
+          });
+          assert(sizes.bin >= 40 && sizes.bowl >= 55, `fullest kitchen: containers ${sizes.bin.toFixed(1)} css px, cups ${sizes.bowl.toFixed(1)}`);
+        });
+
         await check(`${tag}: name tags and layer labels are drawn ≥ ${MIN_TEXT} css px`, async () => {
           // the tags show in the first levels and while an ingredient is held: show them all for the measure
           const sizes = await page.evaluate(() => {
@@ -164,6 +201,27 @@ async function main() {
           assert(base === 'acai', `the cup holds ${base}`);
         });
         await check(`${tag}: no console errors`, async () => assertNoConsoleErrors(b.errors, tag));
+      } finally {
+        await b.close();
+      }
+    }
+
+    for (const viewport of PHONES) {
+      const tag = `${viewport.width}×${viewport.height}`;
+      const b = await open(srv, 'level=1&tutorial=0', { viewport });
+      try {
+        await check(`${tag}: the first level's few stations are half as big again`, async () => {
+          const m = await b.page.evaluate(() => {
+            const w = (sel) => Math.min(...[...document.querySelectorAll(sel)].map((el) => el.getBoundingClientRect().width));
+            const k = document.getElementById('stage').getBoundingClientRect().width / 1280;
+            const scale = Number(document.querySelector('.g-work').style.transform.match(/scale\(([\d.]+)\)/)?.[1]);
+            return { bin: w('[data-bin]'), bowl: w('[data-bowl]'), pack: w('[data-pack]'), scale, plain: { bin: 96 * k, bowl: 120 * k } };
+          });
+          assert(m.scale >= 1.4, `scaled by ${m.scale}`);
+          assert(m.bin >= 60 && m.bowl >= 75 && m.pack >= 55, `containers ${m.bin.toFixed(1)} css px, cups ${m.bowl.toFixed(1)}, packs ${m.pack.toFixed(1)} (unscaled: ${m.plain.bin.toFixed(1)} / ${m.plain.bowl.toFixed(1)})`);
+          await b.page.screenshot({ path: path.join(OUT, `level1-${viewport.width}.png`) });
+        });
+        await check(`${tag}: no console errors in level 1`, async () => assertNoConsoleErrors(b.errors, tag));
       } finally {
         await b.close();
       }
