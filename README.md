@@ -170,7 +170,8 @@ Deshalb wird die Küche dort neu über die ganze Breite angeordnet und als Ganze
 mit den Zutaten-Podesten, Matcha-Maschine mit ihrer Bar und der Mülleimer stehen nebeneinander, so groß, wie Fensterbreite
 und der Platz unter der Durchreiche es zulassen – in den ersten Leveln anderthalbmal so groß, mit der vollen Küche noch
 etwas größer als am Tablet. Die Matcha-Vorschau („Matcha ab Level 11“) entfällt auf dem Handy, der Platz geht an die
-Stationen. Namensschilder, Schicht-Beschriftungen, Hinweise, Level-Banner und Tutorial sind größer gesetzt, und die
+Stationen. Auch Gäste und Bestellblasen sind um ein Fünftel größer; dafür wandern die Anzeigen (Pause, Herzen, Zeit,
+Münzen mit Zielbalken) in die Ränder neben die Gäste. Namensschilder, Schicht-Beschriftungen, Hinweise, Level-Banner und Tutorial sind größer gesetzt, und die
 Ablageflächen fangen ein Teil auch dann, wenn du etwas neben ihnen loslässt. Hochkant bittet das Spiel, das Handy zu
 drehen („Trotzdem spielen“ geht auch). Unten ist nur Arbeitsplatte – keine Regale mehr –, damit möglichst viel Platz
 für die Stationen bleibt.
