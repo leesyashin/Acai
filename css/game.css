@@ -1431,22 +1431,24 @@ html .screen-game.is-side-hud .g-hud { left: 0; top: 0; width: 1280px; height: 3
 .screen-game.is-side-hud .g-pause-btn svg { width: 34px; height: 34px; }
 .screen-game.is-side-hud .g-hearts { left: var(--band-l); top: 244px; width: var(--band-lw); height: 42px; justify-content: center; padding: 0 6px; gap: 2px; }
 .screen-game.is-side-hud .g-heart { width: var(--heart, 26px); height: var(--heart, 26px); }
-.screen-game.is-side-hud .g-clock { left: var(--band-r); top: 164px; width: var(--band-rw); height: 42px; padding: 0 6px; gap: 4px; font-size: 22px; }
+.screen-game.is-side-hud .g-clock { left: var(--band-r); top: 160px; width: var(--band-rw); height: 42px; padding: 0 6px; gap: 4px; font-size: 22px; }
 .screen-game.is-side-hud .g-clock.is-closed { font-size: 15px; }
 .screen-game.is-side-hud .g-clock.is-closed .g-clock-text { font-size: 15px; overflow: hidden; text-overflow: ellipsis; }
 .screen-game.is-side-hud .g-clock-ico { width: 26px; height: 26px; }
 .screen-game.is-side-hud .g-clock-ico svg { width: 26px; height: 26px; }
-.screen-game.is-side-hud .g-money,
-.screen-game.is-side-hud[data-mode="campaign"] .g-money { left: var(--band-r); top: 214px; width: var(--band-rw); height: 42px; padding: 0 8px 0 4px; gap: 4px; justify-content: center; }
+.screen-game.is-side-hud .g-money { left: var(--band-r); top: 210px; width: var(--band-rw); height: 42px; padding: 0 8px 0 4px; gap: 4px; justify-content: center; }
 .screen-game.is-side-hud .g-money-coin { width: 30px; height: 30px; margin-left: -4px; scale: 1.1; }
 .screen-game.is-side-hud .g-money-coin svg { width: 30px; height: 30px; }
-.screen-game.is-side-hud .g-money-num { min-width: 0; font-size: 22px; }
-.screen-game.is-side-hud .g-goalbar,
-.screen-game.is-side-hud[data-mode="campaign"] .g-goalbar { position: absolute; left: 5px; top: 53px; width: calc(100% - 10px); height: 16px; margin: 0; translate: 0 0; } /* under the money pill (its padding box: y 270) */
-.screen-game.is-side-hud .g-goalmark { width: 22px; height: 22px; }
-.screen-game.is-side-hud .g-goalmark svg { width: 22px; height: 22px; }
-.screen-game.is-side-hud .g-goalmark small { display: none; }
+.screen-game.is-side-hud .g-money-num { min-width: 0; font-size: 24px; }
+.screen-game.is-side-hud .g-goalbar { position: absolute; left: 5px; top: 53px; width: calc(100% - 10px); height: 16px; margin: 0; translate: 0 0; }
 .screen-game.is-side-hud .g-best { font-size: 11px; }
+/* campaign: one card under the clock (y 210–290) – the money in its top row, the goal bar with its three stars and
+   their amounts inside the card below it, as on the tablet; the last star stands in from the card's edge */
+.screen-game.is-side-hud[data-mode="campaign"] .g-money { height: 80px; align-items: flex-start; padding: 5px 8px 0 4px; border-radius: 22px; }
+.screen-game.is-side-hud[data-mode="campaign"] .g-goalbar { left: 12px; top: 40px; width: calc(100% - 28px); height: 14px; border-width: 2px; }
+.screen-game.is-side-hud .g-goalmark { width: 24px; height: 24px; }
+.screen-game.is-side-hud .g-goalmark svg { width: 24px; height: 24px; }
+html.is-phone .screen-game.is-side-hud .g-goalmark small { top: 19px; font-size: 14px; }
 html.is-phone .screen-game .g-goalmark small { font-size: 17px; }
 html.is-phone .screen-game .g-toast { font-size: 30px; max-width: 600px; }
 html.is-phone .screen-game .g-toast.at-guest { max-width: 760px; }

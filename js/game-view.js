@@ -90,7 +90,6 @@ registerStrings({
     'game.hint.blender': 'Zieh den Mixkrug auf eine leere Bowl!',
     'game.hint.blenderEmpty': 'Zieh eine Basis-Packung in den Mixer!',
     'game.hint.blenderRuined': 'Verdorben! Zieh den Mixkrug in den Müll.',
-    'game.hint.blenderOff': 'Tipp auf den Knopf, um den Mixer einzuschalten!',
     'game.hint.blenderMelted': 'Geschmolzen! Zieh den Mixkrug in den Müll.',
     'game.power': 'Mixer {n} an/aus',
     'game.qty': '{n}×',
@@ -128,7 +127,7 @@ registerStrings({
     'reason.blenderBusy': 'Der Mixer ist noch belegt!',
     'reason.blenderNotReady': 'Der Mixer ist noch nicht fertig!',
     'reason.blenderRuined': 'Verdorben! Ab in den Müll damit.',
-    'reason.blenderOff': 'Der Mixer ist aus – tipp auf den Knopf!',
+    'reason.blenderOff': 'Der Mixer ist aus – tipp ihn an!',
     'reason.blenderEmpty': 'Erst eine Basis-Packung in den Mixer!',
     'reason.blenderDone': 'Fertig! Zieh den Mixkrug auf eine Bowl.',
     'reason.bowlHasBase': 'Die Bowl hat schon eine Basis!',
@@ -212,7 +211,6 @@ registerStrings({
     'game.hint.blender': 'Drag the blender jug onto an empty bowl!',
     'game.hint.blenderEmpty': 'Drag a base pack into the blender!',
     'game.hint.blenderRuined': 'Spoiled! Drag the blender jug to the trash.',
-    'game.hint.blenderOff': 'Tap the button to switch the blender on!',
     'game.hint.blenderMelted': 'Melted! Drag the blender jug to the trash.',
     'game.power': 'Blender {n} on/off',
     'game.qty': '{n}×',
@@ -250,7 +248,7 @@ registerStrings({
     'reason.blenderBusy': 'The blender is still busy!',
     'reason.blenderNotReady': 'The blender isn’t ready yet!',
     'reason.blenderRuined': 'Spoiled! Into the trash with it.',
-    'reason.blenderOff': 'The blender is off – tap the button!',
+    'reason.blenderOff': 'The blender is off – tap it!',
     'reason.blenderEmpty': 'Put a base pack in the blender first!',
     'reason.blenderDone': 'Done! Drag the jug onto a bowl.',
     'reason.bowlHasBase': 'This bowl already has a base!',
@@ -382,6 +380,7 @@ const BAR_STEPS = 100;
 const BAR_JUMP = 0.05; // bigger changes (a refill, a new blend) are written at once
 const HIT_PAD = 18; // stage px around a station, as in drag.js
 const HIT_PAD_PHONE = 30; // on a phone (the stage at about half size): about as many css px as on a tablet
+const JUG_PULL = 28; // css px a switched-off blender's jug must be pulled before it lifts (a shorter press switches it on)
 // Phone (html.is-phone): the shop scene – wall, guests, bubbles – is scaled up by SCENE_ZOOM about the pass's bottom
 // edge (stage 640, 338), as far as the bubbles' slots (BUBBLE_W each, BUBBLE_EDGE in) fit between the safe-area
 // insets and the tallest bubble (its top at y 67) stays on screen; the HUD moves out of their way into the bands
@@ -1284,9 +1283,13 @@ class GameView {
         ghost: () => this.jugGhost(i),
         home: () => v.jug,
         back: true,
+        // switched off with a pack in: a press anywhere on the blender switches it on, the jug lifts only when
+        // pulled (a wrong pack goes to the trash that way)
+        liftAfter: () => (g.blenders[i].state === 'loaded' ? JUG_PULL : 0),
         onTap: () => {
           const st = g.blenders[i].state;
-          this.hint(v.el, st === 'ruined' ? 'game.hint.blenderRuined' : st === 'loaded' ? 'game.hint.blenderOff' : 'game.hint.blender');
+          if (st === 'loaded') this.pressPower(i);
+          else this.hint(v.el, st === 'ruined' ? 'game.hint.blenderRuined' : 'game.hint.blender');
         },
       });
       dnd.target(v.el, {

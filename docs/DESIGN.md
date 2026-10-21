@@ -352,7 +352,8 @@ const dnd = createDragManager({ root /* #stage element */, toStage, ghostLayer /
 dnd.source(el, { payload: () => obj|null, ghost: (payload) => HTMLElement|markup, onStart?, onEnd?, onTap?,
                  home?: () => Element /* where a returning ghost flies to (default: el), e.g. the jug's place on its base */,
                  back?: boolean /* the ghost flies home after an accepted drop too (a jug poured into a cup) */,
-                 reach?: number /* stage px its hit area reaches above its box, e.g. by a ::before */ }) → unregister
+                 reach?: number /* stage px its hit area reaches above its box, e.g. by a ::before */,
+                 liftAfter?: number | (payload) => number /* css px: lift only once moved this far, a shorter press is a tap */ }) → unregister
 dnd.target(el, { accepts: (payload) => boolean, valid?: (payload) => boolean, drop: (payload) => {ok, reason?},
                  hitEls?: [Element] /* more boxes that count as the target, e.g. a guest's order bubble */,
                  land?: Element /* where an accepted ghost shrinks into, e.g. the guest itself */ }) → unregister
@@ -360,6 +361,9 @@ dnd.cancel(); dnd.destroy(); dnd.isDragging(); dnd.refresh()
 // result = { ok, reason, payload, targetEl, tap, cancelled, pointerType, pos }   // pos = ghost centre (stage px) at release
 ```
 - A release that moved ≤ 6 CSS px within 300 ms is a **tap** (`onTap`, then `onEnd`/`onDrop` with `tap: true`).
+  A source with `liftAfter` is a press first: nothing lifts until the pointer has moved that far, and a release before
+  is a tap however long it was held. The game uses it for a switched-off blender (`loaded`): a press anywhere on it
+  switches it on, its jug lifts only when pulled 28 css px (a wrong pack still goes to the trash that way).
   Order on release: source `onEnd(result)` → manager `onDrop(result)`; on cancel `onEnd({cancelled})` → `onCancel`.
 - The hit-test point is the **ghost centre**, not the pointer. For touch the ghost centre floats 48 CSS px above the
   finger (~9 mm on a tablet), clamped to 40–80 stage px: never less than on a big screen, never so much that the
@@ -855,8 +859,8 @@ up to 1.2 about the pass's bottom edge (640, 338), so the guests and their bubbl
 while the pass and the work area stay (the tallest bubble's top, y 67, lands at y 13; the bubbles' slots, §4.7 above,
 spread to x −109…1389 with 4 seats). That needs the top edge for the bubbles, so the HUD leaves it: with
 `.is-side-hud` its pieces stand in the window's bands beside the scene, under the bubbles and above the pass (y
-160–290) – left the pause button (72 px) over the hearts pill, right the clock over the money pill with the goal bar
-(its stars without amounts) under it; the level pill is left out (the intro banner and the pause menu name the level).
+160–290) – left the pause button (72 px) over the hearts pill, right the clock over the money card: the money in its top
+row, the goal bar with its three stars and their amounts inside the card below it (campaign; endless keeps the pill); the level pill is left out (the intro banner and the pause menu name the level).
 The columns' x and widths are css variables the view sets (`--band-l`, `--band-lw`, `--band-r`, `--band-rw`: the band
 less the safe-area inset and 10 px on either side; `--heart` sizes the hearts to the column). Both only when each band
 keeps ≥ 100 stage px free of its inset (every 2:1 phone, with or without a notch; a 16:9 phone keeps the tablet's scene

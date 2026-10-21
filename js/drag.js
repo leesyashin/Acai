@@ -7,6 +7,9 @@
 // Attributes:       [data-dnd-source] / [data-dnd-target] on registered elements.
 // A target's hit rect is its element's box (plus the boxes of its optional hitEls), expanded by HIT_PAD; an accepted
 // ghost shrinks into the centre of that box, or of its optional land element.
+// A source with liftAfter (css px, or a function of the payload returning them) is a press first: nothing is lifted
+// until the pointer has moved that far, and a release before is a tap however long it was held (a switched-off
+// blender: a press anywhere on it switches it on, only a deliberate pull carries its jug).
 
 const HIT_PAD = 18; // stage px added around every target rect (the default of the hitPad option: more on a phone)
 // Touch: the ghost centre floats TOUCH_LIFT_CSS css px (~9 mm on a tablet) above the finger, clamped to
@@ -81,6 +84,7 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
   const motionQuery = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
   const captureRoot = root || document.documentElement;
   let drag = null;
+  let press = null; // a pointer down on a liftAfter source that has not moved far enough yet
   let listening = false;
   let destroyed = false;
 
@@ -327,13 +331,14 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     if (d.hover) d.hover.el.classList.toggle('drop-bad', !isValid(d.hover, d.payload));
   }
 
-  function startDrag(e, reg, payload) {
+  // from: where the pointer went down, when the drag starts later (a press that moved far enough)
+  function startDrag(e, reg, payload, from = null) {
     settleFlightsOf(reg.el);
     const lift = e.pointerType === 'touch' ? touchLift() : 0;
     const d = {
       id: e.pointerId, pointerType: e.pointerType || 'mouse', el: reg.el, cfg: reg.cfg, payload, lift,
       captureEl: reg.el,
-      sx: e.clientX, sy: e.clientY, t0: now(), moved: 0,
+      sx: from ? from.sx : e.clientX, sy: from ? from.sy : e.clientY, t0: now(), moved: 0,
       finger: null, pos: null, src: null, home: null, origin: { x: 0, y: 0 }, ghost: null,
       oks: new Set(), rects: new Map(), rectsAt: 0, hover: null,
     };
@@ -440,10 +445,66 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
   function onSourceDown(e, reg) {
     if (destroyed || !reg.live || e.button !== 0) return;
     preventDefault(e); // no text selection, no compat mouse events, no focus jumps
-    if (drag) return; // one drag at a time – extra fingers are ignored
+    if (drag || press) return; // one drag at a time – extra fingers are ignored
     const payload = call(reg.cfg.payload);
     if (payload === null || payload === undefined) return;
-    startDrag(e, reg, payload);
+    const after = Number(typeof reg.cfg.liftAfter === 'function' ? call(reg.cfg.liftAfter, payload) : reg.cfg.liftAfter) || 0;
+    if (after > 0) startPress(e, reg, payload, after);
+    else startDrag(e, reg, payload);
+  }
+
+  // ------------------------------------------------------------ press (liftAfter): a tap, or a drag once far enough
+  function startPress(e, reg, payload, after) {
+    press = { id: e.pointerId, pointerType: e.pointerType || 'mouse', reg, payload, after, sx: e.clientX, sy: e.clientY };
+    try {
+      reg.el.setPointerCapture(e.pointerId);
+    } catch {
+      /* synthetic or already released pointer – window listeners still track it */
+    }
+    listenPress(true);
+  }
+
+  function endPress() {
+    const p = press;
+    press = null;
+    listenPress(false);
+    try {
+      if (p?.reg.el.hasPointerCapture?.(p.id)) p.reg.el.releasePointerCapture(p.id);
+    } catch {
+      /* element gone */
+    }
+    return p;
+  }
+
+  function onPressMove(e) {
+    if (!press || e.pointerId !== press.id) return;
+    preventDefault(e);
+    if (Math.hypot(e.clientX - press.sx, e.clientY - press.sy) < press.after) return;
+    const p = endPress();
+    if (!p.reg.live || destroyed) return;
+    startDrag(e, p.reg, p.payload, { sx: p.sx, sy: p.sy });
+  }
+
+  function onPressUp(e) {
+    if (!press || e.pointerId !== press.id) return;
+    preventDefault(e);
+    const p = endPress();
+    const result = { ok: false, reason: null, payload: p.payload, targetEl: null, tap: true, cancelled: false, pointerType: p.pointerType, pos: null };
+    call(p.reg.cfg.onTap, p.payload);
+    call(p.reg.cfg.onEnd, result);
+    call(onDrop, result);
+  }
+
+  function onPressCancel(e) {
+    if (press && (!e || e.pointerId === press.id)) endPress();
+  }
+
+  function listenPress(on) {
+    const method = on ? 'addEventListener' : 'removeEventListener';
+    window[method]('pointermove', onPressMove, capture);
+    window[method]('pointerup', onPressUp, capture);
+    window[method]('pointercancel', onPressCancel, capture);
+    window[method]('blur', onPressCancel);
   }
 
   function onMove(e) {
@@ -570,11 +631,13 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
 
   function cancel() {
     if (drag) cancelDrag(drag);
+    if (press) endPress();
   }
 
   function destroy() {
     if (destroyed) return;
     if (drag) cancelDrag(drag, { animate: false, silent: true });
+    if (press) endPress();
     for (const f of [...flights]) f.finish();
     for (const reg of [...sources.values()]) reg.off();
     for (const reg of [...targets.values()]) reg.off();
