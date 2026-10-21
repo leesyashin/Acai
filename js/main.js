@@ -189,6 +189,12 @@ function initRotateHint() {
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator) || location.protocol !== 'https:' || !document.querySelector('link[rel="manifest"]')) return;
   const register = () => navigator.serviceWorker.register('sw.js').catch((err) => console.warn('[sw] not registered', err));
+  // An update took over a page an older worker had served (it may have mixed old and new files): start again from
+  // the network – unless a level is running, which the next start picks up anyway.
+  const hadWorker = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadWorker && window.__acaiScreen?.() !== 'game') location.reload();
+  }, { once: true });
   if (document.readyState === 'complete') register();
   else window.addEventListener('load', register, { once: true });
 }

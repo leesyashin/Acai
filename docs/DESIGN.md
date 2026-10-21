@@ -831,8 +831,11 @@ a bowl on the other outer bubble's base cup – both beside their guest – are 
 
 **Phone (`html.is-phone`, `js/kitchen-layout.js`).** The layout above assumes the stage's 1280 px of width; a phone's window
 is 1730–2000 stage px wide and the stage only about half size, so the work area is arranged anew there and scaled up:
-`phoneLayout()` (pure, `tests/kitchen-layout.test.mjs`) puts the stations in columns across the window – the blenders,
-the freezer (beside them or, as above, under them), the cup dispenser and spots over the two risers (behind each other
+`phoneLayout()` (pure, `tests/kitchen-layout.test.mjs`) puts the stations in columns across the window – the freezer
+at the outer end, drawn at 0.78 of its size (`FREEZER_PHONE_K`, a css scale from its top-left corner that `posOf` maps
+through; its name tags and label keep their size), then the blenders (or the blenders over the freezer, as above), then
+the cup dispenser and spots right beside them – the pack goes one column on into a blender, the jug one column on into
+a cup – over the two risers (behind each other
 as above, or side by side), the matcha machine over its bar (its rows likewise), the trash can on its own or beside the
 bar – bottom-aligned on y 792 and centred in the safe part of the window, and finds the arrangement with the biggest
 scale k ≤ 1.5 that fits: the columns within the window (16 px from its edges and the notch), no box above the pass's
@@ -841,7 +844,8 @@ top, as the big jug stands above. The view (`placePhone`) sets the stations' pos
 (`translate(tx, ty) scale(k)` from its top-left corner) and lays them out again when the window changes (a rotated phone:
 then whatever scale fits, `kMin`); `posOf` maps through the transform, the drag ghosts grow by k (`ghostZoom`, §4.3) and
 the 3D pictures are drawn k times finer (`setArtZoom`). The worktop is drawn in the work area's own px from the pass's
-bottom edge across the whole window. A wide window spreads the columns a little (gaps 20–56 px). The matcha bar's
+bottom edge across the whole window. A wide window spreads the columns a little (gaps 20–56 px) – all but freezer,
+blenders and cups, which keep 20 px between them. The matcha bar's
 containers are full size there, not the desktop's narrow ones, and the locked matcha teaser is left out: the room goes
 to the stations in use. With the first levels' few stations everything is half as big again (k ≈ 1.5: a container ≈ 67
 css px instead of 47, a cup ≈ 85 instead of 58), with the matcha bar ≈ 1.1–1.25, with the fullest kitchen ≈ 1.05.
@@ -951,8 +955,10 @@ Key `acaiFever.save.v1`. Shape:
   icons incl. a maskable one) and the apple-touch-icon, so "Add to Home Screen" gives a real app icon and a window
   without browser bars (then the screens run full bleed, §4.1). `js/main.js` registers `sw.js` – only on https and only
   when the page has its manifest (never the single-file builds or a dev server): every file the game loads (same origin
-  and Google Fonts) is cached on the way and answered from the cache next time while a fresh copy is fetched
-  (stale-while-revalidate), so the game runs offline once played; a new `CACHE` name drops the old cache. The icons are
+  and Google Fonts) is cached on the way, so the game runs offline once played. The game's own files come from the
+  network first (revalidated past the HTTP cache) and from the cache only offline – answered from the cache first, an
+  update mixed new scripts with old stylesheets; the fonts are answered from the cache. A new `CACHE` name drops the
+  old cache; when a new worker takes over a page an older one served, the page reloads (not during a level). The icons are
   drawn from `appIconSVG` by `node tools/icons.mjs` (the game's only image files).
 - `npm run build` → `dist/acai-fever.html` (single self-contained file, works from `file://`) and
   `dist/artifact.html` (same content without doctype/html/head/body wrapper, for publishing as a Claude artifact).

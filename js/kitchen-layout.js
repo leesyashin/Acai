@@ -1,7 +1,7 @@
 // The work area on a phone (js/stage.js isPhone): the stage is only about half as big there, and its window is far
 // wider than the 1280 × 800 stage (2:1 to 2.5:1), so the desktop arrangement (docs/DESIGN.md §4.7) leaves wide empty
 // bands on either side and small stations. Here the stations are arranged in columns across the whole window –
-// blenders, freezer, cups over the ingredient risers, the matcha machine over its bar, the trash can – and the whole
+// freezer, blenders, cups over the ingredient risers, the matcha machine over its bar, the trash can – and the whole
 // work area is scaled up by k (css transform on .g-work, js/game-view.js), as far as the window's width and the room
 // under the pass allow. Every arrangement that fits is tried (freezer under or beside the blenders, the two risers
 // behind each other or side by side, the matcha bar's rows likewise, the trash can on its own or beside the extras)
@@ -22,6 +22,11 @@ export const BLENDER_REACH = 62; // the 3D jug's lid reaches this far above the 
 export const FREEZER_W = 284;
 export const FREEZER_H = 186;
 export const FREEZER_GAP = 8; // under the blenders: the freezer's top at BLENDER_H + 8 (css/game.css .g-freezer top 218)
+// On the phone the freezer is drawn smaller (a css scale from its top-left corner): its well holds a few packs, but
+// at full size it took more room than the blender beside it. Its box there is FREEZER_PW × FREEZER_PH.
+export const FREEZER_PHONE_K = 0.78;
+export const FREEZER_PW = Math.round(FREEZER_W * FREEZER_PHONE_K);
+export const FREEZER_PH = Math.round(FREEZER_H * FREEZER_PHONE_K);
 export const STACK_W = 120;
 export const STACK_GAP = 6;
 export const BOWL_SLOT_W = 120;
@@ -65,29 +70,31 @@ export const cupsWidth = (bowls) => STACK_W + STACK_GAP + bowls * BOWL_SLOT_W;
 function blendersCol(n) {
   const w = BLENDER_W + (n - 1) * BLENDER_STEP;
   return {
-    id: 'A', w, h: BLENDER_H + BLENDER_TIMER_H, reach: BLENDER_REACH,
+    id: 'A', w, h: BLENDER_H + BLENDER_TIMER_H, reach: BLENDER_REACH, tight: true, // by the freezer
     place: (x, y) => ({ blenders: Array.from({ length: n }, (_, i) => ({ x: x + i * BLENDER_STEP, y })) }),
   };
 }
 
 function freezerCol() {
-  return { id: 'B', w: FREEZER_W, h: FREEZER_H, reach: 0, place: (x, y) => ({ freezer: { x, y } }) };
+  return { id: 'B', w: FREEZER_PW, h: FREEZER_PH, reach: 0, place: (x, y) => ({ freezer: { x, y } }) };
 }
 
 // blenders over the freezer, as on the desktop (the blenders centred over it)
 function blendersFreezerCol(n) {
   const bw = BLENDER_W + (n - 1) * BLENDER_STEP;
-  const w = Math.max(bw, FREEZER_W);
+  const w = Math.max(bw, FREEZER_PW);
   return {
-    id: 'AB', w, h: BLENDER_H + FREEZER_GAP + FREEZER_H, reach: BLENDER_REACH,
+    id: 'AB', w, h: BLENDER_H + FREEZER_GAP + FREEZER_PH, reach: BLENDER_REACH,
     place: (x, y) => ({
       blenders: Array.from({ length: n }, (_, i) => ({ x: x + Math.round((w - bw) / 2) + i * BLENDER_STEP, y })),
-      freezer: { x: x + Math.round((w - FREEZER_W) / 2), y: y + BLENDER_H + FREEZER_GAP },
+      freezer: { x: x + Math.round((w - FREEZER_PW) / 2), y: y + BLENDER_H + FREEZER_GAP },
     }),
   };
 }
 
-// the cup dispenser and the bowl spots over the two risers: behind each other (the desktop's way) or side by side
+// the cup dispenser and the bowl spots over the two risers: behind each other (the desktop's way) or side by side.
+// The cups stand at the column's left end, right beside the blenders (a jug is poured into them), and the column
+// keeps the narrowest gap to the blenders however wide the window (tight; the blenders likewise by the freezer).
 function cupsCol(bowls, mid, top, sideBySide) {
   const cw = cupsWidth(bowls);
   const rm = riserWidth(mid);
@@ -96,9 +103,9 @@ function cupsCol(bowls, mid, top, sideBySide) {
   const w = sideBySide ? Math.max(cw, rm + (both ? PHONE_GAP : 0) + rt) : Math.max(cw, rm, rt);
   const h = both && !sideBySide ? SHELF_TOP_TOP + SHELF_H : mid || top ? SHELF_MID_TOP + SHELF_H : CUPS_H;
   return {
-    id: sideBySide ? 'C2' : 'C1', w, h, reach: 0,
+    id: sideBySide ? 'C2' : 'C1', w, h, reach: 0, tight: true,
     place: (x, y) => {
-      const cx = x + Math.round((w - cw) / 2);
+      const cx = x;
       const out = {
         stack: { x: cx, y: y + STACK_TOP },
         bowls: Array.from({ length: bowls }, (_, i) => ({ x: cx + STACK_W + STACK_GAP + i * BOWL_SLOT_W, y: y + BOWL_TOP })),
@@ -169,7 +176,7 @@ function trashCol() {
  * @param {number} [o.safeR]   … and its right edge
  * @param {number} [o.kMin]    the smallest scale worth it (1: smaller than the desktop's arrangement is no gain; a phone
  *                             turned upright keeps its arrangement at whatever fits, js/game-view.js placePhone)
- * @returns {null | { k: number, w: number, h: number, tx: number, ty: number, variant: string, blenders: {x,y}[], freezer: {x,y},
+ * @returns {null | { k: number, w: number, h: number, tx: number, ty: number, variant: string, blenders: {x,y}[], freezer: {x,y}, freezerK: number,
  *   stack: {x,y}, bowls: {x,y}[], cups: {x,y,w}, shelves: Object<string, {x,top,stacked}>, machine?: {x,y}, trash: {x,y} }}
  */
 export function phoneLayout({ blenders, bowls, mid, top, matcha = null, availW, safeL = 0, safeR = 0, kMin = 1 }) {
@@ -183,8 +190,10 @@ export function phoneLayout({ blenders, bowls, mid, top, matcha = null, availW, 
       const dOpts = matcha ? [[false, false], [false, true], [true, false]] : [[null, false]];
       for (const [dSide, dTrash] of dOpts) {
         const cols = [];
+        // the freezer at the outer end, the blenders between it and the cups: a pack goes into a blender, a jug
+        // into a cup, each to the next column
         if (ab) cols.push(blendersFreezerCol(blenders));
-        else cols.push(blendersCol(blenders), freezerCol());
+        else cols.push(freezerCol(), blendersCol(blenders));
         cols.push(cupsCol(bowls, mid, top, cSide));
         if (matcha) cols.push(matchaCol(matcha.mfruit, matcha.mextra, dSide, dTrash));
         if (!dTrash) cols.push(trashCol());
@@ -203,19 +212,21 @@ export function phoneLayout({ blenders, bowls, mid, top, matcha = null, availW, 
   }
   if (!best || best.k < kMin) return null;
   const { cols, k, h, w0 } = best;
-  // a wide window: the columns step apart a little
-  const gap = Math.min(PHONE_GAP_MAX, PHONE_GAP + Math.max(0, (roomW / k - w0) / Math.max(1, cols.length - 1)));
-  const w = Math.round(w0 + (cols.length - 1) * (gap - PHONE_GAP));
-  const out = { k, w, h, variant: cols.map((c) => c.id).join('+'), shelves: {} };
+  // a wide window: the columns step apart a little (all but freezer, blenders and cups, which stay together)
+  const loose = cols.slice(1).filter((c) => !c.tight).length;
+  const gap = loose ? Math.min(PHONE_GAP_MAX, PHONE_GAP + Math.max(0, (roomW / k - w0) / loose)) : PHONE_GAP;
+  const w = Math.round(w0 + loose * (gap - PHONE_GAP));
+  const out = { k, w, h, variant: cols.map((c) => c.id).join('+'), freezerK: FREEZER_PHONE_K, shelves: {} };
   let x = 0;
-  for (const c of cols) {
+  cols.forEach((c, i) => {
+    if (i) x += c.tight ? PHONE_GAP : gap;
     const placed = c.place(Math.round(x), h - c.h);
     for (const [key, v] of Object.entries(placed)) {
       if (key === 'shelves') Object.assign(out.shelves, v);
       else out[key] = v;
     }
-    x += c.w + gap;
-  }
+    x += c.w;
+  });
   // the work area's css transform: translate(tx, ty) scale(k) from its top-left corner (stage 0, WORK_Y); the
   // arrangement centred in the safe part of the window, its bottom edge at PHONE_BOTTOM
   const centre = (STAGE_W + safeL - safeR) / 2;
