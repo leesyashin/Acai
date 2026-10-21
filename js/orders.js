@@ -51,7 +51,7 @@ export function generateOrder(rng, { owned, config, matcha = false, featured = [
     const extras = ownedOfLayer(owned, 'mextra');
     const fruit = weightedPick(rng, fruits, weightOf);
     drink = { fruit, extras: weightedSample(rng, extras, countInRange(rng, config.mExtras || [0, 0], extras.length), weightOf) };
-    if (config.drinkOnly > 0 && rng.chance(config.drinkOnly)) return { bowl: null, matcha: drink };
+    if (config.drinkOnly > 0 && rng.chance(config.drinkOnly)) return { bowl: null, qty: 0, matcha: drink };
   }
 
   const bases = ownedOfLayer(owned, 'base');
@@ -61,7 +61,9 @@ export function generateOrder(rng, { owned, config, matcha = false, featured = [
   // At least one fruit/crunch: the engine rejects toppings on a bowl without one.
   const mid = weightedSample(rng, mids, countInRange(rng, config.mid, mids.length, 1), weightOf);
   const top = weightedSample(rng, tops, countInRange(rng, config.top, tops.length), weightOf);
-  return { bowl: { base, mid, top }, matcha: drink };
+  // a group: the same bowl two (or more) times
+  const qty = config.multi > 0 && rng.chance(config.multi) ? rng.int(2, Math.max(2, config.maxQty || 2)) : 1;
+  return { bowl: { base, mid, top }, qty, matcha: drink };
 }
 
 export function bowlValue(bowl, ingLevels = {}) {
@@ -71,5 +73,5 @@ export function bowlValue(bowl, ingLevels = {}) {
 }
 
 export function orderValue(order, ingLevels = {}) {
-  return bowlValue(order.bowl, ingLevels) + matchaValue(order.matcha, ingLevels);
+  return bowlValue(order.bowl, ingLevels) * (order.bowl ? order.qty || 1 : 0) + matchaValue(order.matcha, ingLevels);
 }

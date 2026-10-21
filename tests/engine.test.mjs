@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  createGame, tick, drainEvents, loadBlender, pourBlender, addIngredient, trashBowl, cleanBlender,
+  createGame, tick, drainEvents, loadBlender, toggleBlender, toggleBlenderError, pourBlender, addIngredient, trashBowl, cleanBlender,
   loadMatcha, trashMatcha, serveBowl, serveMatcha, setPaused, releaseTutorialHold, endRun, placeCup,
   loadBlenderError, pourError, addIngredientError, loadMatchaError, serveBowlError, serveMatchaError, placeCupError,
   addMatchaExtra, addMatchaExtraError, matchaMatchesOrder,
@@ -50,11 +50,17 @@ function waitForCustomer(game) {
 const drink = (fruit, extras = []) => ({ fruit, extras });
 
 function setOrder(c, bowl, matcha = null) {
-  c.order = { bowl: bowl && { mid: [], top: [], ...bowl }, matcha };
+  c.order = { bowl: bowl && { mid: [], top: [], ...bowl }, qty: bowl ? 1 : 0, matcha };
+}
+
+// A pack in, the blender switched on.
+function startBlender(game, idx = 0, base = 'acai') {
+  assert.equal(loadBlender(game, idx, base).ok, true);
+  assert.equal(toggleBlender(game, idx).ok, true);
 }
 
 function readyBlender(game, idx = 0, base = 'acai') {
-  assert.equal(loadBlender(game, idx, base).ok, true);
+  startBlender(game, idx, base);
   run(game, game.kitchen.blendTime + 0.05);
   assert.equal(game.blenders[idx].state, 'ready');
 }
@@ -95,7 +101,8 @@ describe('createGame', () => {
     assert.equal(g.matcha.slots.length, 2);
     assert.equal(g.matcha.slots[0].state, 'empty');
     assert.deepEqual(g.matcha.slots[0].extras, []);
-    assert.equal(g.arm, null, 'no cup arm bought');
+    assert.deepEqual(g.lifts, [null, null, null, null], 'no cup lift bought');
+    assert.deepEqual(g.blenders.map((b) => b.frozen), [false, false], 'no freeze bought');
     assert.equal(LEVELS[39].seats, 4);
     assert.equal(LEVELS[39].hearts, 4, '4-seat levels give an extra heart');
     assert.equal(g.hearts, LEVELS[39].hearts);
@@ -164,12 +171,21 @@ describe('tick', () => {
 // ------------------------------------------------------------------ blender
 
 describe('blender', () => {
-  test('lifecycle: blending → ready → overflowing → ruined with events and timings', () => {
+  test('lifecycle: loaded → switched on: blending → ready → overflowing → ruined with events and timings', () => {
     const g = newGame();
     const k = g.kitchen;
     assert.deepEqual(loadBlender(g, 0, 'acai'), { ok: true });
     const b = g.blenders[0];
+    assert.equal(b.state, 'loaded');
+    assert.equal(b.on, false);
+    assert.deepEqual(types(drainEvents(g)), ['blenderLoaded']);
+    run(g, 30);
+    assert.equal(b.state, 'loaded', 'nothing happens until it is switched on');
+    assert.equal(b.progress, 0);
+    drainEvents(g);
+    assert.deepEqual(toggleBlender(g, 0), { ok: true });
     assert.equal(b.state, 'blending');
+    assert.equal(b.on, true);
     assert.equal(b.base, 'acai');
     assert.equal(b.duration, k.blendTime);
     assert.deepEqual(types(drainEvents(g)), ['blenderStart']);
@@ -196,14 +212,109 @@ describe('blender', () => {
     assert.equal(b.state, 'overflowing');
     run(g, 0.15);
     assert.equal(b.state, 'ruined');
-    assert.ok(drainEvents(g).some((e) => e.type === 'blenderRuined' && e.idx === 0));
+    assert.equal(b.on, false);
+    assert.ok(drainEvents(g).some((e) => e.type === 'blenderRuined' && e.idx === 0 && !e.melted));
     run(g, 30);
     assert.equal(b.state, 'ruined');
   });
 
-  test('with overflow: false a ready blender stays ready forever', () => {
+  test('switched off while blending it pauses, switched on again it goes on where it stopped', () => {
+    const g = newGame();
+    const k = g.kitchen;
+    startBlender(g);
+    const b = g.blenders[0];
+    run(g, k.blendTime / 2);
+    drainEvents(g);
+    assert.deepEqual(toggleBlender(g, 0), { ok: true });
+    assert.equal(b.state, 'loaded');
+    assert.ok(Math.abs(b.progress - 0.5) < 0.02);
+    assert.deepEqual(drainEvents(g), [{ type: 'blenderStop', idx: 0 }]);
+    run(g, 20);
+    assert.ok(Math.abs(b.progress - 0.5) < 0.02, 'paused');
+    toggleBlender(g, 0);
+    assert.equal(b.state, 'blending');
+    run(g, k.blendTime / 2 + 0.1);
+    assert.equal(b.state, 'ready');
+  });
+
+  test('switched off when ready it cannot overflow, but the base melts after meltTime', () => {
+    const g = newGame();
+    const k = g.kitchen;
+    readyBlender(g);
+    const b = g.blenders[0];
+    run(g, k.readyHold - 1);
+    drainEvents(g);
+    assert.deepEqual(toggleBlender(g, 0), { ok: true });
+    assert.equal(b.state, 'ready');
+    assert.equal(b.on, false);
+    assert.equal(b.duration, k.meltTime);
+    assert.deepEqual(drainEvents(g), [{ type: 'blenderStop', idx: 0, done: true }]);
+    assert.deepEqual(toggleBlender(g, 0), { ok: false, reason: 'blenderDone' }, 'nothing left to blend');
+    run(g, k.meltTime - 0.1);
+    assert.equal(b.state, 'ready');
+    assert.ok(!drainEvents(g).some((e) => e.type === 'blenderOverflow'));
+    run(g, 0.2);
+    assert.equal(b.state, 'ruined');
+    assert.ok(drainEvents(g).some((e) => e.type === 'blenderRuined' && e.melted));
+  });
+
+  test('an overflowing blender switched off stops overflowing and still pours', () => {
+    const g = newGame();
+    const k = g.kitchen;
+    readyBlender(g);
+    run(g, k.readyHold + 0.2);
+    assert.equal(g.blenders[0].state, 'overflowing');
+    toggleBlender(g, 0);
+    assert.equal(g.blenders[0].state, 'ready');
+    run(g, k.overflowTime + 1);
+    assert.equal(g.blenders[0].state, 'ready');
+    cups(g, 0);
+    assert.equal(pourBlender(g, 0, 0).ok, true);
+  });
+
+  test('freeze: a frozen blender switched off keeps its base for good; only the first freeze blenders', () => {
+    const g = newGame({ kitchen: getKitchenStats({ blender2: 1, freeze: 1 }) });
+    assert.deepEqual(g.blenders.map((b) => b.frozen), [true, false]);
+    readyBlender(g, 0);
+    readyBlender(g, 1);
+    toggleBlender(g, 0);
+    toggleBlender(g, 1);
+    run(g, g.kitchen.meltTime + 5);
+    assert.equal(g.blenders[0].state, 'ready');
+    assert.equal(g.blenders[0].duration, 0);
+    assert.equal(g.blenders[1].state, 'ruined');
+    assert.deepEqual(createGame({ level: LEVELS[0], kitchen: getKitchenStats({ blender2: 1, freeze: 2 }) }).blenders.map((b) => b.frozen), [true, true]);
+  });
+
+  test('a frozen blender left on still overflows', () => {
+    const g = newGame({ kitchen: getKitchenStats({ freeze: 1 }) });
+    readyBlender(g);
+    run(g, g.kitchen.readyHold + g.kitchen.overflowTime + 0.3);
+    assert.equal(g.blenders[0].state, 'ruined');
+  });
+
+  test('the switch: nothing to switch on an empty or spoiled blender; the last portion switches it off', () => {
+    const g = newGame();
+    assert.deepEqual(toggleBlender(g, 0), { ok: false, reason: 'blenderEmpty' });
+    assert.deepEqual(toggleBlender(g, 3), { ok: false, reason: 'invalid' });
+    readyBlender(g);
+    cups(g, 0, 1);
+    pourBlender(g, 0, 0);
+    pourBlender(g, 0, 1);
+    assert.equal(g.blenders[0].state, 'empty');
+    assert.equal(g.blenders[0].on, false);
+    readyBlender(g);
+    run(g, g.kitchen.readyHold + g.kitchen.overflowTime + 0.3);
+    assert.deepEqual(toggleBlender(g, 0), { ok: false, reason: 'blenderRuined' });
+    for (const idx of [0, 3]) assert.equal(toggleBlenderError(g, idx), toggleBlender(g, idx).reason);
+  });
+
+  test('with overflow: false a ready blender stays ready forever, on or off', () => {
     const g = newGame({ level: { overflow: false, duration: 999 } });
     readyBlender(g);
+    run(g, 60);
+    assert.equal(g.blenders[0].state, 'ready');
+    toggleBlender(g, 0);
     run(g, 60);
     assert.equal(g.blenders[0].state, 'ready');
     assert.ok(!drainEvents(g).some((e) => e.type === 'blenderOverflow'));
@@ -224,7 +335,7 @@ describe('blender', () => {
   test('loadBlender on a ruined blender says "spoiled" (not "busy") until it is trashed', () => {
     const g = newGame({ owned: START_OWNED });
     const k = g.kitchen;
-    assert.equal(loadBlender(g, 0, 'acai').ok, true);
+    startBlender(g);
     run(g, k.blendTime + k.readyHold + k.overflowTime + 0.3);
     assert.equal(g.blenders[0].state, 'ruined');
     drainEvents(g);
@@ -263,6 +374,8 @@ describe('blender', () => {
     assert.deepEqual(pourBlender(g, 0, 0), { ok: false, reason: 'blenderNotReady' });
     loadBlender(g, 0, 'acai');
     assert.deepEqual(pourBlender(g, 0, 0), { ok: false, reason: 'blenderNotReady' });
+    toggleBlender(g, 0);
+    assert.deepEqual(pourBlender(g, 0, 0), { ok: false, reason: 'blenderNotReady' });
     run(g, g.kitchen.blendTime + g.kitchen.readyHold + 0.2);
     assert.equal(g.blenders[0].state, 'overflowing');
     assert.equal(pourBlender(g, 0, 0).ok, true);
@@ -271,10 +384,13 @@ describe('blender', () => {
     assert.deepEqual(pourBlender(g, 0, 1), { ok: false, reason: 'blenderRuined' });
   });
 
-  test('cleanBlender empties ruined, ready and overflowing blenders only', () => {
+  test('cleanBlender empties loaded, ruined, ready and overflowing blenders, not a running blend', () => {
     const g = newGame();
     assert.deepEqual(cleanBlender(g, 0), { ok: false, reason: 'blenderNotReady' });
     loadBlender(g, 0, 'acai');
+    assert.equal(cleanBlender(g, 0).ok, true, 'a wrong pack comes out again');
+    drainEvents(g);
+    startBlender(g);
     assert.deepEqual(cleanBlender(g, 0), { ok: false, reason: 'blenderBusy' });
     run(g, g.kitchen.blendTime + 0.1);
     drainEvents(g);
@@ -408,7 +524,7 @@ describe('customers', () => {
     assert.ok(c, 'customer at 1 s');
     assert.equal(c.state, 'arriving');
     assert.equal(c.mood, 'happy');
-    assert.deepEqual(c.delivered, { bowl: false, matcha: false });
+    assert.deepEqual(c.delivered, { bowl: false, bowls: 0, matcha: false });
     assert.equal(typeof c.look.seed, 'number');
     assert.equal(c.paid, 0);
     const ev = drainEvents(g).find((e) => e.type === 'customerArrive');
@@ -449,7 +565,25 @@ describe('customers', () => {
     assert.ok(g._sim.lastSpawn < 20, 'long before pace × work');
   });
 
-  test('customers take a random free seat', () => {
+  test('crowd 2: the next guest comes early as soon as fewer than two are waiting', () => {
+    const g = newGame({ level: { pace: 99, patience: 99, seats: 3, crowd: 2 } });
+    const c = waitForCustomer(g);
+    assert.ok(runUntil(g, () => customers(g).length === 2, 10), 'a second guest comes soon');
+    const t2 = g.time;
+    run(g, 20);
+    assert.equal(customers(g).length, 2, 'two are waiting: no third one before pace × work');
+    assert.ok(g.time - t2 >= 20 - 1e-9);
+    const one = newGame({ level: { pace: 99, patience: 99, seats: 3 } });
+    waitForCustomer(one);
+    run(one, 20);
+    assert.equal(customers(one).length, 1, 'crowd 1 (the default): one guest at a time');
+  });
+
+  test('from level 10 on two guests wait at the same time', () => {
+    for (const l of LEVELS) assert.equal(l.crowd, l.id >= 10 ? 2 : 1, `level ${l.id}`);
+  });
+
+    test('customers take a random free seat', () => {
     const seats = new Set();
     for (let seed = 1; seed <= 20; seed++) {
       const g = newGame({ seed, level: { seats: 4 } });
@@ -548,7 +682,27 @@ describe('serving bowls', () => {
     assert.deepEqual(drainEvents(g), [{ type: 'customerPaid', customerId: c.id, seat: c.seat, amount, tip }]);
   });
 
-  test('wrong bowl is rejected and stays; empty bowl and missing customer are rejected', () => {
+  test('an order for the same bowl twice: each bowl counts, the second one pays for both', () => {
+    const g = newGame({ level: { pace: 99, patience: 60 } });
+    const c = waitForCustomer(g);
+    setOrder(c, { base: 'acai', mid: ['banana'] });
+    c.order.qty = 2;
+    buildBowl(g, 0, { mid: ['banana'] });
+    buildBowl(g, 1, { mid: ['banana'] });
+    drainEvents(g);
+    assert.deepEqual(serveBowl(g, 0, c.id), { ok: true });
+    assert.deepEqual(c.delivered, { bowl: false, bowls: 1, matcha: false });
+    assert.deepEqual(drainEvents(g), [{ type: 'partialDelivery', customerId: c.id }]);
+    assert.equal(g.money, 0);
+    const ratio = c.patience / c.maxPatience;
+    assert.deepEqual(serveBowl(g, 1, c.id), { ok: true });
+    assert.equal(c.delivered.bowl, true);
+    const value = 2 * (ingredientValue('acai') + ingredientValue('banana'));
+    assert.equal(g.money, Math.round(value) + Math.round(value * TIP_RATE * ratio));
+    assert.equal(c.state, 'leavingHappy');
+  });
+
+    test('wrong bowl is rejected and stays; empty bowl and missing customer are rejected', () => {
     const g = newGame({ level: { pace: 99 } });
     const c = waitForCustomer(g);
     setOrder(c, { base: 'acai', mid: ['banana'] });
@@ -712,51 +866,43 @@ describe('matcha', () => {
   });
 });
 
-// ------------------------------------------------------------------ cup arm
+// ------------------------------------------------------------------ cup lift
 
-describe('cup arm', () => {
-  const armKitchen = () => getKitchenStats({ cupArm: 1 });
-
-  test('puts a cup on every empty spot, one after the other, cupArm seconds each', () => {
-    const k = armKitchen();
+describe('cup lift', () => {
+  test('every spot with a lift gets a cup cupLiftTime after it is empty, all at once; spots without wait', () => {
+    const k = getKitchenStats({ bowlSlots: 1, cupLift: 2 });
     const g = newGame({ kitchen: k, level: { pace: 99 } });
-    assert.equal(g.arm.state, 'idle');
+    assert.equal(g.lifts.length, 3);
+    assert.equal(g.lifts[2], null);
     tick(g, 0.05);
-    assert.equal(g.arm.state, 'moving');
-    assert.equal(g.arm.target, 0);
-    assert.deepEqual(drainEvents(g).filter((e) => e.type.startsWith('arm')), [{ type: 'armStart', bowlIdx: 0 }]);
-    run(g, k.cupArm - 0.15);
-    assert.equal(g.bowls[0].cup, false);
-    assert.ok(g.arm.progress > 0.9 && g.arm.progress < 1);
-    run(g, 0.2);
-    assert.equal(g.bowls[0].cup, true);
-    assert.ok(drainEvents(g).some((e) => e.type === 'cupPlaced' && e.bowlIdx === 0 && e.auto));
-    run(g, 0.05);
-    assert.equal(g.arm.target, 1);
-    run(g, k.cupArm + 0.1);
-    assert.deepEqual(g.bowls.map((b) => b.cup), [true, true]);
-    run(g, 0.2);
-    assert.equal(g.arm.state, 'idle', 'nothing left to do');
+    assert.deepEqual(g.lifts.slice(0, 2).map((l) => l.state), ['rising', 'rising']);
+    assert.deepEqual(drainEvents(g).filter((e) => e.type === 'liftStart').map((e) => e.bowlIdx), [0, 1]);
+    run(g, k.cupLiftTime - 0.2);
+    assert.deepEqual(g.bowls.map((b) => b.cup), [false, false, false], 'not instant');
+    assert.ok(g.lifts[0].progress > 0.8 && g.lifts[0].progress < 1);
+    run(g, 0.25);
+    assert.deepEqual(g.bowls.map((b) => b.cup), [true, true, false]);
+    assert.ok(drainEvents(g).some((e) => e.type === 'cupPlaced' && e.bowlIdx === 1 && e.auto));
+    assert.ok(k.cupLiftTime > 0.5 && k.cupLiftTime < 1.5, 'quick, but not instant');
   });
 
-  test('a cup put down by hand meanwhile: the arm turns to the next spot', () => {
-    const g = newGame({ kitchen: armKitchen(), level: { pace: 99 } });
+  test('a cup put down by hand meanwhile stops the lift', () => {
+    const g = newGame({ kitchen: getKitchenStats({ cupLift: 1 }), level: { pace: 99 } });
     tick(g, 0.05);
-    assert.equal(g.arm.target, 0);
     assert.equal(placeCup(g, 0).ok, true);
     drainEvents(g);
     tick(g, 0.05);
-    assert.equal(g.arm.target, 1);
-    assert.deepEqual(drainEvents(g).map((e) => e.type), ['armCancel', 'armStart']);
+    assert.equal(g.lifts[0].state, 'idle');
+    assert.deepEqual(drainEvents(g).map((e) => e.type), ['liftCancel']);
   });
 
-  test('a served or trashed bowl leaves its spot empty: the arm refills it', () => {
-    const g = newGame({ kitchen: armKitchen(), level: { pace: 99 } });
-    run(g, g.kitchen.cupArm * 2 + 0.5);
+  test('a served or trashed bowl leaves its spot empty: the lift refills it', () => {
+    const g = newGame({ kitchen: getKitchenStats({ cupLift: 2 }), level: { pace: 99 } });
+    run(g, g.kitchen.cupLiftTime + 0.2);
     assert.deepEqual(g.bowls.map((b) => b.cup), [true, true]);
     trashBowl(g, 1);
     assert.equal(g.bowls[1].cup, false);
-    run(g, g.kitchen.cupArm + 0.2);
+    run(g, g.kitchen.cupLiftTime + 0.2);
     assert.equal(g.bowls[1].cup, true);
   });
 });
@@ -879,7 +1025,7 @@ describe('tutorial hold', () => {
     assert.equal(c.state, 'waiting');
     assert.equal(g.time, t0, 'level clock paused during the tutorial');
     // stations keep working during the tutorial
-    assert.equal(loadBlender(g, 0, 'acai').ok, true);
+    startBlender(g);
     run(g, g.kitchen.blendTime + 0.1);
     assert.equal(g.blenders[0].state, 'ready');
 
@@ -918,7 +1064,7 @@ describe('pause and events', () => {
     const g = newGame();
     loadBlender(g, 0, 'acai');
     const evs = drainEvents(g);
-    assert.deepEqual(evs, [{ type: 'blenderStart', idx: 0 }]);
+    assert.deepEqual(evs, [{ type: 'blenderLoaded', idx: 0 }]);
     assert.deepEqual(drainEvents(g), []);
     assert.equal(g.events.length, 0);
   });
@@ -978,6 +1124,7 @@ describe('action checks (*Error)', () => {
     assert.equal(same(() => pourError(g, 0, 0), () => pourBlender(g, 0, 0)), 'blenderNotReady');
     assert.equal(same(() => loadBlenderError(g, 0, 'acai'), () => loadBlender(g, 0, 'acai')), null);
     assert.equal(same(() => loadBlenderError(g, 0, 'acai'), () => loadBlender(g, 0, 'acai')), 'blenderBusy');
+    assert.equal(same(() => toggleBlenderError(g, 0), () => toggleBlender(g, 0)), null);
     run(g, g.kitchen.blendTime + 0.05);
     assert.equal(same(() => pourError(g, 0, 0), () => pourBlender(g, 0, 0)), null);
     assert.equal(same(() => pourError(g, 0, 0), () => pourBlender(g, 0, 0)), 'bowlHasBase');
@@ -1049,6 +1196,7 @@ describe('determinism', () => {
     for (let i = 0; i < 1200; i++) {
       tick(g, 0.05);
       if (i % 40 === 0) loadBlender(g, 0, 'acai');
+      if (i % 40 === 1) toggleBlender(g, 0);
       if (i % 50 === 0) placeCup(g, (i / 50) % 2);
       if (i % 50 === 0) pourBlender(g, 0, (i / 50) % 2);
       if (i % 120 === 0) trashBowl(g, 0);

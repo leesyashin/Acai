@@ -117,11 +117,13 @@ describe('campaign balance (simulated players)', () => {
     }
   });
 
-  test('few guests: an average player serves at most 16 a level', () => {
+  test('big orders: an average player serves at most 20 guests a level, more once two wait at once', () => {
     for (const lvl of LEVELS) {
       const r = results.get(lvl.id).average;
-      assert.ok(r.served <= 16, `level ${lvl.id}: ${r.served} guests`);
+      assert.ok(r.served <= 20, `level ${lvl.id}: ${r.served} guests`);
     }
+    const served = (from, to) => mean(LEVELS.slice(from - 1, to).map((l) => results.get(l.id).average.served));
+    assert.ok(served(10, 14) > served(5, 9), `levels 10–14 serve ${served(10, 14)} vs ${served(5, 9)} before`);
   });
 
   test('bigger orders pay more: coins per guest grow from region to region', () => {
@@ -163,14 +165,25 @@ describe('slower players and the shop', () => {
     }
   });
 
-  test('the cup arm takes work off a slow player once orders are big', () => {
+  test('cup lifts take work off a slow player once orders are big', () => {
     const level = 40;
     const inv = inventoryForLevel(level);
     const seeds = [11, 22, 33, 44, 55, 66];
-    const coins = (cupArm) => mean(seeds.map((seed) => playLevel({
-      level, ...inv, upgrades: { ...inv.upgrades, cupArm }, seed, actionTime: SPEEDS.slow,
+    const coins = (cupLift) => mean(seeds.map((seed) => playLevel({
+      level, ...inv, upgrades: { ...inv.upgrades, cupLift }, seed, actionTime: SPEEDS.slow,
     }).money));
-    assert.ok(coins(1) > coins(0) * 1.05, `with the arm ${coins(1)} vs without ${coins(0)}`);
+    assert.ok(coins(4) > coins(0) * 1.05, `with four lifts ${coins(4)} vs without ${coins(0)}`);
+    assert.ok(coins(2) > coins(0), `with two lifts ${coins(2)} vs without ${coins(0)}`);
+  });
+
+  test('freeze: a slow player loses fewer blenders to spoiling', () => {
+    const level = 30;
+    const inv = inventoryForLevel(level);
+    const seeds = Array.from({ length: 10 }, (_, i) => 7 * (i + 1));
+    const ruined = (freeze) => mean(seeds.map((seed) => playLevel({
+      level, ...inv, upgrades: { ...inv.upgrades, freeze }, seed, actionTime: SPEEDS.slow,
+    }).ruined));
+    assert.ok(ruined(2) < ruined(0) * 0.5, `with freeze ${ruined(2)} spoiled vs without ${ruined(0)}`);
   });
 
   test('the big jug does not make blenders spoil more or cost coins', () => {

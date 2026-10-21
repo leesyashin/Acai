@@ -3,7 +3,7 @@
 
 import {
   ING, UPG, LEVELS, ENDLESS_UNLOCK_LEVEL, MATCHA_LEVEL,
-  getKitchenStats, qualityUpgradeCost, nextUpgradeCost, ownedAt,
+  getKitchenStats, qualityUpgradeCost, nextUpgradeCost, upgradeNeeds, ownedAt,
 } from './data.js';
 import { detectLang, LANGS } from './i18n.js';
 
@@ -42,9 +42,18 @@ const LEGACY_INGREDIENT_COSTS = {
   pitaya: 180, spirulina: 320, strawberry: 70, blueberry: 100, mango: 130, kiwi: 200,
   coconut: 50, chia: 90, peanut: 150, chocolate: 200, mint: 240, cacao: 280,
 };
+// Upgrades that are gone from the shop: the coins paid for their levels come back (the gripper arm
+// became the cup lift, bought spot by spot). The merged save no longer holds them, so this happens once.
+const RETIRED_UPGRADES = { cupArm: [180, 380] };
 export function legacyRefund(raw) {
-  if (!raw || typeof raw !== 'object' || raw.version >= 2 || !Array.isArray(raw.owned)) return 0;
-  return [...new Set(raw.owned)].reduce((sum, id) => sum + (LEGACY_INGREDIENT_COSTS[id] || 0), 0);
+  if (!raw || typeof raw !== 'object') return 0;
+  const ups = obj(raw.upgrades);
+  let sum = 0;
+  for (const [id, costs] of Object.entries(RETIRED_UPGRADES)) {
+    sum += costs.slice(0, int(ups[id], costs.length)).reduce((a, c) => a + c, 0);
+  }
+  if (raw.version >= 2 || !Array.isArray(raw.owned)) return sum;
+  return sum + [...new Set(raw.owned)].reduce((total, id) => total + (LEGACY_INGREDIENT_COSTS[id] || 0), 0);
 }
 
 // Stored data → a valid save. Every field is checked, because a save that was edited by hand,
@@ -238,6 +247,7 @@ export function buyUpgrade(upgradeId) {
   if (upgradeLocked(upgradeId)) return { ok: false, reason: 'locked' };
   const cost = nextUpgradeCost(upgradeId, getSave().upgrades);
   if (cost === null) return { ok: false, reason: 'maxed' };
+  if (upgradeNeeds(upgradeId, getSave().upgrades)) return { ok: false, reason: 'needs' };
   if (getSave().coins < cost) return { ok: false, reason: 'noMoney' };
   updateSave((d) => {
     d.coins -= cost;
