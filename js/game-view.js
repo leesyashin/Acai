@@ -273,6 +273,7 @@ const SEAT_X = [null, [640], [420, 860], [270, 640, 1010], [200, 493, 787, 1080]
 const BLENDER_X = [null, [89], [10, 170]];
 const BLENDER_ART = 245; // the drawn blender without WebGL (wider than the box, transparent; as tall as the 3D 2-bowl jug)
 const BLENDER_BADGE = 36;
+const JUG_2D = [32 / 150, 8 / 150, 120 / 150, 96 / 150]; // the jug (lid to coupling, handle and foam) in blenderSVG, × its size
 // The cup stack stands at the left end of the cup row; stack + spots are centred in the middle column.
 const MID_X0 = 330;
 const MID_W = 610;
@@ -596,7 +597,11 @@ class GameView {
       timer.append(fill);
       node.append(art, timer);
       work.append(node);
-      const v = { el: node, art, badge, timer, fill, state: null, ring: null, ringP: -1 };
+      // where the jug stands on its base: a carried jug flies back there
+      const jug = el('div', 'g-jug');
+      const [jx0, jy0, jx1, jy1] = this.k3d ? blenderBox(this.look.tier, this.look.big, 'ready', 'jug') : JUG_2D.map((c) => c * BLENDER_ART);
+      Object.assign(jug.style, { left: `${jx0}px`, top: `${jy0}px`, width: `${jx1 - jx0}px`, height: `${jy1 - jy0}px` });
+      const v = { el: node, art, badge, jug, timer, fill, state: null, ring: null, ringP: -1 };
       if (this.k3d) {
         v.view = createView('blender');
         art.append(v.view.el);
@@ -604,11 +609,11 @@ class GameView {
         v.pic = el('div', 'g-pic');
         art.append(v.pic);
       }
-      art.append(badge);
+      art.append(jug, badge);
       return v;
     });
     // the crop boxes of the drag ghosts: measured now rather than at the first pickup
-    if (this.k3d) for (const s of POURABLE) blenderBox(this.look.tier, this.look.big, s);
+    if (this.k3d) for (const s of POURABLE) blenderBox(this.look.tier, this.look.big, s, 'jug');
 
     // chest freezer built into the counter, the base packs (owned bases only) standing in it: the
     // frame's front edge is drawn over the packs, their names over the frame
@@ -1131,12 +1136,12 @@ class GameView {
           const b = g.blenders[i];
           return this.canAct() && POURABLE.has(b.state) ? { kind: 'blender', idx: i } : null;
         },
-        // carried at about its size on the counter (drag.js enlarges ghosts by 1.12)
-        ghost: () => {
-          const b = g.blenders[i];
-          if (v.view?.el.width) return snapshot(v.view, 0.9, blenderBox(this.look.tier, this.look.big, b.state));
-          return blenderSVG({ tier: this.look.tier, state: b.state, base: b.base, progress: b.progress, remaining: secsLeft(b), portions: b.portions, maxPortions: b.maxPortions, badge: false }, Math.round(BLENDER_ART * 0.9));
-        },
+        // only the jug is lifted off its base and carried, at about its size on the counter (drag.js enlarges
+        // ghosts by 1.12); the base stays (update3D / updateBlenders draw it without its jug while carried) and the
+        // jug flies back onto it after the drop, poured or not
+        ghost: () => this.jugGhost(i),
+        home: () => v.jug,
+        back: true,
         onTap: () => this.hint(v.el, g.blenders[i].state === 'ruined' ? 'game.hint.blenderRuined' : 'game.hint.blender'),
       });
       dnd.target(v.el, {
@@ -1746,6 +1751,25 @@ class GameView {
     for (const v of this.custViews.values()) v.x = -1; // re-position on next update
   }
 
+  // The carried jug of blender i: its 3D picture alone (drawn once into a canvas of its own, cropped to the jug) or
+  // the drawn jug cropped out of blenderSVG.
+  jugGhost(i) {
+    const b = this.game.blenders[i];
+    const o = { ...this.look, state: b.state, base: b.base, progress: 0, remaining: 0, portions: b.portions, maxPortions: b.maxPortions };
+    if (this.k3d) {
+      this.jugView = this.jugView || createView('blender');
+      if (this.jugView.draw({ ...o, part: 'jug' }, this.animT) && this.jugView.el.width) {
+        return snapshot(this.jugView, 0.9, blenderBox(this.look.tier, this.look.big, b.state, 'jug'));
+      }
+    }
+    const size = Math.round(BLENDER_ART * 0.9);
+    const [x0, y0, x1, y1] = JUG_2D.map((c) => Math.round(c * size));
+    const box = el('div', 'g-jug-ghost');
+    Object.assign(box.style, { width: `${x1 - x0}px`, height: `${y1 - y0}px`, overflow: 'hidden', position: 'relative' });
+    box.innerHTML = `<div style="position:absolute;left:${-x0}px;top:${-y0}px">${blenderSVG({ ...o, tier: this.look.tier, badge: false, part: 'jug' }, size)}</div>`;
+    return box;
+  }
+
   // ---------------------------------------------------------------- stations
   updateBlenders() {
     this.game.blenders.forEach((b, i) => {
@@ -1754,8 +1778,9 @@ class GameView {
       // (3D: drawn in update3D); the badge ring follows the blend in place
       if (v.pic) {
         const secs = secsLeft(b);
-        patch(v.pic, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}|${secs}`, () => blenderSVG({
-          tier: this.look.tier, state: b.state, base: b.base, progress: 0, remaining: secs, portions: b.portions, maxPortions: b.maxPortions, badge: false,
+        const part = v.el.classList.contains('drag-source') ? 'base' : undefined;
+        patch(v.pic, `${b.state}|${b.base}|${b.portions}|${b.maxPortions}|${secs}|${part}`, () => blenderSVG({
+          tier: this.look.tier, state: b.state, base: b.base, progress: 0, remaining: secs, portions: b.portions, maxPortions: b.maxPortions, badge: false, part,
         }, BLENDER_ART));
       }
       if (patch(v.badge, b.state, () => blenderBadgeSVG(b.state, BLENDER_BADGE))) {
@@ -1934,7 +1959,7 @@ class GameView {
       const v = this.blenderViews[i];
       const blending = b.state === 'blending';
       v.view?.draw({
-        ...this.look, state: b.state, base: b.base,
+        ...this.look, state: b.state, base: b.base, part: v.el.classList.contains('drag-source') ? 'base' : undefined,
         progress: blending ? Math.round(b.progress * 48) / 48 : 0,
         remaining: secsLeft(b),
         portions: b.portions, maxPortions: b.maxPortions,

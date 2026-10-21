@@ -370,6 +370,11 @@
   pointer-events: none;
 }
 .screen-game .g-blender .g-badge { position: absolute; width: 36px; height: 38px; translate: -50% -50%; }
+/* only the jug is carried (js/game-view.js jugGhost): the base stays in full view, without its jug and badge; .g-jug
+   marks where the jug stands, for the flight back */
+.screen-game .g-blender .g-jug { position: absolute; visibility: hidden; pointer-events: none; }
+.screen-game .g-blender.drag-source { opacity: 1; }
+.screen-game .g-blender.drag-source .g-badge { visibility: hidden; }
 .screen-game .g-blender[data-state="blending"] .g-art { animation: g-rattle 0.16s linear infinite; }
 .screen-game .g-blender[data-state="overflowing"] .g-art { animation: g-overflow 0.55s ease-in-out infinite; }
 .screen-game .g-blender[data-state="ruined"] .g-art { filter: saturate(0.6); }

@@ -269,6 +269,34 @@ test('blender: every model in every state fits its canvas and its drag-ghost box
   }
 });
 
+test('blender: the jug lifts off its base – base and jug together are the whole blender, the jug box holds the jug', () => {
+  const { w, h } = VIEWS.blender;
+  const ids = (o) => blenderScene({ base: 'acai', portions: 1, maxPortions: 2, ...o }, 0.5).items.map((it) => it.mesh.id);
+  for (let tier = 0; tier < 4; tier++) {
+    for (const big of [false, true]) {
+      for (const state of BLENDER_STATES) {
+        const all = ids({ tier, big, state });
+        const base = ids({ tier, big, state, part: 'base' });
+        const jug = ids({ tier, big, state, part: 'jug' });
+        assert.ok(base.length > 3 && jug.length > 3, `${tier}/${big}/${state}: both parts drawn`);
+        // the jug carries no base and no contact shadow, the base nothing of the jug (an overflow's puddle by the base
+        // is only drawn under the whole blender)
+        assert.equal(base.length + jug.length, all.length - (state === 'overflowing' ? 1 : 0), `${tier}/${big}/${state}: parts add up`);
+        const box = blenderBox(tier, big, state, 'jug');
+        const whole = blenderBox(tier, big, state);
+        assert.ok(box[0] >= 0 && box[1] >= 0 && box[2] <= w && box[3] <= h, `jug box ${box}`);
+        assert.ok(box[3] < whole[3] - 40, `${tier}/${big}/${state}: the jug box ${box} ends above the base (${whole})`);
+        const scene = blenderScene({ tier, big, state, base: 'acai', portions: 1, maxPortions: 2, part: 'jug' }, 0.5);
+        for (const it of scene.items) {
+          const [x0, y0, x1, y1] = canvasBox(scene, it);
+          assert.ok(it.pass !== 'shadow', 'no shadow under a carried jug');
+          assert.ok(x0 >= box[0] && y0 >= box[1] && x1 <= box[2] && y1 <= box[3], `${tier}/${big}/${state}: jug part outside ${box}`);
+        }
+      }
+    }
+  }
+});
+
 test('blender: every model stands equally tall, the big jug taller', () => {
   // top of the lid above the floor centre, in CSS px of the game's canvas
   const top = (tier, big) => {

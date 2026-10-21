@@ -187,15 +187,18 @@ export function blenderSVG(opts = {}, size = 150) {
   const state = ['empty', 'blending', 'ready', 'overflowing', 'ruined'].includes(o.state) ? o.state : 'empty';
   // progress is quantised so the cache stays small while the ring still moves smoothly
   const p = state === 'blending' ? Math.round(Math.max(0, Math.min(1, Number(o.progress) || 0)) * 48) / 48 : 0;
-  const key = `x|${tierOf(o.tier)}|${state}|${o.base}|${p}|${secsLeft(state, o)}|${o.portions}|${o.maxPortions}|${o.badge !== false}|${size}`;
+  const key = `x|${tierOf(o.tier)}|${state}|${o.base}|${p}|${secsLeft(state, o)}|${o.portions}|${o.maxPortions}|${o.badge !== false}|${size}|${o.part}`;
   return memo(key, () => drawBlender(state, o, p, size));
 }
 
+// o.part: 'base' the motor base alone (its jug is carried), 'jug' the jug alone (the drag ghost)
 function drawBlender(state, o, prog, size) {
   const p = pureeOf(ING[o.base]?.layer === 'base' ? o.base : 'acai');
-  let s = softShadow(BX, 145, 38, 5.5);
+  if (o.part === 'base') return svgWrap(size, size, 150, 150, softShadow(BX, 145, 38, 5.5) + motorBase(state, o));
+  const jugOnly = o.part === 'jug';
+  let s = jugOnly ? '' : softShadow(BX, 145, 38, 5.5);
   if (state === 'blending') s += line(`M${BX - 40} 52Q${BX - 46} 64 ${BX - 40} 76M${BX - 48} 58Q${BX - 52} 64 ${BX - 48} 70M${BX + 48} 104Q${BX + 54} 96 ${BX + 52} 86`, '#5b4b66', 2.2, op(0.5));
-  s += motorBase(state, o);
+  if (!jugOnly) s += motorBase(state, o);
   // clear handle (behind the jug's right wall)
   const handle = `M${f(jugR(42) - 2)} 41H${BX + 37}Q${BX + 42} 41 ${BX + 41.6} 46L${BX + 39.6} 70Q${BX + 39.2} 75 ${BX + 34} 75H${f(jugR(75) - 2)}`;
   s += path(handle, 'none', stroke(7.4, '#9fbac4') + op(0.55)) + path(handle, 'none', stroke(5.6, '#eef7fa') + op(0.7)) + path(handle, 'none', stroke(1.4, WHITE) + op(0.8));
@@ -224,7 +227,7 @@ function drawBlender(state, o, prog, size) {
     for (const [x, y1, y2, w] of [[BX - 31, 34, 66, 5.6], [BX + 30, 34, 52, 4.6], [BX - 2, 37, 46, 4.2]]) {
       s += path(`M${x - w / 2} ${y1}V${y2 - w / 2}A${w / 2} ${w / 2} 0 0 0 ${x + w / 2} ${y2 - w / 2}V${y1}Z`, p.main, stroke(1, edge(p.main))) + line(`M${x - w * 0.15} ${y1 + 2}V${y2 - w}`, p.light, 1, op(0.7));
     }
-    s += ellipse(BX - 36, 145.5, 10, 2.4, p.main, stroke(1, edge(p.main)));
+    if (!jugOnly) s += ellipse(BX - 36, 145.5, 10, 2.4, p.main, stroke(1, edge(p.main)));
     s += g(`translate(-14 -6) rotate(-20 ${BX} 30)`, lid());
   } else {
     s += lid();
@@ -234,7 +237,7 @@ function drawBlender(state, o, prog, size) {
     s += circle(BX - 46, 42, 2.2, '#1d1d22') + ellipse(BX - 47.8, 39.4, 2.4, 1.4, WHITE, op(0.85)) + ellipse(BX - 44, 39.4, 2.4, 1.4, WHITE, op(0.85));
   }
   // decorative use (shop cards, badge:false): no status badge, so a ✓ never reads as "already bought"
-  if (o.badge !== false) s += statusBadge(state, prog);
+  if (o.badge !== false && !jugOnly) s += statusBadge(state, prog);
   return svgWrap(size, size, 150, 150, s);
 }
 
