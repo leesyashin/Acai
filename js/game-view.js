@@ -372,6 +372,16 @@ const BAR_STEPS = 100;
 const BAR_JUMP = 0.05; // bigger changes (a refill, a new blend) are written at once
 const HIT_PAD = 18; // stage px around a station, as in drag.js
 const HIT_PAD_PHONE = 30; // on a phone (the stage at about half size): about as many css px as on a tablet
+// Phone (html.is-phone): the shop scene – wall, guests, bubbles – is scaled up by SCENE_ZOOM about the pass's bottom
+// edge (stage 640, 338), as far as the bubbles' slots (BUBBLE_W each, BUBBLE_EDGE in) fit between the safe-area
+// insets and the tallest bubble (its top at y 67) stays on screen; the HUD moves out of their way into the bands
+// beside the guests, under the bubbles (y 160–290), when a band keeps at least SIDE_HUD_MIN stage px free of the inset.
+const SCENE_ZOOM = 1.2;
+const SCENE_OX = 640;
+const SCENE_OY = 338;
+const SIDE_HUD_MIN = 100;
+const SIDE_HUD_PAD = 10; // the HUD column's distance from the inset and from the stage's edge
+const DECOR_PHONE_IN = 163; // scene x of the plants' middle (and, mirrored, the jukebox's) with the HUD beside the scene
 
 const ACTIVE = new Set(['arriving', 'waiting']);
 const BOWL_LAYERS = new Set(['mid', 'top']);
@@ -538,6 +548,8 @@ class GameView {
     this.phone = isPhone();
     this.lay = null;
     this.wk = null;
+    this.sk = null; // the scene's transform on a phone (placeScene): k about (SCENE_OX, SCENE_OY)
+    this.sideHud = false;
     this.look = blenderLook(save.upgrades);
     window.__acaiGame = this.game;
   }
@@ -562,10 +574,12 @@ class GameView {
     root.append(this.stampEl, this.ghostLayer); // ghost layer stays the last child
     this.container.append(root);
     this.applyTexts();
+    this.placeScene();
   }
 
   buildScene() {
     const scene = el('div', 'g-scene');
+    this.sceneEl = scene;
     this.wallEl = el('div', 'g-wall');
     this.decorEls = {};
     const decor = el('div', 'g-decor');
@@ -790,11 +804,39 @@ class GameView {
       this.trashEl.innerHTML = `<div class="g-art">${trashSVG(102)}</div>`;
     }
     work.append(this.trashEl);
-    if (lay) {
-      this.placePhone(lay);
-      this.offs.push(onStageResize(() => this.placePhone()));
-    }
+    if (lay) this.placePhone(lay);
+    if (this.phone) this.offs.push(onStageResize(() => { this.placePhone(); this.placeScene(); }));
     return work;
+  }
+
+  // The scene scaled up about the pass and the HUD beside it (see SCENE_ZOOM); on a window without room for that
+  // (a 16:9 phone, a deep inset) the scene and the HUD stay as on a tablet. Called once built (build) and whenever the
+  // window changes.
+  placeScene() {
+    if (!this.phone) return;
+    const { bx } = getBleed();
+    const safe = safeInsets();
+    const availW = STAGE_W + 2 * bx;
+    const bandL = bx - safe.l - 2 * SIDE_HUD_PAD;
+    const bandR = bx - safe.r - 2 * SIDE_HUD_PAD;
+    const side = Math.min(bandL, bandR) >= SIDE_HUD_MIN;
+    const k = side ? Math.min(SCENE_ZOOM, (availW - safe.l - safe.r - 2 * BUBBLE_EDGE) / (STAGE_W - 2 * BUBBLE_EDGE), (SCENE_OY - 4) / (SCENE_OY - 67)) : 1;
+    const zoom = k > 1.001;
+    this.sk = zoom ? { k, tx: 0, ty: 0, ox: SCENE_OX, oy: SCENE_OY } : null;
+    this.sceneEl.style.transform = zoom ? `scale(${Math.round(k * 1000) / 1000})` : '';
+    this.root.classList.toggle('is-scene-zoom', zoom);
+    this.root.classList.toggle('is-side-hud', side);
+    this.sideHud = side;
+    if (side) {
+      const st = this.root.style;
+      st.setProperty('--band-l', `${Math.round(-bx + safe.l + SIDE_HUD_PAD)}px`);
+      st.setProperty('--band-lw', `${Math.round(bandL)}px`);
+      st.setProperty('--band-r', `${Math.round(STAGE_W + bx - safe.r - SIDE_HUD_PAD - bandR)}px`);
+      st.setProperty('--band-rw', `${Math.round(bandR)}px`);
+      // the hearts in one row across the column
+      st.setProperty('--heart', `${Math.max(18, Math.min(30, Math.floor((bandL - 24 - 2 * this.heartEls.length) / this.heartEls.length)))}px`);
+    }
+    if (this.seatCount) this.layoutDecor(this.seatCount);
   }
 
   // ---------------------------------------------------------------- phone: the work area across the window
@@ -1162,7 +1204,8 @@ class GameView {
   // ---------------------------------------------------------------- geometry
   // Untransformed position of an element in stage px (relative to the screen root).
   // Ignores CSS transforms, includes ancestor borders (offsetLeft starts inside the parent's border).
-  // The phone's scaled work area (placePhone) is the one transform it follows: what stands in it is mapped through it.
+  // The phone's scaled work area (placePhone) and scene (placeScene) are the transforms it follows: what stands in
+  // them is mapped through them.
   posOf(node) {
     let x = 0;
     let y = 0;
@@ -1173,10 +1216,11 @@ class GameView {
       x += n.offsetLeft;
       y += n.offsetTop;
       n = n.offsetParent;
-      if (n && n === this.workEl && this.wk) {
-        const { k, tx, ty } = this.wk;
-        x = tx + x * k;
-        y = ty + y * k;
+      const xf = n && ((n === this.workEl && this.wk) || (n === this.sceneEl && this.sk));
+      if (xf) {
+        const { k, tx, ty, ox = 0, oy = 0 } = xf;
+        x = ox + tx + (x - ox) * k;
+        y = oy + ty + (y - oy) * k;
         w *= k;
         h *= k;
       }
@@ -1859,8 +1903,10 @@ class GameView {
       const d = this.decorEls[id];
       if (d) d.style.left = `${Math.round(cx - DECOR_SIZE[id] / 2)}px`;
     };
-    place('plants', 58);
-    place('jukebox', JUKEBOX_X);
+    // with the HUD beside the scene (placeScene) the plants and the jukebox stand further in, behind the outer
+    // guests' shoulders where need be, clear of the HUD's columns
+    place('plants', this.sideHud ? DECOR_PHONE_IN : 58);
+    place('jukebox', this.sideHud ? STAGE_W - DECOR_PHONE_IN : JUKEBOX_X);
     place('seating', xs.length > 1 ? gapMid(0) : 330);
     // the neon hangs from the wainscot's rail, under the faces (css/game.css): with 3 and 4 seats between the two
     // right guests' shoulders (x 825, 934; tools/art-preview.html places a copy there for its 4-seat scene), with 1
@@ -2260,7 +2306,7 @@ class GameView {
     const p = this.posOf(fig || anchor);
     const node = el('div', `toast g-toast ${kind === 'info' ? '' : kind}${fig ? ' at-guest' : ''}`, { role: 'status' });
     node.textContent = text;
-    const y = fig ? p.y + FIG_CHIN_Y : Math.max(84, p.y + 6);
+    const y = fig ? p.y + (FIG_CHIN_Y * p.h) / 160 : Math.max(84, p.y + 6);
     node.style.top = `${y}px`;
     this.fxEl.append(node);
     // centre on the anchor, clamped with the real width (it wraps by its own max-width, not by left)
