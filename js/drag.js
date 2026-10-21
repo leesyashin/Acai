@@ -8,7 +8,7 @@
 // A target's hit rect is its element's box (plus the boxes of its optional hitEls), expanded by HIT_PAD; an accepted
 // ghost shrinks into the centre of that box, or of its optional land element.
 
-const HIT_PAD = 18; // stage px added around every target rect
+const HIT_PAD = 18; // stage px added around every target rect (the default of the hitPad option: more on a phone)
 // Touch: the ghost centre floats TOUCH_LIFT_CSS css px (~9 mm on a tablet) above the finger, clamped to
 // TOUCH_LIFT…TOUCH_LIFT_MAX stage px – never less than on a big screen, and never so much that the trash
 // at the stage's bottom edge gets out of reach on a phone.
@@ -73,7 +73,7 @@ const preventDefault = (e) => {
   if (e.cancelable) e.preventDefault();
 };
 
-export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop, onCancel } = {}) {
+export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop, onCancel, hitPad = HIT_PAD } = {}) {
   const sources = new Map(); // el → registration
   const targets = new Map(); // el → registration
   const flights = new Set(); // ghosts still animating after a drag ended
@@ -159,7 +159,7 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
     let best = null;
     let bestDist = Infinity;
     for (const [reg, r] of d.rects) {
-      if (x < r.x1 - HIT_PAD || x > r.x2 + HIT_PAD || y < r.y1 - HIT_PAD || y > r.y2 + HIT_PAD) continue;
+      if (x < r.x1 - hitPad || x > r.x2 + hitPad || y < r.y1 - hitPad || y > r.y2 + hitPad) continue;
       const dist = Math.hypot(x - r.cx, y - r.cy);
       if (dist < bestDist) {
         best = reg;

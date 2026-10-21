@@ -22,7 +22,7 @@ import { PANTRY_VIEW, pantryKind, pantryHasFront, pantryTop, pantryBadges } from
 import { createDragManager } from './drag.js';
 import defaultAudio from './audio.js';
 import { ICON } from './icons.js';
-import { isBleed } from './stage.js';
+import { isBleed, isPhone } from './stage.js';
 import { buzz, HAPTIC } from './haptics.js';
 import {
   getSave, kitchenStats, recordLevelResult, recordEndless, markIntroSeen, setSetting, ownedNow,
@@ -83,12 +83,12 @@ registerStrings({
     'game.hint.pack': 'Zieh die Packung in den Mixer!',
     'game.hint.bin': 'Zieh die Zutat auf eine Bowl!',
     'game.hint.bowl': 'Zieh die Bowl zu einem Gast!',
-    'game.hint.bowlEmpty': 'Zieh einen fertigen Mixer auf die Bowl!',
+    'game.hint.bowlEmpty': 'Zieh den Krug eines fertigen Mixers auf die Bowl!',
     'game.hint.noCup': 'Zieh eine leere Bowl aus dem Becherspender hierher!',
     'game.hint.stack': 'Zieh eine leere Bowl auf einen freien Platz!',
-    'game.hint.blender': 'Zieh den Mixer auf eine leere Bowl!',
+    'game.hint.blender': 'Zieh den Mixkrug auf eine leere Bowl!',
     'game.hint.blenderEmpty': 'Zieh eine Basis-Packung in den Mixer!',
-    'game.hint.blenderRuined': 'Verdorben! Zieh den Mixer in den Müll.',
+    'game.hint.blenderRuined': 'Verdorben! Zieh den Mixkrug in den Müll.',
     'game.hint.glass': 'Zieh den Matcha zu einem Gast!',
     'game.hint.slotEmpty': 'Zieh eine Frucht aus der Matcha-Bar auf das Glas!',
     'game.hint.mfruit': 'Zieh die Frucht auf ein leeres Matcha-Glas!',
@@ -101,11 +101,11 @@ registerStrings({
     'game.tut.waitWrong': 'Das ist die falsche Basis. Warte, bis der Mixer fertig ist.',
     'game.tut.cup': 'Stell eine leere Bowl hin: Zieh sie aus dem Becherspender auf den freien Platz!',
     'game.tut.cupWait': 'Der Mixer mixt noch – stell schon mal eine leere Bowl hin!',
-    'game.tut.pour': 'Fertig! Zieh den Mixer auf die leere Bowl.',
+    'game.tut.pour': 'Fertig! Zieh den Mixkrug auf die leere Bowl.',
     'game.tut.add': 'Zieh jetzt {ing} auf die Bowl – schau in die Sprechblase!',
     'game.tut.addTop': 'Toppings kommen zum Schluss: Zieh {ing} auf die Bowl!',
     'game.tut.trash': 'Ups, das passt nicht zur Bestellung. Wirf die Bowl in den Müll.',
-    'game.tut.clean': 'Diese Basis brauchst du nicht. Zieh den Mixer in den Müll.',
+    'game.tut.clean': 'Diese Basis brauchst du nicht. Zieh den Mixkrug in den Müll.',
     'game.tut.serve': 'Perfekt! Gib die Bowl deinem Gast.',
     'game.tut.done': 'Super gemacht! Behalte den Geduldsbalken deiner Gäste im Blick – wer zu lange wartet, geht.',
     'game.tut.go': 'Los geht’s!',
@@ -196,12 +196,12 @@ registerStrings({
     'game.hint.pack': 'Drag the pack into the blender!',
     'game.hint.bin': 'Drag the ingredient onto a bowl!',
     'game.hint.bowl': 'Drag the bowl to a customer!',
-    'game.hint.bowlEmpty': 'Drag a ready blender onto the bowl!',
+    'game.hint.bowlEmpty': 'Drag the jug of a ready blender onto the bowl!',
     'game.hint.noCup': 'Drag an empty bowl from the cup dispenser here!',
     'game.hint.stack': 'Drag an empty bowl to a free spot!',
-    'game.hint.blender': 'Drag the blender onto an empty bowl!',
+    'game.hint.blender': 'Drag the blender jug onto an empty bowl!',
     'game.hint.blenderEmpty': 'Drag a base pack into the blender!',
-    'game.hint.blenderRuined': 'Spoiled! Drag the blender to the trash.',
+    'game.hint.blenderRuined': 'Spoiled! Drag the blender jug to the trash.',
     'game.hint.glass': 'Drag the matcha to a customer!',
     'game.hint.slotEmpty': 'Drag a fruit from the matcha bar onto the glass!',
     'game.hint.mfruit': 'Drag the fruit onto an empty matcha glass!',
@@ -214,11 +214,11 @@ registerStrings({
     'game.tut.waitWrong': 'That’s the wrong base. Wait until the blender is done.',
     'game.tut.cup': 'Put an empty bowl down: drag it from the cup dispenser to the free spot!',
     'game.tut.cupWait': 'The blender is still mixing – put an empty bowl down meanwhile!',
-    'game.tut.pour': 'Done! Drag the blender onto the empty bowl.',
+    'game.tut.pour': 'Done! Drag the blender jug onto the empty bowl.',
     'game.tut.add': 'Now drag the {ing} onto the bowl – check the speech bubble!',
     'game.tut.addTop': 'Toppings go on last: drag the {ing} onto the bowl!',
     'game.tut.trash': 'Oops, that doesn’t match the order. Drop the bowl in the trash.',
-    'game.tut.clean': 'You don’t need this base. Drag the blender to the trash.',
+    'game.tut.clean': 'You don’t need this base. Drag the blender jug to the trash.',
     'game.tut.serve': 'Perfect! Hand the bowl to your customer.',
     'game.tut.done': 'Well done! Keep an eye on the patience bar – customers who wait too long will leave.',
     'game.tut.go': 'Let’s go!',
@@ -370,6 +370,7 @@ const BAR_TICK = 0.1; // s
 const BAR_STEPS = 100;
 const BAR_JUMP = 0.05; // bigger changes (a refill, a new blend) are written at once
 const HIT_PAD = 18; // stage px around a station, as in drag.js
+const HIT_PAD_PHONE = 30; // on a phone (the stage at about half size): about as many css px as on a tablet
 
 const ACTIVE = new Set(['arriving', 'waiting']);
 const BOWL_LAYERS = new Set(['mid', 'top']);
@@ -530,6 +531,7 @@ class GameView {
     // the appliances are 3D (WebGL) with the upgraded models; without WebGL the drawn art stays
     this.k3d = has3D();
     this.wideArt = isBleed();
+    this.hitPad = isPhone() ? HIT_PAD_PHONE : HIT_PAD;
     this.look = blenderLook(save.upgrades);
     window.__acaiGame = this.game;
   }
@@ -1104,6 +1106,7 @@ class GameView {
       ghostLayer: this.ghostLayer,
       onPickup: () => this.audio.sfx('pickup'),
       onDrop: (r) => this.onDropResult(r),
+      hitPad: this.hitPad,
     });
     this.dnd = dnd;
     const act = (fn) => (this.canAct() ? fn() : { ok: false, reason: 'notPlaying' });
@@ -1311,7 +1314,7 @@ class GameView {
       for (const nodes of stations[type]) {
         if (nodes[0] === source) continue;
         const b = this.stageRect(...nodes);
-        if (x < b.x1 - HIT_PAD || x > b.x2 + HIT_PAD || y < b.y1 - HIT_PAD || y > b.y2 + HIT_PAD) continue;
+        if (x < b.x1 - this.hitPad || x > b.x2 + this.hitPad || y < b.y1 - this.hitPad || y > b.y2 + this.hitPad) continue;
         const dist = Math.hypot(x - b.cx, y - b.cy);
         if (dist < bestDist) {
           best = { el: nodes[0], key };

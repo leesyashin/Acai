@@ -56,6 +56,13 @@ function onWheel(e) {
   if (!scroller) preventDefault(e);
 }
 
+// A phone: full bleed on a small screen (its short side at most PHONE_MAX css px). The stage is the same, scaled to
+// about half; the game view gives targets a wider hit area and the CSS sets its small print bigger (html.is-phone).
+const PHONE_MAX = 500;
+export function isPhone() {
+  return isBleed() && typeof window !== 'undefined' && Math.min(window.innerWidth, window.innerHeight) <= PHONE_MAX;
+}
+
 export function isBleed() {
   return !!bleedQuery?.matches;
 }
@@ -64,6 +71,7 @@ export function fit() {
   if (!appEl || !stageEl) return;
   const bleed = isBleed();
   document.documentElement.classList.toggle('is-bleed', bleed);
+  document.documentElement.classList.toggle('is-phone', isPhone());
   const cs = getComputedStyle(appEl);
   const availW = appEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
   const availH = appEl.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);

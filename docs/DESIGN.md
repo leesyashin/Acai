@@ -116,8 +116,8 @@ player decisions listed in §1.
 - Level 1 (`intro: 'basics'`) runs a step-by-step tutorial with an arrow + speech text. While the tutorial
   runs, `game.tutorialHold = true`: the first customer's patience does not drain and no further customers
   spawn. Steps: (1) drag açaí pack into blender, (2) put an empty cup from the dispenser on a free spot (shown while
-  the blender mixes, or once it is ready, whenever no cup is down), (3) wait while it blends, (4) drag blender onto
-  the cup, (5) drag the ordered ingredient(s) onto the bowl, (6) drag the bowl to the customer, (7) "Great! Watch
+  the blender mixes, or once it is ready, whenever no cup is down), (3) wait while it blends, (4) drag blender (its
+  jug) onto the cup, (5) drag the ordered ingredient(s) onto the bowl, (6) drag the bowl to the customer, (7) "Great! Watch
   the patience of your customers" → hold released. The step is derived from the game state every frame (a trashed
   bowl leads back to the cup step).
 - Other intros (`overflow`, `moreSeats`, `matcha`, `extras`, `endless`, `fourSeats`) are explained in the pre-level
@@ -225,6 +225,15 @@ event (non-passive listener on `window`) and `html, body` carry `overscroll-beha
 (`webkitmouseforcewillbegin`) is cancelled too, so it never opens Look Up mid-drag. A scroller (the level map) carries
 `data-scroll` and `touch-action: pan-y`; the wheel listener lets a plain vertical wheel over it through (no ctrl/⌘).
 
+**Phone.** On a phone held sideways (full bleed and the window's short side ≤ 500 css px, `isPhone()`) `html.is-phone`
+is set. The stage is the same 1280×800 – shown at about half its size (0.49 at 844×390, 0.54 at 932×430) – so the game
+view widens every target's hit area (`hitPad` 30 instead of 18 stage px) and the CSS sets the small print bigger: name
+tags and layer labels ×1.4 (a tag grows up over its container, a label down over the riser), the freezer label ×1.3,
+toasts 30 px, the level banner 24 px, the tutorial 26–28 px in a wider panel, the money bar's goal marks 17 px – all ≥ 8
+css px on screen. Upright, the rotate hint above asks to turn the phone (the game is built for landscape; "Play anyway"
+shows it letterboxed). `tests/e2e/mobile.e2e.mjs` checks 844×390 and 932×430: no scrolling or zoom, the stage and every
+station on screen and ≥ 30 css px, the small print ≥ 8 css px, and the jug carried by touch.
+
 **Framed or full bleed.** On a fine pointer (desktop, MacBook) the stage is framed: rounded corners and a shadow on the
 açaí-purple page, 8/16 px of padding. On touch devices (`(pointer: coarse)`) and in the installed app
 (`display-mode: standalone | fullscreen`) `html.is-bleed` is set: no padding, no frame, and the screens' art runs on
@@ -320,8 +329,11 @@ while `tutorialHold` is on, so the tutorial does not eat level time (blenders ke
 ### 4.3 Drag & drop (`js/drag.js`) – contract
 ```js
 const dnd = createDragManager({ root /* #stage element */, toStage, ghostLayer /* element inside stage */,
+                                 hitPad? /* stage px round a target, default 18; the game passes 30 on a phone */,
                                  onPickup?(payload), onDrop?(result), onCancel?(result) })
 dnd.source(el, { payload: () => obj|null, ghost: (payload) => HTMLElement|markup, onStart?, onEnd?, onTap?,
+                 home?: () => Element /* where a returning ghost flies to (default: el), e.g. the jug's place on its base */,
+                 back?: boolean /* the ghost flies home after an accepted drop too (a jug poured into a cup) */,
                  reach?: number /* stage px its hit area reaches above its box, e.g. by a ::before */ }) → unregister
 dnd.target(el, { accepts: (payload) => boolean, valid?: (payload) => boolean, drop: (payload) => {ok, reason?},
                  hitEls?: [Element] /* more boxes that count as the target, e.g. a guest's order bubble */,
@@ -343,6 +355,10 @@ dnd.cancel(); dnd.destroy(); dnd.isDragging(); dnd.refresh()
   holds. The target under the pointer gets `drop-hover`, plus `drop-bad` when it is not valid. `refresh()`
   re-evaluates `valid()` mid-drag (game-view calls it every frame). Hit test: target rect (the element's box joined
   with its `hitEls`' boxes) expanded by 18 stage px; nearest center wins when overlapping. The classes stay on `el`.
+- **Blender: only the jug is carried.** The blender is the source, but its ghost is the jug alone (`blenderBox(…, 'jug')`
+  of a jug-only picture, or the drawn jug cut out of `blenderSVG({ part: 'jug' })`); while it is carried the base stays
+  in full view (no `drag-source` fading) without its jug and badge, and after the drop – poured or not – the jug flies
+  back onto its base (`back`, `home` = `.g-jug`, the jug's box in the blender's art).
 - Drop on a target → `drop(payload)`. Accepted: the ghost shrinks into the centre of the target's `land` element
   (when given and drawn), else of its hit rect – a guest's hit rect spans its order bubble, pushed aside with 4 seats,
   so the guest lands it on its figure. If `{ok:false}` or no target: ghost animates back to its source and
@@ -418,9 +434,8 @@ shopSceneSVG(width, height, {seats = 3}) // the café's back wall (1280×330): p
                                       // the money pill), fluted oak wainscot, soft shadows, a vignette; seats: 4 leaves out the
                                       // chalkboard and the shelf (the outer bubbles, x 6–312 and 968–1274, would hide them all
                                       // but for slivers)
-counterSVG(width, height)             // the work counter under the pass (1280×462): terrazzo worktop in perspective, rounded
-                                      // front edge (COUNTER_EDGE_Y), a strip of open oak shelves with stock, the freezer's
-                                      // front panel, a fruit basket and a jar of straws in front of the machine
+counterSVG(width, height)             // the work counter under the pass (1280×462): terrazzo worktop in perspective down to
+                                      // the bottom of the screen – no front edge, no cabinet: nothing but the work surface
 freezerSVG('well'|'rim', w, h)        // chest freezer in the counter (284×186): frosty well with a glass lid slid back /
                                       // the frame's front edge drawn over the packs
 riserSVG(w, h)                        // oak riser an ingredient row stands on (drawn 1:1; its 16 px front edge, ending
@@ -444,7 +459,7 @@ mapLevelPos(i), mapRoadData(count)    // centre of level node i (stage x, map y)
                                       // first `count` nodes (a smooth curve)
 ```
 The café wall and the work counter take `{ bleed, above }` / `{ bleed, below }` too: the plain wall (plaster, wainscot,
-cornice, lamp cords), the worktop and the cabinet with its compartments run on that far (the picture is then drawn 1:1,
+cornice, lamp cords) and the worktop run on that far (the picture is then drawn 1:1,
 the stage's origin at `(bleed, above)`); without them they are the 1280-wide pictures they always were.
 `customerSVG(look, mood, size, blink)`: blink draws neutral and impatient eyes shut (the game and the title lay it over
 the open-eyed picture for a blink now and then).
@@ -497,7 +512,10 @@ pourFill(progress)                          // how full the glass under the nozz
 MATCHA_GEO; machinePoint([x, y, z]) → [x, y] // the machine's measures and a world point in its canvas (the drawn version)
 blenderZoom(tier, big)                      // a model's zoom: every model equally tall (measured once from its jug, lid and cap)
 blenderBadgeAt(tier, big) → { x, y }        // canvas point above the right end of the model's lid (status badge)
-blenderBox(tier, big, state) → [x0, y0, x1, y1]  // the canvas part a model in a state covers (drag ghost), measured once
+blenderBox(tier, big, state, part?) → [x0, y0, x1, y1]  // the canvas part a model in a state covers, measured once;
+                                            // part 'jug': the jug alone (the drag ghost)
+blenderScene(o, t) with o.part              // 'base': the motor base without its jug (while the jug is carried),
+                                            // 'jug': the jug alone, no base and no shadow (the drag ghost); blenderSVG too
 fitFrame(frame, size)                       // a view (its pic rows, if set) fitted into a size×size menu picture
 // pantry3d.js (pure), the view 'pantry' of VIEWS / SCENES
 pantryScene({ kind | id, layer: 'back'|'front' }, t, frame?)  // an ingredient's container; 'front' = its front rim only
@@ -722,7 +740,7 @@ y 294–338  the pass: white marble top (y 294–318, overlaps customers' bodies
            and badges and the matcha machine stay visible too.
            The work area is drawn over it: tall appliances at the back of the worktop stand in front of the pass and
            may cover its oak front and the lower marble edge (never the guests' faces or bubbles)
-y 338–742  worktop in perspective (counterSVG): terrazzo, chips shrinking toward the back, the pass's shadow on the
+y 338–800  worktop in perspective (counterSVG), down to the bottom of the screen: terrazzo, chips shrinking toward the back, the pass's shadow on the
            far edge; everything on it is seen from above at an angle and casts a soft shadow. Back row: the front feet
            of the blenders and the machine end on one line at y≈548.
   x  10–320  blenders at the back (hit box 150 × 210, y 338–548; 1 → x 89, 2 → x 10 and 170, so two big jugs keep a
@@ -732,8 +750,8 @@ y 338–742  worktop in perspective (counterSVG): terrazzo, chips shrinking towa
              y≈350); status badge over the right end of the lid, timer bar on the worktop under the feet (y 551–561,
              over the freezer's back rim); in front of them the chest freezer built into the counter (x 16–300,
              opening y 556–742): the base packs (owned bases only, 84 px) stand in the frosty well, a glass lid slid
-             back over spare packs, the frame's front edge covers their feet; its front panel on the cabinet strip
-             says "1 · Base"
+             back over spare packs, the frame's front edge covers their feet; the label "1 · Base" lies on the worktop
+             under it
   x 330–940  cup stack (105 px, "Bowls", y≈340–522; its cups are the size of a placed cup) + cup spots (2–4, 120 px
              boxes, y 380–528), centred together, with content chips under each cup in the bubbles' language and
              layout: the base chip, beside it a row of the fruits & crunch and under that one of the toppings &
@@ -775,10 +793,8 @@ y 338–742  worktop in perspective (counterSVG): terrazzo, chips shrinking towa
              96 × 136 px, two of them keep a gap; a slot's timer bar lies on the worktop just under the drip tray's
              front (y≈551–561), like the blenders' bars; a fruit basket and a jar of straws (decor, part of
              counterSVG) on the worktop in front of the machine
-y 742–756  rounded front edge of the worktop
-y 756–800  cabinet strip: the tops of open oak shelves with the café's stock (cups, bowls, fruit crates, granola,
-           jars, coconuts) under an LED strip; the trash can (136 px box, x 1136–1272, y 664–800, its lid reaching
-           higher) stands on the floor in front of it, bottom right
+y 742–800  more worktop: no cabinet, no shelves, no crates – nothing but the work surface; the trash can (136 px
+           box, x 1136–1272, y 664–800, its lid reaching higher) stands on it, bottom right
 ```
 Interaction targets must be ≥ 64 stage px (tablet fingers). Valid drop targets glow while dragging.
 `tests/e2e/layout.e2e.mjs` checks that every station (blenders, packs, cup stack, cup spots, ingredients,
