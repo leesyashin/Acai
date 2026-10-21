@@ -1438,47 +1438,96 @@ export function matchaScene(o = {}, t = 0, frame = VIEWS.machine) {
 // ==================================================================
 // Pedal bin
 // ==================================================================
-const BIN = { r: 26, h: 70 };
+// A slim stainless step bin like the ones in café kitchens: a rounded-rectangular body (wider
+// than deep, so it sits in the corner of the worktop), a black plastic plinth with a rubber
+// bumper, a black lid frame with the white liner's edge folded over it, a flat brushed lid with a
+// dark rim that swings up at the back on its hinge, the lifting rod from the pedal up the back, the
+// wide pedal in front with its steel tread, and the brand badge on the front. Measures in stage px.
+const BIN = { r: 33, h: 86, depth: 0.74, sq: 0.45 };
 
 function binParts() {
   return once('bin', () => {
-    const { r, h } = BIN;
+    const { r, h, depth, sq } = BIN;
+    const o = { segs: 72, sq, depth };
+    const R = r + 2.4; // the lid and the lid frame reach out over the body
     return {
-      body: lathe([[r - 1.5, 5.5], [r, 7.5], [r + 1.1, h - 3], [r + 1.4, h - 0.5], [r + 0.4, h]], { segs: 56 }),
-      inner: lathe([[0, h - 7], [r - 0.6, h - 7, 1], [r + 0.4, h - 0.4]], { segs: 48 }),
-      foot: lathe([[0, 0], [r + 0.6, 0, 1], [r + 1.5, 2.5], [r + 1.4, 7], [r - 1, 8.2], [0, 8.2]], { segs: 56 }),
-      lid: lathe([[r + 1.9, 0], [r + 2.1, 1.8], [r + 1.4, 4.4], [r * 0.82, 8.6], [r * 0.4, 10.6], [0, 11]], { segs: 56 }),
-      lidInside: lathe([[r + 1.9, 0.05], [r + 0.6, 1.2], [r * 0.8, 6.4], [r * 0.4, 8.6], [0, 9]], { segs: 48, inside: true }),
-      rim: lathe([[r + 1.95, -0.3], [r + 2.3, 0.6], [r + 2.3, 2.2], [r + 1.9, 2.6]], { segs: 56 }),
-      bag: lathe([[r + 0.2, h - 1.8], [r + 1.6, h - 0.6], [r + 1.3, h + 0.6], [r - 0.5, h + 0.2]], { segs: 48 }),
-      pedal: roundedBox(26, 3.6, 15, 1.5, 2),
-      plate: roundedBox(22, 1, 10, 0.5, 2),
-      hinge: roundedBox(14, 4, 5, 1.6, 2),
+      // black plinth with the rubber bumper around its foot
+      plinth: lathe([[0, 0], [r - 1.2, 0, 1], [r + 0.9, 1.1], [r + 1.4, 3.2], [r + 0.9, 5.6], [r - 0.3, 7.2], [r - 1.6, 8]], o),
+      bumper: lathe([[r + 1.0, 0.5], [r + 1.6, 1.3], [r + 1.7, 2.6], [r + 1.2, 3.4]], o),
+      // brushed body, a hair wider toward the top like a drawn steel can
+      body: lathe([[r - 1.6, 8], [r - 0.3, 9], [r, 12], [r + 0.3, h - 8], [r + 0.2, h - 4.5]], o),
+      // black lid frame: out over the body's rim and back in to the opening
+      frame: lathe([[r - 0.4, h - 5.5], [R - 0.3, h - 4.2], [R, h - 1.8], [R - 0.2, h], [R - 1.2, h + 1.2], [r - 2.2, h + 1.5], [r - 3, h + 0.6]], o),
+      // the inner bucket: its floor, then up the wall to the opening
+      inner: lathe([[0, h - 18], [r - 4.4, h - 18, 1], [r - 3.6, h - 4], [r - 3, h + 0.6]], { ...o, inside: true }),
+      // the white liner's edge folded over the frame
+      liner: lathe([[r - 3.4, h + 0.4], [r - 2.2, h + 1.9], [r - 0.2, h + 2.2], [R - 1.6, h + 1.6], [R - 1.2, h + 0.4]], { ...o, segs: 64 }),
+      // the lid: a soft dome with a flat top, its dark rim strip and the black underside
+      lid: lathe([[R - 0.6, 0], [R, 1.2], [R - 0.2, 3.2], [R - 1.6, 4.6], [r * 0.72, 6.3], [r * 0.3, 7.2], [0, 7.4]], o),
+      lidRim: lathe([[R - 0.6, -0.4], [R + 0.3, 0.4], [R + 0.35, 1.6], [R - 0.1, 2.4]], o),
+      lidInside: lathe([[R - 0.6, 0.05], [r - 1, 1.1], [r * 0.7, 3.6], [0, 4.2]], { ...o, inside: true }),
+      // hinge at the back: the block on the frame and the knuckle on the lid
+      hingeBlock: roundedBox(20, 5, 7, 1.8, 2),
+      knuckle: roundedBox(14, 4.2, 4.2, 2, 3),
+      // the lifting rod up the back and the arm that lifts the lid
+      rod: cylinder(1.3, 5, h - 2, { segs: 12 }),
+      arm: roundedBox(3, 2.2, 8, 1, 2),
+      // the pedal in front: its black lever on two short arms, the steel tread on it
+      pedalArm: roundedBox(4, 3.6, 14, 1.2, 2),
+      pedal: roundedBox(r * 1.25, 3.4, 13, 1.6, 2),
+      tread: roundedBox(r * 1.25 - 5, 1.1, 8.5, 0.5, 2),
+      treadRibs: roundedBox(r * 1.25 - 9, 0.5, 5.5, 0.25, 1),
+      // the brand badge on the front
+      badge: plane(28, 7),
     };
   });
 }
 
+const BIN_MAT = {
+  steel: material({ color: '#cdd3d8', metal: 1, rough: 0.26, mode: MODE.BRUSHED, p: [0.55, 1, 0.1, 0] }),
+  lid: material({ color: '#d4d9de', metal: 1, rough: 0.2, mode: MODE.BRUSHED, p: [0.6, 0, 0, 0] }),
+  bucket: material({ color: '#131316', rough: 0.4, coat: 0.5 }),
+  liner: material({ color: '#f1f0ec', rough: 0.55, coat: 0.15 }),
+  tread: material({ color: '#c3c9ce', metal: 1, rough: 0.34, mode: MODE.BRUSHED, p: [0.5, 2, 0.1, 0] }),
+};
+
 // o = { lid: 0 closed … 1 wide open }
 export function trashScene(o = {}, t = 0, frame = VIEWS.trash) {
   const P = binParts();
-  const { r, h } = BIN;
+  const { r, h, depth } = BIN;
+  const d = r * depth; // half depth
+  const R = r + 2.4;
   const open = clamp(Number(o.lid) || 0, 0, 1.15);
   const items = [];
-  items.push(shadow(r - 2, r - 3, r - 3, 9, 0.6));
-  items.push(item(P.foot, MAT.blackSatin));
-  items.push(item(P.body, once('bin-steel', () => material({ color: '#c8ced3', metal: 1, rough: 0.28, mode: MODE.BRUSHED, p: [0.6, 1, 0, 0] }))));
-  items.push(item(P.inner, once('bin-in', () => material({ color: '#111114', rough: 0.35, coat: 0.6 }))));
-  items.push(item(P.bag, MAT.blackGloss));
-  // pedal goes down while the lid is up
-  const press = clamp(open, 0, 1) * 0.28;
-  const pedal = compose(at(0, 3.2, r - 2), rotationX(press), at(0, 0, 8));
-  items.push(item(P.pedal, MAT.blackSatin, pedal));
-  items.push(item(P.plate, MAT.chrome, compose(pedal, at(0, 2.2, 0.6))));
-  items.push(item(P.hinge, MAT.blackSatin, at(0, h - 1, -r - 1.6)));
-  const lid = compose(rotationAbout([0, h + 0.4, -r - 1.8], 'x', -open * 1.2), at(0, h + 0.4, 0));
-  items.push(item(P.lid, once('bin-lid', () => material({ color: '#cfd5da', metal: 1, rough: 0.22, mode: MODE.BRUSHED, p: [0.7, 0, 0, 0] })), lid));
-  items.push(item(P.rim, MAT.blackGloss, lid));
+  // a soft pool of shade under and around it, and the dark contact line right under the plinth
+  items.push(shadow(r + 3, d + 3, r * 0.75, 14, 0.42));
+  items.push(shadow(r - 0.5, d - 0.5, r * 0.6, 3, 0.7));
+  items.push(item(P.plinth, MAT.blackSatin));
+  items.push(item(P.bumper, MAT.rubber));
+  items.push(item(P.body, BIN_MAT.steel));
+  items.push(item(P.inner, BIN_MAT.bucket));
+  items.push(item(P.frame, MAT.blackSatin));
+  items.push(item(P.liner, BIN_MAT.liner));
+  items.push(item(P.badge, once('bin-badge', () => labelMat('AÇAÍ FEVER', '#3a3f46', BRAND)), at(0, h - 14, d + 0.5), 'decal'));
+  // the pedal goes down while the lid is up; it hinges at the foot of the plinth
+  const press = clamp(open, 0, 1) * 0.3;
+  const pedal = compose(at(0, 2.6, d - 3), rotationX(press));
+  for (const x of [-9, 9]) items.push(item(P.pedalArm, MAT.blackSatin, compose(pedal, at(x, 0, 6))));
+  const lever = compose(pedal, at(0, 0.2, 12));
+  items.push(item(P.pedal, MAT.blackSatin, lever));
+  items.push(item(P.tread, BIN_MAT.tread, compose(lever, at(0, 2.1, 0.4))));
+  items.push(item(P.treadRibs, MAT.chrome, compose(lever, at(0, 2.7, 0.4))));
+  // the rod up the back lifts the lid's arm; the hinge sits on the frame
+  const zb = -d - 1.9;
+  items.push(item(P.rod, MAT.chrome, at(0, 0, zb - 1.2)));
+  items.push(item(P.hingeBlock, MAT.blackSatin, at(0, h - 0.8, zb + 0.6)));
+  const pivot = [0, h + 2.2, zb - 0.4];
+  const lid = compose(rotationAbout(pivot, 'x', -open * 1.22), at(0, h + 2.2, 0));
+  items.push(item(P.lid, BIN_MAT.lid, lid));
+  items.push(item(P.lidRim, MAT.blackGloss, lid));
   items.push(item(P.lidInside, MAT.blackSatin, lid));
+  items.push(item(P.knuckle, MAT.blackSatin, compose(lid, at(0, 1.2, zb + 0.6))));
+  items.push(item(P.arm, MAT.chrome, compose(lid, at(0, -0.4, zb - 1.6))));
   return { frame, elev: ELEV, time: t, items };
 }
 

@@ -174,10 +174,15 @@ Auf Handys und Tablets (und in der installierten App) füllt das Spiel den ganze
 Arbeitsplatte, Karte und Menü-Hintergründe laufen bis an die Ränder weiter, und die Anzeigen (Münzen, Herzen, Zeit, Zurück-Knopf) sitzen
 an den Bildschirmkanten – nicht hinter der Notch. Am Desktop-Browser bleibt das gerahmte Bild mit lila Rand.
 
-Auf dem **Handy** (quer gehalten) ist alles etwa halb so groß wie auf dem Tablet. Deshalb sind dort Namensschilder,
-Schicht-Beschriftungen, Hinweise, Level-Banner und Tutorial größer gesetzt, und die Ablageflächen fangen ein Teil auch dann,
-wenn du etwas neben ihnen loslässt. Hochkant bittet das Spiel, das Handy zu drehen („Trotzdem spielen“ geht auch).
-Unten ist nur Arbeitsplatte – keine Regale mehr –, damit möglichst viel Platz für die Stationen bleibt.
+Auf dem **Handy** (quer gehalten) ist die Bühne nur etwa halb so groß wie auf dem Tablet, das Fenster aber viel breiter.
+Deshalb wird die Küche dort neu über die ganze Breite angeordnet und als Ganzes vergrößert: Mixer, Gefriertruhe, Becher
+mit den Zutaten-Podesten, Matcha-Maschine mit ihrer Bar und der Mülleimer stehen nebeneinander, so groß, wie Fensterbreite
+und der Platz unter der Durchreiche es zulassen – in den ersten Leveln anderthalbmal so groß, mit der vollen Küche noch
+etwas größer als am Tablet. Die Matcha-Vorschau („Matcha ab Level 11“) entfällt auf dem Handy, der Platz geht an die
+Stationen. Namensschilder, Schicht-Beschriftungen, Hinweise, Level-Banner und Tutorial sind größer gesetzt, und die
+Ablageflächen fangen ein Teil auch dann, wenn du etwas neben ihnen loslässt. Hochkant bittet das Spiel, das Handy zu
+drehen („Trotzdem spielen“ geht auch). Unten ist nur Arbeitsplatte – keine Regale mehr –, damit möglichst viel Platz
+für die Stationen bleibt.
 
 ## Lokal starten
 
@@ -302,6 +307,7 @@ js/rng.js             Zufallszahlen mit Seed
 js/orders.js          Bestellungen und Preise
 js/engine.js          Spiel-Simulation ohne DOM
 js/drag.js            Drag & Drop für Touch und Maus
+js/kitchen-layout.js  Handy: Anordnung der Küche über die ganze Fensterbreite und ihr Vergrößerungsfaktor
 js/svg.js             gemeinsame SVG-Helfer + Farbverläufe (eine versteckte <svg> pro Seite)
 js/art-food.js        Becher mit Schichten, Zutaten, Inhalt der Zutaten-Behälter (und die Behälter ohne WebGL), Packungen, Matcha-Gläser
 js/art-kitchen.js     Theke und Arbeitsplatte in Perspektive, Regal, Gefriertruhe, Podeste, Café-Rückwand, Deko;

@@ -36,7 +36,6 @@ const SOURCE_LOCK = {
 
 const noop = () => {};
 const now = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
-const centered = (scale) => `translate(-50%, -50%) scale(${scale})`;
 
 function report(err) {
   if (typeof reportError === 'function') reportError(err);
@@ -73,7 +72,9 @@ const preventDefault = (e) => {
   if (e.cancelable) e.preventDefault();
 };
 
-export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop, onCancel, hitPad = HIT_PAD } = {}) {
+// ghostZoom: a factor (or a function returning one) every ghost is shown bigger by – the phone's scaled-up work
+// area (js/kitchen-layout.js), so a carried cup is as big as the cups standing there.
+export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop, onCancel, hitPad = HIT_PAD, ghostZoom = 1 } = {}) {
   const sources = new Map(); // el → registration
   const targets = new Map(); // el → registration
   const flights = new Set(); // ghosts still animating after a drag ended
@@ -84,6 +85,8 @@ export function createDragManager({ root, toStage, ghostLayer, onPickup, onDrop,
   let destroyed = false;
 
   const reducedMotion = () => !!motionQuery?.matches;
+  const zoom = () => (typeof ghostZoom === 'function' ? ghostZoom() : ghostZoom) || 1;
+  const centered = (scale) => `translate(-50%, -50%) scale(${scale * zoom()})`;
 
   // ------------------------------------------------------------ geometry
   function rectOf(el) {

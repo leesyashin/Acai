@@ -14,6 +14,8 @@ let appEl = null;
 let wrapEl = null;
 let stageEl = null;
 let scale = 1;
+let bleedPx = { bx: 0, by: 0 };
+let safeProbe = null; // a hidden box padded by the safe-area insets: the only way to read env() as numbers
 const bleedQuery = typeof matchMedia === 'function'
   ? matchMedia('(pointer: coarse), (display-mode: standalone), (display-mode: fullscreen)')
   : null;
@@ -26,6 +28,11 @@ export function initStage(app, wrap, stage) {
   stageEl = stage;
   // the shared gradients every picture shades with (one hidden <svg>, see js/svg.js)
   if (!document.getElementById(ART_DEFS_ID)) document.body.insertAdjacentHTML('afterbegin', artDefsSVG());
+  safeProbe = document.createElement('div');
+  safeProbe.setAttribute('aria-hidden', 'true');
+  safeProbe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;'
+    + 'padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
+  document.body.append(safeProbe);
   fit();
   window.addEventListener('resize', fit);
   window.addEventListener('orientationchange', () => setTimeout(fit, 120));
@@ -84,12 +91,26 @@ export function fit() {
   const by = bleed ? Math.max(0, (appEl.clientHeight / scale - STAGE_H) / 2) : 0;
   stageEl.style.setProperty('--bx', `${Math.ceil(bx)}px`);
   stageEl.style.setProperty('--by', `${Math.ceil(by)}px`);
+  bleedPx = { bx: Math.ceil(bx), by: Math.ceil(by) };
   for (const el of layers) el.style.transform = `scale(${scale})`;
   for (const fn of listeners) fn(scale);
 }
 
 export function getScale() {
   return scale;
+}
+
+// The stage px the window reaches beyond the stage on either side (0 unless full bleed).
+export function getBleed() {
+  return bleedPx;
+}
+
+// The safe-area insets (a phone's notch, its home indicator) in stage px.
+export function safeInsets() {
+  if (!safeProbe) return { l: 0, r: 0, t: 0, b: 0 };
+  const cs = getComputedStyle(safeProbe);
+  const px = (v) => (parseFloat(v) || 0) / scale;
+  return { l: px(cs.paddingLeft), r: px(cs.paddingRight), t: px(cs.paddingTop), b: px(cs.paddingBottom) };
 }
 
 export function getStageEl() {

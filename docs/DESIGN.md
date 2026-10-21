@@ -226,13 +226,17 @@ event (non-passive listener on `window`) and `html, body` carry `overscroll-beha
 `data-scroll` and `touch-action: pan-y`; the wheel listener lets a plain vertical wheel over it through (no ctrl/⌘).
 
 **Phone.** On a phone held sideways (full bleed and the window's short side ≤ 500 css px, `isPhone()`) `html.is-phone`
-is set. The stage is the same 1280×800 – shown at about half its size (0.49 at 844×390, 0.54 at 932×430) – so the game
-view widens every target's hit area (`hitPad` 30 instead of 18 stage px) and the CSS sets the small print bigger: name
-tags and layer labels ×1.4 (a tag grows up over its container, a label down over the riser), the freezer label ×1.3,
-toasts 30 px, the level banner 24 px, the tutorial 26–28 px in a wider panel, the money bar's goal marks 17 px – all ≥ 8
-css px on screen. Upright, the rotate hint above asks to turn the phone (the game is built for landscape; "Play anyway"
-shows it letterboxed). `tests/e2e/mobile.e2e.mjs` checks 844×390 and 932×430: no scrolling or zoom, the stage and every
-station on screen and ≥ 30 css px, the small print ≥ 8 css px, and the jug carried by touch.
+is set. The stage is the same 1280×800 – shown at about half its size (0.49 at 844×390, 0.54 at 932×430) – but a phone's
+window is 2:1 to 2.5:1, far wider than the stage: 450–720 stage px of band on either side. So the work area is laid out
+anew across the whole window and scaled up (§4.7 *Phone*, `js/kitchen-layout.js`; `getBleed()` and `safeInsets()` here
+tell it the window's width in stage px and the notch to keep out of), the game view widens every target's hit area
+(`hitPad` 30 instead of 18 stage px) and the CSS sets the small print bigger: name tags and layer labels by `--lk`
+(1.4 ÷ the work area's scale, at least 1: a tag grows up over its container, a label down over the riser), the freezer
+label likewise (≤ 1.3), toasts 30 px, the level banner 24 px, the tutorial 26–28 px in a wider panel, the money bar's goal
+marks 17 px – all ≥ 8 css px on screen. Upright, the rotate hint above asks to turn the phone (the game is built for
+landscape; "Play anyway" shows it letterboxed). `tests/e2e/mobile.e2e.mjs` checks 844×390 and 932×430: no scrolling or
+zoom, the stage and every station on screen, no two stations over each other, the stations' size (a first level's
+containers ≥ 60 css px, the fullest kitchen's ≥ 40), the small print ≥ 8 css px, and the jug carried by touch.
 
 **Framed or full bleed.** On a fine pointer (desktop, MacBook) the stage is framed: rounded corners and a shadow on the
 açaí-purple page, 8/16 px of padding. On touch devices (`(pointer: coarse)`) and in the installed app
@@ -494,7 +498,7 @@ one side, a big blue sweat drop with a light rim that reads on dark hair too),
 keep the cartoon ink line of the menus.
 
 ### 4.4.1 3D appliances (`js/geo3d.js`, `js/kitchen3d.js`, `js/gl3d.js`, `js/art3d.js`)
-The blender, matcha machine, pedal bin and chest freezer are real 3D models rendered with WebGL (no library), and so are
+The blender, matcha machine, pedal bin (a slim rounded-rectangular stainless step bin with a black lid frame, the lifting rod up its back and the brand badge on the front) and chest freezer are real 3D models rendered with WebGL (no library), and so are
 the ingredient containers (js/pantry3d.js, drawn once as still pictures). Everything else (guests, food, cups, HUD) stays SVG.
 ```js
 // kitchen3d.js (pure): scene = { frame, elev, persp?, time, items: [{ mesh, mat, m, pass }] }
@@ -810,6 +814,23 @@ point their tail at their guest's head (with 2 and 3 seats: centred on it), show
 delivered part, and leave the neon sign clear (it hangs clear of the guests and the window
 too); a pack let go on the outer bubble's drink part gets that guest's hint, and a glass dropped with the mouse there and
 a bowl on the other outer bubble's base cup – both beside their guest – are served and fly into their guest.
+
+**Phone (`html.is-phone`, `js/kitchen-layout.js`).** The layout above assumes the stage's 1280 px of width; a phone's window
+is 1730–2000 stage px wide and the stage only about half size, so the work area is arranged anew there and scaled up:
+`phoneLayout()` (pure, `tests/kitchen-layout.test.mjs`) puts the stations in columns across the window – the blenders,
+the freezer (beside them or, as above, under them), the cup dispenser and spots over the two risers (behind each other
+as above, or side by side), the matcha machine over its bar (its rows likewise), the trash can on its own or beside the
+bar – bottom-aligned on y 792 and centred in the safe part of the window, and finds the arrangement with the biggest
+scale k ≤ 1.5 that fits: the columns within the window (16 px from its edges and the notch), no box above the pass's
+bottom edge (y 338) and nothing drawn above a box (a jug's lid, the machine's top) above y 276 – 18 px over the pass's
+top, as the big jug stands above. The view (`placePhone`) sets the stations' positions and `.g-work`'s css transform
+(`translate(tx, ty) scale(k)` from its top-left corner) and lays them out again when the window changes (a rotated phone:
+then whatever scale fits, `kMin`); `posOf` maps through the transform, the drag ghosts grow by k (`ghostZoom`, §4.3) and
+the 3D pictures are drawn k times finer (`setArtZoom`). The worktop is drawn in the work area's own px from the pass's
+bottom edge across the whole window. A wide window spreads the columns a little (gaps 20–56 px). The matcha bar's
+containers are full size there, not the desktop's narrow ones, and the locked matcha teaser is left out: the room goes
+to the stations in use. With the first levels' few stations everything is half as big again (k ≈ 1.5: a container ≈ 67
+css px instead of 47, a cup ≈ 85 instead of 58), with the matcha bar ≈ 1.1–1.25, with the fullest kitchen ≈ 1.05.
 
 ### 4.8 Visual language
 - Fonts: **Lilita One** (display: logo, headings, numbers) + **Nunito** 600/800/900 (UI text), fallbacks
